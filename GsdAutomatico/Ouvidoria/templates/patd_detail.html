@@ -3,58 +3,6 @@
 {% block title %}Detalhes da PATD Nº {{ patd.numero_patd }}{% endblock %}
 
 {% block content %}
-<style>
-    .modal-overlay {
-        position: fixed;
-        top: 0;
-        left: 0;
-        width: 100%;
-        height: 100%;
-        background-color: rgba(0, 0, 0, 0.6);
-        display: flex;
-        justify-content: center;
-        align-items: center;
-        z-index: 2000;
-        opacity: 0;
-        visibility: hidden;
-        transition: opacity 0.3s, visibility 0.3s;
-    }
-    .modal-overlay.active {
-        opacity: 1;
-        visibility: visible;
-    }
-    .modal-content {
-        background-color: var(--bg-content);
-        padding: 30px;
-        border-radius: 12px;
-        width: 100%;
-        max-width: 500px;
-        box-shadow: var(--box-shadow);
-        transform: scale(0.9);
-        transition: transform 0.3s;
-    }
-    .modal-overlay.active .modal-content {
-        transform: scale(1);
-    }
-    .modal-content h3 {
-        margin-top: 0;
-        color: var(--text-primary);
-    }
-    .modal-content p {
-        color: var(--text-secondary);
-    }
-    /* CORREÇÃO: Alinhamento dos botões */
-    .form-actions {
-        display: flex;
-        gap: 10px;
-        align-items: center;
-        margin-top: 20px;
-    }
-    .btn-delete {
-        margin-left: auto; /* Empurra o botão para a extrema direita */
-    }
-</style>
-
 <h1>PATD Nº {{ patd.numero_patd }}</h1>
 
 <div class="detail-grid">
@@ -83,7 +31,7 @@
 <div class="form-actions">
     <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
     <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
-    <!-- Botão para acionar o modal de exclusão -->
+    <!-- O estilo 'margin-left: auto' foi movido para o CSS principal -->
     <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
 </div>
 
@@ -101,13 +49,6 @@
         </form>
     </div>
 </div>
-
-<style>
-.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
-.detail-item-full { grid-column: 1 / -1; }
-.detail-item strong { font-weight: 600; color: var(--text-secondary); }
-.detail-item p { margin-top: 5px; }
-</style>
 {% endblock %}
 
 {% block extra_js %}

@@ -1,0 +1,5 @@
+django
+langchain-openai
+pypdf
+python-dotenv
+pydantic
