@@ -1,11 +1,200 @@
-<!DOCTYPE html>
-<html lang="pt-br">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ouvidoria</title>
-</head>
-<body>
-    
-</body>
-</html>
+{% extends 'base.html' %}
+
+{% block title %}Analisador de Documentos{% endblock %}
+
+{% block content %}
+<style>
+    .analisador-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; }
+    @media (max-width: 768px) { .analisador-grid { grid-template-columns: 1fr; } }
+    .upload-form .file-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; min-height: 200px; padding: 20px; border-radius: 8px; border: 2px dashed var(--border-color); box-sizing: border-box; margin-bottom: 15px; text-align: center; cursor: pointer; color: var(--text-secondary); transition: border-color 0.3s, background-color 0.3s; }
+    .upload-form .file-label svg { width: 48px; height: 48px; margin-bottom: 15px; color: var(--accent-color); }
+    .upload-form .file-label:hover { border-color: var(--accent-color); background-color: var(--sidebar-active-bg); }
+    .upload-form button { width: 100%; padding: 15px; background-color: var(--accent-color); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: background-color 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .upload-form button:hover { background-color: var(--accent-hover); }
+    .upload-form button:disabled { background-color: var(--text-secondary); cursor: not-allowed; }
+    .upload-form button .spinner { width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .analise-box { border: 1px solid var(--border-color); padding: 25px; border-radius: 8px; background-color: var(--bg-main); min-height: 280px; display: flex; flex-direction: column; }
+    .analise-box h3 { margin-top: 0; color: var(--text-primary); border-bottom: 1px solid var(--border-color); padding-bottom: 10px; }
+    .analise-resultado p, .militar-nao-encontrado p { margin: 12px 0; font-size: 16px; line-height: 1.7; }
+    .analise-resultado strong { color: var(--text-primary); display: block; margin-bottom: 4px; font-size: 14px; text-transform: uppercase; letter-spacing: 0.5px; }
+    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; flex-grow: 1; text-align: center; color: var(--text-secondary); }
+    .loading-state .big-spinner { width: 40px; height: 40px; border: 4px solid var(--sidebar-active-bg); border-top-color: var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+    .prompt-actions { margin-top: 20px; display: flex; gap: 10px; }
+    .militar-form-container { animation: fadeIn 0.5s; }
+    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
+</style>
+
+<h1>Analisador de Documentos</h1>
+<p>Envie um PDF para extrair automaticamente as informações e criar uma PATD.</p>
+
+<div class="analisador-grid" style="margin-top: 20px;">
+    <div class="upload-column">
+        <form id="analise-form" class="upload-form">
+            {% csrf_token %}
+            <label for="pdf_file_input" class="file-label" id="file-label">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3 3m3-3l3 3M6.75 18.75a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+                <span id="file-label-text">Clique ou arraste o ficheiro PDF</span>
+            </label>
+            <input type="file" name="pdf_file" id="pdf_file_input" accept=".pdf" required style="display: none;">
+            <button type="button" id="submit-btn">
+                <span class="spinner"></span>
+                <span class="button-text">Analisar e Criar PATD</span>
+            </button>
+        </form>
+    </div>
+    <div class="resultado-column">
+        <div class="analise-box" id="analise-box">
+            <h3>Aguardando Documento</h3>
+            <p>O resultado da análise e da criação da PATD aparecerá aqui.</p>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const fileInput = document.getElementById('pdf_file_input');
+    const fileLabelText = document.getElementById('file-label-text');
+    const submitButton = document.getElementById('submit-btn');
+    const analiseBox = document.getElementById('analise-box');
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+
+    function setUIState(isSubmitting) {
+        const spinner = submitButton.querySelector('.spinner');
+        const buttonText = submitButton.querySelector('.button-text');
+        if (isSubmitting) {
+            buttonText.textContent = 'A analisar...';
+            spinner.style.display = 'block';
+            submitButton.disabled = true;
+            analiseBox.innerHTML = `<div class="loading-state"><div class="big-spinner"></div><p>A processar o documento...<br>Isto pode levar alguns segundos.</p></div>`;
+        } else {
+            buttonText.textContent = 'Analisar e Criar PATD';
+            spinner.style.display = 'none';
+            submitButton.disabled = false;
+        }
+    }
+
+    function displayResult(htmlContent) {
+        analiseBox.innerHTML = htmlContent;
+    }
+
+    function handleMilitarNotFound(resultado) {
+        displayResult(`
+            <h3>Militar Não Encontrado</h3>
+            <div class="militar-nao-encontrado">
+                <p>O militar <strong>${resultado.nome_completo}</strong> não foi encontrado na base de dados.</p>
+                <p>Deseja cadastrá-lo agora para criar a PATD?</p>
+                <div class="prompt-actions">
+                    <button type="button" class="btn btn-primary" id="confirm-cadastrar-btn">Sim, Cadastrar</button>
+                    <button type="button" class="btn btn-secondary" id="cancel-cadastrar-btn">Não</button>
+                </div>
+            </div>
+        `);
+
+        document.getElementById('confirm-cadastrar-btn').addEventListener('click', () => showMilitarForm(resultado));
+        document.getElementById('cancel-cadastrar-btn').addEventListener('click', () => {
+            displayResult('<h3>Aguardando Documento</h3><p>Operação cancelada. O resultado da análise aparecerá aqui.</p>');
+        });
+    }
+
+    function showMilitarForm(resultado) {
+        displayResult(`
+            <div class="militar-form-container">
+                <h3>Cadastrar Novo Militar</h3>
+                <form id="new-militar-form" class="model-form">
+                    <div class="form-grid">
+                        <p><label for="id_nome_completo">Nome Completo</label><input type="text" name="nome_completo" value="${resultado.nome_completo}" required id="id_nome_completo"></p>
+                        <p><label for="id_nome_guerra">Nome de Guerra</label><input type="text" name="nome_guerra" required id="id_nome_guerra"></p>
+                        <p><label for="id_saram">SARAM</label><input type="number" name="saram" required id="id_saram"></p>
+                        <p><label for="id_posto">Posto</label><input type="text" name="posto" id="id_posto"></p>
+                        <p><label for="id_graduacao">Graduação</label><input type="text" name="graduacao" id="id_graduacao"></p>
+                        <p><label for="id_secao_om">Seção/OM</label><input type="text" name="secao_om" required id="id_secao_om"></p>
+                        <p><label for="id_oficial">É Oficial?</label><input type="checkbox" name="oficial" id="id_oficial"></p>
+                        <input type="hidden" name="transgressao" value="${resultado.transgressao}">
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-primary">Salvar e Criar PATD</button>
+                    </div>
+                </form>
+            </div>
+        `);
+
+        document.getElementById('new-militar-form').addEventListener('submit', handleCreateMilitarAndPatd);
+    }
+
+    function handleCreateMilitarAndPatd(event) {
+        event.preventDefault();
+        const form = event.target;
+        const formData = new FormData(form);
+        formData.append('action', 'create_militar_and_patd');
+
+        displayResult(`<div class="loading-state"><div class="big-spinner"></div><p>A salvar militar e a criar PATD...</p></div>`);
+
+        fetch("{% url 'Ouvidoria:index' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayResult(`<h3>Sucesso</h3><p>${data.message}</p>`);
+            } else {
+                displayResult(`<h3>Erro no Cadastro</h3><p>${data.errors || 'Ocorreu um erro.'}</p>`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            displayResult(`<h3>Erro na Comunicação</h3><p>Não foi possível completar a operação.</p>`);
+        });
+    }
+
+    fileInput.addEventListener('change', () => {
+        fileLabelText.textContent = fileInput.files.length > 0 ? `Ficheiro: ${fileInput.files[0].name}` : 'Clique ou arraste o ficheiro PDF';
+    });
+
+    submitButton.addEventListener('click', () => {
+        if (!fileInput.files || fileInput.files.length === 0) {
+            alert('Por favor, selecione um ficheiro PDF antes de analisar.');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('pdf_file', fileInput.files[0]);
+        formData.append('action', 'analyze');
+
+        setUIState(true);
+
+        fetch("{% url 'Ouvidoria:index' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData,
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                displayResult(`<h3>Sucesso</h3><p>${data.message}</p>`);
+            } else if (data.status === 'militar_not_found') {
+                handleMilitarNotFound(data.resultado);
+            } else {
+                displayResult(`<h3 style="color: #d8000c;">Erro na Análise</h3><p>${data.message || data.error}</p>`);
+            }
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            displayResult(`<h3 style="color: #d8000c;">Erro na Análise</h3><p>${error.message || 'Não foi possível comunicar com o servidor.'}</p>`);
+        })
+        .finally(() => {
+            // Apenas reativa o botão principal
+            const buttonText = submitButton.querySelector('.button-text');
+            const spinner = submitButton.querySelector('.spinner');
+            buttonText.textContent = 'Analisar e Criar PATD';
+            spinner.style.display = 'none';
+            submitButton.disabled = false;
+        });
+    });
+});
+</script>
+{% endblock %}

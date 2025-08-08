@@ -1,0 +1,68 @@
+{% extends 'base.html' %}
+
+{% block title %}Lista de PATDs{% endblock %}
+
+{% block content %}
+<div class="table-header">
+    <h1>Processos Administrativos (PATD)</h1>
+    <div class="actions">
+        <form method="get" class="search-form">
+            <input type="text" name="q" placeholder="Pesquisar por Nº ou Militar..." value="{{ request.GET.q|default:'' }}">
+            <button type="submit">Pesquisar</button>
+        </form>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>N° PATD</th>
+                <th>Militar Acusado</th>
+                <th>Transgressão (resumo)</th>
+                <th>Oficial Responsável</th>
+                <th>Data de Início</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for patd in patds %}
+            <tr>
+                <td>{{ patd.numero_patd }}</td>
+                <td><a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}">{{ patd.militar }}</a></td>
+                <td>{{ patd.transgressao|truncatewords:10 }}</td>
+                <td>{{ patd.oficial_responsavel|default:"-" }}</td>
+                <td>{{ patd.data_inicio|date:"d/m/Y H:i" }}</td>
+                <td>{% if patd.data_termino %}Finalizado{% else %}Em andamento{% endif %}</td>
+                <td class="actions-cell">
+                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver Detalhes</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="7" style="text-align: center; padding: 20px;">Nenhum PATD encontrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if is_paginated %}
+<div class="pagination">
+    <span class="step-links">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&laquo; primeira</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">anterior</a>
+        {% endif %}
+        <span class="current">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
+        </span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">próxima</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">última &raquo;</a>
+        {% endif %}
+    </span>
+</div>
+{% endif %}
+{% endblock %}

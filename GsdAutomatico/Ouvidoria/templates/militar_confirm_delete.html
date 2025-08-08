@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+
+{% block title %}Confirmar Exclusão{% endblock %}
+
+{% block content %}
+<h1>Confirmar Exclusão</h1>
+<p>Você tem certeza que deseja excluir o militar <strong>{{ object.posto|default:object.graduacao }} {{ object.nome_guerra }}</strong>?</p>
+<p><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
+
+<form method="post">
+    {% csrf_token %}
+    <div class="form-actions">
+        <button type="submit" class="btn btn-delete">Sim, Excluir</button>
+        <a href="{% url 'Ouvidoria:militar_list' %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

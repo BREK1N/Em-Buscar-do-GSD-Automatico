@@ -1,0 +1,19 @@
+{% extends 'base.html' %}
+
+{% block title %}Editar PATD Nº {{ form.instance.numero_patd }}{% endblock %}
+
+{% block content %}
+<h1>Editar PATD Nº {{ form.instance.numero_patd }}</h1>
+<p>Militar: <strong>{{ form.instance.militar }}</strong></p>
+
+<form method="post" class="model-form">
+    {% csrf_token %}
+    <div class="form-grid">
+        {{ form.as_p }}
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
+        <a href="{% url 'Ouvidoria:patd_detail' form.instance.pk %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

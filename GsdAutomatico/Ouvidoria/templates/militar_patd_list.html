@@ -1,0 +1,43 @@
+{% extends 'base.html' %}
+
+{% block title %}Histórico de PATDs de {{ militar }}{% endblock %}
+
+{% block content %}
+<h1>Histórico de PATDs</h1>
+<p>Militar: <strong>{{ militar.nome_completo }}</strong></p>
+
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>N° PATD</th>
+                <th>Transgressão (resumo)</th>
+                <th>Data de Início</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for patd in patds %}
+            <tr>
+                <td>{{ patd.numero_patd }}</td>
+                <td>{{ patd.transgressao|truncatewords:15 }}</td>
+                <td>{{ patd.data_inicio|date:"d/m/Y" }}</td>
+                <td>{% if patd.data_termino %}Finalizado{% else %}Em andamento{% endif %}</td>
+                <td class="actions-cell">
+                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver Detalhes</a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;">Nenhuma PATD encontrada para este militar.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div class="form-actions">
+    <a href="{% url 'Ouvidoria:militar_list' %}" class="btn btn-secondary">Voltar para Efetivo</a>
+</div>
+{% endblock %}

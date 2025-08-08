@@ -1,0 +1,138 @@
+{% extends 'base.html' %}
+
+{% block title %}Detalhes da PATD Nº {{ patd.numero_patd }}{% endblock %}
+
+{% block content %}
+<style>
+    .modal-overlay {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: rgba(0, 0, 0, 0.6);
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        z-index: 2000;
+        opacity: 0;
+        visibility: hidden;
+        transition: opacity 0.3s, visibility 0.3s;
+    }
+    .modal-overlay.active {
+        opacity: 1;
+        visibility: visible;
+    }
+    .modal-content {
+        background-color: var(--bg-content);
+        padding: 30px;
+        border-radius: 12px;
+        width: 100%;
+        max-width: 500px;
+        box-shadow: var(--box-shadow);
+        transform: scale(0.9);
+        transition: transform 0.3s;
+    }
+    .modal-overlay.active .modal-content {
+        transform: scale(1);
+    }
+    .modal-content h3 {
+        margin-top: 0;
+        color: var(--text-primary);
+    }
+    .modal-content p {
+        color: var(--text-secondary);
+    }
+    /* CORREÇÃO: Alinhamento dos botões */
+    .form-actions {
+        display: flex;
+        gap: 10px;
+        align-items: center;
+        margin-top: 20px;
+    }
+    .btn-delete {
+        margin-left: auto; /* Empurra o botão para a extrema direita */
+    }
+</style>
+
+<h1>PATD Nº {{ patd.numero_patd }}</h1>
+
+<div class="detail-grid">
+    <div class="detail-item">
+        <strong>Militar Acusado:</strong>
+        <p><a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}">{{ patd.militar }}</a></p>
+    </div>
+    <div class="detail-item">
+        <strong>Oficial Responsável:</strong>
+        <p>{{ patd.oficial_responsavel|default:"Não atribuído" }}</p>
+    </div>
+    <div class="detail-item">
+        <strong>Data de Início:</strong>
+        <p>{{ patd.data_inicio|date:"d/m/Y H:i" }}</p>
+    </div>
+    <div class="detail-item">
+        <strong>Data de Término:</strong>
+        <p>{{ patd.data_termino|date:"d/m/Y H:i"|default:"Em andamento" }}</p>
+    </div>
+    <div class="detail-item-full">
+        <strong>Descrição da Transgressão:</strong>
+        <p>{{ patd.transgressao|linebreaks }}</p>
+    </div>
+</div>
+
+<div class="form-actions">
+    <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
+    <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
+    <!-- Botão para acionar o modal de exclusão -->
+    <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal-overlay" id="delete-modal">
+    <div class="modal-content">
+        <h3>Confirmar Exclusão</h3>
+        <p>Tem a certeza de que deseja excluir a PATD Nº {{ patd.numero_patd }}? Esta ação não pode ser desfeita.</p>
+        <form method="post" action="{% url 'Ouvidoria:patd_delete' patd.pk %}" style="display: inline;">
+            {% csrf_token %}
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-delete-btn">Cancelar</button>
+                <button type="submit" class="btn btn-delete">Sim, Excluir</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; margin-bottom: 20px; }
+.detail-item-full { grid-column: 1 / -1; }
+.detail-item strong { font-weight: 600; color: var(--text-secondary); }
+.detail-item p { margin-top: 5px; }
+</style>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const deleteModal = document.getElementById('delete-modal');
+    const deleteBtn = document.getElementById('delete-patd-btn');
+    const cancelBtn = document.getElementById('cancel-delete-btn');
+
+    if (deleteBtn && deleteModal && cancelBtn) {
+        deleteBtn.addEventListener('click', () => {
+            deleteModal.classList.add('active');
+        });
+
+        cancelBtn.addEventListener('click', () => {
+            deleteModal.classList.remove('active');
+        });
+
+        // Fecha o modal se clicar fora do conteúdo
+        deleteModal.addEventListener('click', function(event) {
+            if (event.target === this) {
+                this.classList.remove('active');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
