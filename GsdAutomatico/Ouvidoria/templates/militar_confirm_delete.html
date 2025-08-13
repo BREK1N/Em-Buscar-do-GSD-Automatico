@@ -4,7 +4,8 @@
 
 {% block content %}
 <h1>Confirmar Exclusão</h1>
-<p>Você tem certeza que deseja excluir o militar <strong>{{ object.posto|default:object.graduacao }} {{ object.nome_guerra }}</strong>?</p>
+<!-- CORREÇÃO APLICADA AQUI -->
+<p>Você tem certeza que deseja excluir o militar <strong>{{ object }}</strong>?</p>
 <p><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
 
 <form method="post">

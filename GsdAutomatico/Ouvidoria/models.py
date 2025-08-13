@@ -1,22 +1,25 @@
 from django.db import models
 
 class Militar(models.Model):
-   
-    #Tabela para armazenar o cadastro de todos os militares.
-   
+    """
+    Tabela para armazenar o cadastro de todos os militares.
+    """
+    posto = models.CharField(max_length=50, blank=True, verbose_name="Posto")
+    quad = models.CharField(max_length=50, blank=True, verbose_name="QUAD")
+    especializacao = models.CharField(max_length=100, blank=True, verbose_name="Especialização")
+    # ATUALIZAÇÃO: Permitir que o campo SARAM seja nulo para cadastrar recrutas
+    saram = models.IntegerField(unique=True, null=True, blank=True, verbose_name="SARAM")
     nome_completo = models.CharField(max_length=255, verbose_name="Nome Completo")
     nome_guerra = models.CharField(max_length=100, verbose_name="Nome de Guerra")
-    saram = models.IntegerField(unique=True, verbose_name="SARAM")
-    telefone = models.BigIntegerField(null=True, blank=True, verbose_name="Telefone")
     turma = models.CharField(max_length=100, blank=True, verbose_name="Turma")
-    posto = models.CharField(max_length=50, blank=True, verbose_name="Posto")
-    graduacao = models.CharField(max_length=50, blank=True, verbose_name="Graduação")
-    secao_om = models.CharField(max_length=100, verbose_name="Seção/OM")
+    situacao = models.CharField(max_length=50, blank=True, verbose_name="Situação")
+    om = models.CharField(max_length=100, blank=True, verbose_name="OM")
+    setor = models.CharField(max_length=100, blank=True, verbose_name="Setor")
+    subsetor = models.CharField(max_length=100, blank=True, verbose_name="Subsetor")
     oficial = models.BooleanField(default=False, verbose_name="É Oficial?")
 
     def __str__(self):
-        # Retorna o posto ou graduação seguido do nome de guerra para fácil identificação
-        return f"{self.posto or self.graduacao} {self.nome_guerra}"
+        return f"{self.posto} {self.nome_guerra}"
 
     class Meta:
         verbose_name = "Militar"

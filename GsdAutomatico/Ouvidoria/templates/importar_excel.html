@@ -1,0 +1,91 @@
+{% extends 'base.html' %}
+
+{% block title %}Importar Efetivo do Excel{% endblock %}
+
+{% block content %}
+<style>
+    /* Estilos copiados do analisador para consistência */
+    .import-grid { display: grid; grid-template-columns: 1fr; gap: 30px; }
+    .upload-form button { width: 100%; padding: 15px; background-color: var(--accent-color); color: #fff; border: none; border-radius: 8px; cursor: pointer; font-size: 16px; font-weight: bold; transition: background-color 0.3s; display: flex; align-items: center; justify-content: center; gap: 8px; }
+    .upload-form button:hover { background-color: var(--accent-hover); }
+    .upload-form button:disabled { background-color: var(--text-secondary); cursor: not-allowed; }
+    .upload-form button .spinner { width: 20px; height: 20px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; display: none; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    
+    .status-box { border: 1px solid var(--border-color); padding: 25px; border-radius: 8px; background-color: var(--bg-main); min-height: 150px; display: flex; flex-direction: column; justify-content: center; }
+    .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; text-align: center; color: var(--text-secondary); }
+    .loading-state .big-spinner { width: 40px; height: 40px; border: 4px solid var(--sidebar-active-bg); border-top-color: var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
+    .alert { padding: 15px; margin-bottom: 20px; border-radius: 8px; }
+    .alert-success { background-color: #d4edda; color: #155724; border: 1px solid #c3e6cb; }
+    .alert-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; }
+</style>
+
+<h1>Importar Efetivo de Planilha Excel</h1>
+<p>
+    Selecione um ficheiro Excel (.xlsx) para importar os dados do efetivo. O sistema irá analisar os dados de cada linha para cadastrar ou atualizar os militares.
+</p>
+
+<div class="import-grid" style="margin-top: 20px;">
+    <div class="upload-column">
+        <form id="import-form" method="post" enctype="multipart/form-data" class="upload-form">
+            {% csrf_token %}
+            <p>
+                <label for="excel_file">Ficheiro Excel:</label>
+                <input type="file" name="excel_file" id="excel_file" accept=".xlsx, .xls" required>
+            </p>
+            <button type="submit" id="submit-btn">
+                <span class="spinner"></span>
+                <span class="button-text">Enviar e Importar</span>
+            </button>
+        </form>
+    </div>
+
+    <div class="status-column">
+        <div class="status-box" id="status-box">
+            {% if messages %}
+                {% for message in messages %}
+                    <div class="alert alert-{{ message.tags|lower }}">
+                        {{ message }}
+                    </div>
+                {% endfor %}
+            {% else %}
+                <p>O resultado da importação aparecerá aqui.</p>
+            {% endif %}
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const importForm = document.getElementById('import-form');
+    const submitButton = document.getElementById('submit-btn');
+    const statusBox = document.getElementById('status-box');
+
+    if (importForm) {
+        importForm.addEventListener('submit', function() {
+            // Verifica se um ficheiro foi selecionado
+            const fileInput = document.getElementById('excel_file');
+            if (!fileInput.files || fileInput.files.length === 0) {
+                // O 'required' do HTML já deve prevenir isso, mas é uma segurança extra.
+                return;
+            }
+
+            // Altera a UI para o estado de carregamento
+            const spinner = submitButton.querySelector('.spinner');
+            const buttonText = submitButton.querySelector('.button-text');
+            
+            buttonText.textContent = 'A importar...';
+            spinner.style.display = 'block';
+            submitButton.disabled = true;
+
+            statusBox.innerHTML = `<div class="loading-state">
+                                       <div class="big-spinner"></div>
+                                       <p>A processar o ficheiro...<br>Isto pode levar alguns segundos.</p>
+                                   </div>`;
+        });
+    }
+});
+</script>
+{% endblock %}

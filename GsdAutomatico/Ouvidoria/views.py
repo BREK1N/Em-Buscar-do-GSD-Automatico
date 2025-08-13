@@ -1,7 +1,10 @@
-from django.shortcuts import render, get_object_or_404
+import pandas as pd
+import io
+from django.shortcuts import render, get_object_or_404, redirect
+from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.urls import reverse_lazy
-from django.db.models import Q, Max
+from django.db.models import Q, Max, Case, When, Value, IntegerField
 from django.http import JsonResponse
 from .models import Militar, PATD
 from .forms import MilitarForm, PATDForm
@@ -14,24 +17,25 @@ import tempfile
 from dotenv import load_dotenv
 import logging
 
-# Configuração de logging
+# Configuração de logging para depuração
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-# --- Classe para Estruturação da Análise ---
+# --- Classe para Estruturação da Análise de PDF (ainda usada pela view index) ---
 class AnaliseTransgressao(BaseModel):
     nome_militar: str = Field(description="O nome do militar acusado, sem o posto ou graduação.")
     posto_graduacao: str = Field(description="O posto ou graduação (ex: Sargento, Capitão), se mencionado. Se não, retorne uma string vazia.")
     transgressao: str = Field(description="A descrição detalhada da transgressão disciplinar cometida.")
     local: str = Field(description="O local onde a transgressão ocorreu.")
 
+
 def get_next_patd_number():
-    # Gera o próximo número sequencial para a PATD.
+    """Gera o próximo número sequencial para a PATD."""
     max_num = PATD.objects.aggregate(max_num=Max('numero_patd'))['max_num']
     return (max_num or 0) + 1
 
-# --- View Principal do Analisador ---
+# --- View Principal do Analisador de PDF ---
 def index(request):
     if request.method == 'POST':
         action = request.POST.get('action', 'analyze')
@@ -80,18 +84,10 @@ def index(request):
 
                 nome_extraido = resultado.nome_militar
                 posto_graduacao_extraido = resultado.posto_graduacao
-                militar = None
-
-                if posto_graduacao_extraido:
-                    militar = Militar.objects.filter(nome_guerra__iexact=nome_extraido).first()
-                else:
-                    militar = Militar.objects.filter(nome_completo__icontains=nome_extraido).first()
-
-                if not militar:
-                    militar = Militar.objects.filter(
-                        Q(nome_completo__icontains=nome_extraido) | 
-                        Q(nome_guerra__icontains=nome_extraido)
-                    ).first()
+                militar = Militar.objects.filter(
+                    Q(nome_completo__icontains=nome_extraido) | 
+                    Q(nome_guerra__icontains=nome_extraido)
+                ).first()
 
                 if militar:
                     patd = PATD.objects.create(
@@ -120,17 +116,149 @@ def index(request):
     
     return render(request, 'indexOuvidoria.html')
 
+# --- View para Importação de Excel (sem LLM) ---
+def importar_excel(request):
+    if request.method == 'POST':
+        excel_file = request.FILES.get('excel_file')
+        if not excel_file:
+            messages.error(request, "Nenhum ficheiro foi enviado.")
+            return redirect('Ouvidoria:importar_excel')
 
+        try:
+            df = pd.read_excel(excel_file).fillna('')
+            
+            # Mapeamento manual das colunas do Excel para os campos do modelo
+            column_mapping = {
+                'pst.': 'posto',
+                'quad.': 'quad',
+                'esp.': 'especializacao',
+                'saram': 'saram',
+                'nome completo': 'nome_completo',
+                'nome de guerra': 'nome_guerra',
+                'turma': 'turma',
+                'situação': 'situacao',
+                'om': 'om',
+                'setor': 'setor',
+                'subsetor': 'subsetor'
+            }
+            
+            # Normaliza os nomes das colunas do DataFrame (minúsculas, sem espaços extras)
+            df.columns = df.columns.str.lower().str.strip()
+
+            militares_criados = 0
+            militares_atualizados = 0
+            linhas_com_erro = 0
+
+            for index, row in df.iterrows():
+                data_dict = {}
+                # Monta o dicionário de dados com base no mapeamento
+                for excel_col, model_field in column_mapping.items():
+                    if excel_col in df.columns:
+                        data_dict[model_field] = row[excel_col]
+                
+                # Define se o militar é oficial
+                postos_oficiais = ['TC', 'MJ', 'CP', '1T', '2T']
+                is_recruta = str(data_dict.get('posto', '')).upper() == 'REC'
+                
+                if 'posto' in data_dict:
+                    data_dict['oficial'] = str(data_dict.get('posto', '')).upper() in postos_oficiais
+
+                # ATUALIZAÇÃO: Lógica para tratar recrutas sem SARAM
+                identifier = {}
+                if is_recruta:
+                    # Para recrutas, o nome completo é o identificador
+                    if 'nome_completo' in data_dict and data_dict['nome_completo']:
+                        identifier['nome_completo'] = data_dict['nome_completo']
+                        # Garante que o SARAM não seja salvo como string vazia para recrutas
+                        data_dict.pop('saram', None) 
+                    else:
+                        linhas_com_erro += 1
+                        continue # Pula se não houver nome completo para o recruta
+                else:
+                    # Para outros postos, o SARAM é obrigatório
+                    if 'saram' in data_dict and str(data_dict['saram']).strip():
+                        try:
+                            identifier['saram'] = int(data_dict['saram'])
+                        except (ValueError, TypeError):
+                            linhas_com_erro += 1
+                            continue # Pula se o SARAM não for um número válido
+                    else:
+                        linhas_com_erro += 1
+                        continue # Pula se não houver SARAM
+                
+                try:
+                    # Garante que todos os campos obrigatórios tenham um valor padrão
+                    for field in Militar._meta.get_fields():
+                        if not field.is_relation and field.name not in data_dict and not field.blank and field.name not in identifier:
+                             # Para recrutas, não preenche o SARAM se não existir
+                            if is_recruta and field.name == 'saram':
+                                continue
+                            data_dict[field.name] = ''
+
+                    # Atualiza ou cria o militar
+                    obj, created = Militar.objects.update_or_create(
+                        **identifier,
+                        defaults=data_dict
+                    )
+                    if created:
+                        militares_criados += 1
+                    else:
+                        militares_atualizados += 1
+
+                except Exception as e:
+                    logger.warning(f"Não foi possível processar a linha {index+2}: {e}. Dados: {row}")
+                    linhas_com_erro += 1
+                    continue
+
+            msg = f"Importação concluída! {militares_criados} militares criados e {militares_atualizados} atualizados."
+            if linhas_com_erro > 0:
+                msg += f" {linhas_com_erro} linhas foram ignoradas por dados inválidos ou ausência de identificador."
+            messages.success(request, msg)
+
+        except Exception as e:
+            logger.error(f"Erro na importação do Excel: {e}")
+            messages.error(request, f"Ocorreu um erro ao processar o ficheiro: {e}")
+
+        return redirect('Ouvidoria:importar_excel')
+
+    return render(request, 'importar_excel.html')
+
+
+# --- Views CRUD para Militares ---
 class MilitarListView(ListView):
     model = Militar
     template_name = 'militar_list.html'
     context_object_name = 'militares'
-    paginate_by = 15
+    paginate_by = 25
+
     def get_queryset(self):
         query = self.request.GET.get('q')
-        qs = super().get_queryset().order_by('posto', 'graduacao', 'nome_guerra')
+        
+        rank_order = Case(
+            When(posto='TC', then=Value(0)),
+            When(posto='MJ', then=Value(1)),
+            When(posto='CP', then=Value(2)),
+            When(posto='1T', then=Value(3)),
+            When(posto='2T', then=Value(4)),
+            When(posto='SO', then=Value(5)),
+            When(posto='1S', then=Value(6)),
+            When(posto='2S', then=Value(7)),
+            When(posto='3S', then=Value(8)),
+            When(posto='CB', then=Value(9)),
+            When(posto='S1', then=Value(10)),
+            When(posto='S2', then=Value(11)),
+            default=Value(99),
+            output_field=IntegerField(),
+        )
+
+        qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+
         if query:
-            qs = qs.filter(Q(nome_completo__icontains=query) | Q(nome_guerra__icontains=query) | Q(saram__icontains=query))
+            qs = qs.filter(
+                Q(nome_completo__icontains=query) | 
+                Q(nome_guerra__icontains=query) | 
+                Q(saram__icontains=query)
+            )
         return qs
 
 class MilitarCreateView(CreateView):
@@ -150,7 +278,7 @@ class MilitarDeleteView(DeleteView):
     template_name = 'militar_confirm_delete.html'
     success_url = reverse_lazy('Ouvidoria:militar_list')
 
-
+# --- Views CRUD para PATDs ---
 class PATDListView(ListView):
     model = PATD
     template_name = 'patd_list.html'
@@ -160,7 +288,11 @@ class PATDListView(ListView):
         query = self.request.GET.get('q')
         qs = super().get_queryset().select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
         if query:
-            qs = qs.filter(Q(numero_patd__icontains=query) | Q(militar__nome_completo__icontains=query) | Q(militar__nome_guerra__icontains=query))
+            qs = qs.filter(
+                Q(numero_patd__icontains=query) | 
+                Q(militar__nome_completo__icontains=query) | 
+                Q(militar__nome_guerra__icontains=query)
+            )
         return qs
 
 class PATDDetailView(DetailView):

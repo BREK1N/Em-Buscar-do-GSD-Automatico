@@ -4,10 +4,13 @@ from .models import Militar, PATD
 @admin.register(Militar)
 class MilitarAdmin(admin.ModelAdmin):
     # Configuração da exibição de Militares no painel de admin.
-    list_display = ('nome_completo', 'nome_guerra', 'saram', 'posto', 'graduacao', 'secao_om', 'oficial')
-    search_fields = ('nome_completo', 'nome_guerra', 'saram')
-    list_filter = ('oficial', 'posto', 'graduacao', 'secao_om')
-    ordering = ('posto', 'graduacao', 'nome_guerra')
+    list_display = (
+        'posto', 'quad', 'especializacao', 'saram', 'nome_completo', 
+        'nome_guerra', 'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial'
+    )
+    search_fields = ('nome_completo', 'nome_guerra', 'saram', 'especializacao')
+    list_filter = ('oficial', 'posto', 'quad', 'om', 'setor')
+    ordering = ('posto', 'quad', 'nome_guerra')
 
 @admin.register(PATD)
 class PATDAdmin(admin.ModelAdmin):

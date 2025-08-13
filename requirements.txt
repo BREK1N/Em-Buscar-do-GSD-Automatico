@@ -1,5 +1,8 @@
 django
 langchain-openai
+langchain-community
 pypdf
 python-dotenv
 pydantic
+pandas
+openpyxl
