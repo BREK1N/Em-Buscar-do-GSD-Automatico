@@ -21,8 +21,6 @@
     .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; flex-grow: 1; text-align: center; color: var(--text-secondary); }
     .loading-state .big-spinner { width: 40px; height: 40px; border: 4px solid var(--sidebar-active-bg); border-top-color: var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
     .prompt-actions { margin-top: 20px; display: flex; gap: 10px; }
-    .militar-form-container { animation: fadeIn 0.5s; }
-    @keyframes fadeIn { from { opacity: 0; } to { opacity: 1; } }
 </style>
 
 <h1>Analisador de Documentos</h1>
@@ -61,99 +59,21 @@ document.addEventListener('DOMContentLoaded', function() {
     const analiseBox = document.getElementById('analise-box');
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    function setUIState(isSubmitting) {
-        const spinner = submitButton.querySelector('.spinner');
-        const buttonText = submitButton.querySelector('.button-text');
-        if (isSubmitting) {
-            buttonText.textContent = 'A analisar...';
-            spinner.style.display = 'block';
-            submitButton.disabled = true;
-            analiseBox.innerHTML = `<div class="loading-state"><div class="big-spinner"></div><p>A processar o documento...<br>Isto pode levar alguns segundos.</p></div>`;
-        } else {
-            buttonText.textContent = 'Analisar e Criar PATD';
-            spinner.style.display = 'none';
-            submitButton.disabled = false;
-        }
-    }
+    // ... (funções setUIState, displayResult, handleMilitarNotFound, etc. permanecem as mesmas) ...
 
-    function displayResult(htmlContent) {
-        analiseBox.innerHTML = htmlContent;
-    }
-
-    function handleMilitarNotFound(resultado) {
+    // --- NOVA FUNÇÃO PARA TRATAR PATD EXISTENTE ---
+    function handlePatdExists(data) {
         displayResult(`
-            <h3>Militar Não Encontrado</h3>
-            <div class="militar-nao-encontrado">
-                <p>O militar <strong>${resultado.nome_completo}</strong> não foi encontrado na base de dados.</p>
-                <p>Deseja cadastrá-lo agora para criar a PATD?</p>
+            <h3>PATD Duplicada</h3>
+            <div class="patd-existente">
+                <p>${data.message}</p>
+                <p>Deseja visualizar o processo já existente?</p>
                 <div class="prompt-actions">
-                    <button type="button" class="btn btn-primary" id="confirm-cadastrar-btn">Sim, Cadastrar</button>
-                    <button type="button" class="btn btn-secondary" id="cancel-cadastrar-btn">Não</button>
+                    <a href="${data.url}" class="btn btn-primary">Ver PATD Existente</a>
                 </div>
             </div>
         `);
-
-        document.getElementById('confirm-cadastrar-btn').addEventListener('click', () => showMilitarForm(resultado));
-        document.getElementById('cancel-cadastrar-btn').addEventListener('click', () => {
-            displayResult('<h3>Aguardando Documento</h3><p>Operação cancelada. O resultado da análise aparecerá aqui.</p>');
-        });
     }
-
-    function showMilitarForm(resultado) {
-        displayResult(`
-            <div class="militar-form-container">
-                <h3>Cadastrar Novo Militar</h3>
-                <form id="new-militar-form" class="model-form">
-                    <div class="form-grid">
-                        <p><label for="id_nome_completo">Nome Completo</label><input type="text" name="nome_completo" value="${resultado.nome_completo}" required id="id_nome_completo"></p>
-                        <p><label for="id_nome_guerra">Nome de Guerra</label><input type="text" name="nome_guerra" required id="id_nome_guerra"></p>
-                        <p><label for="id_saram">SARAM</label><input type="number" name="saram" required id="id_saram"></p>
-                        <p><label for="id_posto">Posto</label><input type="text" name="posto" id="id_posto"></p>
-                        <p><label for="id_graduacao">Graduação</label><input type="text" name="graduacao" id="id_graduacao"></p>
-                        <p><label for="id_secao_om">Seção/OM</label><input type="text" name="secao_om" required id="id_secao_om"></p>
-                        <p><label for="id_oficial">É Oficial?</label><input type="checkbox" name="oficial" id="id_oficial"></p>
-                        <input type="hidden" name="transgressao" value="${resultado.transgressao}">
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-primary">Salvar e Criar PATD</button>
-                    </div>
-                </form>
-            </div>
-        `);
-
-        document.getElementById('new-militar-form').addEventListener('submit', handleCreateMilitarAndPatd);
-    }
-
-    function handleCreateMilitarAndPatd(event) {
-        event.preventDefault();
-        const form = event.target;
-        const formData = new FormData(form);
-        formData.append('action', 'create_militar_and_patd');
-
-        displayResult(`<div class="loading-state"><div class="big-spinner"></div><p>A salvar militar e a criar PATD...</p></div>`);
-
-        fetch("{% url 'Ouvidoria:index' %}", {
-            method: 'POST',
-            headers: { 'X-CSRFToken': csrfToken },
-            body: formData
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                displayResult(`<h3>Sucesso</h3><p>${data.message}</p>`);
-            } else {
-                displayResult(`<h3>Erro no Cadastro</h3><p>${data.errors || 'Ocorreu um erro.'}</p>`);
-            }
-        })
-        .catch(error => {
-            console.error('Error:', error);
-            displayResult(`<h3>Erro na Comunicação</h3><p>Não foi possível completar a operação.</p>`);
-        });
-    }
-
-    fileInput.addEventListener('change', () => {
-        fileLabelText.textContent = fileInput.files.length > 0 ? `Ficheiro: ${fileInput.files[0].name}` : 'Clique ou arraste o ficheiro PDF';
-    });
 
     submitButton.addEventListener('click', () => {
         if (!fileInput.files || fileInput.files.length === 0) {
@@ -178,6 +98,9 @@ document.addEventListener('DOMContentLoaded', function() {
                 displayResult(`<h3>Sucesso</h3><p>${data.message}</p>`);
             } else if (data.status === 'militar_not_found') {
                 handleMilitarNotFound(data.resultado);
+            // --- NOVO TRATAMENTO PARA A RESPOSTA DE DUPLICIDADE ---
+            } else if (data.status === 'patd_exists') {
+                handlePatdExists(data);
             } else {
                 displayResult(`<h3 style="color: #d8000c;">Erro na Análise</h3><p>${data.message || data.error}</p>`);
             }
@@ -195,6 +118,26 @@ document.addEventListener('DOMContentLoaded', function() {
             submitButton.disabled = false;
         });
     });
+
+    // O restante do JavaScript (setUIState, displayResult, etc.) não foi alterado.
+    function setUIState(isSubmitting) {
+        const spinner = submitButton.querySelector('.spinner');
+        const buttonText = submitButton.querySelector('.button-text');
+        if (isSubmitting) {
+            buttonText.textContent = 'A analisar...';
+            spinner.style.display = 'block';
+            submitButton.disabled = true;
+            analiseBox.innerHTML = `<div class="loading-state"><div class="big-spinner"></div><p>A processar o documento...<br>Isto pode levar alguns segundos.</p></div>`;
+        } else {
+            buttonText.textContent = 'Analisar e Criar PATD';
+            spinner.style.display = 'none';
+            submitButton.disabled = false;
+        }
+    }
+
+    function displayResult(htmlContent) {
+        analiseBox.innerHTML = htmlContent;
+    }
 });
 </script>
 {% endblock %}

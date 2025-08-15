@@ -16,11 +16,13 @@ class MilitarAdmin(admin.ModelAdmin):
 class PATDAdmin(admin.ModelAdmin):
     
     # Configuração da exibição de PATDs no painel de admin.
-    list_display = ('numero_patd', 'militar', 'transgressao_resumida', 'oficial_responsavel', 'data_inicio', 'data_termino')
+    list_display = ('numero_patd', 'militar', 'status', 'transgressao_resumida', 'oficial_responsavel', 'data_ocorrencia', 'data_inicio')
     search_fields = ('numero_patd', 'militar__nome_completo', 'militar__nome_guerra')
-    list_filter = ('data_inicio', 'data_termino', 'oficial_responsavel')
-    autocomplete_fields = ['militar', 'oficial_responsavel'] # Facilita a busca de militares
+    list_filter = ('status', 'data_ocorrencia', 'data_inicio', 'oficial_responsavel')
+    autocomplete_fields = ['militar', 'oficial_responsavel'] 
     ordering = ('-data_inicio',)
+    # TORNA O CAMPO STATUS APENAS LEITURA NO ADMIN
+    readonly_fields = ('status',)
 
     def transgressao_resumida(self, obj):
         """

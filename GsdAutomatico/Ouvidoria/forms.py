@@ -2,15 +2,14 @@ from django import forms
 from .models import Militar, PATD
 
 class MilitarForm(forms.ModelForm):
-    #Formulário para criar e atualizar registros de Militares.
+    # Formulário para criar e atualizar registros de Militares.
     class Meta:
         model = Militar
-        # Inclui todos os campos do modelo no formulário
         fields = [
             'posto', 'quad', 'especializacao', 'saram', 'nome_completo', 
-            'nome_guerra', 'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial'
+            'nome_guerra', 'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial',
+            'assinatura' # Campo adicionado para futuras implementações
         ]
-        # Adiciona classes CSS para estilização e placeholders para melhor UX
         widgets = {
             'posto': forms.TextInput(attrs={'placeholder': 'Ex: Capitão'}),
             'quad': forms.TextInput(attrs={'placeholder': 'Ex: QOAV'}),
@@ -23,17 +22,36 @@ class MilitarForm(forms.ModelForm):
             'om': forms.TextInput(attrs={'placeholder': 'Ex: CINDACTA IV'}),
             'setor': forms.TextInput(attrs={'placeholder': 'Ex: Divisão de Operações'}),
             'subsetor': forms.TextInput(attrs={'placeholder': 'Ex: Seção de Busca e Salvamento'}),
+            'assinatura': forms.HiddenInput(), # Oculto por enquanto
         }
 
 class PATDForm(forms.ModelForm):
     """
     Formulário para editar uma PATD existente.
     """
-    data_termino = forms.DateTimeField(
-        widget=forms.DateTimeInput(attrs={'type': 'datetime-local'}),
-        required=False
-    )
-
     class Meta:
         model = PATD
-        fields = ['transgressao', 'oficial_responsavel', 'data_termino']
+        # CAMPOS DE TESTEMUNHA ADICIONADOS
+        fields = ['transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2', 'data_ocorrencia']
+        
+        widgets = {
+            'transgressao': forms.Textarea(attrs={'rows': 4}),
+            'data_ocorrencia': forms.DateInput(
+                format='%Y-%m-%d',
+                attrs={'type': 'date', 'class': 'form-control'}
+            ),
+        }
+        labels = {
+            'transgressao': "Descrição da Transgressão",
+            'oficial_responsavel': "Oficial Responsável",
+            'testemunha1': "1ª Testemunha",
+            'testemunha2': "2ª Testemunha",
+            'data_ocorrencia': "Data da Ocorrência",
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # FILTRA A LISTA DE MILITARES PARA TESTEMUNHAS
+        queryset_testemunhas = Militar.objects.filter(subsetor='OUVIDORIA')
+        self.fields['testemunha1'].queryset = queryset_testemunhas
+        self.fields['testemunha2'].queryset = queryset_testemunhas

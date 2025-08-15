@@ -11,8 +11,7 @@
         <thead>
             <tr>
                 <th>N° PATD</th>
-                <th>Transgressão (resumo)</th>
-                <th>Data de Início</th>
+                <th>Data da Ocorrência</th>
                 <th>Status</th>
                 <th>Ações</th>
             </tr>
@@ -21,16 +20,16 @@
             {% for patd in patds %}
             <tr>
                 <td>{{ patd.numero_patd }}</td>
-                <td>{{ patd.transgressao|truncatewords:15 }}</td>
-                <td>{{ patd.data_inicio|date:"d/m/Y" }}</td>
-                <td>{% if patd.data_termino %}Finalizado{% else %}Em andamento{% endif %}</td>
+                <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
+                <!-- CORREÇÃO APLICADA AQUI -->
+                <td>{{ patd.get_status_display }}</td>
                 <td class="actions-cell">
                     <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver Detalhes</a>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="5" style="text-align: center; padding: 20px;">Nenhuma PATD encontrada para este militar.</td>
+                <td colspan="4" style="text-align: center; padding: 20px;">Nenhuma PATD encontrada para este militar.</td>
             </tr>
             {% endfor %}
         </tbody>

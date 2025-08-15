@@ -4,37 +4,55 @@
 
 {% block content %}
 <h1>PATD Nº {{ patd.numero_patd }}</h1>
-
 <div class="detail-grid">
     <div class="detail-item">
         <strong>Militar Acusado:</strong>
-        <p><a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}">{{ patd.militar }}</a></p>
+        <p class="detail-item-value">
+            <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
+        </p>
     </div>
     <div class="detail-item">
+        <strong>Status:</strong>
+        <p class="detail-item-value">{{ patd.get_status_display }}</p>
+    </div>
+    <div class="detail-item-full">
         <strong>Oficial Responsável:</strong>
-        <p>{{ patd.oficial_responsavel|default:"Não atribuído" }}</p>
+        <div class="oficial-container">
+            <p class="detail-item-value">{{ patd.oficial_responsavel|default:"Não atribuído" }}</p>
+            <div class="signature-display-container">
+                {% if patd.oficial_responsavel %}
+                    {% if patd.assinatura_oficial %}
+                        <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
+                        <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn" style="margin-left: 15px;">Alterar Assinatura</button>
+                    {% else %}
+                        <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
+                    {% endif %}
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    <!-- SEÇÃO DE TESTEMUNHAS ADICIONADA -->
+    <div class="detail-item-full">
+        <strong>Testemunhas:</strong>
+        <div class="testemunha-container">
+            <p class="detail-item-value">1ª Testemunha: {{ patd.testemunha1|default:"Não atribuída" }}</p>
+            <p class="detail-item-value">2ª Testemunha: {{ patd.testemunha2|default:"Não atribuída" }}</p>
+        </div>
     </div>
     <div class="detail-item">
-        <strong>Data de Início:</strong>
-        <p>{{ patd.data_inicio|date:"d/m/Y H:i" }}</p>
-    </div>
-    <div class="detail-item">
-        <strong>Data de Término:</strong>
-        <p>{{ patd.data_termino|date:"d/m/Y H:i"|default:"Em andamento" }}</p>
+        <strong>Data da Ocorrência:</strong>
+        <p class="detail-item-value">{{ patd.data_ocorrencia|date:"d/m/Y"|default:"Não informada" }}</p>
     </div>
     <div class="detail-item-full">
         <strong>Descrição da Transgressão:</strong>
         <p>{{ patd.transgressao|linebreaks }}</p>
     </div>
 </div>
-
 <div class="form-actions">
     <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
     <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
-    <!-- O estilo 'margin-left: auto' foi movido para o CSS principal -->
     <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
 </div>
-
 <!-- Modal de Confirmação de Exclusão -->
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
@@ -49,29 +67,113 @@
         </form>
     </div>
 </div>
+
+<!-- Modal de Assinatura -->
+<div class="modal-overlay" id="signature-modal">
+    <div class="signature-modal-content">
+        <h3>Assinatura do Oficial</h3>
+        <p>Desenhe a assinatura no campo abaixo.</p>
+        <div class="canvas-container">
+            <canvas id="signature-canvas"></canvas>
+        </div>
+        <div class="form-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" id="clear-signature-btn">Limpar</button>
+            <button type="button" class="btn btn-secondary" id="cancel-signature-btn">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="save-signature-btn">Salvar Assinatura</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // Lógica do Modal de Exclusão
     const deleteModal = document.getElementById('delete-modal');
     const deleteBtn = document.getElementById('delete-patd-btn');
-    const cancelBtn = document.getElementById('cancel-delete-btn');
+    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
 
-    if (deleteBtn && deleteModal && cancelBtn) {
+    if (deleteBtn && deleteModal && cancelDeleteBtn) {
         deleteBtn.addEventListener('click', () => {
             deleteModal.classList.add('active');
         });
 
-        cancelBtn.addEventListener('click', () => {
+        cancelDeleteBtn.addEventListener('click', () => {
             deleteModal.classList.remove('active');
         });
 
-        // Fecha o modal se clicar fora do conteúdo
         deleteModal.addEventListener('click', function(event) {
             if (event.target === this) {
                 this.classList.remove('active');
             }
+        });
+    }
+
+    // --- LÓGICA DO MODAL DE ASSINATURA ---
+    const signatureModal = document.getElementById('signature-modal');
+    const addSignatureBtn = document.getElementById('add-signature-btn');
+    const cancelSignatureBtn = document.getElementById('cancel-signature-btn');
+    const saveSignatureBtn = document.getElementById('save-signature-btn');
+    const clearSignatureBtn = document.getElementById('clear-signature-btn');
+    const canvas = document.getElementById('signature-canvas');
+
+    if (addSignatureBtn) {
+        const signaturePad = new SignaturePad(canvas, {
+            backgroundColor: 'rgb(255, 255, 255)'
+        });
+
+        function resizeCanvas() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+            signaturePad.clear();
+        }
+        window.addEventListener("resize", resizeCanvas);
+        
+        addSignatureBtn.addEventListener('click', () => {
+            signatureModal.classList.add('active');
+            resizeCanvas();
+        });
+
+        cancelSignatureBtn.addEventListener('click', () => {
+            signatureModal.classList.remove('active');
+        });
+
+        clearSignatureBtn.addEventListener('click', () => {
+            signaturePad.clear();
+        });
+
+        saveSignatureBtn.addEventListener('click', () => {
+            if (signaturePad.isEmpty()) {
+                alert("Por favor, forneça a assinatura antes de salvar.");
+                return;
+            }
+
+            const signatureData = signaturePad.toDataURL('image/png');
+            const url = `{% url 'Ouvidoria:salvar_assinatura' patd.pk %}`;
+            const csrfToken = '{{ csrf_token }}';
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ 'signature_data': signatureData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Erro ao salvar a assinatura: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocorreu um erro de comunicação ao salvar a assinatura.');
+            });
         });
     }
 });

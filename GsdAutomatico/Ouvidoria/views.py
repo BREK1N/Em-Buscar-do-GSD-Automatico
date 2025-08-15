@@ -1,11 +1,13 @@
 import pandas as pd
 import io
+import json
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
-from django.urls import reverse_lazy
+from django.urls import reverse_lazy, reverse
 from django.db.models import Q, Max, Case, When, Value, IntegerField
 from django.http import JsonResponse
+from django.views.decorators.http import require_POST
 from .models import Militar, PATD
 from .forms import MilitarForm, PATDForm
 from langchain_community.document_loaders import PyPDFLoader
@@ -16,18 +18,20 @@ import os
 import tempfile
 from dotenv import load_dotenv
 import logging
+from datetime import datetime
 
 # Configuração de logging para depuração
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 load_dotenv()
 
-# --- Classe para Estruturação da Análise de PDF (ainda usada pela view index) ---
+# --- Classe para Estruturação da Análise de PDF ---
 class AnaliseTransgressao(BaseModel):
     nome_militar: str = Field(description="O nome do militar acusado, sem o posto ou graduação.")
     posto_graduacao: str = Field(description="O posto ou graduação (ex: Sargento, Capitão), se mencionado. Se não, retorne uma string vazia.")
     transgressao: str = Field(description="A descrição detalhada da transgressão disciplinar cometida.")
     local: str = Field(description="O local onde a transgressão ocorreu.")
+    data_ocorrencia: str = Field(description="A data em que a transgressão ocorreu, no formato AAAA-MM-DD. Se não for mencionada, retorne uma string vazia.")
 
 
 def get_next_patd_number():
@@ -45,11 +49,20 @@ def index(request):
             if form.is_valid():
                 new_militar = form.save()
                 transgressao = request.POST.get('transgressao')
+                data_ocorrencia_str = request.POST.get('data_ocorrencia')
                 
+                data_ocorrencia = None
+                if data_ocorrencia_str:
+                    try:
+                        data_ocorrencia = datetime.strptime(data_ocorrencia_str, '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        pass
+
                 patd = PATD.objects.create(
                     militar=new_militar,
                     transgressao=transgressao,
-                    numero_patd=get_next_patd_number()
+                    numero_patd=get_next_patd_number(),
+                    data_ocorrencia=data_ocorrencia
                 )
                 return JsonResponse({
                     'status': 'success',
@@ -57,6 +70,7 @@ def index(request):
                 })
             else:
                 return JsonResponse({'status': 'error', 'errors': form.errors.as_json()}, status=400)
+
 
         elif action == 'analyze':
             pdf_file = request.FILES.get('pdf_file')
@@ -76,37 +90,64 @@ def index(request):
                 llm = ChatOpenAI(model="gpt-4o", temperature=0)
                 structured_llm = llm.with_structured_output(AnaliseTransgressao)
                 prompt = ChatPromptTemplate.from_messages([
-                    ("system", "Você é um assistente especialista em analisar documentos disciplinares militares. Separe o nome do militar do seu posto ou graduação."),
+                    ("system", "Você é um assistente especialista em analisar documentos disciplinares militares. Extraia a data da ocorrência no formato AAAA-MM-DD."),
                     ("human", "Analise o seguinte documento e extraia os dados: \n\n{documento}")
                 ])
                 chain = prompt | structured_llm
                 resultado = chain.invoke({"documento": content})
 
                 nome_extraido = resultado.nome_militar
-                posto_graduacao_extraido = resultado.posto_graduacao
                 militar = Militar.objects.filter(
                     Q(nome_completo__icontains=nome_extraido) | 
                     Q(nome_guerra__icontains=nome_extraido)
                 ).first()
 
+                data_ocorrencia = None
+                if resultado.data_ocorrencia:
+                    try:
+                        data_ocorrencia = datetime.strptime(resultado.data_ocorrencia, '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        pass
+
                 if militar:
+                    # Lógica de verificação de duplicidade
+                    if data_ocorrencia:
+                        existing_patds = PATD.objects.filter(
+                            militar=militar,
+                            data_ocorrencia=data_ocorrencia
+                        )
+
+                        for patd in existing_patds:
+                            nova_transgressao = resultado.transgressao.strip()
+                            transgressao_existente = patd.transgressao.strip()
+                            
+                            if nova_transgressao in transgressao_existente or transgressao_existente in nova_transgressao:
+                                patd_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': patd.pk})
+                                return JsonResponse({
+                                    'status': 'patd_exists',
+                                    'message': f'Já existe uma PATD para este militar na mesma data e com transgressão similar (Nº {patd.numero_patd}).',
+                                    'url': patd_url
+                                })
+
                     patd = PATD.objects.create(
                         militar=militar,
                         transgressao=resultado.transgressao,
-                        numero_patd=get_next_patd_number()
+                        numero_patd=get_next_patd_number(),
+                        data_ocorrencia=data_ocorrencia
                     )
                     return JsonResponse({
                         'status': 'success',
                         'message': f'Militar encontrado. PATD Nº {patd.numero_patd} criada com sucesso para {militar}.'
                     })
                 else:
-                    nome_para_cadastro = f"{posto_graduacao_extraido} {nome_extraido}".strip()
+                    nome_para_cadastro = f"{resultado.posto_graduacao} {resultado.nome_militar}".strip()
                     return JsonResponse({
                         'status': 'militar_not_found',
                         'resultado': {
                             'nome_completo': nome_para_cadastro,
                             'transgressao': resultado.transgressao,
                             'local': resultado.local,
+                            'data_ocorrencia': resultado.data_ocorrencia,
                         }
                     })
 
@@ -116,7 +157,7 @@ def index(request):
     
     return render(request, 'indexOuvidoria.html')
 
-# --- View para Importação de Excel (sem LLM) ---
+# --- View para Importação de Excel ---
 def importar_excel(request):
     if request.method == 'POST':
         excel_file = request.FILES.get('excel_file')
@@ -127,22 +168,12 @@ def importar_excel(request):
         try:
             df = pd.read_excel(excel_file).fillna('')
             
-            # Mapeamento manual das colunas do Excel para os campos do modelo
             column_mapping = {
-                'pst.': 'posto',
-                'quad.': 'quad',
-                'esp.': 'especializacao',
-                'saram': 'saram',
-                'nome completo': 'nome_completo',
-                'nome de guerra': 'nome_guerra',
-                'turma': 'turma',
-                'situação': 'situacao',
-                'om': 'om',
-                'setor': 'setor',
-                'subsetor': 'subsetor'
+                'pst.': 'posto', 'quad.': 'quad', 'esp.': 'especializacao', 'saram': 'saram',
+                'nome completo': 'nome_completo', 'nome de guerra': 'nome_guerra', 'turma': 'turma',
+                'situação': 'situacao', 'om': 'om', 'setor': 'setor', 'subsetor': 'subsetor'
             }
             
-            # Normaliza os nomes das colunas do DataFrame (minúsculas, sem espaços extras)
             df.columns = df.columns.str.lower().str.strip()
 
             militares_criados = 0
@@ -151,55 +182,43 @@ def importar_excel(request):
 
             for index, row in df.iterrows():
                 data_dict = {}
-                # Monta o dicionário de dados com base no mapeamento
                 for excel_col, model_field in column_mapping.items():
                     if excel_col in df.columns:
                         data_dict[model_field] = row[excel_col]
                 
-                # Define se o militar é oficial
                 postos_oficiais = ['TC', 'MJ', 'CP', '1T', '2T']
                 is_recruta = str(data_dict.get('posto', '')).upper() == 'REC'
                 
                 if 'posto' in data_dict:
                     data_dict['oficial'] = str(data_dict.get('posto', '')).upper() in postos_oficiais
 
-                # ATUALIZAÇÃO: Lógica para tratar recrutas sem SARAM
                 identifier = {}
                 if is_recruta:
-                    # Para recrutas, o nome completo é o identificador
                     if 'nome_completo' in data_dict and data_dict['nome_completo']:
                         identifier['nome_completo'] = data_dict['nome_completo']
-                        # Garante que o SARAM não seja salvo como string vazia para recrutas
                         data_dict.pop('saram', None) 
                     else:
                         linhas_com_erro += 1
-                        continue # Pula se não houver nome completo para o recruta
+                        continue
                 else:
-                    # Para outros postos, o SARAM é obrigatório
                     if 'saram' in data_dict and str(data_dict['saram']).strip():
                         try:
                             identifier['saram'] = int(data_dict['saram'])
                         except (ValueError, TypeError):
                             linhas_com_erro += 1
-                            continue # Pula se o SARAM não for um número válido
+                            continue
                     else:
                         linhas_com_erro += 1
-                        continue # Pula se não houver SARAM
+                        continue
                 
                 try:
-                    # Garante que todos os campos obrigatórios tenham um valor padrão
                     for field in Militar._meta.get_fields():
                         if not field.is_relation and field.name not in data_dict and not field.blank and field.name not in identifier:
-                             # Para recrutas, não preenche o SARAM se não existir
                             if is_recruta and field.name == 'saram':
                                 continue
                             data_dict[field.name] = ''
 
-                    # Atualiza ou cria o militar
-                    obj, created = Militar.objects.update_or_create(
-                        **identifier,
-                        defaults=data_dict
-                    )
+                    obj, created = Militar.objects.update_or_create(**identifier, defaults=data_dict)
                     if created:
                         militares_criados += 1
                     else:
@@ -235,20 +254,11 @@ class MilitarListView(ListView):
         query = self.request.GET.get('q')
         
         rank_order = Case(
-            When(posto='TC', then=Value(0)),
-            When(posto='MJ', then=Value(1)),
-            When(posto='CP', then=Value(2)),
-            When(posto='1T', then=Value(3)),
-            When(posto='2T', then=Value(4)),
-            When(posto='SO', then=Value(5)),
-            When(posto='1S', then=Value(6)),
-            When(posto='2S', then=Value(7)),
-            When(posto='3S', then=Value(8)),
-            When(posto='CB', then=Value(9)),
-            When(posto='S1', then=Value(10)),
-            When(posto='S2', then=Value(11)),
-            default=Value(99),
-            output_field=IntegerField(),
+            When(posto='TC', then=Value(0)), When(posto='MJ', then=Value(1)), When(posto='CP', then=Value(2)),
+            When(posto='1T', then=Value(3)), When(posto='2T', then=Value(4)), When(posto='SO', then=Value(5)),
+            When(posto='1S', then=Value(6)), When(posto='2S', then=Value(7)), When(posto='3S', then=Value(8)),
+            When(posto='CB', then=Value(9)), When(posto='S1', then=Value(10)), When(posto='S2', then=Value(11)),
+            default=Value(99), output_field=IntegerField(),
         )
 
         qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
@@ -326,3 +336,23 @@ class MilitarPATDListView(ListView):
         context = super().get_context_data(**kwargs)
         context['militar'] = self.militar
         return context
+
+# --- View para Salvar Assinatura ---
+@require_POST
+def salvar_assinatura(request, pk):
+    try:
+        patd = PATD.objects.get(pk=pk)
+        data = json.loads(request.body)
+        signature_data = data.get('signature_data')
+
+        if not signature_data:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
+
+        patd.assinatura_oficial = signature_data
+        patd.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Assinatura salva com sucesso.'})
+    except PATD.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'PATD não encontrada.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
