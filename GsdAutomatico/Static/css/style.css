@@ -360,43 +360,43 @@ p {
     border-left-color: var(--accent-color);
 }
 
-.settings-panels {
+.settings-painels {
     flex: 1;
     display: flex; /* Para controlar o conteúdo interno */
     flex-direction: column;
     overflow: hidden;
 }
 
-.settings-panel {
+.settings-painel {
     display: none;
     flex-direction: column;
     height: 100%;
 }
-.settings-panel.active {
+.settings-painel.active {
     display: flex;
 }
-.settings-panel-header {
+.settings-painel-header {
     padding: 20px 30px;
     border-bottom: 1px solid var(--border-color);
 }
-.settings-panel-header h3 {
+.settings-painel-header h3 {
     margin: 0;
 }
-.settings-panel-body {
+.settings-painel-body {
     padding: 20px 30px;
     overflow-y: auto; /* Apenas o corpo do painel terá scroll */
     flex-grow: 1;
 }
 
-.settings-panel .form-group {
+.settings-painel .form-group {
     margin-bottom: 20px;
 }
-.settings-panel .form-group label {
+.settings-painel .form-group label {
     display: block;
     font-weight: 500;
     margin-bottom: 8px;
 }
-.settings-panel .form-group select, .settings-panel .form-group input {
+.settings-painel .form-group select, .settings-painel .form-group input {
     width: 100%;
     padding: 10px;
     border-radius: 6px;
@@ -509,7 +509,7 @@ p {
     .settings-nav a.active, .settings-nav a:hover {
         border-bottom-color: var(--accent-color);
     }
-    .settings-panels {
+    .settings-painels {
         overflow-y: auto;
     }
 }

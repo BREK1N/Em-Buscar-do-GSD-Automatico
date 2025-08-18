@@ -61,19 +61,19 @@
     <div class="modal-overlay" id="settings-modal">
         <div class="settings-modal-content">
             <nav class="settings-nav">
-                <a href="#" class="settings-tab active" data-target="panel-aparencia">Aparência</a>
-                <a href="#" class="settings-tab" data-target="panel-assinaturas">Assinaturas</a>
-                <a href="#" class="settings-tab" data-target="panel-geral">Geral</a>
+                <a href="#" class="settings-tab active" data-target="painel-aparencia">Aparência</a>
+                <a href="#" class="settings-tab" data-target="painel-assinaturas">Assinaturas</a>
+                <a href="#" class="settings-tab" data-target="painel-geral">Geral</a>
             </nav>
-            <div class="settings-panels">
-                <div id="panel-aparencia" class="settings-panel active">
-                    <div class="settings-panel-header">
+            <div class="settings-painels">
+                <div id="painel-aparencia" class="settings-painel active">
+                    <div class="settings-painel-header">
                         <div class="settings-modal-header">
                             <h3>Aparência</h3>
                             <button class="close-btn">&times;</button>
                         </div>
                     </div>
-                    <div class="settings-panel-body">
+                    <div class="settings-painel-body">
                         <p>Personalize a aparência da interface.</p>
                         <div class="form-group">
                             <label for="theme-select">Tema</label>
@@ -85,8 +85,8 @@
                     </div>
                 </div>
                 
-                <div id="panel-assinaturas" class="settings-panel">
-                    <div class="settings-panel-header">
+                <div id="painel-assinaturas" class="settings-painel">
+                    <div class="settings-painel-header">
                         <div class="settings-modal-header">
                             <h3>Gerir Assinaturas Padrão</h3>
                             <button class="close-btn">&times;</button>
@@ -95,21 +95,21 @@
                             <input type="text" id="search-oficial" placeholder="Pesquisar por nome ou posto...">
                         </div>
                     </div>
-                    <div class="settings-panel-body">
+                    <div class="settings-painel-body">
                         <ul class="oficiais-list" id="oficiais-list-container">
                             <!-- A lista de oficiais será carregada aqui via JS -->
                         </ul>
                     </div>
                 </div>
 
-                <div id="panel-geral" class="settings-panel">
-                    <div class="settings-panel-header">
+                <div id="painel-geral" class="settings-painel">
+                    <div class="settings-painel-header">
                          <div class="settings-modal-header">
                             <h3>Configurações Gerais</h3>
                              <button class="close-btn">&times;</button>
                         </div>
                     </div>
-                    <div class="settings-panel-body">
+                    <div class="settings-painel-body">
                         <p>Opções gerais do sistema.</p>
                     </div>
                 </div>
@@ -181,13 +181,13 @@
             const openSettingsBtn = document.getElementById('settings-btn');
             const closeButtons = settingsModal.querySelectorAll('.close-btn');
             const settingsTabs = document.querySelectorAll('.settings-tab');
-            const settingsPanels = document.querySelectorAll('.settings-panel');
+            const settingspainels = document.querySelectorAll('.settings-painel');
 
             if(openSettingsBtn) {
                 openSettingsBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     settingsModal.classList.add('active');
-                    if(document.querySelector('.settings-tab[data-target="panel-assinaturas"]').classList.contains('active')) {
+                    if(document.querySelector('.settings-tab[data-target="painel-assinaturas"]').classList.contains('active')) {
                         loadOficiais();
                     }
                 });
@@ -207,13 +207,13 @@
                 tab.addEventListener('click', (e) => {
                     e.preventDefault();
                     settingsTabs.forEach(t => t.classList.remove('active'));
-                    settingsPanels.forEach(p => p.classList.remove('active'));
+                    settingspainels.forEach(p => p.classList.remove('active'));
                     tab.classList.add('active');
-                    const targetPanel = document.getElementById(tab.getAttribute('data-target'));
-                    if (targetPanel) {
-                        targetPanel.classList.add('active');
+                    const targetpainel = document.getElementById(tab.getAttribute('data-target'));
+                    if (targetpainel) {
+                        targetpainel.classList.add('active');
                     }
-                    if(tab.getAttribute('data-target') === 'panel-assinaturas') {
+                    if(tab.getAttribute('data-target') === 'painel-assinaturas') {
                         loadOficiais();
                     }
                 });
