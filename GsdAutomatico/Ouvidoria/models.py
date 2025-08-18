@@ -55,7 +55,6 @@ class PATD(models.Model):
         limit_choices_to={'oficial': True}, 
         verbose_name="Oficial Responsável"
     )
-    # CAMPOS DE TESTEMUNHA ADICIONADOS
     testemunha1 = models.ForeignKey(
         Militar,
         on_delete=models.SET_NULL,
@@ -87,14 +86,25 @@ class PATD(models.Model):
         return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"
 
     def save(self, *args, **kwargs):
-        if self.pk is not None: 
-            orig = PATD.objects.get(pk=self.pk)
-            if self.oficial_responsavel and orig.status == 'definicao_oficial':
-                self.status = 'ciencia_militar'
-            
-            if orig.oficial_responsavel != self.oficial_responsavel:
-                self.assinatura_oficial = None
         
+        is_new = self._state.adding
+        orig = None
+        if not is_new:
+            orig = PATD.objects.get(pk=self.pk)
+
+        # Lógica para avançar o status quando um oficial é definido
+        if self.oficial_responsavel and (is_new or orig.status == 'definicao_oficial'):
+            self.status = 'ciencia_militar'
+        
+        # ATRIBUIR ASSINATURA AUTOMATICAMENTE
+        if not is_new and orig.oficial_responsavel != self.oficial_responsavel:
+            # Se o novo oficial tiver uma assinatura padrão, copia-a para a PATD
+            if self.oficial_responsavel and self.oficial_responsavel.assinatura:
+                self.assinatura_oficial = self.oficial_responsavel.assinatura
+            else:
+                # Se não tiver, limpa a assinatura da PATD
+                self.assinatura_oficial = None
+
         super().save(*args, **kwargs)
 
     class Meta:

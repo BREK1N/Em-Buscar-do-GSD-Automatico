@@ -7,7 +7,7 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.urls import reverse_lazy, reverse
 from django.db.models import Q, Max, Case, When, Value, IntegerField
 from django.http import JsonResponse
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from .models import Militar, PATD
 from .forms import MilitarForm, PATDForm
 from langchain_community.document_loaders import PyPDFLoader
@@ -354,5 +354,40 @@ def salvar_assinatura(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Assinatura salva com sucesso.'})
     except PATD.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'PATD não encontrada.'}, status=404)
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+# --- VIEWS PARA CONFIGURAÇÃO DE ASSINATURAS (COM PESQUISA) ---
+@require_GET
+def lista_oficiais(request):
+    """Retorna uma lista de todos os oficiais, com filtro de pesquisa."""
+    query = request.GET.get('q', '')
+    oficiais = Militar.objects.filter(oficial=True)
+    
+    if query:
+        oficiais = oficiais.filter(
+            Q(nome_completo__icontains=query) | 
+            Q(nome_guerra__icontains=query)
+        )
+        
+    oficiais = oficiais.order_by('posto', 'nome_guerra')
+    data = list(oficiais.values('id', 'posto', 'nome_guerra', 'assinatura'))
+    return JsonResponse(data, safe=False)
+
+@require_POST
+def salvar_assinatura_padrao(request, pk):
+    """Salva ou atualiza a assinatura padrão de um oficial."""
+    try:
+        oficial = get_object_or_404(Militar, pk=pk, oficial=True)
+        data = json.loads(request.body)
+        signature_data = data.get('signature_data', '')
+
+        oficial.assinatura = signature_data
+        oficial.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Assinatura padrão salva com sucesso.'})
+    except Militar.DoesNotExist:
+        return JsonResponse({'status': 'error', 'message': 'Oficial não encontrado.'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

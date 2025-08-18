@@ -21,4 +21,8 @@ urlpatterns = [
     path('patd/<int:pk>/editar/', views.PATDUpdateView.as_view(), name='patd_update'),
     path('patd/<int:pk>/excluir/', views.PATDDeleteView.as_view(), name='patd_delete'),
     path('patd/<int:pk>/salvar_assinatura/', views.salvar_assinatura, name='salvar_assinatura'),
+
+    # CONFIGURAÇÃO DE ASSINATURAS
+    path('config/oficiais/', views.lista_oficiais, name='lista_oficiais'),
+    path('militar/<int:pk>/salvar_assinatura_padrao/', views.salvar_assinatura_padrao, name='salvar_assinatura_padrao'),
 ]
