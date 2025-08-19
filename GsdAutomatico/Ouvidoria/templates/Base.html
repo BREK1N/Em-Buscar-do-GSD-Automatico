@@ -63,6 +63,7 @@
             <nav class="settings-nav">
                 <a href="#" class="settings-tab active" data-target="panel-aparencia">Aparência</a>
                 <a href="#" class="settings-tab" data-target="panel-assinaturas">Assinaturas</a>
+                <a href="#" class="settings-tab" data-target="panel-padroes">Padrões</a>
                 <a href="#" class="settings-tab" data-target="panel-geral">Geral</a>
             </nav>
             <div class="settings-panels">
@@ -100,6 +101,30 @@
                             <!-- A lista de oficiais será carregada aqui via JS -->
                         </ul>
                     </div>
+                </div>
+
+                <div id="panel-padroes" class="settings-panel">
+                    <div class="settings-panel-header">
+                        <div class="settings-modal-header">
+                           <h3>Configurações Padrão</h3>
+                            <button class="close-btn">&times;</button>
+                       </div>
+                   </div>
+                   <div class="settings-panel-body">
+                       <form id="form-config-padroes">
+                           <div class="form-group">
+                               <label for="select-comandante-gsd">Comandante do GSD</label>
+                               <select id="select-comandante-gsd" name="comandante_gsd_id">
+                                   <option value="">A carregar...</option>
+                               </select>
+                               <small>Este oficial será pré-selecionado ao criar novas PATDs.</small>
+                           </div>
+                           <div class="form-actions" style="justify-content: flex-end;">
+                               <button type="submit" class="btn btn-primary">Salvar Padrões</button>
+                           </div>
+                       </form>
+                       <div id="padroes-feedback" style="margin-top: 15px;"></div>
+                   </div>
                 </div>
 
                 <div id="panel-geral" class="settings-panel">
@@ -187,8 +212,10 @@
                 openSettingsBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     settingsModal.classList.add('active');
-                    if(document.querySelector('.settings-tab[data-target="panel-assinaturas"]').classList.contains('active')) {
-                        loadOficiais();
+                    // Carrega os dados da aba ativa ao abrir
+                    const activeTab = document.querySelector('.settings-tab.active');
+                    if (activeTab) {
+                        handleTabClick(activeTab);
                     }
                 });
             }
@@ -202,6 +229,15 @@
                     closeModal();
                 }
             });
+            
+            function handleTabClick(tab) {
+                const targetId = tab.getAttribute('data-target');
+                if (targetId === 'panel-assinaturas') {
+                    loadOficiais();
+                } else if (targetId === 'panel-padroes') {
+                    loadConfigPadroes();
+                }
+            }
 
             settingsTabs.forEach(tab => {
                 tab.addEventListener('click', (e) => {
@@ -213,9 +249,7 @@
                     if (targetPanel) {
                         targetPanel.classList.add('active');
                     }
-                    if(tab.getAttribute('data-target') === 'panel-assinaturas') {
-                        loadOficiais();
-                    }
+                    handleTabClick(tab);
                 });
             });
 
@@ -322,6 +356,55 @@
                 .catch(error => {
                     console.error('Error:', error);
                     alert('Ocorreu um erro de comunicação ao salvar a assinatura.');
+                });
+            });
+            
+            // --- LÓGICA PARA CONFIGURAÇÕES PADRÃO ---
+            const formConfigPadroes = document.getElementById('form-config-padroes');
+            const selectComandante = document.getElementById('select-comandante-gsd');
+            const padroesFeedback = document.getElementById('padroes-feedback');
+
+            function loadConfigPadroes() {
+                const url = "{% url 'Ouvidoria:gerenciar_configuracoes_padrao' %}";
+                fetch(url)
+                    .then(response => response.json())
+                    .then(data => {
+                        selectComandante.innerHTML = '<option value="">-- Nenhum --</option>'; // Opção para desmarcar
+                        data.oficiais.forEach(oficial => {
+                            const option = new Option(oficial.texto, oficial.id);
+                            selectComandante.add(option);
+                        });
+
+                        if (data.comandante_gsd_id) {
+                            selectComandante.value = data.comandante_gsd_id;
+                        }
+                    })
+                    .catch(error => {
+                        selectComandante.innerHTML = '<option value="">Erro ao carregar</option>';
+                        console.error("Erro ao carregar configurações padrão:", error);
+                    });
+            }
+
+            formConfigPadroes.addEventListener('submit', function(e) {
+                e.preventDefault();
+                const comandanteId = selectComandante.value;
+                const url = "{% url 'Ouvidoria:gerenciar_configuracoes_padrao' %}";
+
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ 'comandante_gsd_id': comandanteId })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    padroesFeedback.style.color = data.status === 'success' ? 'var(--success-color)' : 'var(--danger-color)';
+                    padroesFeedback.textContent = data.message;
+                    setTimeout(() => { padroesFeedback.textContent = ''; }, 3000);
+                })
+                .catch(error => {
+                    padroesFeedback.style.color = 'var(--danger-color)';
+                    padroesFeedback.textContent = 'Erro de comunicação ao salvar.';
+                    console.error("Erro ao salvar configurações padrão:", error);
                 });
             });
 

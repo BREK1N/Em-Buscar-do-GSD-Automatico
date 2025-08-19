@@ -8,7 +8,7 @@ from django.urls import reverse_lazy, reverse
 from django.db.models import Q, Max, Case, When, Value, IntegerField
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST, require_GET
-from .models import Militar, PATD
+from .models import Militar, PATD, Configuracao
 from .forms import MilitarForm, PATDForm
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai import ChatOpenAI
@@ -19,11 +19,22 @@ import tempfile
 from dotenv import load_dotenv
 import logging
 from datetime import datetime
+from django.conf import settings
+import locale
+import docx
+import re
 
 # Configuração de logging para depuração
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 load_dotenv()
+
+# Define o locale para português do Brasil para formatar as datas
+try:
+    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+except locale.Error:
+    logger.warning("Locale pt_BR.UTF-8 não encontrado. A data pode não ser formatada corretamente.")
+
 
 # --- Classe para Estruturação da Análise de PDF ---
 class AnaliseTransgressao(BaseModel):
@@ -38,6 +49,127 @@ def get_next_patd_number():
     """Gera o próximo número sequencial para a PATD."""
     max_num = PATD.objects.aggregate(max_num=Max('numero_patd'))['max_num']
     return (max_num or 0) + 1
+
+def format_militar_string(militar, with_spec=False):
+    """
+    Formata o nome do militar, colocando o nome de guerra em negrito (com **).
+    Lida com casos complexos como 'D. PAULA'.
+    """
+    if not militar:
+        return ""
+
+    nome_completo = militar.nome_completo
+    nome_guerra = militar.nome_guerra
+    
+    # Limpa o nome de guerra de pontuações e divide em partes
+    guerra_parts = re.sub(r'[^\w\s]', '', nome_guerra).upper().split()
+    
+    # Divide o nome completo em palavras para manipulação
+    nome_completo_words = nome_completo.split()
+    
+    # Itera sobre cada parte do nome de guerra
+    for part in guerra_parts:
+        if len(part) == 1:  # Se for uma inicial (ex: 'D')
+            last_match_index = -1
+            # Encontra o índice da ÚLTIMA palavra no nome completo que começa com essa inicial
+            for i, word in enumerate(nome_completo_words):
+                if word.upper().startswith(part):
+                    last_match_index = i
+            
+            # Se encontrou uma correspondência, aplica o negrito apenas na inicial
+            if last_match_index != -1:
+                word_to_format = nome_completo_words[last_match_index]
+                # Coloca em negrito apenas a primeira letra
+                formatted_word = f"**{word_to_format[0]}**{word_to_format[1:]}"
+                nome_completo_words[last_match_index] = formatted_word
+        
+        else:  # Se for uma palavra completa (ex: 'PAULA')
+            # Procura a palavra exata no nome completo e aplica o negrito
+            for i, word in enumerate(nome_completo_words):
+                # Remove pontuação da palavra do nome completo para comparação
+                clean_word = re.sub(r'[^\w\s]', '', word)
+                if clean_word.upper() == part:
+                    nome_completo_words[i] = f"**{word}**"
+                    break # Para de procurar após encontrar a primeira correspondência
+
+    formatted_name = ' '.join(nome_completo_words)
+    posto = getattr(militar, 'posto', '')
+    
+    if with_spec:
+        especializacao = getattr(militar, 'especializacao', '')
+        return f"{posto} {especializacao} {formatted_name}".strip()
+    else:
+        return f"{posto} {formatted_name}".strip()
+
+
+def generate_patd_document_text(patd):
+    """
+    Gera o texto do documento de uma PATD a partir de um modelo .docx,
+    substituindo os marcadores de posição pelos dados da PATD.
+    """
+    doc_path = ""
+    try:
+        # Carrega as configurações globais para obter o comandante do GSD
+        config = Configuracao.load()
+        comandante_gsd = config.comandante_gsd
+
+        # Caminho para o documento modelo
+        doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PATD_Coringa.docx')
+        document = docx.Document(doc_path)
+        
+        # Extrai o texto de todos os parágrafos para um template
+        full_text = [para.text for para in document.paragraphs]
+        template_content = '\n'.join(full_text)
+
+        # Prepara os dados para substituição
+        data_inicio = patd.data_inicio
+        data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else "[Data não informada]"
+    
+        # Dicionário de substituições
+        replacements = {
+            # PATD Info
+            '{N PATD}': str(patd.numero_patd),
+
+            # Datas
+            '{dia}': data_inicio.strftime('%d'),
+            '{Mês}': data_inicio.strftime('%B').capitalize(),
+            '{Ano}': data_inicio.strftime('%Y'),
+            '{data da Ocorrencia}': data_ocorrencia_fmt,
+
+            # Comandante GSD
+            '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
+            '{Assinatura Comandante do GSD}': getattr(comandante_gsd, 'assinatura', '[Sem assinatura]') if comandante_gsd else "[Comandante GSD não definido]",
+
+            # Militar Arrolado (Acusado)
+            '{Militar Arrolado}': format_militar_string(patd.militar),
+            '{Assinatura Militar Arrolado}': getattr(patd.militar, 'assinatura', '[Sem assinatura]'),
+            '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
+            '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]'),
+
+            # Oficial Apurador (Responsável)
+            '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if patd.oficial_responsavel else "[Oficial apurador não definido]",
+            '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else "[Oficial apurador não definido]",
+            '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', '[Não informado]')) if patd.oficial_responsavel else "[Oficial apurador não definido]",
+            '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', '[Não informado]') if patd.oficial_responsavel else "[Oficial apurador não definido]",
+
+            # Ocorrência
+            '{Ocorencia reescrita}': patd.transgressao,
+        }
+
+        # Substitui os placeholders no conteúdo lido do DOCX
+        document_content = template_content
+        for placeholder, value in replacements.items():
+            document_content = document_content.replace(placeholder, str(value))
+        
+        return document_content
+
+    except FileNotFoundError:
+        logger.warning(f"Ficheiro PATD_Coringa.docx não encontrado em {doc_path}")
+        return f"ERRO: Ficheiro modelo PATD_Coringa.docx não encontrado no servidor.\n\nPor favor, adicione o ficheiro na pasta 'pdf' do projeto e recarregue esta página."
+    except Exception as e:
+        logger.error(f"Erro ao ler o ficheiro .docx: {e}")
+        return f"ERRO: Ocorreu um problema ao processar o ficheiro modelo: {e}"
+
 
 # --- View Principal do Analisador de PDF ---
 def index(request):
@@ -310,6 +442,23 @@ class PATDDetailView(DetailView):
     template_name = 'patd_detail.html'
     context_object_name = 'patd'
 
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        patd = self.get_object()
+        
+        # Gera o texto do documento com os dados mais recentes da PATD
+        document_content = generate_patd_document_text(patd)
+        
+        # Atualiza o campo no objeto e no banco de dados se houver diferença
+        if patd.documento_texto != document_content:
+            patd.documento_texto = document_content
+            patd.save(update_fields=['documento_texto'])
+
+        # Atualiza o contexto com o objeto modificado
+        context['patd'] = patd
+        return context
+
+
 class PATDUpdateView(UpdateView):
     model = PATD
     form_class = PATDForm
@@ -337,7 +486,7 @@ class MilitarPATDListView(ListView):
         context['militar'] = self.militar
         return context
 
-# --- View para Salvar Assinatura ---
+# --- Views para Assinaturas e Documentos ---
 @require_POST
 def salvar_assinatura(request, pk):
     try:
@@ -357,8 +506,26 @@ def salvar_assinatura(request, pk):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+@require_POST
+def salvar_documento_patd(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+        texto_documento = data.get('texto_documento')
 
-# --- VIEWS PARA CONFIGURAÇÃO DE ASSINATURAS (COM PESQUISA) ---
+        if texto_documento is None:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum texto recebido.'}, status=400)
+
+        patd.documento_texto = texto_documento
+        patd.save()
+        
+        return JsonResponse({'status': 'success', 'message': 'Documento salvo com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao salvar documento da PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+# --- VIEWS PARA CONFIGURAÇÕES ---
 @require_GET
 def lista_oficiais(request):
     """Retorna uma lista de todos os oficiais, com filtro de pesquisa."""
@@ -391,3 +558,36 @@ def salvar_assinatura_padrao(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Oficial não encontrado.'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+def gerenciar_configuracoes_padrao(request):
+    """View para carregar e salvar as configurações padrão."""
+    config = Configuracao.load()
+    
+    if request.method == 'POST':
+        try:
+            data = json.loads(request.body)
+            comandante_id = data.get('comandante_gsd_id')
+            
+            if comandante_id:
+                comandante = get_object_or_404(Militar, pk=comandante_id, oficial=True)
+                config.comandante_gsd = comandante
+            else:
+                config.comandante_gsd = None
+            
+            config.save()
+            return JsonResponse({'status': 'success', 'message': 'Configurações salvas com sucesso.'})
+        except Exception as e:
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+    # Método GET
+    oficiais = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
+    oficiais_data = [{
+        'id': oficial.id, 
+        'texto': f"{oficial.posto} {oficial.nome_guerra}"
+    } for oficial in oficiais]
+    
+    data = {
+        'comandante_gsd_id': config.comandante_gsd.id if config.comandante_gsd else None,
+        'oficiais': oficiais_data
+    }
+    return JsonResponse(data)

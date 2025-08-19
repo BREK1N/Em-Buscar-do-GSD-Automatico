@@ -6,3 +6,4 @@ python-dotenv
 pydantic
 pandas
 openpyxl
+python-docx

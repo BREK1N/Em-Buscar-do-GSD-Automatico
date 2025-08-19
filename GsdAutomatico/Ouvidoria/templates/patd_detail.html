@@ -3,56 +3,123 @@
 {% block title %}Detalhes da PATD Nº {{ patd.numero_patd }}{% endblock %}
 
 {% block content %}
+<style>
+    .tabs-nav {
+        display: flex;
+        border-bottom: 1px solid var(--border-color);
+        margin-bottom: 20px;
+    }
+    .tabs-nav a {
+        padding: 10px 20px;
+        text-decoration: none;
+        color: var(--text-secondary);
+        border-bottom: 3px solid transparent;
+        margin-bottom: -1px; /* Alinha com a borda inferior */
+        cursor: pointer;
+    }
+    .tabs-nav a.active {
+        color: var(--accent-color);
+        border-bottom-color: var(--accent-color);
+    }
+    .tab-panel {
+        display: none;
+    }
+    .tab-panel.active {
+        display: block;
+    }
+    .document-view {
+        width: 100%;
+        min-height: 500px;
+        padding: 20px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        font-family: var(--font-family); /* Alterado para a fonte padrão da aplicação */
+        font-size: 14px;
+        line-height: 1.7;
+        box-sizing: border-box;
+        white-space: pre-wrap; /* Preserva espaços e quebras de linha */
+    }
+    .document-view .signature-image-embedded {
+        max-height: 60px;
+        width: auto;
+        background-color: white;
+        border: 1px solid #ccc;
+        border-radius: 4px;
+        padding: 2px;
+        vertical-align: middle;
+    }
+    .document-view .no-signature-text {
+        font-style: italic;
+        color: var(--text-secondary);
+    }
+</style>
+
 <h1>PATD Nº {{ patd.numero_patd }}</h1>
-<div class="detail-grid">
-    <div class="detail-item">
-        <strong>Militar Acusado:</strong>
-        <p class="detail-item-value">
-            <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
-        </p>
-    </div>
-    <div class="detail-item">
-        <strong>Status:</strong>
-        <p class="detail-item-value">{{ patd.get_status_display }}</p>
-    </div>
-    <div class="detail-item-full">
-        <strong>Oficial Responsável:</strong>
-        <div class="oficial-container">
-            <p class="detail-item-value">{{ patd.oficial_responsavel|default:"Não atribuído" }}</p>
-            <div class="signature-display-container">
-                {% if patd.oficial_responsavel %}
-                    {% if patd.assinatura_oficial %}
-                        <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
-                        <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn" style="margin-left: 15px;">Alterar Assinatura</button>
-                    {% else %}
-                        <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
+
+<nav class="tabs-nav">
+    <a class="tab-link active" data-target="tab-detalhes">Detalhes</a>
+    <a class="tab-link" data-target="tab-documento">Documento</a>
+</nav>
+
+<div id="tab-detalhes" class="tab-panel active">
+    <div class="detail-grid">
+        <div class="detail-item">
+            <strong>Militar Acusado:</strong>
+            <p class="detail-item-value">
+                <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
+            </p>
+        </div>
+        <div class="detail-item">
+            <strong>Status:</strong>
+            <p class="detail-item-value">{{ patd.get_status_display }}</p>
+        </div>
+        <div class="detail-item-full">
+            <strong>Oficial Responsável:</strong>
+            <div class="oficial-container">
+                <p class="detail-item-value">{{ patd.oficial_responsavel|default:"Não atribuído" }}</p>
+                <div class="signature-display-container">
+                    {% if patd.oficial_responsavel %}
+                        {% if patd.assinatura_oficial %}
+                            <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
+                            <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn" style="margin-left: 15px;">Alterar Assinatura</button>
+                        {% else %}
+                            <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
+                        {% endif %}
                     {% endif %}
-                {% endif %}
+                </div>
             </div>
         </div>
-    </div>
-    <!-- SEÇÃO DE TESTEMUNHAS ADICIONADA -->
-    <div class="detail-item-full">
-        <strong>Testemunhas:</strong>
-        <div class="testemunha-container">
-            <p class="detail-item-value">1ª Testemunha: {{ patd.testemunha1|default:"Não atribuída" }}</p>
-            <p class="detail-item-value">2ª Testemunha: {{ patd.testemunha2|default:"Não atribuída" }}</p>
+        <div class="detail-item-full">
+            <strong>Testemunhas:</strong>
+            <div class="testemunha-container">
+                <p class="detail-item-value">1ª Testemunha: {{ patd.testemunha1|default:"Não atribuída" }}</p>
+                <p class="detail-item-value">2ª Testemunha: {{ patd.testemunha2|default:"Não atribuída" }}</p>
+            </div>
+        </div>
+        <div class="detail-item">
+            <strong>Data da Ocorrência:</strong>
+            <p class="detail-item-value">{{ patd.data_ocorrencia|date:"d/m/Y"|default:"Não informada" }}</p>
+        </div>
+        <div class="detail-item-full">
+            <strong>Descrição da Transgressão:</strong>
+            <p>{{ patd.transgressao|linebreaks }}</p>
         </div>
     </div>
-    <div class="detail-item">
-        <strong>Data da Ocorrência:</strong>
-        <p class="detail-item-value">{{ patd.data_ocorrencia|date:"d/m/Y"|default:"Não informada" }}</p>
-    </div>
-    <div class="detail-item-full">
-        <strong>Descrição da Transgressão:</strong>
-        <p>{{ patd.transgressao|linebreaks }}</p>
+    <div class="form-actions">
+        <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
+        <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
+        <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
     </div>
 </div>
-<div class="form-actions">
-    <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
-    <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
-    <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
+
+<div id="tab-documento" class="tab-panel">
+    <div id="documento-view" class="document-view"></div>
+    <!-- O texto original é guardado aqui para ser processado pelo JavaScript -->
+    <div id="documento-raw-text" style="display: none;">{{ patd.documento_texto }}</div>
 </div>
+
 <!-- Modal de Confirmação de Exclusão -->
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
@@ -88,6 +155,8 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = '{{ csrf_token }}';
+
     // Lógica do Modal de Exclusão
     const deleteModal = document.getElementById('delete-modal');
     const deleteBtn = document.getElementById('delete-patd-btn');
@@ -97,11 +166,9 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteBtn.addEventListener('click', () => {
             deleteModal.classList.add('active');
         });
-
         cancelDeleteBtn.addEventListener('click', () => {
             deleteModal.classList.remove('active');
         });
-
         deleteModal.addEventListener('click', function(event) {
             if (event.target === this) {
                 this.classList.remove('active');
@@ -112,12 +179,11 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- LÓGICA DO MODAL DE ASSINATURA ---
     const signatureModal = document.getElementById('signature-modal');
     const addSignatureBtn = document.getElementById('add-signature-btn');
-    const cancelSignatureBtn = document.getElementById('cancel-signature-btn');
-    const saveSignatureBtn = document.getElementById('save-signature-btn');
-    const clearSignatureBtn = document.getElementById('clear-signature-btn');
-    const canvas = document.getElementById('signature-canvas');
-
     if (addSignatureBtn) {
+        const cancelSignatureBtn = document.getElementById('cancel-signature-btn');
+        const saveSignatureBtn = document.getElementById('save-signature-btn');
+        const clearSignatureBtn = document.getElementById('clear-signature-btn');
+        const canvas = document.getElementById('signature-canvas');
         const signaturePad = new SignaturePad(canvas, {
             backgroundColor: 'rgb(255, 255, 255)'
         });
@@ -152,14 +218,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const signatureData = signaturePad.toDataURL('image/png');
             const url = `{% url 'Ouvidoria:salvar_assinatura' patd.pk %}`;
-            const csrfToken = '{{ csrf_token }}';
-
+            
             fetch(url, {
                 method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken
-                },
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                 body: JSON.stringify({ 'signature_data': signatureData })
             })
             .then(response => response.json())
@@ -176,6 +238,52 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // --- LÓGICA DAS ABAS ---
+    const tabLinks = document.querySelectorAll('.tab-link');
+    const tabPanels = document.querySelectorAll('.tab-panel');
+
+    tabLinks.forEach(link => {
+        link.addEventListener('click', (e) => {
+            e.preventDefault();
+            
+            tabLinks.forEach(l => l.classList.remove('active'));
+            tabPanels.forEach(p => p.classList.remove('active'));
+            
+            link.classList.add('active');
+            const targetPanel = document.getElementById(link.dataset.target);
+            if (targetPanel) {
+                targetPanel.classList.add('active');
+            }
+        });
+    });
+
+    // --- LÓGICA PARA RENDERIZAR O DOCUMENTO ---
+    function renderDocument() {
+        const rawTextContainer = document.getElementById('documento-raw-text');
+        const viewer = document.getElementById('documento-view');
+        
+        if (!rawTextContainer || !viewer) return;
+
+        let processedHtml = rawTextContainer.textContent;
+
+        // 1. Substitui os marcadores de assinatura por imagens
+        processedHtml = processedHtml.replace(/(data:image\/png;base64,[A-Za-z0-9+/=]+)/g, '<img class="signature-image-embedded" src="$1" alt="Assinatura">');
+        
+        // 2. Substitui o texto de "sem assinatura"
+        processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
+
+        // 3. Substitui os marcadores de negrito por tags <strong>
+        processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+
+        // 4. Substitui quebras de linha por <br>
+        processedHtml = processedHtml.replace(/\n/g, '<br>');
+
+        viewer.innerHTML = processedHtml;
+    }
+
+    // Renderiza o documento quando a página carrega
+    renderDocument();
 });
 </script>
 {% endblock %}

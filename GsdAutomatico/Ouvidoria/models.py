@@ -1,6 +1,40 @@
 from django.db import models
 from django.utils import timezone
 
+class Configuracao(models.Model):
+    """
+    Modelo Singleton para armazenar configurações globais da aplicação.
+    Haverá apenas uma linha nesta tabela.
+    """
+    comandante_gsd = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        limit_choices_to={'oficial': True},
+        verbose_name="Comandante do GSD Padrão"
+    )
+
+    def save(self, *args, **kwargs):
+        # Garante que só existe uma instância deste modelo
+        self.pk = 1
+        super(Configuracao, self).save(*args, **kwargs)
+
+    @classmethod
+    def load(cls):
+        # Método de conveniência para obter a instância de configuração
+        obj, created = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Configurações Gerais"
+
+    class Meta:
+        verbose_name = "Configuração Geral"
+        verbose_name_plural = "Configurações Gerais"
+
+
 class Militar(models.Model):
     """
     Tabela para armazenar o cadastro de todos os militares.
@@ -81,6 +115,7 @@ class PATD(models.Model):
         verbose_name="Status"
     )
     assinatura_oficial = models.TextField(blank=True, null=True, verbose_name="Assinatura do Oficial (Base64)")
+    documento_texto = models.TextField(blank=True, null=True, verbose_name="Texto do Documento")
 
     def __str__(self):
         return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"
@@ -90,19 +125,25 @@ class PATD(models.Model):
         is_new = self._state.adding
         orig = None
         if not is_new:
+            # Pega o estado original do objeto do banco de dados
             orig = PATD.objects.get(pk=self.pk)
 
-        # Lógica para avançar o status quando um oficial é definido
-        if self.oficial_responsavel and (is_new or orig.status == 'definicao_oficial'):
+        # --- LÓGICA DE ATUALIZAÇÃO DE STATUS ---
+        # 1. Se um oficial for REMOVIDO (deixou de ter um para não ter nenhum)
+        if not self.oficial_responsavel:
+            self.status = 'definicao_oficial'
+        # 2. Se um oficial for ADICIONADO pela primeira vez (ou se o status era 'aguardando')
+        elif self.oficial_responsavel and (is_new or (orig and orig.status == 'definicao_oficial')):
             self.status = 'ciencia_militar'
         
-        # ATRIBUIR ASSINATURA AUTOMATICAMENTE
-        if not is_new and orig.oficial_responsavel != self.oficial_responsavel:
-            # Se o novo oficial tiver uma assinatura padrão, copia-a para a PATD
+        # --- LÓGICA DE ATUALIZAÇÃO DE ASSINATURA ---
+        # Apenas executa se não for um objeto novo e se o oficial tiver mudado
+        if not is_new and orig and orig.oficial_responsavel != self.oficial_responsavel:
+            # Se um novo oficial foi atribuído e ele tem uma assinatura padrão
             if self.oficial_responsavel and self.oficial_responsavel.assinatura:
                 self.assinatura_oficial = self.oficial_responsavel.assinatura
+            # Se o oficial foi removido ou o novo oficial não tem assinatura
             else:
-                # Se não tiver, limpa a assinatura da PATD
                 self.assinatura_oficial = None
 
         super().save(*args, **kwargs)
