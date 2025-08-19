@@ -158,7 +158,7 @@ def generate_patd_document_text(patd):
             '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', '[Não informado]') if patd.oficial_responsavel else "[Oficial apurador não definido]",
 
             # Ocorrência
-            '{Ocorencia reescrita}': patd.transgressao,
+            '{Ocorrencia reescrita}': patd.transgressao,
         }
 
         # Substitui os placeholders no conteúdo lido do DOCX
@@ -174,6 +174,46 @@ def generate_patd_document_text(patd):
     except Exception as e:
         logger.error(f"Erro ao ler o ficheiro .docx: {e}")
         return f"ERRO: Ocorreu um problema ao processar o ficheiro modelo: {e}"
+
+def generate_alegacao_defesa_text(patd, alegacao_texto):
+    """
+    Gera o texto da alegação de defesa a partir de um modelo .docx.
+    """
+    try:
+        doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PATD_Alegacao_DF.docx')
+        document = docx.Document(doc_path)
+        
+        template_content = '\n'.join([para.text for para in document.paragraphs])
+        
+        now = timezone.now()
+        # *** CORREÇÃO APLICADA AQUI ***
+        data_alegacao_fmt = now.strftime('%d/%m/%Y')
+
+        replacements = {
+            '{Alegação de defesa}': alegacao_texto,
+            '<dia>': now.strftime('%d'),
+            '<Mês>': now.strftime('%B').capitalize(),
+            '<Ano>': now.strftime('%Y'),
+            '{Data da alegação}': data_alegacao_fmt,
+            '{Militar Arrolado}': format_militar_string(patd.militar),
+            '{Assinatura Militar Arrolado}': patd.assinatura_militar_ciencia or '[Assinatura não registrada]',
+            '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if patd.oficial_responsavel else '[Oficial não definido]',
+            '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else '[Oficial não definido]',
+            'PATD Nº 0947/BAGL-GSDGL/18072025': f'PATD Nº {patd.numero_patd}'
+        }
+
+        document_content = template_content
+        for placeholder, value in replacements.items():
+            document_content = document_content.replace(placeholder, str(value))
+            
+        return document_content
+
+    except FileNotFoundError:
+        logger.error(f"Ficheiro PATD_Alegacao_DF.docx não encontrado em {doc_path}")
+        return f"\n\n--- ERRO: Template de Alegação de Defesa não encontrado. ---"
+    except Exception as e:
+        logger.error(f"Erro ao gerar documento de alegação de defesa: {e}")
+        return f"\n\n--- ERRO ao processar documento de alegação de defesa: {e} ---"
 
 
 # --- View Principal do Analisador de PDF ---
@@ -452,7 +492,6 @@ class PATDDetailView(DetailView):
         patd = self.get_object()
         config = Configuracao.load()
         
-        # Lógica para verificar e atualizar o status se o prazo expirou
         if patd.status == 'aguardando_justificativa' and patd.data_ciencia:
             prazo_total_minutos = (config.prazo_defesa_dias * 24 * 60) + config.prazo_defesa_minutos
             deadline = patd.data_ciencia + timedelta(minutes=prazo_total_minutos)
@@ -461,20 +500,20 @@ class PATDDetailView(DetailView):
                 patd.status = 'prazo_expirado'
                 patd.save()
 
-        # Gera o texto do documento com os dados mais recentes da PATD
+        # Sempre gera o documento do zero para garantir que está atualizado
         document_content = generate_patd_document_text(patd)
         
-        # Atualiza o campo no objeto e no banco de dados se houver diferença
-        if patd.documento_texto != document_content:
-            patd.documento_texto = document_content
-            patd.save(update_fields=['documento_texto'])
+        # Anexa a alegação de defesa se ela existir
+        if patd.alegacao_defesa:
+            alegacao_content = generate_alegacao_defesa_text(patd, patd.alegacao_defesa)
+            document_content += "\n\n" + alegacao_content
+            
+        patd.documento_texto = document_content
 
-        # Adiciona a data atual e o prazo ao contexto para o JavaScript
         context['now_iso'] = timezone.now().isoformat()
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
         
-        # Atualiza o contexto com o objeto modificado
         context['patd'] = patd
         return context
 
@@ -538,7 +577,6 @@ def salvar_assinatura_ciencia(request, pk):
 
         patd.assinatura_militar_ciencia = signature_data
         patd.data_ciencia = timezone.now() # Salva a data e hora da ciência
-        # Avança o status
         patd.status = 'aguardando_justificativa'
         patd.save()
 
@@ -557,9 +595,10 @@ def salvar_alegacao_defesa(request, pk):
         if alegacao_texto is None:
              return JsonResponse({'status': 'error', 'message': 'Nenhum texto de alegação recebido.'}, status=400)
 
+        # Salva apenas o texto da alegação e o novo status
         patd.alegacao_defesa = alegacao_texto
-        patd.status = 'em_apuracao' # Avança para o próximo status
-        patd.save()
+        patd.status = 'em_apuracao' 
+        patd.save(update_fields=['alegacao_defesa', 'status'])
 
         return JsonResponse({'status': 'success', 'message': 'Alegação de defesa salva com sucesso.'})
     except Exception as e:
@@ -570,15 +609,31 @@ def salvar_alegacao_defesa(request, pk):
 def extender_prazo(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        if patd.status == 'prazo_expirado':
-            patd.data_ciencia = timezone.now() # Reinicia o contador a partir de agora
-            patd.status = 'aguardando_justificativa'
-            patd.save()
-            return JsonResponse({'status': 'success', 'message': 'Prazo extendido com sucesso.'})
-        else:
-            return JsonResponse({'status': 'error', 'message': 'O prazo só pode ser extendido se estiver expirado.'}, status=400)
+        if patd.status != 'prazo_expirado':
+            return JsonResponse({'status': 'error', 'message': 'O prazo só pode ser estendido se estiver expirado.'}, status=400)
+
+        data = json.loads(request.body)
+        dias_extensao = int(data.get('dias', 0))
+        minutos_extensao = int(data.get('minutos', 0))
+
+        if dias_extensao < 0 or minutos_extensao < 0:
+            return JsonResponse({'status': 'error', 'message': 'Valores de extensão de prazo inválidos.'}, status=400)
+
+        config = Configuracao.load()
+        
+        delta_dias = config.prazo_defesa_dias - dias_extensao
+        delta_minutos = config.prazo_defesa_minutos - minutos_extensao
+
+        patd.data_ciencia = timezone.now() - timedelta(days=delta_dias, minutes=delta_minutos)
+        patd.status = 'aguardando_justificativa'
+        patd.save()
+        
+        return JsonResponse({'status': 'success', 'message': 'Prazo estendido com sucesso.'})
+
+    except (ValueError, TypeError):
+        return JsonResponse({'status': 'error', 'message': 'Dados de entrada inválidos.'}, status=400)
     except Exception as e:
-        logger.error(f"Erro ao extender prazo da PATD {pk}: {e}")
+        logger.error(f"Erro ao estender prazo da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 

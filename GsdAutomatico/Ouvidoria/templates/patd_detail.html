@@ -173,11 +173,9 @@
 
 <div id="tab-documento" class="tab-panel">
     <div id="documento-view" class="document-view"></div>
-    <!-- O texto original é guardado aqui para ser processado pelo JavaScript -->
     <div id="documento-raw-text" style="display: none;">{{ patd.documento_texto }}</div>
 </div>
 
-<!-- Modal de Confirmação de Exclusão -->
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
         <h3>Confirmar Exclusão</h3>
@@ -192,7 +190,6 @@
     </div>
 </div>
 
-<!-- Modal de Assinatura do Oficial -->
 <div class="modal-overlay" id="signature-modal">
     <div class="modal-content">
         <h3>Assinatura do Oficial</h3>
@@ -208,7 +205,6 @@
     </div>
 </div>
 
-<!-- Modal de Assinatura de Ciência do Militar -->
 <div class="modal-overlay" id="signature-modal-ciencia">
     <div class="signature-modal-content">
         <h3>Registrar Ciência da Acusação</h3>
@@ -224,7 +220,6 @@
     </div>
 </div>
 
-<!-- Modal de Alegação de Defesa -->
 <div class="modal-overlay" id="defesa-modal">
     <div class="modal-content">
         <h3>Alegação de Defesa</h3>
@@ -237,7 +232,6 @@
     </div>
 </div>
 
-<!-- Modal de Confirmação de Defesa -->
 <div class="modal-overlay" id="confirm-defesa-modal">
     <div class="modal-content">
         <h3>Confirmar Envio</h3>
@@ -246,6 +240,29 @@
             <button type="button" class="btn btn-secondary" id="cancel-confirm-defesa-btn">Cancelar</button>
             <button type="button" class="btn btn-primary" id="final-submit-defesa-btn">Sim, Enviar</button>
         </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="extender-prazo-modal">
+    <div class="modal-content">
+        <h3>Extender Prazo de Defesa</h3>
+        <p>Defina o novo prazo para a entrega da alegação de defesa a contar de agora.</p>
+        <form id="extender-prazo-form" class="model-form">
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+                <p>
+                    <label for="extender-dias">Dias:</label>
+                    <input type="number" id="extender-dias" value="{{ prazo_defesa_dias }}" min="0">
+                </p>
+                <p>
+                    <label for="extender-minutos">Minutos:</label>
+                    <input type="number" id="extender-minutos" value="{{ prazo_defesa_minutos }}" min="0">
+                </p>
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-extender-prazo-btn">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Confirmar Extensão</button>
+            </div>
+        </form>
     </div>
 </div>
 {% endblock %}
@@ -445,7 +462,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- LÓGICA DO CONTADOR E EXTENSÃO DE PRAZO ---
     const countdownTimer = document.getElementById('countdown-timer');
-    const extenderPrazoBtn = document.getElementById('extender-prazo-btn');
     const prazoBox = document.getElementById('prazo-box');
 
     if (countdownTimer && '{{ patd.data_ciencia }}') {
@@ -476,6 +492,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 countdownTimer.textContent = "Prazo expirado.";
                 if(prazoBox) prazoBox.classList.add('expirado');
                 clearInterval(interval);
+                
+                // *** CORREÇÃO APLICADA AQUI ***
+                // Só recarrega a página se o status NÃO for 'prazo_expirado',
+                // para evitar o loop de recarregamento.
+                if ('{{ patd.status }}' !== 'prazo_expirado') {
+                    setTimeout(() => window.location.reload(), 1500);
+                }
                 return;
             }
 
@@ -488,12 +511,34 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1000);
     }
 
+    // --- LÓGICA DO MODAL DE EXTENDER PRAZO ---
+    const extenderPrazoBtn = document.getElementById('extender-prazo-btn');
+    const extenderPrazoModal = document.getElementById('extender-prazo-modal');
+    const cancelExtenderPrazoBtn = document.getElementById('cancel-extender-prazo-btn');
+    const extenderPrazoForm = document.getElementById('extender-prazo-form');
+
     if (extenderPrazoBtn) {
         extenderPrazoBtn.addEventListener('click', () => {
+            extenderPrazoModal.classList.add('active');
+        });
+
+        cancelExtenderPrazoBtn.addEventListener('click', () => {
+            extenderPrazoModal.classList.remove('active');
+        });
+
+        extenderPrazoForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            const dias = document.getElementById('extender-dias').value;
+            const minutos = document.getElementById('extender-minutos').value;
+            
             const url = `{% url 'Ouvidoria:extender_prazo' patd.pk %}`;
             fetch(url, {
                 method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken }
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken 
+                },
+                body: JSON.stringify({ 'dias': dias, 'minutos': minutos })
             })
             .then(response => response.json())
             .then(data => {
@@ -503,7 +548,10 @@ document.addEventListener('DOMContentLoaded', function() {
                     alert('Erro ao extender prazo: ' + data.message);
                 }
             })
-            .catch(error => console.error('Error:', error));
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocorreu um erro de comunicação.');
+            });
         });
     }
 
