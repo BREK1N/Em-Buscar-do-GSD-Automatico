@@ -360,43 +360,43 @@ p {
     border-left-color: var(--accent-color);
 }
 
-.settings-painels {
+.settings-panels {
     flex: 1;
     display: flex; /* Para controlar o conteúdo interno */
     flex-direction: column;
     overflow: hidden;
 }
 
-.settings-painel {
+.settings-panel {
     display: none;
     flex-direction: column;
     height: 100%;
 }
-.settings-painel.active {
+.settings-panel.active {
     display: flex;
 }
-.settings-painel-header {
+.settings-panel-header {
     padding: 20px 30px;
     border-bottom: 1px solid var(--border-color);
 }
-.settings-painel-header h3 {
+.settings-panel-header h3 {
     margin: 0;
 }
-.settings-painel-body {
+.settings-panel-body {
     padding: 20px 30px;
     overflow-y: auto; /* Apenas o corpo do painel terá scroll */
     flex-grow: 1;
 }
 
-.settings-painel .form-group {
+.settings-panel .form-group {
     margin-bottom: 20px;
 }
-.settings-painel .form-group label {
+.settings-panel .form-group label {
     display: block;
     font-weight: 500;
     margin-bottom: 8px;
 }
-.settings-painel .form-group select, .settings-painel .form-group input {
+.settings-panel .form-group select, .settings-panel .form-group input {
     width: 100%;
     padding: 10px;
     border-radius: 6px;
@@ -509,7 +509,7 @@ p {
     .settings-nav a.active, .settings-nav a:hover {
         border-bottom-color: var(--accent-color);
     }
-    .settings-painels {
+    .settings-panels {
         overflow-y: auto;
     }
 }
