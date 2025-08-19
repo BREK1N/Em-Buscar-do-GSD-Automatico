@@ -30,7 +30,13 @@
                 <td>
                     <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
                 </td>
-                <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
+                <td>
+                    {% if patd.data_ocorrencia %}
+                        {{ patd.data_ocorrencia|date:"d/m/Y" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
                 <td>{{ patd.get_status_display }}</td>
                 <td class="actions-cell">
                     <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">

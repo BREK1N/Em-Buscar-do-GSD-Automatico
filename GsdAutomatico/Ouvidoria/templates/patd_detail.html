@@ -54,6 +54,25 @@
         font-style: italic;
         color: var(--text-secondary);
     }
+    .btn-success { 
+        background: linear-gradient(45deg, var(--success-color), #5cb85c); 
+        color: #fff; 
+    }
+    .prazo-defesa {
+        background-color: var(--sidebar-active-bg);
+        border-left: 4px solid var(--warning-color);
+        padding: 15px;
+        margin-bottom: 20px;
+        border-radius: 4px;
+    }
+    .prazo-defesa.expirado {
+        border-left-color: var(--danger-color);
+    }
+    .prazo-defesa strong {
+        display: block;
+        margin-bottom: 5px;
+        color: var(--text-primary);
+    }
 </style>
 
 <h1>PATD Nº {{ patd.numero_patd }}</h1>
@@ -64,11 +83,21 @@
 </nav>
 
 <div id="tab-detalhes" class="tab-panel active">
+
+    {% if patd.status == 'aguardando_justificativa' or patd.status == 'prazo_expirado' %}
+    <div id="prazo-box" class="prazo-defesa">
+        <strong>Prazo para Alegação de Defesa:</strong>
+        <span id="countdown-timer">A calcular...</span>
+    </div>
+    {% endif %}
+
     <div class="detail-grid">
         <div class="detail-item">
             <strong>Militar Acusado:</strong>
             <p class="detail-item-value">
-                <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
+                <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">
+                    {{ patd.militar.posto }} {{ patd.militar.especializacao }} {{ patd.militar.nome_completo }} (<strong>{{ patd.militar.nome_guerra }}</strong>)
+                </a>
             </p>
         </div>
         <div class="detail-item">
@@ -106,8 +135,36 @@
             <strong>Descrição da Transgressão:</strong>
             <p>{{ patd.transgressao|linebreaks }}</p>
         </div>
+        <div class="detail-item-full">
+            <strong>Ciência do Militar Acusado:</strong>
+            <div class="signature-display-container">
+                {% if patd.assinatura_militar_ciencia %}
+                    <img src="{{ patd.assinatura_militar_ciencia }}" alt="Assinatura do Militar" class="signature-image">
+                {% else %}
+                    <p class="detail-item-value">Aguardando assinatura de ciência.</p>
+                {% endif %}
+            </div>
+        </div>
+        {% if patd.alegacao_defesa %}
+        <div class="detail-item-full">
+            <strong>Alegação de Defesa:</strong>
+            <p>{{ patd.alegacao_defesa|linebreaks }}</p>
+        </div>
+        {% endif %}
     </div>
     <div class="form-actions">
+        {% if patd.status == 'ciencia_militar' and not patd.assinatura_militar_ciencia %}
+        <button type="button" class="btn btn-success" id="add-signature-ciencia-btn">Assinar Ciência</button>
+        {% endif %}
+
+        {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa %}
+        <button type="button" class="btn btn-primary" id="add-defesa-btn">Adicionar Alegação de Defesa</button>
+        {% endif %}
+
+        {% if patd.status == 'prazo_expirado' %}
+        <button type="button" class="btn btn-warning" id="extender-prazo-btn">Extender Prazo</button>
+        {% endif %}
+
         <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
         <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
         <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
@@ -135,9 +192,9 @@
     </div>
 </div>
 
-<!-- Modal de Assinatura -->
+<!-- Modal de Assinatura do Oficial -->
 <div class="modal-overlay" id="signature-modal">
-    <div class="signature-modal-content">
+    <div class="modal-content">
         <h3>Assinatura do Oficial</h3>
         <p>Desenhe a assinatura no campo abaixo.</p>
         <div class="canvas-container">
@@ -147,6 +204,47 @@
             <button type="button" class="btn btn-secondary" id="clear-signature-btn">Limpar</button>
             <button type="button" class="btn btn-secondary" id="cancel-signature-btn">Cancelar</button>
             <button type="button" class="btn btn-primary" id="save-signature-btn">Salvar Assinatura</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Assinatura de Ciência do Militar -->
+<div class="modal-overlay" id="signature-modal-ciencia">
+    <div class="signature-modal-content">
+        <h3>Registrar Ciência da Acusação</h3>
+        <p>Eu, {{ patd.militar }}, declaro ter ciência dos fatos a mim imputados.</p>
+        <div class="canvas-container">
+            <canvas id="signature-canvas-ciencia"></canvas>
+        </div>
+        <div class="form-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" id="clear-signature-btn-ciencia">Limpar</button>
+            <button type="button" class="btn btn-secondary" id="cancel-signature-btn-ciencia">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="save-signature-btn-ciencia">Confirmar Ciência</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Alegação de Defesa -->
+<div class="modal-overlay" id="defesa-modal">
+    <div class="modal-content">
+        <h3>Alegação de Defesa</h3>
+        <p>Escreva abaixo a sua alegação de defesa referente aos fatos imputados.</p>
+        <textarea id="alegacao-defesa-texto" style="width: 100%; min-height: 150px;"></textarea>
+        <div class="form-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" id="cancel-defesa-btn">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="submit-defesa-btn">Concluir</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Defesa -->
+<div class="modal-overlay" id="confirm-defesa-modal">
+    <div class="modal-content">
+        <h3>Confirmar Envio</h3>
+        <p>Tem a certeza de que deseja enviar a sua alegação de defesa? Esta ação é final e não poderá ser alterada.</p>
+        <div class="form-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" id="cancel-confirm-defesa-btn">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="final-submit-defesa-btn">Sim, Enviar</button>
         </div>
     </div>
 </div>
@@ -176,7 +274,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- LÓGICA DO MODAL DE ASSINATURA ---
+    // --- LÓGICA DO MODAL DE ASSINATURA DO OFICIAL ---
     const signatureModal = document.getElementById('signature-modal');
     const addSignatureBtn = document.getElementById('add-signature-btn');
     if (addSignatureBtn) {
@@ -238,6 +336,177 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
+
+    // --- LÓGICA DO MODAL DE ASSINATURA DE CIÊNCIA ---
+    const signatureModalCiencia = document.getElementById('signature-modal-ciencia');
+    const addSignatureCienciaBtn = document.getElementById('add-signature-ciencia-btn');
+    if (addSignatureCienciaBtn) {
+        const cancelSignatureCienciaBtn = document.getElementById('cancel-signature-btn-ciencia');
+        const saveSignatureCienciaBtn = document.getElementById('save-signature-btn-ciencia');
+        const clearSignatureCienciaBtn = document.getElementById('clear-signature-btn-ciencia');
+        const canvasCiencia = document.getElementById('signature-canvas-ciencia');
+        const signaturePadCiencia = new SignaturePad(canvasCiencia, {
+            backgroundColor: 'rgb(255, 255, 255)'
+        });
+
+        function resizeCanvasCiencia() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvasCiencia.width = canvasCiencia.offsetWidth * ratio;
+            canvasCiencia.height = canvasCiencia.offsetHeight * ratio;
+            canvasCiencia.getContext("2d").scale(ratio, ratio);
+            signaturePadCiencia.clear();
+        }
+        window.addEventListener("resize", resizeCanvasCiencia);
+        
+        addSignatureCienciaBtn.addEventListener('click', () => {
+            signatureModalCiencia.classList.add('active');
+            resizeCanvasCiencia();
+        });
+
+        cancelSignatureCienciaBtn.addEventListener('click', () => {
+            signatureModalCiencia.classList.remove('active');
+        });
+
+        clearSignatureCienciaBtn.addEventListener('click', () => {
+            signaturePadCiencia.clear();
+        });
+
+        saveSignatureCienciaBtn.addEventListener('click', () => {
+            if (signaturePadCiencia.isEmpty()) {
+                alert("Por favor, forneça a assinatura para confirmar a ciência.");
+                return;
+            }
+
+            const signatureData = signaturePadCiencia.toDataURL('image/png');
+            const url = `{% url 'Ouvidoria:salvar_assinatura_ciencia' patd.pk %}`;
+            
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ 'signature_data': signatureData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Erro ao registrar ciência: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocorreu um erro de comunicação.');
+            });
+        });
+    }
+
+    // --- LÓGICA DO MODAL DE ALEGAÇÃO DE DEFESA ---
+    const defesaModal = document.getElementById('defesa-modal');
+    const addDefesaBtn = document.getElementById('add-defesa-btn');
+    const cancelDefesaBtn = document.getElementById('cancel-defesa-btn');
+    const submitDefesaBtn = document.getElementById('submit-defesa-btn');
+    const confirmDefesaModal = document.getElementById('confirm-defesa-modal');
+    const cancelConfirmDefesaBtn = document.getElementById('cancel-confirm-defesa-btn');
+    const finalSubmitDefesaBtn = document.getElementById('final-submit-defesa-btn');
+    const alegacaoTexto = document.getElementById('alegacao-defesa-texto');
+
+    if(addDefesaBtn) {
+        addDefesaBtn.addEventListener('click', () => defesaModal.classList.add('active'));
+        cancelDefesaBtn.addEventListener('click', () => defesaModal.classList.remove('active'));
+        submitDefesaBtn.addEventListener('click', () => {
+            defesaModal.classList.remove('active');
+            confirmDefesaModal.classList.add('active');
+        });
+        cancelConfirmDefesaBtn.addEventListener('click', () => confirmDefesaModal.classList.remove('active'));
+
+        finalSubmitDefesaBtn.addEventListener('click', () => {
+            const url = `{% url 'Ouvidoria:salvar_alegacao_defesa' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ 'alegacao_defesa': alegacaoTexto.value })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Erro ao salvar alegação: ' + data.message);
+                    confirmDefesaModal.classList.remove('active');
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Ocorreu um erro de comunicação.');
+                confirmDefesaModal.classList.remove('active');
+            });
+        });
+    }
+
+    // --- LÓGICA DO CONTADOR E EXTENSÃO DE PRAZO ---
+    const countdownTimer = document.getElementById('countdown-timer');
+    const extenderPrazoBtn = document.getElementById('extender-prazo-btn');
+    const prazoBox = document.getElementById('prazo-box');
+
+    if (countdownTimer && '{{ patd.data_ciencia }}') {
+        const dataCiencia = new Date('{{ patd.data_ciencia|date:"c" }}');
+        const prazoDias = parseInt('{{ prazo_defesa_dias }}', 10) || 0;
+        const prazoMinutos = parseInt('{{ prazo_defesa_minutos }}', 10) || 0;
+        
+        function addBusinessDays(startDate, days) {
+            let currentDate = new Date(startDate);
+            let addedDays = 0;
+            while (addedDays < days) {
+                currentDate.setDate(currentDate.getDate() + 1);
+                if (currentDate.getDay() !== 0 && currentDate.getDay() !== 6) {
+                    addedDays++;
+                }
+            }
+            return currentDate;
+        }
+
+        let deadline = addBusinessDays(dataCiencia, prazoDias);
+        deadline.setMinutes(deadline.getMinutes() + prazoMinutos);
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const diff = deadline - now;
+
+            if (diff <= 0) {
+                countdownTimer.textContent = "Prazo expirado.";
+                if(prazoBox) prazoBox.classList.add('expirado');
+                clearInterval(interval);
+                return;
+            }
+
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+
+            countdownTimer.textContent = `${d}d ${h}h ${m}m ${s}s`;
+        }, 1000);
+    }
+
+    if (extenderPrazoBtn) {
+        extenderPrazoBtn.addEventListener('click', () => {
+            const url = `{% url 'Ouvidoria:extender_prazo' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Erro ao extender prazo: ' + data.message);
+                }
+            })
+            .catch(error => console.error('Error:', error));
+        });
+    }
+
 
     // --- LÓGICA DAS ABAS ---
     const tabLinks = document.querySelectorAll('.tab-link');

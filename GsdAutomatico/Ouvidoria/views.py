@@ -18,11 +18,13 @@ import os
 import tempfile
 from dotenv import load_dotenv
 import logging
-from datetime import datetime
+from datetime import datetime, timedelta
 from django.conf import settings
 import locale
 import docx
 import re
+from django.templatetags.static import static
+from django.utils import timezone
 
 # Configuração de logging para depuração
 logging.basicConfig(level=logging.INFO)
@@ -127,6 +129,9 @@ def generate_patd_document_text(patd):
     
         # Dicionário de substituições
         replacements = {
+            # Imagem
+            '{Brasao da Republica}': f'<img src="{static("img/brasao.png")}" alt="Brasão da República" style="width: 100px; height: auto;">',
+            
             # PATD Info
             '{N PATD}': str(patd.numero_patd),
 
@@ -142,7 +147,7 @@ def generate_patd_document_text(patd):
 
             # Militar Arrolado (Acusado)
             '{Militar Arrolado}': format_militar_string(patd.militar),
-            '{Assinatura Militar Arrolado}': getattr(patd.militar, 'assinatura', '[Sem assinatura]'),
+            '{Assinatura Militar Arrolado}': patd.assinatura_militar_ciencia or '[Sem assinatura]',
             '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
             '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]'),
 
@@ -445,7 +450,17 @@ class PATDDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         patd = self.get_object()
+        config = Configuracao.load()
         
+        # Lógica para verificar e atualizar o status se o prazo expirou
+        if patd.status == 'aguardando_justificativa' and patd.data_ciencia:
+            prazo_total_minutos = (config.prazo_defesa_dias * 24 * 60) + config.prazo_defesa_minutos
+            deadline = patd.data_ciencia + timedelta(minutes=prazo_total_minutos)
+            
+            if timezone.now() > deadline:
+                patd.status = 'prazo_expirado'
+                patd.save()
+
         # Gera o texto do documento com os dados mais recentes da PATD
         document_content = generate_patd_document_text(patd)
         
@@ -454,6 +469,11 @@ class PATDDetailView(DetailView):
             patd.documento_texto = document_content
             patd.save(update_fields=['documento_texto'])
 
+        # Adiciona a data atual e o prazo ao contexto para o JavaScript
+        context['now_iso'] = timezone.now().isoformat()
+        context['prazo_defesa_dias'] = config.prazo_defesa_dias
+        context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
+        
         # Atualiza o contexto com o objeto modificado
         context['patd'] = patd
         return context
@@ -505,6 +525,62 @@ def salvar_assinatura(request, pk):
         return JsonResponse({'status': 'error', 'message': 'PATD não encontrada.'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@require_POST
+def salvar_assinatura_ciencia(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+        signature_data = data.get('signature_data')
+
+        if not signature_data:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
+
+        patd.assinatura_militar_ciencia = signature_data
+        patd.data_ciencia = timezone.now() # Salva a data e hora da ciência
+        # Avança o status
+        patd.status = 'aguardando_justificativa'
+        patd.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Ciência registrada com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao salvar assinatura de ciência da PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@require_POST
+def salvar_alegacao_defesa(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+        alegacao_texto = data.get('alegacao_defesa')
+
+        if alegacao_texto is None:
+             return JsonResponse({'status': 'error', 'message': 'Nenhum texto de alegação recebido.'}, status=400)
+
+        patd.alegacao_defesa = alegacao_texto
+        patd.status = 'em_apuracao' # Avança para o próximo status
+        patd.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Alegação de defesa salva com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao salvar alegação de defesa da PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@require_POST
+def extender_prazo(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        if patd.status == 'prazo_expirado':
+            patd.data_ciencia = timezone.now() # Reinicia o contador a partir de agora
+            patd.status = 'aguardando_justificativa'
+            patd.save()
+            return JsonResponse({'status': 'success', 'message': 'Prazo extendido com sucesso.'})
+        else:
+            return JsonResponse({'status': 'error', 'message': 'O prazo só pode ser extendido se estiver expirado.'}, status=400)
+    except Exception as e:
+        logger.error(f"Erro ao extender prazo da PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 
 @require_POST
 def salvar_documento_patd(request, pk):
@@ -567,6 +643,8 @@ def gerenciar_configuracoes_padrao(request):
         try:
             data = json.loads(request.body)
             comandante_id = data.get('comandante_gsd_id')
+            prazo_dias = data.get('prazo_defesa_dias')
+            prazo_minutos = data.get('prazo_defesa_minutos')
             
             if comandante_id:
                 comandante = get_object_or_404(Militar, pk=comandante_id, oficial=True)
@@ -574,8 +652,15 @@ def gerenciar_configuracoes_padrao(request):
             else:
                 config.comandante_gsd = None
             
+            if prazo_dias is not None:
+                config.prazo_defesa_dias = int(prazo_dias)
+            if prazo_minutos is not None:
+                config.prazo_defesa_minutos = int(prazo_minutos)
+
             config.save()
             return JsonResponse({'status': 'success', 'message': 'Configurações salvas com sucesso.'})
+        except (ValueError, TypeError):
+            return JsonResponse({'status': 'error', 'message': 'Prazo de defesa inválido.'}, status=400)
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
@@ -588,6 +673,8 @@ def gerenciar_configuracoes_padrao(request):
     
     data = {
         'comandante_gsd_id': config.comandante_gsd.id if config.comandante_gsd else None,
-        'oficiais': oficiais_data
+        'oficiais': oficiais_data,
+        'prazo_defesa_dias': config.prazo_defesa_dias,
+        'prazo_defesa_minutos': config.prazo_defesa_minutos
     }
     return JsonResponse(data)

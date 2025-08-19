@@ -119,6 +119,16 @@
                                </select>
                                <small>Este oficial será pré-selecionado ao criar novas PATDs.</small>
                            </div>
+                           <div class="form-group">
+                                <label for="input-prazo-defesa-dias">Prazo para Defesa (dias úteis)</label>
+                                <input type="number" id="input-prazo-defesa-dias" name="prazo_defesa_dias" min="0" value="5">
+                                <small>Número de dias úteis que o militar tem para apresentar a sua defesa.</small>
+                           </div>
+                           <div class="form-group">
+                                <label for="input-prazo-defesa-minutos">Prazo para Defesa (minutos)</label>
+                                <input type="number" id="input-prazo-defesa-minutos" name="prazo_defesa_minutos" min="0" value="0">
+                                <small>Adiciona minutos ao prazo final (útil para testes).</small>
+                           </div>
                            <div class="form-actions" style="justify-content: flex-end;">
                                <button type="submit" class="btn btn-primary">Salvar Padrões</button>
                            </div>
@@ -362,6 +372,8 @@
             // --- LÓGICA PARA CONFIGURAÇÕES PADRÃO ---
             const formConfigPadroes = document.getElementById('form-config-padroes');
             const selectComandante = document.getElementById('select-comandante-gsd');
+            const inputPrazoDefesaDias = document.getElementById('input-prazo-defesa-dias');
+            const inputPrazoDefesaMinutos = document.getElementById('input-prazo-defesa-minutos');
             const padroesFeedback = document.getElementById('padroes-feedback');
 
             function loadConfigPadroes() {
@@ -378,6 +390,8 @@
                         if (data.comandante_gsd_id) {
                             selectComandante.value = data.comandante_gsd_id;
                         }
+                        inputPrazoDefesaDias.value = data.prazo_defesa_dias;
+                        inputPrazoDefesaMinutos.value = data.prazo_defesa_minutos;
                     })
                     .catch(error => {
                         selectComandante.innerHTML = '<option value="">Erro ao carregar</option>';
@@ -388,12 +402,18 @@
             formConfigPadroes.addEventListener('submit', function(e) {
                 e.preventDefault();
                 const comandanteId = selectComandante.value;
+                const prazoDias = inputPrazoDefesaDias.value;
+                const prazoMinutos = inputPrazoDefesaMinutos.value;
                 const url = "{% url 'Ouvidoria:gerenciar_configuracoes_padrao' %}";
 
                 fetch(url, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                    body: JSON.stringify({ 'comandante_gsd_id': comandanteId })
+                    body: JSON.stringify({ 
+                        'comandante_gsd_id': comandanteId,
+                        'prazo_defesa_dias': prazoDias,
+                        'prazo_defesa_minutos': prazoMinutos
+                    })
                 })
                 .then(response => response.json())
                 .then(data => {

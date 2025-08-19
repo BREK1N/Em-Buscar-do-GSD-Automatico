@@ -15,6 +15,14 @@ class Configuracao(models.Model):
         limit_choices_to={'oficial': True},
         verbose_name="Comandante do GSD Padrão"
     )
+    prazo_defesa_dias = models.IntegerField(
+        default=5,
+        verbose_name="Prazo para Defesa (dias úteis)"
+    )
+    prazo_defesa_minutos = models.IntegerField(
+        default=0,
+        verbose_name="Prazo para Defesa (minutos)"
+    )
 
     def save(self, *args, **kwargs):
         # Garante que só existe uma instância deste modelo
@@ -70,7 +78,7 @@ class PATD(models.Model):
     STATUS_CHOICES = [
         ('definicao_oficial', 'Aguardando definição do Oficial'),
         ('ciencia_militar', 'Aguardando ciência do militar'),
-        ('aguardando_justificativa', 'Aguardando Justificativa (5 dias)'),
+        ('aguardando_justificativa', 'Aguardando Justificativa'),
         ('prazo_expirado', 'Prazo expirado'),
         ('em_apuracao', 'Aguardando Apuração'),
         ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
@@ -108,6 +116,7 @@ class PATD(models.Model):
     data_ocorrencia = models.DateField(null=True, blank=True, verbose_name="Data da Ocorrência")
     data_inicio = models.DateTimeField(default=timezone.now, verbose_name="Data de Início")
     data_termino = models.DateTimeField(null=True, blank=True, verbose_name="Data de Término")
+    data_ciencia = models.DateTimeField(null=True, blank=True, verbose_name="Data da Ciência")
     status = models.CharField(
         max_length=50,
         choices=STATUS_CHOICES,
@@ -115,6 +124,8 @@ class PATD(models.Model):
         verbose_name="Status"
     )
     assinatura_oficial = models.TextField(blank=True, null=True, verbose_name="Assinatura do Oficial (Base64)")
+    assinatura_militar_ciencia = models.TextField(blank=True, null=True, verbose_name="Assinatura de Ciência do Militar (Base64)")
+    alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Alegação de Defesa")
     documento_texto = models.TextField(blank=True, null=True, verbose_name="Texto do Documento")
 
     def __str__(self):

@@ -22,6 +22,9 @@ urlpatterns = [
     path('patd/<int:pk>/excluir/', views.PATDDeleteView.as_view(), name='patd_delete'),
     path('patd/<int:pk>/salvar_assinatura/', views.salvar_assinatura, name='salvar_assinatura'),
     path('patd/<int:pk>/salvar_documento/', views.salvar_documento_patd, name='salvar_documento_patd'),
+    path('patd/<int:pk>/salvar_assinatura_ciencia/', views.salvar_assinatura_ciencia, name='salvar_assinatura_ciencia'),
+    path('patd/<int:pk>/salvar_alegacao_defesa/', views.salvar_alegacao_defesa, name='salvar_alegacao_defesa'),
+    path('patd/<int:pk>/extender_prazo/', views.extender_prazo, name='extender_prazo'),
 
     # CONFIGURAÇÃO DE ASSINATURAS
     path('config/oficiais/', views.lista_oficiais, name='lista_oficiais'),
