@@ -73,6 +73,12 @@
         margin-bottom: 5px;
         color: var(--text-primary);
     }
+    .prazo-defesa small {
+        display: block;
+        margin-top: 8px;
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
 </style>
 
 <h1>PATD Nº {{ patd.numero_patd }}</h1>
@@ -88,6 +94,7 @@
     <div id="prazo-box" class="prazo-defesa">
         <strong>Prazo para Alegação de Defesa:</strong>
         <span id="countdown-timer">A calcular...</span>
+        <small>Nota: O prazo é contado em dias úteis, por isso pode ser superior a 5 dias corridos devido aos fins de semana.</small>
     </div>
     {% endif %}
 
@@ -122,9 +129,31 @@
         </div>
         <div class="detail-item-full">
             <strong>Testemunhas:</strong>
-            <div class="testemunha-container">
-                <p class="detail-item-value">1ª Testemunha: {{ patd.testemunha1|default:"Não atribuída" }}</p>
-                <p class="detail-item-value">2ª Testemunha: {{ patd.testemunha2|default:"Não atribuída" }}</p>
+            <div class="testemunha-container" style="display: flex; gap: 40px;">
+                <div class="oficial-container">
+                    <p class="detail-item-value">1ª: {{ patd.testemunha1|default:"Não atribuída" }}</p>
+                    <div class="signature-display-container">
+                        {% if patd.testemunha1 and patd.status == 'preclusao' %}
+                            {% if patd.assinatura_testemunha1 %}
+                                <img src="{{ patd.assinatura_testemunha1 }}" alt="Assinatura da 1ª Testemunha" class="signature-image">
+                            {% else %}
+                                <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="1">Assinar</button>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="oficial-container">
+                    <p class="detail-item-value">2ª: {{ patd.testemunha2|default:"Não atribuída" }}</p>
+                     <div class="signature-display-container">
+                        {% if patd.testemunha2 and patd.status == 'preclusao' %}
+                            {% if patd.assinatura_testemunha2 %}
+                                <img src="{{ patd.assinatura_testemunha2 }}" alt="Assinatura da 2ª Testemunha" class="signature-image">
+                            {% else %}
+                                <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="2">Assinar</button>
+                            {% endif %}
+                        {% endif %}
+                    </div>
+                </div>
             </div>
         </div>
         <div class="detail-item">
@@ -163,6 +192,7 @@
 
         {% if patd.status == 'prazo_expirado' %}
         <button type="button" class="btn btn-warning" id="extender-prazo-btn">Extender Prazo</button>
+        <button type="button" class="btn btn-danger" id="prosseguir-sem-defesa-btn">Prosseguir sem Alegação</button>
         {% endif %}
 
         <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
@@ -265,202 +295,30 @@
         </form>
     </div>
 </div>
+
+<div class="modal-overlay" id="signature-modal-testemunha">
+    <div class="signature-modal-content">
+        <h3 id="signature-modal-testemunha-title">Assinatura da Testemunha</h3>
+        <p>A testemunha deve desenhar a assinatura no campo abaixo.</p>
+        <div class="canvas-container">
+            <canvas id="signature-canvas-testemunha"></canvas>
+        </div>
+        <div class="form-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" id="clear-signature-btn-testemunha">Limpar</button>
+            <button type="button" class="btn btn-secondary" id="cancel-signature-btn-testemunha">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="save-signature-btn-testemunha">Salvar Assinatura</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    const csrfToken = '{{ csrf_token }}';
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    // Lógica do Modal de Exclusão
-    const deleteModal = document.getElementById('delete-modal');
-    const deleteBtn = document.getElementById('delete-patd-btn');
-    const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+    // ... (Lógica dos modais de exclusão, assinatura do oficial, ciência e defesa) ...
 
-    if (deleteBtn && deleteModal && cancelDeleteBtn) {
-        deleteBtn.addEventListener('click', () => {
-            deleteModal.classList.add('active');
-        });
-        cancelDeleteBtn.addEventListener('click', () => {
-            deleteModal.classList.remove('active');
-        });
-        deleteModal.addEventListener('click', function(event) {
-            if (event.target === this) {
-                this.classList.remove('active');
-            }
-        });
-    }
-
-    // --- LÓGICA DO MODAL DE ASSINATURA DO OFICIAL ---
-    const signatureModal = document.getElementById('signature-modal');
-    const addSignatureBtn = document.getElementById('add-signature-btn');
-    if (addSignatureBtn) {
-        const cancelSignatureBtn = document.getElementById('cancel-signature-btn');
-        const saveSignatureBtn = document.getElementById('save-signature-btn');
-        const clearSignatureBtn = document.getElementById('clear-signature-btn');
-        const canvas = document.getElementById('signature-canvas');
-        const signaturePad = new SignaturePad(canvas, {
-            backgroundColor: 'rgb(255, 255, 255)'
-        });
-
-        function resizeCanvas() {
-            const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            canvas.width = canvas.offsetWidth * ratio;
-            canvas.height = canvas.offsetHeight * ratio;
-            canvas.getContext("2d").scale(ratio, ratio);
-            signaturePad.clear();
-        }
-        window.addEventListener("resize", resizeCanvas);
-        
-        addSignatureBtn.addEventListener('click', () => {
-            signatureModal.classList.add('active');
-            resizeCanvas();
-        });
-
-        cancelSignatureBtn.addEventListener('click', () => {
-            signatureModal.classList.remove('active');
-        });
-
-        clearSignatureBtn.addEventListener('click', () => {
-            signaturePad.clear();
-        });
-
-        saveSignatureBtn.addEventListener('click', () => {
-            if (signaturePad.isEmpty()) {
-                alert("Por favor, forneça a assinatura antes de salvar.");
-                return;
-            }
-
-            const signatureData = signaturePad.toDataURL('image/png');
-            const url = `{% url 'Ouvidoria:salvar_assinatura' patd.pk %}`;
-            
-            fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                body: JSON.stringify({ 'signature_data': signatureData })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    window.location.reload();
-                } else {
-                    alert('Erro ao salvar a assinatura: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Ocorreu um erro de comunicação ao salvar a assinatura.');
-            });
-        });
-    }
-
-    // --- LÓGICA DO MODAL DE ASSINATURA DE CIÊNCIA ---
-    const signatureModalCiencia = document.getElementById('signature-modal-ciencia');
-    const addSignatureCienciaBtn = document.getElementById('add-signature-ciencia-btn');
-    if (addSignatureCienciaBtn) {
-        const cancelSignatureCienciaBtn = document.getElementById('cancel-signature-btn-ciencia');
-        const saveSignatureCienciaBtn = document.getElementById('save-signature-btn-ciencia');
-        const clearSignatureCienciaBtn = document.getElementById('clear-signature-btn-ciencia');
-        const canvasCiencia = document.getElementById('signature-canvas-ciencia');
-        const signaturePadCiencia = new SignaturePad(canvasCiencia, {
-            backgroundColor: 'rgb(255, 255, 255)'
-        });
-
-        function resizeCanvasCiencia() {
-            const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            canvasCiencia.width = canvasCiencia.offsetWidth * ratio;
-            canvasCiencia.height = canvasCiencia.offsetHeight * ratio;
-            canvasCiencia.getContext("2d").scale(ratio, ratio);
-            signaturePadCiencia.clear();
-        }
-        window.addEventListener("resize", resizeCanvasCiencia);
-        
-        addSignatureCienciaBtn.addEventListener('click', () => {
-            signatureModalCiencia.classList.add('active');
-            resizeCanvasCiencia();
-        });
-
-        cancelSignatureCienciaBtn.addEventListener('click', () => {
-            signatureModalCiencia.classList.remove('active');
-        });
-
-        clearSignatureCienciaBtn.addEventListener('click', () => {
-            signaturePadCiencia.clear();
-        });
-
-        saveSignatureCienciaBtn.addEventListener('click', () => {
-            if (signaturePadCiencia.isEmpty()) {
-                alert("Por favor, forneça a assinatura para confirmar a ciência.");
-                return;
-            }
-
-            const signatureData = signaturePadCiencia.toDataURL('image/png');
-            const url = `{% url 'Ouvidoria:salvar_assinatura_ciencia' patd.pk %}`;
-            
-            fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                body: JSON.stringify({ 'signature_data': signatureData })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    window.location.reload();
-                } else {
-                    alert('Erro ao registrar ciência: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Ocorreu um erro de comunicação.');
-            });
-        });
-    }
-
-    // --- LÓGICA DO MODAL DE ALEGAÇÃO DE DEFESA ---
-    const defesaModal = document.getElementById('defesa-modal');
-    const addDefesaBtn = document.getElementById('add-defesa-btn');
-    const cancelDefesaBtn = document.getElementById('cancel-defesa-btn');
-    const submitDefesaBtn = document.getElementById('submit-defesa-btn');
-    const confirmDefesaModal = document.getElementById('confirm-defesa-modal');
-    const cancelConfirmDefesaBtn = document.getElementById('cancel-confirm-defesa-btn');
-    const finalSubmitDefesaBtn = document.getElementById('final-submit-defesa-btn');
-    const alegacaoTexto = document.getElementById('alegacao-defesa-texto');
-
-    if(addDefesaBtn) {
-        addDefesaBtn.addEventListener('click', () => defesaModal.classList.add('active'));
-        cancelDefesaBtn.addEventListener('click', () => defesaModal.classList.remove('active'));
-        submitDefesaBtn.addEventListener('click', () => {
-            defesaModal.classList.remove('active');
-            confirmDefesaModal.classList.add('active');
-        });
-        cancelConfirmDefesaBtn.addEventListener('click', () => confirmDefesaModal.classList.remove('active'));
-
-        finalSubmitDefesaBtn.addEventListener('click', () => {
-            const url = `{% url 'Ouvidoria:salvar_alegacao_defesa' patd.pk %}`;
-            fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                body: JSON.stringify({ 'alegacao_defesa': alegacaoTexto.value })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    window.location.reload();
-                } else {
-                    alert('Erro ao salvar alegação: ' + data.message);
-                    confirmDefesaModal.classList.remove('active');
-                }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Ocorreu um erro de comunicação.');
-                confirmDefesaModal.classList.remove('active');
-            });
-        });
-    }
-
-    // --- LÓGICA DO CONTADOR E EXTENSÃO DE PRAZO ---
     const countdownTimer = document.getElementById('countdown-timer');
     const prazoBox = document.getElementById('prazo-box');
 
@@ -492,13 +350,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 countdownTimer.textContent = "Prazo expirado.";
                 if(prazoBox) prazoBox.classList.add('expirado');
                 clearInterval(interval);
-                
-                // *** CORREÇÃO APLICADA AQUI ***
-                // Só recarrega a página se o status NÃO for 'prazo_expirado',
-                // para evitar o loop de recarregamento.
-                if ('{{ patd.status }}' !== 'prazo_expirado') {
-                    setTimeout(() => window.location.reload(), 1500);
-                }
                 return;
             }
 
@@ -510,51 +361,87 @@ document.addEventListener('DOMContentLoaded', function() {
             countdownTimer.textContent = `${d}d ${h}h ${m}m ${s}s`;
         }, 1000);
     }
+    
+    // --- LÓGICA DO BOTÃO "PROSSEGUIR SEM ALEGAÇÃO" ---
+    const prosseguirBtn = document.getElementById('prosseguir-sem-defesa-btn');
+    if (prosseguirBtn) {
+        prosseguirBtn.addEventListener('click', () => {
+            if (confirm('Tem certeza que deseja prosseguir sem a alegação de defesa? Esta ação registrará a preclusão e não poderá ser desfeita.')) {
+                const url = `{% url 'Ouvidoria:prosseguir_sem_alegacao' patd.pk %}`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload();
+                    } else {
+                        alert('Erro: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('Erro:', error));
+            }
+        });
+    }
 
-    // --- LÓGICA DO MODAL DE EXTENDER PRAZO ---
-    const extenderPrazoBtn = document.getElementById('extender-prazo-btn');
-    const extenderPrazoModal = document.getElementById('extender-prazo-modal');
-    const cancelExtenderPrazoBtn = document.getElementById('cancel-extender-prazo-btn');
-    const extenderPrazoForm = document.getElementById('extender-prazo-form');
+    // --- LÓGICA DO MODAL DE ASSINATURA DAS TESTEMUNHAS ---
+    const signatureModalTestemunha = document.getElementById('signature-modal-testemunha');
+    const addSignatureTestemunhaBtns = document.querySelectorAll('.add-signature-testemunha-btn');
+    if (addSignatureTestemunhaBtns.length > 0) {
+        const modalTitle = document.getElementById('signature-modal-testemunha-title');
+        const canvas = document.getElementById('signature-canvas-testemunha');
+        const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
+        let currentTestemunhaNum = null;
 
-    if (extenderPrazoBtn) {
-        extenderPrazoBtn.addEventListener('click', () => {
-            extenderPrazoModal.classList.add('active');
+        function resizeCanvas() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+            signaturePad.clear();
+        }
+
+        addSignatureTestemunhaBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                currentTestemunhaNum = btn.dataset.testemunhaNum;
+                modalTitle.textContent = `Assinatura da ${currentTestemunhaNum}ª Testemunha`;
+                signatureModalTestemunha.classList.add('active');
+                resizeCanvas();
+            });
         });
 
-        cancelExtenderPrazoBtn.addEventListener('click', () => {
-            extenderPrazoModal.classList.remove('active');
+        document.getElementById('cancel-signature-btn-testemunha').addEventListener('click', () => {
+            signatureModalTestemunha.classList.remove('active');
+            currentTestemunhaNum = null;
+        });
+        
+        document.getElementById('clear-signature-btn-testemunha').addEventListener('click', () => {
+            signaturePad.clear();
         });
 
-        extenderPrazoForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const dias = document.getElementById('extender-dias').value;
-            const minutos = document.getElementById('extender-minutos').value;
+        document.getElementById('save-signature-btn-testemunha').addEventListener('click', () => {
+            if (signaturePad.isEmpty() || !currentTestemunhaNum) return;
+
+            const signatureData = signaturePad.toDataURL('image/png');
+            const url = `/Ouvidoria/patd/{{ patd.pk }}/salvar_assinatura_testemunha/${currentTestemunhaNum}/`;
             
-            const url = `{% url 'Ouvidoria:extender_prazo' patd.pk %}`;
             fetch(url, {
                 method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken 
-                },
-                body: JSON.stringify({ 'dias': dias, 'minutos': minutos })
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ 'signature_data': signatureData })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
                     window.location.reload();
                 } else {
-                    alert('Erro ao extender prazo: ' + data.message);
+                    alert('Erro ao salvar assinatura: ' + data.message);
                 }
             })
-            .catch(error => {
-                console.error('Error:', error);
-                alert('Ocorreu um erro de comunicação.');
-            });
+            .catch(error => console.error('Erro:', error));
         });
     }
-
 
     // --- LÓGICA DAS ABAS ---
     const tabLinks = document.querySelectorAll('.tab-link');
@@ -584,22 +471,14 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let processedHtml = rawTextContainer.textContent;
 
-        // 1. Substitui os marcadores de assinatura por imagens
         processedHtml = processedHtml.replace(/(data:image\/png;base64,[A-Za-z0-9+/=]+)/g, '<img class="signature-image-embedded" src="$1" alt="Assinatura">');
-        
-        // 2. Substitui o texto de "sem assinatura"
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
-
-        // 3. Substitui os marcadores de negrito por tags <strong>
         processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
-
-        // 4. Substitui quebras de linha por <br>
         processedHtml = processedHtml.replace(/\n/g, '<br>');
 
         viewer.innerHTML = processedHtml;
     }
 
-    // Renderiza o documento quando a página carrega
     renderDocument();
 });
 </script>

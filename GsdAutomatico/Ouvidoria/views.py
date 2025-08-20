@@ -126,6 +126,7 @@ def generate_patd_document_text(patd):
         # Prepara os dados para substituição
         data_inicio = patd.data_inicio
         data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else "[Data não informada]"
+        data_patd_fmt = data_inicio.strftime('%d%m%Y')
     
         # Dicionário de substituições
         replacements = {
@@ -134,6 +135,7 @@ def generate_patd_document_text(patd):
             
             # PATD Info
             '{N PATD}': str(patd.numero_patd),
+            '{DataPatd}': data_patd_fmt,
 
             # Datas
             '{dia}': data_inicio.strftime('%d'),
@@ -186,8 +188,11 @@ def generate_alegacao_defesa_text(patd, alegacao_texto):
         template_content = '\n'.join([para.text for para in document.paragraphs])
         
         now = timezone.now()
-        # *** CORREÇÃO APLICADA AQUI ***
         data_alegacao_fmt = now.strftime('%d/%m/%Y')
+
+        data_inicio = patd.data_inicio
+        data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else "[Data não informada]"
+        data_patd_fmt = data_inicio.strftime('%d%m%Y')
 
         replacements = {
             '{Alegação de defesa}': alegacao_texto,
@@ -199,7 +204,8 @@ def generate_alegacao_defesa_text(patd, alegacao_texto):
             '{Assinatura Militar Arrolado}': patd.assinatura_militar_ciencia or '[Assinatura não registrada]',
             '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if patd.oficial_responsavel else '[Oficial não definido]',
             '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else '[Oficial não definido]',
-            'PATD Nº 0947/BAGL-GSDGL/18072025': f'PATD Nº {patd.numero_patd}'
+            '{DataPatd}': data_patd_fmt,
+            '{N PATD}': str(patd.numero_patd),
         }
 
         document_content = template_content
@@ -215,9 +221,68 @@ def generate_alegacao_defesa_text(patd, alegacao_texto):
         logger.error(f"Erro ao gerar documento de alegação de defesa: {e}")
         return f"\n\n--- ERRO ao processar documento de alegação de defesa: {e} ---"
 
+def generate_preclusao_document_text(patd):
+   
+    # Gera o texto do termo de preclusão a partir de um modelo .docx.
+    
+    try:
+        doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PRECLUSAO.docx')
+        document = docx.Document(doc_path)
+        
+        template_content = '\n'.join([para.text for para in document.paragraphs])
+        
+        now = timezone.now()
+        config = Configuracao.load()
+        
+        # Calcula o prazo final para exibição no documento
+        dias_uteis_a_adicionar = config.prazo_defesa_dias
+        data_final = patd.data_ciencia
+        dias_adicionados = 0
+        while dias_adicionados < dias_uteis_a_adicionar:
+            data_final += timedelta(days=1)
+            if data_final.weekday() < 5:
+                dias_adicionados += 1
+        deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
+
+        data_inicio = patd.data_inicio
+        data_patd_fmt = data_inicio.strftime('%d%m%Y')
+
+        replacements = {
+            '{N PATD}': str(patd.numero_patd),
+            '{DataPatd}': data_patd_fmt,
+            '{dia}': now.strftime('%d'),
+            '{Mês}': now.strftime('%B').capitalize(),
+            '{Ano}': now.strftime('%Y'),
+            '{Data Final Prazo}': deadline.strftime('%d/%m/%Y às %H:%M'),
+            '{Militar Arrolado}': format_militar_string(patd.militar),
+            '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
+            '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if patd.oficial_responsavel else '[Oficial não definido]',
+            '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else '[Oficial não definido]',
+            '{Testemunha 1}': format_militar_string(patd.testemunha1) if patd.testemunha1 else '[Testemunha não definida]',
+            '{Assinatura Testemunha 1}': patd.assinatura_testemunha1 or '[Sem assinatura]',
+            '{Testemunha 2}': format_militar_string(patd.testemunha2) if patd.testemunha2 else '[Testemunha não definida]',
+            '{Assinatura Testemunha 2}': patd.assinatura_testemunha2 or '[Sem assinatura]',
+        }
+
+        document_content = template_content
+        for placeholder, value in replacements.items():
+            document_content = document_content.replace(placeholder, str(value))
+            
+        return document_content
+
+    except FileNotFoundError:
+        return "\n\n--- ERRO: Template PRECLUSAO.docx não encontrado. ---"
+    except Exception as e:
+        return f"\n\n--- ERRO ao processar documento de preclusão: {e} ---"
+
 
 # --- View Principal do Analisador de PDF ---
 def index(request):
+    config = Configuracao.load()
+    context = {
+        'prazo_defesa_dias': config.prazo_defesa_dias,
+        'prazo_defesa_minutos': config.prazo_defesa_minutos,
+    }
     if request.method == 'POST':
         action = request.POST.get('action', 'analyze')
 
@@ -332,10 +397,15 @@ def index(request):
                 logger.error(f"Erro na análise do PDF: {e}")
                 return JsonResponse({'status': 'error', 'message': f"Ocorreu um erro ao analisar o ficheiro: {e}"}, status=500)
     
-    return render(request, 'indexOuvidoria.html')
+    return render(request, 'indexOuvidoria.html', context)
 
 # --- View para Importação de Excel ---
 def importar_excel(request):
+    config = Configuracao.load()
+    context = {
+        'prazo_defesa_dias': config.prazo_defesa_dias,
+        'prazo_defesa_minutos': config.prazo_defesa_minutos,
+    }
     if request.method == 'POST':
         excel_file = request.FILES.get('excel_file')
         if not excel_file:
@@ -417,7 +487,7 @@ def importar_excel(request):
 
         return redirect('Ouvidoria:importar_excel')
 
-    return render(request, 'importar_excel.html')
+    return render(request, 'importar_excel.html', context)
 
 
 # --- Views CRUD para Militares ---
@@ -447,6 +517,13 @@ class MilitarListView(ListView):
                 Q(saram__icontains=query)
             )
         return qs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        config = Configuracao.load()
+        context['prazo_defesa_dias'] = config.prazo_defesa_dias
+        context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
+        return context
 
 class MilitarCreateView(CreateView):
     model = Militar
@@ -481,6 +558,13 @@ class PATDListView(ListView):
                 Q(militar__nome_guerra__icontains=query)
             )
         return qs
+    
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        config = Configuracao.load()
+        context['prazo_defesa_dias'] = config.prazo_defesa_dias
+        context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
+        return context
 
 class PATDDetailView(DetailView):
     model = PATD
@@ -492,14 +576,6 @@ class PATDDetailView(DetailView):
         patd = self.get_object()
         config = Configuracao.load()
         
-        if patd.status == 'aguardando_justificativa' and patd.data_ciencia:
-            prazo_total_minutos = (config.prazo_defesa_dias * 24 * 60) + config.prazo_defesa_minutos
-            deadline = patd.data_ciencia + timedelta(minutes=prazo_total_minutos)
-            
-            if timezone.now() > deadline:
-                patd.status = 'prazo_expirado'
-                patd.save()
-
         # Sempre gera o documento do zero para garantir que está atualizado
         document_content = generate_patd_document_text(patd)
         
@@ -507,6 +583,11 @@ class PATDDetailView(DetailView):
         if patd.alegacao_defesa:
             alegacao_content = generate_alegacao_defesa_text(patd, patd.alegacao_defesa)
             document_content += "\n\n" + alegacao_content
+        
+        # Anexa o termo de preclusão se existir
+        if patd.status == 'preclusao':
+            preclusao_content = generate_preclusao_document_text(patd)
+            document_content += "\n\n" + preclusao_content
             
         patd.documento_texto = document_content
 
@@ -733,3 +814,124 @@ def gerenciar_configuracoes_padrao(request):
         'prazo_defesa_minutos': config.prazo_defesa_minutos
     }
     return JsonResponse(data)
+
+# --- VIEWS PARA NOTIFICAÇÕES ---
+@require_GET
+def patds_expirados_json(request):
+    """
+    Retorna uma lista de todas as PATDs com status 'prazo_expirado' em formato JSON.
+    """
+    patds_expiradas = PATD.objects.filter(status='prazo_expirado').select_related('militar')
+    data = [{
+        'id': patd.id,
+        'numero_patd': patd.numero_patd,
+        'militar_nome': str(patd.militar)
+    } for patd in patds_expiradas]
+    return JsonResponse(data, safe=False)
+
+@require_POST
+def extender_prazo_massa(request):
+    """
+    Estende o prazo de todas as PATDs que estão com o status 'prazo_expirado'.
+    """
+    try:
+        data = json.loads(request.body)
+        dias_extensao = int(data.get('dias', 5)) # Padrão de 5 dias
+        minutos_extensao = int(data.get('minutos', 0))
+
+        if dias_extensao < 0 or minutos_extensao < 0:
+            return JsonResponse({'status': 'error', 'message': 'Valores de extensão inválidos.'}, status=400)
+
+        patds_expiradas = PATD.objects.filter(status='prazo_expirado')
+        if not patds_expiradas.exists():
+            return JsonResponse({'status': 'no_action', 'message': 'Nenhuma PATD com prazo expirado para atualizar.'})
+
+        count = 0
+        for patd in patds_expiradas:
+            config = Configuracao.load()
+            delta_dias = config.prazo_defesa_dias - dias_extensao
+            delta_minutos = config.prazo_defesa_minutos - minutos_extensao
+            
+            patd.data_ciencia = timezone.now() - timedelta(days=delta_dias, minutes=delta_minutos)
+            patd.status = 'aguardando_justificativa'
+            patd.save()
+            count += 1
+
+        return JsonResponse({'status': 'success', 'message': f'{count} prazos foram estendidos com sucesso.'})
+
+    except (ValueError, TypeError):
+        return JsonResponse({'status': 'error', 'message': 'Dados de entrada inválidos.'}, status=400)
+    except Exception as e:
+        logger.error(f"Erro ao estender prazos em massa: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@require_POST
+def verificar_e_atualizar_prazos(request):
+    """
+    Verifica todas as PATDs 'aguardando_justificativa' e atualiza o status
+    daquelas cujo prazo expirou.
+    """
+    try:
+        patds_pendentes = PATD.objects.filter(status='aguardando_justificativa')
+        config = Configuracao.load()
+        prazos_atualizados = 0
+
+        for patd in patds_pendentes:
+            if patd.data_ciencia:
+                dias_uteis_a_adicionar = config.prazo_defesa_dias
+                data_final = patd.data_ciencia
+                dias_adicionados = 0
+                
+                while dias_adicionados < dias_uteis_a_adicionar:
+                    data_final += timedelta(days=1)
+                    if data_final.weekday() < 5:
+                        dias_adicionados += 1
+
+                deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
+
+                if timezone.now() > deadline:
+                    patd.status = 'prazo_expirado'
+                    patd.save(update_fields=['status'])
+                    prazos_atualizados += 1
+        
+        return JsonResponse({'status': 'success', 'updated_count': prazos_atualizados})
+    except Exception as e:
+        logger.error(f"Erro ao verificar e atualizar prazos: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@require_POST
+def prosseguir_sem_alegacao(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        if patd.status != 'prazo_expirado':
+            return JsonResponse({'status': 'error', 'message': 'Ação permitida apenas para PATDs com prazo expirado.'}, status=400)
+
+        patd.status = 'preclusao'
+        patd.save(update_fields=['status'])
+        return JsonResponse({'status': 'success', 'message': 'PATD atualizada para Preclusão. O processo seguirá sem a alegação de defesa.'})
+    except Exception as e:
+        logger.error(f"Erro ao prosseguir sem alegação para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@require_POST
+def salvar_assinatura_testemunha(request, pk, testemunha_num):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+        signature_data = data.get('signature_data')
+
+        if not signature_data:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
+
+        if testemunha_num == 1:
+            patd.assinatura_testemunha1 = signature_data
+        elif testemunha_num == 2:
+            patd.assinatura_testemunha2 = signature_data
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Número de testemunha inválido.'}, status=400)
+        
+        patd.save()
+        return JsonResponse({'status': 'success', 'message': f'Assinatura da {testemunha_num}ª testemunha salva.'})
+    except Exception as e:
+        logger.error(f"Erro ao salvar assinatura da testemunha {testemunha_num} para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

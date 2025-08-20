@@ -80,6 +80,7 @@ class PATD(models.Model):
         ('ciencia_militar', 'Aguardando ciência do militar'),
         ('aguardando_justificativa', 'Aguardando Justificativa'),
         ('prazo_expirado', 'Prazo expirado'),
+        ('preclusao', 'Preclusão - Sem Defesa'),
         ('em_apuracao', 'Aguardando Apuração'),
         ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
         ('aguardando_assinatura', 'Aguardando Assinatura NPD'),
@@ -125,6 +126,8 @@ class PATD(models.Model):
     )
     assinatura_oficial = models.TextField(blank=True, null=True, verbose_name="Assinatura do Oficial (Base64)")
     assinatura_militar_ciencia = models.TextField(blank=True, null=True, verbose_name="Assinatura de Ciência do Militar (Base64)")
+    assinatura_testemunha1 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 1ª Testemunha (Base64)")
+    assinatura_testemunha2 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 2ª Testemunha (Base64)")
     alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Alegação de Defesa")
     documento_texto = models.TextField(blank=True, null=True, verbose_name="Texto do Documento")
 
