@@ -109,7 +109,7 @@
         </div>
         <div class="detail-item">
             <strong>Status:</strong>
-            <p class="detail-item-value">{{ patd.get_status_display }}</p>
+            <p id="patd-status" class="detail-item-value">{{ patd.get_status_display }}</p>
         </div>
         <div class="detail-item-full">
             <strong>Oficial Responsável:</strong>
@@ -119,7 +119,6 @@
                     {% if patd.oficial_responsavel %}
                         {% if patd.assinatura_oficial %}
                             <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
-                            <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn" style="margin-left: 15px;">Alterar Assinatura</button>
                         {% else %}
                             <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
                         {% endif %}
@@ -181,7 +180,7 @@
         </div>
         {% endif %}
     </div>
-    <div class="form-actions">
+    <div class="form-actions" id="form-actions-container">
         {% if patd.status == 'ciencia_militar' and not patd.assinatura_militar_ciencia %}
         <button type="button" class="btn btn-success" id="add-signature-ciencia-btn">Assinar Ciência</button>
         {% endif %}
@@ -316,17 +315,152 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
+    let isExpired = `{{ patd.status }}` === 'prazo_expirado';
 
-    // ... (Lógica dos modais de exclusão, assinatura do oficial, ciência e defesa) ...
+    // --- LÓGICA DO MODAL DE EXCLUSÃO ---
+    const deleteBtn = document.getElementById('delete-patd-btn');
+    const deleteModal = document.getElementById('delete-modal');
+    if (deleteBtn && deleteModal) {
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        deleteBtn.addEventListener('click', () => deleteModal.classList.add('active'));
+        cancelDeleteBtn.addEventListener('click', () => deleteModal.classList.remove('active'));
+        deleteModal.addEventListener('click', (e) => {
+            if (e.target === deleteModal) deleteModal.classList.remove('active');
+        });
+    }
 
+    // --- LÓGICA DO MODAL DE ASSINATURA DE CIÊNCIA ---
+    const addSignatureCienciaBtn = document.getElementById('add-signature-ciencia-btn');
+    const signatureModalCiencia = document.getElementById('signature-modal-ciencia');
+    if (addSignatureCienciaBtn && signatureModalCiencia) {
+        const canvasCiencia = document.getElementById('signature-canvas-ciencia');
+        const signaturePadCiencia = new SignaturePad(canvasCiencia, { backgroundColor: 'rgb(255, 255, 255)' });
+        function resizeCanvasCiencia() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvasCiencia.width = canvasCiencia.offsetWidth * ratio;
+            canvasCiencia.height = canvasCiencia.offsetHeight * ratio;
+            canvasCiencia.getContext("2d").scale(ratio, ratio);
+            signaturePadCiencia.clear();
+        }
+        addSignatureCienciaBtn.addEventListener('click', () => {
+            signatureModalCiencia.classList.add('active');
+            resizeCanvasCiencia();
+        });
+        document.getElementById('cancel-signature-btn-ciencia').addEventListener('click', () => signatureModalCiencia.classList.remove('active'));
+        document.getElementById('clear-signature-btn-ciencia').addEventListener('click', () => signaturePadCiencia.clear());
+        document.getElementById('save-signature-btn-ciencia').addEventListener('click', () => {
+            if (signaturePadCiencia.isEmpty()) {
+                alert("Por favor, forneça a assinatura.");
+                return;
+            }
+            const signatureData = signaturePadCiencia.toDataURL('image/png');
+            const url = `{% url 'Ouvidoria:salvar_assinatura_ciencia' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ 'signature_data': signatureData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') window.location.reload();
+                else alert('Erro: ' + data.message);
+            })
+            .catch(error => console.error('Erro:', error));
+        });
+    }
+
+    // --- LÓGICA DO MODAL DE ALEGAÇÃO DE DEFESA ---
+    const addDefesaBtn = document.getElementById('add-defesa-btn');
+    const defesaModal = document.getElementById('defesa-modal');
+    const confirmDefesaModal = document.getElementById('confirm-defesa-modal');
+    if (addDefesaBtn && defesaModal) {
+        const cancelDefesaBtn = document.getElementById('cancel-defesa-btn');
+        const submitDefesaBtn = document.getElementById('submit-defesa-btn');
+        const cancelConfirmDefesaBtn = document.getElementById('cancel-confirm-defesa-btn');
+        const finalSubmitDefesaBtn = document.getElementById('final-submit-defesa-btn');
+        const alegacaoText = document.getElementById('alegacao-defesa-texto');
+        addDefesaBtn.addEventListener('click', () => defesaModal.classList.add('active'));
+        cancelDefesaBtn.addEventListener('click', () => defesaModal.classList.remove('active'));
+        submitDefesaBtn.addEventListener('click', () => {
+            if (alegacaoText.value.trim() === "") {
+                alert("O campo de alegação de defesa não pode estar vazio.");
+                return;
+            }
+            defesaModal.classList.remove('active');
+            confirmDefesaModal.classList.add('active');
+        });
+        cancelConfirmDefesaBtn.addEventListener('click', () => confirmDefesaModal.classList.remove('active'));
+        finalSubmitDefesaBtn.addEventListener('click', () => {
+            const url = `{% url 'Ouvidoria:salvar_alegacao_defesa' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ 'alegacao_defesa': alegacaoText.value })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') window.location.reload();
+                else alert('Erro: ' + data.message);
+            })
+            .catch(error => console.error('Erro:', error));
+        });
+    }
+
+    // --- LÓGICA DE PRAZO EXPIRADO ---
+    const extenderPrazoModal = document.getElementById('extender-prazo-modal');
+    const extenderPrazoBtn = document.getElementById('extender-prazo-btn');
+    const prosseguirBtn = document.getElementById('prosseguir-sem-defesa-btn');
+    
+    function handleProsseguirSemAlegacao() {
+        if (confirm('Tem certeza que deseja prosseguir sem a alegação de defesa? Esta ação registrará a preclusão e não poderá ser desfeita.')) {
+            const url = `{% url 'Ouvidoria:prosseguir_sem_alegacao' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') window.location.reload();
+                else alert('Erro: ' + data.message);
+            })
+            .catch(error => console.error('Erro:', error));
+        }
+    }
+    
+    if (extenderPrazoBtn) {
+        extenderPrazoBtn.addEventListener('click', () => extenderPrazoModal.classList.add('active'));
+    }
+    if (prosseguirBtn) {
+        prosseguirBtn.addEventListener('click', handleProsseguirSemAlegacao);
+    }
+    if (extenderPrazoModal) {
+        document.getElementById('cancel-extender-prazo-btn').addEventListener('click', () => extenderPrazoModal.classList.remove('active'));
+        document.getElementById('extender-prazo-form').addEventListener('submit', (e) => {
+            e.preventDefault();
+            const dias = document.getElementById('extender-dias').value;
+            const minutos = document.getElementById('extender-minutos').value;
+            const url = `{% url 'Ouvidoria:extender_prazo' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ 'dias': dias, 'minutos': minutos })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') window.location.reload();
+                else alert('Erro: ' + data.message);
+            })
+            .catch(error => console.error('Erro:', error));
+        });
+    }
+
+    // --- LÓGICA DO CONTADOR E ATUALIZAÇÃO DINÂMICA DA UI ---
     const countdownTimer = document.getElementById('countdown-timer');
     const prazoBox = document.getElementById('prazo-box');
-
     if (countdownTimer && '{{ patd.data_ciencia }}') {
         const dataCiencia = new Date('{{ patd.data_ciencia|date:"c" }}');
         const prazoDias = parseInt('{{ prazo_defesa_dias }}', 10) || 0;
         const prazoMinutos = parseInt('{{ prazo_defesa_minutos }}', 10) || 0;
-        
         function addBusinessDays(startDate, days) {
             let currentDate = new Date(startDate);
             let addedDays = 0;
@@ -338,57 +472,63 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return currentDate;
         }
-
         let deadline = addBusinessDays(dataCiencia, prazoDias);
         deadline.setMinutes(deadline.getMinutes() + prazoMinutos);
 
         const interval = setInterval(() => {
             const now = new Date();
             const diff = deadline - now;
-
             if (diff <= 0) {
                 countdownTimer.textContent = "Prazo expirado.";
                 if(prazoBox) prazoBox.classList.add('expirado');
                 clearInterval(interval);
+                if (!isExpired) {
+                    isExpired = true;
+                    showExpiredButtons();
+                }
                 return;
             }
-
             const d = Math.floor(diff / (1000 * 60 * 60 * 24));
             const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
             const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const s = Math.floor((diff % (1000 * 60)) / 1000);
-
             countdownTimer.textContent = `${d}d ${h}h ${m}m ${s}s`;
         }, 1000);
     }
     
-    // --- LÓGICA DO BOTÃO "PROSSEGUIR SEM ALEGAÇÃO" ---
-    const prosseguirBtn = document.getElementById('prosseguir-sem-defesa-btn');
-    if (prosseguirBtn) {
-        prosseguirBtn.addEventListener('click', () => {
-            if (confirm('Tem certeza que deseja prosseguir sem a alegação de defesa? Esta ação registrará a preclusão e não poderá ser desfeita.')) {
-                const url = `{% url 'Ouvidoria:prosseguir_sem_alegacao' patd.pk %}`;
-                fetch(url, {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken }
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        window.location.reload();
-                    } else {
-                        alert('Erro: ' + data.message);
-                    }
-                })
-                .catch(error => console.error('Erro:', error));
-            }
-        });
+    function showExpiredButtons() {
+        const actionsContainer = document.getElementById('form-actions-container');
+        const addDefesaBtn = document.getElementById('add-defesa-btn');
+        const statusElement = document.getElementById('patd-status');
+        if (addDefesaBtn) addDefesaBtn.remove();
+        if (statusElement) statusElement.textContent = "Prazo expirado";
+        
+        if (!document.getElementById('extender-prazo-btn')) {
+            const extenderBtn = document.createElement('button');
+            extenderBtn.type = 'button';
+            extenderBtn.className = 'btn btn-warning';
+            extenderBtn.id = 'extender-prazo-btn';
+            extenderBtn.textContent = 'Extender Prazo';
+            extenderBtn.addEventListener('click', () => extenderPrazoModal.classList.add('active'));
+            actionsContainer.insertBefore(extenderBtn, actionsContainer.firstChild);
+        }
+        if (!document.getElementById('prosseguir-sem-defesa-btn')) {
+            const prosseguirBtn = document.createElement('button');
+            prosseguirBtn.type = 'button';
+            prosseguirBtn.className = 'btn btn-danger';
+            prosseguirBtn.id = 'prosseguir-sem-defesa-btn';
+            prosseguirBtn.textContent = 'Prosseguir sem Alegação';
+            prosseguirBtn.addEventListener('click', handleProsseguirSemAlegacao);
+            const extenderBtn = document.getElementById('extender-prazo-btn');
+            if (extenderBtn) extenderBtn.insertAdjacentElement('afterend', prosseguirBtn);
+            else actionsContainer.insertBefore(prosseguirBtn, actionsContainer.firstChild);
+        }
     }
-
+    
     // --- LÓGICA DO MODAL DE ASSINATURA DAS TESTEMUNHAS ---
-    const signatureModalTestemunha = document.getElementById('signature-modal-testemunha');
     const addSignatureTestemunhaBtns = document.querySelectorAll('.add-signature-testemunha-btn');
     if (addSignatureTestemunhaBtns.length > 0) {
+        const signatureModalTestemunha = document.getElementById('signature-modal-testemunha');
         const modalTitle = document.getElementById('signature-modal-testemunha-title');
         const canvas = document.getElementById('signature-canvas-testemunha');
         const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
@@ -411,21 +551,12 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
-        document.getElementById('cancel-signature-btn-testemunha').addEventListener('click', () => {
-            signatureModalTestemunha.classList.remove('active');
-            currentTestemunhaNum = null;
-        });
-        
-        document.getElementById('clear-signature-btn-testemunha').addEventListener('click', () => {
-            signaturePad.clear();
-        });
-
+        document.getElementById('cancel-signature-btn-testemunha').addEventListener('click', () => signatureModalTestemunha.classList.remove('active'));
+        document.getElementById('clear-signature-btn-testemunha').addEventListener('click', () => signaturePad.clear());
         document.getElementById('save-signature-btn-testemunha').addEventListener('click', () => {
             if (signaturePad.isEmpty() || !currentTestemunhaNum) return;
-
             const signatureData = signaturePad.toDataURL('image/png');
             const url = `/Ouvidoria/patd/{{ patd.pk }}/salvar_assinatura_testemunha/${currentTestemunhaNum}/`;
-            
             fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
@@ -433,11 +564,8 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
-                if (data.status === 'success') {
-                    window.location.reload();
-                } else {
-                    alert('Erro ao salvar assinatura: ' + data.message);
-                }
+                if (data.status === 'success') window.location.reload();
+                else alert('Erro: ' + data.message);
             })
             .catch(error => console.error('Erro:', error));
         });
@@ -446,19 +574,14 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- LÓGICA DAS ABAS ---
     const tabLinks = document.querySelectorAll('.tab-link');
     const tabPanels = document.querySelectorAll('.tab-panel');
-
     tabLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
-            
             tabLinks.forEach(l => l.classList.remove('active'));
             tabPanels.forEach(p => p.classList.remove('active'));
-            
             link.classList.add('active');
             const targetPanel = document.getElementById(link.dataset.target);
-            if (targetPanel) {
-                targetPanel.classList.add('active');
-            }
+            if (targetPanel) targetPanel.classList.add('active');
         });
     });
 
@@ -466,16 +589,12 @@ document.addEventListener('DOMContentLoaded', function() {
     function renderDocument() {
         const rawTextContainer = document.getElementById('documento-raw-text');
         const viewer = document.getElementById('documento-view');
-        
         if (!rawTextContainer || !viewer) return;
-
         let processedHtml = rawTextContainer.textContent;
-
         processedHtml = processedHtml.replace(/(data:image\/png;base64,[A-Za-z0-9+/=]+)/g, '<img class="signature-image-embedded" src="$1" alt="Assinatura">');
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
         processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         processedHtml = processedHtml.replace(/\n/g, '<br>');
-
         viewer.innerHTML = processedHtml;
     }
 

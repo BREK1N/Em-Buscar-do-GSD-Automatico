@@ -61,8 +61,7 @@
                         </div>
                         <div class="notifications-panel-body">
                             <ul class="notificacoes-list" id="notificacoes-list-container">
-                                <!-- Conteúdo carregado via JS -->
-                            </ul>
+                                </ul>
                         </div>
                     </div>
                 </div>
@@ -172,7 +171,6 @@
         </div>
     </div>
 
-    <!-- MODAL PARA EXTENSÃO INDIVIDUAL DE PRAZO -->
     <div class="modal-overlay" id="extender-prazo-individual-modal">
         <div class="modal-content">
             <h3 id="extender-individual-title">Extender Prazo de Defesa</h3>
@@ -197,7 +195,6 @@
         </div>
     </div>
 
-    <!-- MODAL DE ASSINATURA (REUTILIZADO) -->
     <div class="modal-overlay" id="signature-modal-pessoal">
         <div class="signature-modal-content">
             <h3 id="signature-modal-title">Definir Assinatura Padrão</h3>
@@ -538,6 +535,7 @@
                                         <div class="notificacao-actions">
                                             <a href="/Ouvidoria/patd/${patd.id}/" class="btn btn-sm btn-secondary">Ver</a>
                                             <button class="btn btn-sm btn-warning extender-prazo-individual-btn" data-patd-id="${patd.id}" data-patd-numero="${patd.numero_patd}">Estender</button>
+                                            <button class="btn btn-sm btn-danger prosseguir-sem-alegacao-btn" data-patd-id="${patd.id}">Prosseguir</button>
                                         </div>
                                     `;
                                     notificacoesListContainer.appendChild(listItem);
@@ -548,6 +546,28 @@
                         }
                     })
                     .catch(error => console.error('Erro ao carregar notificações:', error));
+            }
+
+            function prosseguirSemAlegacaoFromNotificacao(patdId) {
+                if (confirm('Tem certeza que deseja prosseguir sem a alegação de defesa? Esta ação registrará a preclusão e não poderá ser desfeita.')) {
+                    const url = `/Ouvidoria/patd/${patdId}/prosseguir_sem_alegacao/`;
+                    fetch(url, {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken }
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success') {
+                            loadNotificacoes(true); // Recarrega a lista de notificações
+                            if (window.location.pathname.includes(`/patd/${patdId}`)) {
+                                window.location.reload();
+                            }
+                        } else {
+                            alert('Erro: ' + data.message);
+                        }
+                    })
+                    .catch(error => console.error('Erro:', error));
+                }
             }
 
             function verificarPrazosBackend() {
@@ -587,6 +607,9 @@
                     document.getElementById('extender-patd-id').value = patdId;
                     
                     extenderIndividualModal.classList.add('active');
+                } else if (e.target.classList.contains('prosseguir-sem-alegacao-btn')) {
+                    const patdId = e.target.dataset.patdId;
+                    prosseguirSemAlegacaoFromNotificacao(patdId);
                 }
             });
 
