@@ -25,6 +25,22 @@ import docx
 import re
 from django.templatetags.static import static
 from django.utils import timezone
+from django.contrib.auth.decorators import login_required, user_passes_test
+from django.contrib.auth.mixins import UserPassesTestMixin
+from django.utils.decorators import method_decorator
+
+# --- Funções e Mixins de Permissão ---
+def has_ouvidoria_access(user):
+    """Verifica se o utilizador pertence ao grupo 'Ouvidoria' ou é um superutilizador."""
+    return user.groups.filter(name='Ouvidoria').exists() or user.is_superuser
+
+class OuvidoriaAccessMixin(UserPassesTestMixin):
+    """Mixin para Class-Based Views para verificar a permissão de acesso à Ouvidoria."""
+    def test_func(self):
+        return has_ouvidoria_access(self.request.user)
+
+ouvidoria_required = user_passes_test(has_ouvidoria_access)
+
 
 # Configuração de logging para depuração
 logging.basicConfig(level=logging.INFO)
@@ -277,6 +293,8 @@ def generate_preclusao_document_text(patd):
 
 
 # --- View Principal do Analisador de PDF ---
+@login_required
+@ouvidoria_required
 def index(request):
     config = Configuracao.load()
     context = {
@@ -400,6 +418,8 @@ def index(request):
     return render(request, 'indexOuvidoria.html', context)
 
 # --- View para Importação de Excel ---
+@login_required
+@ouvidoria_required
 def importar_excel(request):
     config = Configuracao.load()
     context = {
@@ -491,6 +511,7 @@ def importar_excel(request):
 
 
 # --- Views CRUD para Militares ---
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarListView(ListView):
     model = Militar
     template_name = 'militar_list.html'
@@ -525,24 +546,28 @@ class MilitarListView(ListView):
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
         return context
 
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarCreateView(CreateView):
     model = Militar
     form_class = MilitarForm
     template_name = 'militar_form.html'
     success_url = reverse_lazy('Ouvidoria:militar_list')
 
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarUpdateView(UpdateView):
     model = Militar
     form_class = MilitarForm
     template_name = 'militar_form.html'
     success_url = reverse_lazy('Ouvidoria:militar_list')
 
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarDeleteView(DeleteView):
     model = Militar
     template_name = 'militar_confirm_delete.html'
     success_url = reverse_lazy('Ouvidoria:militar_list')
 
 # --- Views CRUD para PATDs ---
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class PATDListView(ListView):
     model = PATD
     template_name = 'patd_list.html'
@@ -566,6 +591,7 @@ class PATDListView(ListView):
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
         return context
 
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class PATDDetailView(DetailView):
     model = PATD
     template_name = 'patd_detail.html'
@@ -598,7 +624,7 @@ class PATDDetailView(DetailView):
         context['patd'] = patd
         return context
 
-
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class PATDUpdateView(UpdateView):
     model = PATD
     form_class = PATDForm
@@ -607,10 +633,12 @@ class PATDUpdateView(UpdateView):
     def get_success_url(self):
         return reverse_lazy('Ouvidoria:patd_detail', kwargs={'pk': self.object.pk})
 
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class PATDDeleteView(DeleteView):
     model = PATD
     success_url = reverse_lazy('Ouvidoria:patd_list')
 
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarPATDListView(ListView):
     model = PATD
     template_name = 'militar_patd_list.html'
@@ -627,6 +655,8 @@ class MilitarPATDListView(ListView):
         return context
 
 # --- Views para Assinaturas e Documentos ---
+@login_required
+@ouvidoria_required
 @require_POST
 def salvar_assinatura(request, pk):
     try:
@@ -646,6 +676,8 @@ def salvar_assinatura(request, pk):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+@login_required
+@ouvidoria_required
 @require_POST
 def salvar_assinatura_ciencia(request, pk):
     try:
@@ -666,6 +698,8 @@ def salvar_assinatura_ciencia(request, pk):
         logger.error(f"Erro ao salvar assinatura de ciência da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+@login_required
+@ouvidoria_required
 @require_POST
 def salvar_alegacao_defesa(request, pk):
     try:
@@ -686,6 +720,8 @@ def salvar_alegacao_defesa(request, pk):
         logger.error(f"Erro ao salvar alegação de defesa da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+@login_required
+@ouvidoria_required
 @require_POST
 def extender_prazo(request, pk):
     try:
@@ -717,7 +753,8 @@ def extender_prazo(request, pk):
         logger.error(f"Erro ao estender prazo da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-
+@login_required
+@ouvidoria_required
 @require_POST
 def salvar_documento_patd(request, pk):
     try:
@@ -738,6 +775,8 @@ def salvar_documento_patd(request, pk):
 
 
 # --- VIEWS PARA CONFIGURAÇÕES ---
+@login_required
+@ouvidoria_required
 @require_GET
 def lista_oficiais(request):
     """Retorna uma lista de todos os oficiais, com filtro de pesquisa."""
@@ -754,6 +793,8 @@ def lista_oficiais(request):
     data = list(oficiais.values('id', 'posto', 'nome_guerra', 'assinatura'))
     return JsonResponse(data, safe=False)
 
+@login_required
+@ouvidoria_required
 @require_POST
 def salvar_assinatura_padrao(request, pk):
     """Salva ou atualiza a assinatura padrão de um oficial."""
@@ -771,6 +812,8 @@ def salvar_assinatura_padrao(request, pk):
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+@login_required
+@ouvidoria_required
 def gerenciar_configuracoes_padrao(request):
     """View para carregar e salvar as configurações padrão."""
     config = Configuracao.load()
@@ -816,6 +859,8 @@ def gerenciar_configuracoes_padrao(request):
     return JsonResponse(data)
 
 # --- VIEWS PARA NOTIFICAÇÕES ---
+@login_required
+@ouvidoria_required
 @require_GET
 def patds_expirados_json(request):
     """
@@ -829,6 +874,8 @@ def patds_expirados_json(request):
     } for patd in patds_expiradas]
     return JsonResponse(data, safe=False)
 
+@login_required
+@ouvidoria_required
 @require_POST
 def extender_prazo_massa(request):
     """
@@ -865,6 +912,8 @@ def extender_prazo_massa(request):
         logger.error(f"Erro ao estender prazos em massa: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+@login_required
+@ouvidoria_required
 @require_POST
 def verificar_e_atualizar_prazos(request):
     """
@@ -899,6 +948,8 @@ def verificar_e_atualizar_prazos(request):
         logger.error(f"Erro ao verificar e atualizar prazos: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+@login_required
+@ouvidoria_required
 @require_POST
 def prosseguir_sem_alegacao(request, pk):
     try:
@@ -913,6 +964,8 @@ def prosseguir_sem_alegacao(request, pk):
         logger.error(f"Erro ao prosseguir sem alegação para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+@login_required
+@ouvidoria_required
 @require_POST
 def salvar_assinatura_testemunha(request, pk, testemunha_num):
     try:
@@ -935,3 +988,22 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da testemunha {testemunha_num} para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+# --- View para a API de Pesquisa de Militares ---
+@login_required
+@require_GET
+def search_militares_json(request):
+    """Retorna uma lista de militares para a pesquisa no modal."""
+    query = request.GET.get('q', '')
+    militares = Militar.objects.all()
+    
+    if query:
+        militares = militares.filter(
+            Q(nome_completo__icontains=query) | 
+            Q(nome_guerra__icontains=query) |
+            Q(posto__icontains=query)
+        )
+        
+    militares = militares.order_by('posto', 'nome_guerra')[:50] # Limita a 50 resultados
+    data = list(militares.values('id', 'posto', 'nome_guerra', 'nome_completo'))
+    return JsonResponse(data, safe=False)

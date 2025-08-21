@@ -26,7 +26,7 @@ SECRET_KEY = 'django-insecure-w#_+gs!e^t(7+xgg*1yz1d%*)mdt1m^i=p-%g8rw+8qb2a27$&
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = ['*']
 
 
 # Application definition
@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'Ouvidoria',
+    'login',
 ]
 
 MIDDLEWARE = [
@@ -137,3 +138,9 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# A linha AUTH_USER_MODEL foi removida para usar o modelo de utilizador padrão do Django.
+
+LOGIN_URL = 'login:login'
+LOGIN_REDIRECT_URL = 'Ouvidoria:index'
+LOGOUT_REDIRECT_URL = 'login:login'

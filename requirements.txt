@@ -9,3 +9,4 @@ sqlparse==0.4.3
 tzdata==2022.7
 openpyxl==3.1.2
 psycopg2-binary
+django-select2==8.1.2

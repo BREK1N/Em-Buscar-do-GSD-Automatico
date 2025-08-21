@@ -37,4 +37,6 @@ urlpatterns = [
     path('notificacoes/patds-expirados/', views.patds_expirados_json, name='patds_expirados_json'),
     path('notificacoes/extender-prazo-massa/', views.extender_prazo_massa, name='extender_prazo_massa'),
     path('notificacoes/verificar-prazos/', views.verificar_e_atualizar_prazos, name='verificar_e_atualizar_prazos'),
+
+    path('api/search-militares/', views.search_militares_json, name='search_militares_json')
 ]
