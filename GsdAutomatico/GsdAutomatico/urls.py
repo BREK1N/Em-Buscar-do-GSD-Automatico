@@ -22,3 +22,5 @@ urlpatterns = [
     path('Ouvidoria/', include('Ouvidoria.urls')),   
     path('', include('login.urls')),
 ]
+
+handler404 = 'login.views.custom_404_view'

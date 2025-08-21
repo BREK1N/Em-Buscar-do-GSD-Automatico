@@ -4,73 +4,17 @@
 
 {% block extra_head %}
     <style>
-        /* Estilos para o campo de seleção de militar */
-        .militar-selector {
-            display: flex;
-            align-items: center;
-            gap: 15px;
-            padding: 10px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            background-color: var(--bg-main);
-        }
-        #selected-militar-name {
-            flex-grow: 1;
-            color: var(--text-secondary);
-            font-style: italic;
-        }
-        #selected-militar-name.selected {
-            color: var(--text-primary);
-            font-style: normal;
-        }
-
-        /* Estilos para as caixas de seleção de permissões */
-        .permissions-grid {
-            display: grid;
-            grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-            gap: 15px;
-            margin-top: 10px;
-        }
-        .permission-card {
-            background-color: var(--bg-main);
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            padding: 15px;
-            transition: all 0.2s ease-in-out;
-        }
-        .permission-card:hover {
-            border-color: var(--accent-color);
-        }
-        .permission-card input[type="checkbox"] {
-            display: none; /* Oculta o checkbox padrão */
-        }
-        .permission-card label {
-            display: flex;
-            align-items: center;
-            cursor: pointer;
-            font-weight: 500;
-        }
-        /* Cria um novo checkbox estilizado */
-        .permission-card label::before {
-            content: '';
-            display: inline-block;
-            width: 20px;
-            height: 20px;
-            margin-right: 12px;
-            border: 2px solid var(--border-color);
-            border-radius: 4px;
-            background-color: var(--bg-content);
-            transition: all 0.2s;
-        }
-        .permission-card input[type="checkbox"]:checked + label::before {
-            background-color: var(--accent-color);
-            border-color: var(--accent-color);
-            background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
-            background-repeat: no-repeat;
-            background-position: center;
-        }
-
-        /* Estilos para o Modal de Pesquisa */
+        /* (Estilos permanecem os mesmos) */
+        .militar-selector { display: flex; align-items: center; gap: 15px; padding: 10px; border: 1px solid var(--border-color); border-radius: 8px; background-color: var(--bg-main); }
+        #selected-militar-name { flex-grow: 1; color: var(--text-secondary); font-style: italic; }
+        #selected-militar-name.selected { color: var(--text-primary); font-style: normal; }
+        .permissions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 15px; margin-top: 10px; }
+        .permission-card { background-color: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; padding: 15px; transition: all 0.2s ease-in-out; }
+        .permission-card:hover { border-color: var(--accent-color); }
+        .permission-card input[type="checkbox"] { display: none; }
+        .permission-card label { display: flex; align-items: center; cursor: pointer; font-weight: 500; }
+        .permission-card label::before { content: ''; display: inline-block; width: 20px; height: 20px; margin-right: 12px; border: 2px solid var(--border-color); border-radius: 4px; background-color: var(--bg-content); transition: all 0.2s; }
+        .permission-card input[type="checkbox"]:checked + label::before { background-color: var(--accent-color); border-color: var(--accent-color); background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: center; }
         .militar-modal-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; }
         .militar-modal-list li { padding: 12px; border-bottom: 1px solid var(--border-color); cursor: pointer; }
         .militar-modal-list li:hover { background-color: var(--sidebar-active-bg); }
@@ -92,16 +36,15 @@
             {% for error in form.username.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
         </p>
 
-        <!-- Campos de palavra-passe renderizados manualmente para garantir a exibição -->
         <p>
-            <label for="{{ form.password.id_for_label }}">Palavra-passe:</label>
-            {{ form.password }}
-            {% if form.password.help_text %}<small>{{ form.password.help_text|safe }}</small>{% endif %}
-            {% for error in form.password.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+            <label for="id_password1">Palavra-passe:</label>
+            {{ form.password1 }}
+            {% if form.password1.help_text %}<small>{{ form.password1.help_text|safe }}</small>{% endif %}
+            {% for error in form.password1.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
         </p>
         
         <p>
-            <label for="{{ form.password2.id_for_label }}">Confirmação de palavra-passe:</label>
+            <label for="id_password2">Confirmação de palavra-passe:</label>
             {{ form.password2 }}
             {% if form.password2.help_text %}<small>{{ form.password2.help_text }}</small>{% endif %}
             {% for error in form.password2.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
@@ -109,7 +52,7 @@
 
         <div>
             <label for="militar-select-btn">Militar Associado:</label>
-            {{ form.militar }} <!-- O input agora está oculto -->
+            {{ form.militar }}
             <div class="militar-selector">
                 <span id="selected-militar-name">Nenhum militar selecionado</span>
                 <button type="button" class="btn btn-secondary btn-sm" id="militar-select-btn">Selecionar</button>
@@ -139,14 +82,12 @@
     </div>
 </form>
 
-<!-- Modal para Seleção de Militar -->
 <div class="modal-overlay" id="militar-modal">
     <div class="modal-content">
         <h3>Selecionar Militar</h3>
         <input type="text" id="militar-search-input" placeholder="Pesquisar por nome ou posto..." style="width: 100%; margin-bottom: 15px;">
         <ul class="militar-modal-list" id="militar-results-list">
-            <!-- Os resultados da pesquisa aparecerão aqui -->
-        </ul>
+            </ul>
         <div class="form-actions" style="justify-content: flex-end;">
             <button type="button" class="btn btn-secondary" id="cancel-militar-select-btn">Cancelar</button>
         </div>
@@ -157,6 +98,7 @@
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // (JavaScript permanece o mesmo)
     const militarSelectBtn = document.getElementById('militar-select-btn');
     const militarModal = document.getElementById('militar-modal');
     const cancelMilitarSelectBtn = document.getElementById('cancel-militar-select-btn');
@@ -166,13 +108,11 @@ document.addEventListener('DOMContentLoaded', function() {
     const selectedMilitarName = document.getElementById('selected-militar-name');
     let searchTimeout;
 
-    // Abrir o modal
     militarSelectBtn.addEventListener('click', () => {
         militarModal.classList.add('active');
-        loadMilitares(''); // Carrega a lista inicial
+        loadMilitares('');
     });
 
-    // Fechar o modal
     function closeModal() {
         militarModal.classList.remove('active');
     }
@@ -181,13 +121,12 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target === militarModal) closeModal();
     });
 
-    // Função para carregar militares via Fetch
     function loadMilitares(query) {
         const url = `{% url 'Ouvidoria:search_militares_json' %}?q=${encodeURIComponent(query)}`;
         fetch(url)
             .then(response => response.json())
             .then(data => {
-                militarResultsList.innerHTML = ''; // Limpa a lista
+                militarResultsList.innerHTML = '';
                 if (data.length > 0) {
                     data.forEach(militar => {
                         const li = document.createElement('li');
@@ -202,15 +141,13 @@ document.addEventListener('DOMContentLoaded', function() {
             });
     }
 
-    // Evento de digitação na caixa de pesquisa
     militarSearchInput.addEventListener('input', () => {
         clearTimeout(searchTimeout);
         searchTimeout = setTimeout(() => {
             loadMilitares(militarSearchInput.value);
-        }, 300); // Aguarda 300ms antes de pesquisar
+        }, 300);
     });
 
-    // Evento de clique na lista de resultados
     militarResultsList.addEventListener('click', (e) => {
         if (e.target.tagName === 'LI' && e.target.dataset.id) {
             hiddenMilitarInput.value = e.target.dataset.id;

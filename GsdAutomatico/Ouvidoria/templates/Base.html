@@ -64,7 +64,18 @@
             </button>
             <div class="actions">
                 {% if user.is_authenticated %}
-                    <span class="user-info">Olá, <strong>{{ user.username }}</strong></span>
+                    <span class="user-info">
+                        Olá, 
+                        <strong>
+                            {% comment %} Se o utilizador tiver um militar associado, mostra o nome de guerra {% endcomment %}
+                            {% if user.profile and user.profile.militar %}
+                                {{ user.profile.militar.nome_guerra }}
+                            {% comment %} Caso contrário, mostra o nome de utilizador padrão {% endcomment %}
+                            {% else %}
+                                {{ user.username }}
+                            {% endif %}
+                        </strong>
+                    </span>
                 {% endif %}
                 <div class="notifications-container">
                     <button class="notifications-button" id="notifications-toggle-btn" title="Notificações">
