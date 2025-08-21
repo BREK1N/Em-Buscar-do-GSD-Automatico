@@ -2,10 +2,6 @@ from django.db import models
 from django.utils import timezone
 
 class Configuracao(models.Model):
-    """
-    Modelo Singleton para armazenar configurações globais da aplicação.
-    Haverá apenas uma linha nesta tabela.
-    """
     comandante_gsd = models.ForeignKey(
         'Militar',
         on_delete=models.SET_NULL,
@@ -44,9 +40,6 @@ class Configuracao(models.Model):
 
 
 class Militar(models.Model):
-    """
-    Tabela para armazenar o cadastro de todos os militares.
-    """
     posto = models.CharField(max_length=50, blank=True, verbose_name="Posto")
     quad = models.CharField(max_length=50, blank=True, verbose_name="QUAD")
     especializacao = models.CharField(max_length=100, blank=True, verbose_name="Especialização")
@@ -66,14 +59,10 @@ class Militar(models.Model):
         return f"{self.posto} {self.nome_guerra}"
 
     class Meta:
-        verbose_name = "Militar"
-        verbose_name_plural = "Militares"
+        db_table = 'Efetivo_Militar'
 
 
 class PATD(models.Model):
-    """
-    Tabela para registar os Processos Administrativos Disciplinares (PATD).
-    """
     
     STATUS_CHOICES = [
         ('definicao_oficial', 'Aguardando definição do Oficial'),
