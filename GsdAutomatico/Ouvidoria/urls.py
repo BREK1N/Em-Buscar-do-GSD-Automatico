@@ -26,17 +26,22 @@ urlpatterns = [
     path('patd/<int:pk>/salvar_alegacao_defesa/', views.salvar_alegacao_defesa, name='salvar_alegacao_defesa'),
     path('patd/<int:pk>/extender_prazo/', views.extender_prazo, name='extender_prazo'),
     path('patd/<int:pk>/prosseguir_sem_alegacao/', views.prosseguir_sem_alegacao, name='prosseguir_sem_alegacao'), 
-    path('patd/<int:pk>/salvar_assinatura_testemunha/<int:testemunha_num>/', views.salvar_assinatura_testemunha, name='salvar_assinatura_testemunha'), 
+    path('patd/<int:pk>/salvar_assinatura_testemunha/<int:testemunha_num>/', views.salvar_assinatura_testemunha, name='salvar_assinatura_testemunha'),
+    
+    # --- ROTAS DE ANÁLISE E APURAÇÃO ---
+    path('patd/<int:pk>/analisar_punicao/', views.analisar_punicao, name='analisar_punicao'),
+    path('patd/<int:pk>/salvar_apuracao/', views.salvar_apuracao, name='salvar_apuracao'),
 
     # CONFIGURAÇÃO DE ASSINATURAS
     path('config/oficiais/', views.lista_oficiais, name='lista_oficiais'),
     path('militar/<int:pk>/salvar_assinatura_padrao/', views.salvar_assinatura_padrao, name='salvar_assinatura_padrao'),
     path('config/padroes/', views.gerenciar_configuracoes_padrao, name='gerenciar_configuracoes_padrao'),
 
-    # ROTAS PARA NOTIFICAÇÕES (NOVAS)
+    # ROTAS PARA NOTIFICAÇÕES
     path('notificacoes/patds-expirados/', views.patds_expirados_json, name='patds_expirados_json'),
     path('notificacoes/extender-prazo-massa/', views.extender_prazo_massa, name='extender_prazo_massa'),
     path('notificacoes/verificar-prazos/', views.verificar_e_atualizar_prazos, name='verificar_e_atualizar_prazos'),
 
+    # API
     path('api/search-militares/', views.search_militares_json, name='search_militares_json')
 ]

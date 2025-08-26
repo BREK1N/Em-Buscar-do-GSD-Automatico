@@ -70,7 +70,8 @@ class PATD(models.Model):
         ('aguardando_justificativa', 'Aguardando Justificativa'),
         ('prazo_expirado', 'Prazo expirado'),
         ('preclusao', 'Preclusão - Sem Defesa'),
-        ('em_apuracao', 'Aguardando Apuração'),
+        ('em_apuracao', 'Em Apuração'),
+        ('apuracao_preclusao', 'Em Apuração (Preclusão)'), 
         ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
         ('aguardando_assinatura', 'Aguardando Assinatura NPD'),
     ]
@@ -119,6 +120,9 @@ class PATD(models.Model):
     assinatura_testemunha2 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 2ª Testemunha (Base64)")
     alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Alegação de Defesa")
     documento_texto = models.TextField(blank=True, null=True, verbose_name="Texto do Documento")
+    itens_enquadrados = models.JSONField(null=True, blank=True, verbose_name="Itens Enquadrados na Análise")
+    circunstancias = models.JSONField(null=True, blank=True, verbose_name="Atenuantes e Agravantes")
+    punicao_sugerida = models.TextField(blank=True, null=True, verbose_name="Punição Sugerida pela IA")
 
     def __str__(self):
         return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"

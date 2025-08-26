@@ -4,81 +4,27 @@
 
 {% block content %}
 <style>
-    .tabs-nav {
-        display: flex;
-        border-bottom: 1px solid var(--border-color);
-        margin-bottom: 20px;
-    }
-    .tabs-nav a {
-        padding: 10px 20px;
-        text-decoration: none;
-        color: var(--text-secondary);
-        border-bottom: 3px solid transparent;
-        margin-bottom: -1px; /* Alinha com a borda inferior */
-        cursor: pointer;
-    }
-    .tabs-nav a.active {
-        color: var(--accent-color);
-        border-bottom-color: var(--accent-color);
-    }
-    .tab-panel {
-        display: none;
-    }
-    .tab-panel.active {
-        display: block;
-    }
-    .document-view {
-        width: 100%;
-        min-height: 500px;
-        padding: 20px;
-        border-radius: 6px;
-        border: 1px solid var(--border-color);
-        background-color: var(--bg-main);
-        color: var(--text-primary);
-        font-family: var(--font-family); /* Alterado para a fonte padrão da aplicação */
-        font-size: 14px;
-        line-height: 1.7;
-        box-sizing: border-box;
-        white-space: pre-wrap; /* Preserva espaços e quebras de linha */
-    }
-    .document-view .signature-image-embedded {
-        max-height: 60px;
-        width: auto;
-        background-color: white;
-        border: 1px solid #ccc;
-        border-radius: 4px;
-        padding: 2px;
-        vertical-align: middle;
-    }
-    .document-view .no-signature-text {
-        font-style: italic;
-        color: var(--text-secondary);
-    }
-    .btn-success { 
-        background: linear-gradient(45deg, var(--success-color), #5cb85c); 
-        color: #fff; 
-    }
-    .prazo-defesa {
-        background-color: var(--sidebar-active-bg);
-        border-left: 4px solid var(--warning-color);
-        padding: 15px;
-        margin-bottom: 20px;
-        border-radius: 4px;
-    }
-    .prazo-defesa.expirado {
-        border-left-color: var(--danger-color);
-    }
-    .prazo-defesa strong {
-        display: block;
-        margin-bottom: 5px;
-        color: var(--text-primary);
-    }
-    .prazo-defesa small {
-        display: block;
-        margin-top: 8px;
-        font-size: 12px;
-        color: var(--text-secondary);
-    }
+    .tabs-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
+    .tabs-nav a { padding: 10px 20px; text-decoration: none; color: var(--text-secondary); border-bottom: 3px solid transparent; margin-bottom: -1px; /* Alinha com a borda inferior */ cursor: pointer; }
+    .tabs-nav a.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+    .tab-panel { display: none; }
+    .tab-panel.active { display: block; }
+    .document-view { width: 100%; min-height: 500px; padding: 20px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); font-family: var(--font-family); /* Alterado para a fonte padrão da aplicação */ font-size: 14px; line-height: 1.7; box-sizing: border-box; white-space: pre-wrap; /* Preserva espaços e quebras de linha */ }
+    .document-view .signature-image-embedded { max-height: 60px; width: auto; background-color: white; border: 1px solid #ccc; border-radius: 4px; padding: 2px; vertical-align: middle; }
+    .document-view .no-signature-text { font-style: italic; color: var(--text-secondary); }
+    .btn-success { background: linear-gradient(45deg, var(--success-color), #5cb85c); color: #fff; }
+    .prazo-defesa { background-color: var(--sidebar-active-bg); border-left: 4px solid var(--warning-color); padding: 15px; margin-bottom: 20px; border-radius: 4px; }
+    .prazo-defesa.expirado { border-left-color: var(--danger-color); }
+    .prazo-defesa strong { display: block; margin-bottom: 5px; color: var(--text-primary); }
+    .prazo-defesa small { display: block; margin-top: 8px; font-size: 12px; color: var(--text-secondary); }
+    .analise-container { margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
+    .analise-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+    .form-card { background-color: var(--bg-main); padding: 15px; border-radius: 8px; }
+    .form-card h4 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
+    .form-card textarea, .form-card input { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); }
+    .alert-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 15px; border-radius: 8px; }
+    #btn-iniciar-analise .spinner { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 
 <h1>PATD Nº {{ patd.numero_patd }}</h1>
@@ -94,7 +40,7 @@
     <div id="prazo-box" class="prazo-defesa">
         <strong>Prazo para Alegação de Defesa:</strong>
         <span id="countdown-timer">A calcular...</span>
-        <small>Nota: O prazo é contado em dias úteis, por isso pode ser superior a 5 dias corridos devido aos fins de semana.</small>
+        <small>Nota: O prazo é contado em dias úteis.</small>
     </div>
     {% endif %}
 
@@ -116,12 +62,10 @@
             <div class="oficial-container">
                 <p class="detail-item-value">{{ patd.oficial_responsavel|default:"Não atribuído" }}</p>
                 <div class="signature-display-container">
-                    {% if patd.oficial_responsavel %}
-                        {% if patd.assinatura_oficial %}
-                            <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
-                        {% else %}
-                            <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
-                        {% endif %}
+                    {% if patd.oficial_responsavel and not patd.assinatura_oficial %}
+                        <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
+                    {% elif patd.assinatura_oficial %}
+                        <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
                     {% endif %}
                 </div>
             </div>
@@ -132,24 +76,20 @@
                 <div class="oficial-container">
                     <p class="detail-item-value">1ª: {{ patd.testemunha1|default:"Não atribuída" }}</p>
                     <div class="signature-display-container">
-                        {% if patd.testemunha1 and patd.status == 'preclusao' %}
-                            {% if patd.assinatura_testemunha1 %}
-                                <img src="{{ patd.assinatura_testemunha1 }}" alt="Assinatura da 1ª Testemunha" class="signature-image">
-                            {% else %}
-                                <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="1">Assinar</button>
-                            {% endif %}
+                        {% if patd.testemunha1 and patd.status == 'preclusao' and not patd.assinatura_testemunha1 %}
+                            <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="1">Assinar</button>
+                        {% elif patd.assinatura_testemunha1 %}
+                            <img src="{{ patd.assinatura_testemunha1 }}" alt="Assinatura da 1ª Testemunha" class="signature-image">
                         {% endif %}
                     </div>
                 </div>
                 <div class="oficial-container">
                     <p class="detail-item-value">2ª: {{ patd.testemunha2|default:"Não atribuída" }}</p>
                      <div class="signature-display-container">
-                        {% if patd.testemunha2 and patd.status == 'preclusao' %}
-                            {% if patd.assinatura_testemunha2 %}
-                                <img src="{{ patd.assinatura_testemunha2 }}" alt="Assinatura da 2ª Testemunha" class="signature-image">
-                            {% else %}
-                                <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="2">Assinar</button>
-                            {% endif %}
+                        {% if patd.testemunha2 and patd.status == 'preclusao' and not patd.assinatura_testemunha2 %}
+                            <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="2">Assinar</button>
+                        {% elif patd.assinatura_testemunha2 %}
+                            <img src="{{ patd.assinatura_testemunha2 }}" alt="Assinatura da 2ª Testemunha" class="signature-image">
                         {% endif %}
                     </div>
                 </div>
@@ -179,21 +119,55 @@
             <p>{{ patd.alegacao_defesa|linebreaks }}</p>
         </div>
         {% endif %}
+
+        {% if patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao' %}
+        <div class="detail-item-full analise-container">
+            <h2>Análise Disciplinar</h2>
+            <div id="analise-actions">
+                <button class="btn btn-primary" id="btn-apurar">
+                    <span class="spinner" style="display: none;"></span>
+                    Apurar
+                </button>
+            </div>
+            <div id="analise-form-wrapper" style="display: none; margin-top: 20px;">
+                <form id="form-apuracao">
+                    <div class="analise-form-grid">
+                        <div class="form-card">
+                            <h4>Itens Enquadrados</h4>
+                            <textarea name="itens_enquadrados" id="input-itens" rows="5"></textarea>
+                        </div>
+                        <div class="form-card">
+                            <h4>Circunstâncias</h4>
+                            <label for="input-atenuantes">Atenuantes:</label>
+                            <input type="text" name="atenuantes" id="input-atenuantes">
+                            <label for="input-agravantes" style="margin-top:10px;">Agravantes:</label>
+                            <input type="text" name="agravantes" id="input-agravantes">
+                        </div>
+                    </div>
+                    <div class="form-card" style="margin-top: 20px;">
+                        <h4>Sugestão de Punição</h4>
+                        <textarea name="punicao_sugerida" id="input-punicao" rows="3"></textarea>
+                    </div>
+                    <div class="form-actions">
+                        <button type="submit" class="btn btn-success">Salvar Apuração</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        {% endif %}
     </div>
+
     <div class="form-actions" id="form-actions-container">
         {% if patd.status == 'ciencia_militar' and not patd.assinatura_militar_ciencia %}
         <button type="button" class="btn btn-success" id="add-signature-ciencia-btn">Assinar Ciência</button>
         {% endif %}
-
         {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa %}
         <button type="button" class="btn btn-primary" id="add-defesa-btn">Adicionar Alegação de Defesa</button>
         {% endif %}
-
         {% if patd.status == 'prazo_expirado' %}
         <button type="button" class="btn btn-warning" id="extender-prazo-btn">Extender Prazo</button>
         <button type="button" class="btn btn-danger" id="prosseguir-sem-defesa-btn">Prosseguir sem Alegação</button>
         {% endif %}
-
         <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
         <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
         <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
@@ -205,6 +179,7 @@
     <div id="documento-raw-text" style="display: none;">{{ patd.documento_texto }}</div>
 </div>
 
+<!-- ... (Todos os modais permanecem os mesmos) ... -->
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
         <h3>Confirmar Exclusão</h3>
@@ -218,14 +193,11 @@
         </form>
     </div>
 </div>
-
 <div class="modal-overlay" id="signature-modal">
     <div class="modal-content">
         <h3>Assinatura do Oficial</h3>
         <p>Desenhe a assinatura no campo abaixo.</p>
-        <div class="canvas-container">
-            <canvas id="signature-canvas"></canvas>
-        </div>
+        <div class="canvas-container"><canvas id="signature-canvas"></canvas></div>
         <div class="form-actions" style="justify-content: flex-end;">
             <button type="button" class="btn btn-secondary" id="clear-signature-btn">Limpar</button>
             <button type="button" class="btn btn-secondary" id="cancel-signature-btn">Cancelar</button>
@@ -233,14 +205,11 @@
         </div>
     </div>
 </div>
-
 <div class="modal-overlay" id="signature-modal-ciencia">
     <div class="signature-modal-content">
         <h3>Registrar Ciência da Acusação</h3>
         <p>Eu, {{ patd.militar }}, declaro ter ciência dos fatos a mim imputados.</p>
-        <div class="canvas-container">
-            <canvas id="signature-canvas-ciencia"></canvas>
-        </div>
+        <div class="canvas-container"><canvas id="signature-canvas-ciencia"></canvas></div>
         <div class="form-actions" style="justify-content: flex-end;">
             <button type="button" class="btn btn-secondary" id="clear-signature-btn-ciencia">Limpar</button>
             <button type="button" class="btn btn-secondary" id="cancel-signature-btn-ciencia">Cancelar</button>
@@ -248,7 +217,6 @@
         </div>
     </div>
 </div>
-
 <div class="modal-overlay" id="defesa-modal">
     <div class="modal-content">
         <h3>Alegação de Defesa</h3>
@@ -260,7 +228,6 @@
         </div>
     </div>
 </div>
-
 <div class="modal-overlay" id="confirm-defesa-modal">
     <div class="modal-content">
         <h3>Confirmar Envio</h3>
@@ -271,21 +238,14 @@
         </div>
     </div>
 </div>
-
 <div class="modal-overlay" id="extender-prazo-modal">
     <div class="modal-content">
         <h3>Extender Prazo de Defesa</h3>
         <p>Defina o novo prazo para a entrega da alegação de defesa a contar de agora.</p>
         <form id="extender-prazo-form" class="model-form">
             <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
-                <p>
-                    <label for="extender-dias">Dias:</label>
-                    <input type="number" id="extender-dias" value="{{ prazo_defesa_dias }}" min="0">
-                </p>
-                <p>
-                    <label for="extender-minutos">Minutos:</label>
-                    <input type="number" id="extender-minutos" value="{{ prazo_defesa_minutos }}" min="0">
-                </p>
+                <p><label for="extender-dias">Dias:</label><input type="number" id="extender-dias" value="{{ prazo_defesa_dias }}" min="0"></p>
+                <p><label for="extender-minutos">Minutos:</label><input type="number" id="extender-minutos" value="{{ prazo_defesa_minutos }}" min="0"></p>
             </div>
             <div class="form-actions" style="justify-content: flex-end;">
                 <button type="button" class="btn btn-secondary" id="cancel-extender-prazo-btn">Cancelar</button>
@@ -294,14 +254,11 @@
         </form>
     </div>
 </div>
-
 <div class="modal-overlay" id="signature-modal-testemunha">
     <div class="signature-modal-content">
         <h3 id="signature-modal-testemunha-title">Assinatura da Testemunha</h3>
         <p>A testemunha deve desenhar a assinatura no campo abaixo.</p>
-        <div class="canvas-container">
-            <canvas id="signature-canvas-testemunha"></canvas>
-        </div>
+        <div class="canvas-container"><canvas id="signature-canvas-testemunha"></canvas></div>
         <div class="form-actions" style="justify-content: flex-end;">
             <button type="button" class="btn btn-secondary" id="clear-signature-btn-testemunha">Limpar</button>
             <button type="button" class="btn btn-secondary" id="cancel-signature-btn-testemunha">Cancelar</button>
@@ -313,11 +270,14 @@
 
 {% block extra_js %}
 <script>
+// Dados da análise pré-carregados pelo Django
+const analiseData = {{ analise_data_json|safe }};
+
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     let isExpired = `{{ patd.status }}` === 'prazo_expirado';
 
-    // --- LÓGICA DO MODAL DE EXCLUSÃO ---
+    // ... (toda a lógica de modais e contagem regressiva permanece a mesma) ...
     const deleteBtn = document.getElementById('delete-patd-btn');
     const deleteModal = document.getElementById('delete-modal');
     if (deleteBtn && deleteModal) {
@@ -328,8 +288,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target === deleteModal) deleteModal.classList.remove('active');
         });
     }
-
-    // --- LÓGICA DO MODAL DE ASSINATURA DE CIÊNCIA ---
     const addSignatureCienciaBtn = document.getElementById('add-signature-ciencia-btn');
     const signatureModalCiencia = document.getElementById('signature-modal-ciencia');
     if (addSignatureCienciaBtn && signatureModalCiencia) {
@@ -368,8 +326,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => console.error('Erro:', error));
         });
     }
-
-    // --- LÓGICA DO MODAL DE ALEGAÇÃO DE DEFESA ---
     const addDefesaBtn = document.getElementById('add-defesa-btn');
     const defesaModal = document.getElementById('defesa-modal');
     const confirmDefesaModal = document.getElementById('confirm-defesa-modal');
@@ -405,12 +361,9 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => console.error('Erro:', error));
         });
     }
-
-    // --- LÓGICA DE PRAZO EXPIRADO ---
     const extenderPrazoModal = document.getElementById('extender-prazo-modal');
     const extenderPrazoBtn = document.getElementById('extender-prazo-btn');
     const prosseguirBtn = document.getElementById('prosseguir-sem-defesa-btn');
-    
     function handleProsseguirSemAlegacao() {
         if (confirm('Tem certeza que deseja prosseguir sem a alegação de defesa? Esta ação registrará a preclusão e não poderá ser desfeita.')) {
             const url = `{% url 'Ouvidoria:prosseguir_sem_alegacao' patd.pk %}`;
@@ -426,7 +379,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => console.error('Erro:', error));
         }
     }
-    
     if (extenderPrazoBtn) {
         extenderPrazoBtn.addEventListener('click', () => extenderPrazoModal.classList.add('active'));
     }
@@ -453,8 +405,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => console.error('Erro:', error));
         });
     }
-
-    // --- LÓGICA DO CONTADOR E ATUALIZAÇÃO DINÂMICA DA UI ---
     const countdownTimer = document.getElementById('countdown-timer');
     const prazoBox = document.getElementById('prazo-box');
     if (countdownTimer && '{{ patd.data_ciencia }}') {
@@ -474,7 +424,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         let deadline = addBusinessDays(dataCiencia, prazoDias);
         deadline.setMinutes(deadline.getMinutes() + prazoMinutos);
-
         const interval = setInterval(() => {
             const now = new Date();
             const diff = deadline - now;
@@ -495,14 +444,12 @@ document.addEventListener('DOMContentLoaded', function() {
             countdownTimer.textContent = `${d}d ${h}h ${m}m ${s}s`;
         }, 1000);
     }
-    
     function showExpiredButtons() {
         const actionsContainer = document.getElementById('form-actions-container');
         const addDefesaBtn = document.getElementById('add-defesa-btn');
         const statusElement = document.getElementById('patd-status');
         if (addDefesaBtn) addDefesaBtn.remove();
         if (statusElement) statusElement.textContent = "Prazo expirado";
-        
         if (!document.getElementById('extender-prazo-btn')) {
             const extenderBtn = document.createElement('button');
             extenderBtn.type = 'button';
@@ -524,8 +471,6 @@ document.addEventListener('DOMContentLoaded', function() {
             else actionsContainer.insertBefore(prosseguirBtn, actionsContainer.firstChild);
         }
     }
-    
-    // --- LÓGICA DO MODAL DE ASSINATURA DAS TESTEMUNHAS ---
     const addSignatureTestemunhaBtns = document.querySelectorAll('.add-signature-testemunha-btn');
     if (addSignatureTestemunhaBtns.length > 0) {
         const signatureModalTestemunha = document.getElementById('signature-modal-testemunha');
@@ -533,7 +478,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const canvas = document.getElementById('signature-canvas-testemunha');
         const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
         let currentTestemunhaNum = null;
-
         function resizeCanvas() {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
             canvas.width = canvas.offsetWidth * ratio;
@@ -541,7 +485,6 @@ document.addEventListener('DOMContentLoaded', function() {
             canvas.getContext("2d").scale(ratio, ratio);
             signaturePad.clear();
         }
-
         addSignatureTestemunhaBtns.forEach(btn => {
             btn.addEventListener('click', () => {
                 currentTestemunhaNum = btn.dataset.testemunhaNum;
@@ -550,7 +493,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 resizeCanvas();
             });
         });
-
         document.getElementById('cancel-signature-btn-testemunha').addEventListener('click', () => signatureModalTestemunha.classList.remove('active'));
         document.getElementById('clear-signature-btn-testemunha').addEventListener('click', () => signaturePad.clear());
         document.getElementById('save-signature-btn-testemunha').addEventListener('click', () => {
@@ -570,8 +512,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => console.error('Erro:', error));
         });
     }
-
-    // --- LÓGICA DAS ABAS ---
     const tabLinks = document.querySelectorAll('.tab-link');
     const tabPanels = document.querySelectorAll('.tab-panel');
     tabLinks.forEach(link => {
@@ -584,8 +524,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if (targetPanel) targetPanel.classList.add('active');
         });
     });
-
-    // --- LÓGICA PARA RENDERIZAR O DOCUMENTO ---
     function renderDocument() {
         const rawTextContainer = document.getElementById('documento-raw-text');
         const viewer = document.getElementById('documento-view');
@@ -597,8 +535,87 @@ document.addEventListener('DOMContentLoaded', function() {
         processedHtml = processedHtml.replace(/\n/g, '<br>');
         viewer.innerHTML = processedHtml;
     }
-
     renderDocument();
+
+    // --- NOVA LÓGICA PARA APURAÇÃO ---
+    const btnApurar = document.getElementById('btn-apurar');
+    const formWrapper = document.getElementById('analise-form-wrapper');
+    const apuracaoForm = document.getElementById('form-apuracao');
+
+    if (btnApurar) {
+        btnApurar.addEventListener('click', function() {
+            if (analiseData) {
+                // Formata os itens para o textarea
+                const itensText = analiseData.itens.map(i => `Item ${i.numero}: ${i.descricao}`).join('\n');
+                document.getElementById('input-itens').value = itensText;
+
+                // Popula as circunstâncias
+                document.getElementById('input-atenuantes').value = analiseData.circunstancias.atenuantes.join(', ');
+                document.getElementById('input-agravantes').value = analiseData.circunstancias.agravantes.join(', ');
+                
+                // Popula a punição
+                document.getElementById('input-punicao').value = analiseData.punicao;
+
+                // Mostra o formulário
+                formWrapper.style.display = 'block';
+                this.style.display = 'none'; // Esconde o botão "Apurar"
+            } else {
+                alert("Os dados da análise não puderam ser carregados. Tente recarregar a página.");
+            }
+        });
+    }
+
+    if (apuracaoForm) {
+        apuracaoForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const submitBtn = this.querySelector('button[type="submit"]');
+            submitBtn.disabled = true;
+            submitBtn.textContent = 'A Salvar...';
+
+            // Serializa os dados do formulário para JSON
+            const itensText = document.getElementById('input-itens').value;
+            const itensArray = itensText.split('\n').map(line => {
+                const match = line.match(/Item (\d+): (.*)/);
+                return match ? { numero: parseInt(match[1]), descricao: match[2] } : null;
+            }).filter(Boolean);
+
+            const dataToSave = {
+                itens_enquadrados: itensArray,
+                circunstancias: {
+                    atenuantes: document.getElementById('input-atenuantes').value.split(',').map(s => s.trim()).filter(Boolean),
+                    agravantes: document.getElementById('input-agravantes').value.split(',').map(s => s.trim()).filter(Boolean)
+                },
+                punicao_sugerida: document.getElementById('input-punicao').value
+            };
+
+            const url = `/Ouvidoria/patd/{{ patd.pk }}/salvar_apuracao/`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken 
+                },
+                body: JSON.stringify(dataToSave)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if(data.status === 'success') {
+                    alert(data.message);
+                    window.location.reload(); // Recarrega para mostrar o documento atualizado
+                } else {
+                    alert(`Erro ao salvar: ${data.message}`);
+                }
+            })
+            .catch(err => {
+                alert('Erro de comunicação ao salvar a apuração.');
+                console.error(err);
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.textContent = 'Salvar Apuração';
+            });
+        });
+    }
 });
 </script>
 {% endblock %}
