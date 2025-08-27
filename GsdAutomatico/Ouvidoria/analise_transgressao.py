@@ -300,6 +300,6 @@ def sugere_punicao(transgressao, agravantes, atenuantes, itens, observacao):
     ).partial(format_instructions=parser.get_format_instructions())
 
     chain = rota_prompt_template | model | parser
-    dicionario = {"transgressao": transgressao, "agravantes": agravantes, "atenuantes": atenuantes, "observacao": observacao, "itens": itens}
+    dicionario = {"transgressao": transgressao, "agravantes": agravantes, "atenuantes": atenuantes, "itens": itens}
     resposta = chain.invoke(dicionario)
     return resposta

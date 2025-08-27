@@ -9,8 +9,48 @@
 <form method="post" class="model-form">
     {% csrf_token %}
     <div class="form-grid">
-        {{ form.as_p }}
+        <p>
+            <label for="{{ form.transgressao.id_for_label }}">{{ form.transgressao.label }}:</label>
+            {{ form.transgressao }}
+        </p>
+        <p>
+            <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}:</label>
+            {{ form.oficial_responsavel }}
+        </p>
+        <p>
+            <label for="{{ form.testemunha1.id_for_label }}">{{ form.testemunha1.label }}:</label>
+            {{ form.testemunha1 }}
+        </p>
+        <p>
+            <label for="{{ form.testemunha2.id_for_label }}">{{ form.testemunha2.label }}:</label>
+            {{ form.testemunha2 }}
+        </p>
+        <p>
+            <label for="{{ form.data_ocorrencia.id_for_label }}">{{ form.data_ocorrencia.label }}:</label>
+            {{ form.data_ocorrencia }}
+        </p>
+
+        {# Mostra os campos da apuração apenas se eles já existirem #}
+        {% if form.instance.punicao_sugerida %}
+            <hr>
+            <h3>Dados da Apuração</h3>
+            <p>
+                <label for="{{ form.itens_enquadrados_text.id_for_label }}">{{ form.itens_enquadrados_text.label }}:</label>
+                {{ form.itens_enquadrados_text }}
+                <small>{{ form.itens_enquadrados_text.help_text }}</small>
+            </p>
+            <p>
+                <label for="{{ form.circunstancias_text.id_for_label }}">{{ form.circunstancias_text.label }}:</label>
+                {{ form.circunstancias_text }}
+                <small>{{ form.circunstancias_text.help_text }}</small>
+            </p>
+            <p>
+                <label for="{{ form.punicao_sugerida.id_for_label }}">{{ form.punicao_sugerida.label }}:</label>
+                {{ form.punicao_sugerida }}
+            </p>
+        {% endif %}
     </div>
+    
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar Alterações</button>
         <a href="{% url 'Ouvidoria:patd_detail' form.instance.pk %}" class="btn btn-secondary">Cancelar</a>

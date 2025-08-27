@@ -355,27 +355,26 @@ def index(request):
                         pass
 
                 if militar:
-                    # Lógica de verificação de duplicidade
-                    if data_ocorrencia:
-                        existing_patds = PATD.objects.filter(
-                            militar=militar,
-                            data_ocorrencia=data_ocorrencia
-                        )
-                        
-                        def similar(a, b):
-                            return SequenceMatcher(None, a, b).ratio()
+                    existing_patds = PATD.objects.filter(militar=militar)
+                    
+                    def similar(a, b):
+                        return SequenceMatcher(None, a, b).ratio()
 
-                        for patd in existing_patds:
-                            nova_transgressao = resultado.transgressao.strip()
-                            transgressao_existente = patd.transgressao.strip()
-                            
-                            if similar(nova_transgressao, transgressao_existente) > 0.8: # 80% similar
-                                patd_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': patd.pk})
-                                return JsonResponse({
-                                    'status': 'patd_exists',
-                                    'message': f'Já existe uma PATD para este militar na mesma data e com transgressão similar (Nº {patd.numero_patd}).',
-                                    'url': patd_url
-                                })
+                    for patd in existing_patds:
+                        if patd.data_ocorrencia != data_ocorrencia:
+                            continue
+
+                        nova_transgressao = resultado.transgressao.strip()
+                        transgressao_existente = patd.transgressao.strip()
+                        
+                        if similar(nova_transgressao, transgressao_existente) > 0.8:
+                            patd_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': patd.pk})
+                            return JsonResponse({
+                                'status': 'patd_exists',
+                                'message': f'Já existe uma PATD para este militar com data e transgressão similares (Nº {patd.numero_patd}).',
+                                'url': patd_url
+                            })
+                    
                     patd = PATD.objects.create(
                         militar=militar,
                         transgressao=resultado.transgressao,
@@ -567,17 +566,22 @@ class PATDDetailView(DetailView):
         patd = self.get_object()
         config = Configuracao.load()
 
-        if (patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao') and not patd.itens_enquadrados:
+        # --- CORREÇÃO 2: LÓGICA DA ANÁLISE DE PUNIÇÃO ---
+        # A análise agora é acionada se o status for de apuração E a punição ainda não foi sugerida.
+        if (patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao') and not patd.punicao_sugerida:
             try:
                 itens_obj = enquadra_item(patd.transgressao)
                 patd.itens_enquadrados = itens_obj.item
                 historico_punicoes = PATD.objects.filter(militar=patd.militar).exclude(pk=patd.pk).order_by('-data_inicio')
+                
                 reincidencia_count = 0
                 if patd.itens_enquadrados:
-                    primeiro_item_num = patd.itens_enquadrados[0].get('numero')
+                    current_item_numbers = {item.get('numero') for item in patd.itens_enquadrados if item.get('numero')}
                     for p in historico_punicoes:
-                        if p.itens_enquadrados and any(item.get('numero') == primeiro_item_num for item in p.itens_enquadrados):
-                            reincidencia_count += 1
+                        if p.itens_enquadrados:
+                            past_item_numbers = {item.get('numero') for item in p.itens_enquadrados if item.get('numero')}
+                            if not current_item_numbers.isdisjoint(past_item_numbers):
+                                reincidencia_count += 1
                 
                 historico_str = f"O militar possui {historico_punicoes.count()} transgressões anteriores. "
                 if reincidencia_count > 0:
@@ -596,12 +600,15 @@ class PATDDetailView(DetailView):
                 logger.error(f"Erro no pré-carregamento da análise para PATD {patd.pk}: {e}")
                 messages.error(self.request, "Ocorreu um erro ao pré-carregar a análise da IA.")
 
+        # --- CORREÇÃO 1: LÓGICA DE GERAÇÃO DO DOCUMENTO DE PRECLUSÃO ---
         document_content = generate_patd_document_text(patd)
         if patd.alegacao_defesa:
             document_content += "\n\n" + generate_alegacao_defesa_text(patd, patd.alegacao_defesa)
-        if patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao']:
+        # O documento de preclusão só é adicionado se o status indicar ausência de defesa.
+        if patd.status in ['preclusao', 'apuracao_preclusao']:
             document_content += "\n\n" + generate_preclusao_document_text(patd)
         
+        # A apuração é adicionada se a punição já foi sugerida (ou seja, a análise foi concluída)
         if patd.punicao_sugerida:
             apuracao_text = "\n\n" + "="*50
             apuracao_text += "\n                   RESULTADO DA APURAÇÃO\n"
