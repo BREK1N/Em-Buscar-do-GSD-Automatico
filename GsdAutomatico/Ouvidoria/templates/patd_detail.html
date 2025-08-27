@@ -23,7 +23,8 @@
     .form-card h4 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
     .form-card textarea, .form-card input { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); }
     .alert-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 15px; border-radius: 8px; }
-    #btn-iniciar-analise .spinner { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
+    /* --- CORREÇÃO APLICADA AQUI --- */
+    .btn .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 </style>
 
@@ -76,7 +77,7 @@
                 <div class="oficial-container">
                     <p class="detail-item-value">1ª: {{ patd.testemunha1|default:"Não atribuída" }}</p>
                     <div class="signature-display-container">
-                        {% if patd.testemunha1 and patd.status == 'preclusao' and not patd.assinatura_testemunha1 %}
+                        {% if patd.testemunha1 and patd.status in 'preclusao,apuracao_preclusao' and not patd.assinatura_testemunha1 %}
                             <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="1">Assinar</button>
                         {% elif patd.assinatura_testemunha1 %}
                             <img src="{{ patd.assinatura_testemunha1 }}" alt="Assinatura da 1ª Testemunha" class="signature-image">
@@ -86,7 +87,7 @@
                 <div class="oficial-container">
                     <p class="detail-item-value">2ª: {{ patd.testemunha2|default:"Não atribuída" }}</p>
                      <div class="signature-display-container">
-                        {% if patd.testemunha2 and patd.status == 'preclusao' and not patd.assinatura_testemunha2 %}
+                        {% if patd.testemunha2 and patd.status in 'preclusao,apuracao_preclusao' and not patd.assinatura_testemunha2 %}
                             <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="2">Assinar</button>
                         {% elif patd.assinatura_testemunha2 %}
                             <img src="{{ patd.assinatura_testemunha2 }}" alt="Assinatura da 2ª Testemunha" class="signature-image">
@@ -544,24 +545,44 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (btnApurar) {
         btnApurar.addEventListener('click', function() {
-            if (analiseData) {
-                // Formata os itens para o textarea
-                const itensText = analiseData.itens.map(i => `Item ${i.numero}: ${i.descricao}`).join('\n');
-                document.getElementById('input-itens').value = itensText;
+            const spinner = this.querySelector('.spinner');
+            spinner.style.display = 'inline-block';
+            this.disabled = true;
 
-                // Popula as circunstâncias
-                document.getElementById('input-atenuantes').value = analiseData.circunstancias.atenuantes.join(', ');
-                document.getElementById('input-agravantes').value = analiseData.circunstancias.agravantes.join(', ');
-                
-                // Popula a punição
-                document.getElementById('input-punicao').value = analiseData.punicao;
+            const url = `/Ouvidoria/patd/{{ patd.pk }}/analisar_punicao/`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken }
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Formata os itens para o textarea
+                    const itensText = data.itens.map(i => `Item ${i.numero}: ${i.descricao}`).join('\n');
+                    document.getElementById('input-itens').value = itensText;
 
-                // Mostra o formulário
-                formWrapper.style.display = 'block';
-                this.style.display = 'none'; // Esconde o botão "Apurar"
-            } else {
-                alert("Os dados da análise não puderam ser carregados. Tente recarregar a página.");
-            }
+                    // Popula as circunstâncias
+                    document.getElementById('input-atenuantes').value = data.circunstancias.atenuantes.join(', ');
+                    document.getElementById('input-agravantes').value = data.circunstancias.agravantes.join(', ');
+                    
+                    // Popula a punição
+                    document.getElementById('input-punicao').value = data.punicao;
+
+                    // Mostra o formulário
+                    formWrapper.style.display = 'block';
+                    this.style.display = 'none'; // Esconde o botão "Apurar"
+                } else {
+                    alert(`Erro na análise: ${data.message}`);
+                }
+            })
+            .catch(err => {
+                alert('Erro de comunicação ao iniciar a análise.');
+                console.error(err);
+            })
+            .finally(() => {
+                spinner.style.display = 'none';
+                this.disabled = false;
+            });
         });
     }
 

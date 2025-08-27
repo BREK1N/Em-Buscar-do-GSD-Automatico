@@ -30,25 +30,29 @@ class PATDForm(forms.ModelForm):
     """
     Formulário para editar uma PATD existente, incluindo campos da apuração.
     """
-    # Usando CharField com Textarea para facilitar a edição de dados JSON
+    # --- CAMPOS MELHORADOS ---
     itens_enquadrados_text = forms.CharField(
         widget=forms.Textarea(attrs={'rows': 5}),
         required=False,
-        label="Itens Enquadrados (JSON)",
-        help_text="Edite os itens em formato JSON. Ex: [{'numero': 1, 'descricao': '...'}]"
+        label="Itens Enquadrados",
+        help_text="Edite os itens, um por linha. Formato: 'Número: Descrição'"
     )
-    circunstancias_text = forms.CharField(
-        widget=forms.Textarea(attrs={'rows': 5}),
+    atenuantes = forms.CharField(
         required=False,
-        label="Circunstâncias (JSON)",
-        help_text="Edite as circunstâncias em formato JSON. Ex: {'agravantes': ['a'], 'atenuantes': []}"
+        label="Atenuantes",
+        help_text="Circunstâncias atenuantes, separadas por vírgula (ex: a, b, c)."
+    )
+    agravantes = forms.CharField(
+        required=False,
+        label="Agravantes",
+        help_text="Circunstâncias agravantes, separadas por vírgula (ex: a, b, c)."
     )
 
     class Meta:
         model = PATD
         fields = [
             'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2', 
-            'data_ocorrencia', 'punicao_sugerida'
+            'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'punicao_sugerida'
         ]
         
         widgets = {
@@ -78,21 +82,35 @@ class PATDForm(forms.ModelForm):
         # Preenche os campos de texto com os dados JSON formatados
         if self.instance and self.instance.pk:
             if self.instance.itens_enquadrados:
-                self.fields['itens_enquadrados_text'].initial = json.dumps(self.instance.itens_enquadrados, indent=2, ensure_ascii=False)
+                itens_str = "\n".join([f"{item.get('numero', '')}: {item.get('descricao', '')}" for item in self.instance.itens_enquadrados])
+                self.fields['itens_enquadrados_text'].initial = itens_str
+            
             if self.instance.circunstancias:
-                self.fields['circunstancias_text'].initial = json.dumps(self.instance.circunstancias, indent=2, ensure_ascii=False)
+                self.fields['atenuantes'].initial = ", ".join(self.instance.circunstancias.get('atenuantes', []))
+                self.fields['agravantes'].initial = ", ".join(self.instance.circunstancias.get('agravantes', []))
 
     def save(self, commit=True):
-        # Converte o texto de volta para JSON antes de salvar
-        try:
-            self.instance.itens_enquadrados = json.loads(self.cleaned_data['itens_enquadrados_text'])
-        except (json.JSONDecodeError, TypeError):
-            # Se o texto for inválido, mantém o valor original ou define como nulo
-            if not self.instance.pk: self.instance.itens_enquadrados = None
+        # Converte os campos de texto de volta para a estrutura JSON antes de salvar
         
-        try:
-            self.instance.circunstancias = json.loads(self.cleaned_data['circunstancias_text'])
-        except (json.JSONDecodeError, TypeError):
-            if not self.instance.pk: self.instance.circunstancias = None
+        # Itens Enquadrados
+        itens_text = self.cleaned_data.get('itens_enquadrados_text', '')
+        itens_list = []
+        for line in itens_text.splitlines():
+            if ':' in line:
+                numero, descricao = line.split(':', 1)
+                try:
+                    itens_list.append({'numero': int(numero.strip()), 'descricao': descricao.strip()})
+                except ValueError:
+                    # Ignora linhas mal formatadas
+                    pass
+        self.instance.itens_enquadrados = itens_list
+
+        # Circunstâncias
+        atenuantes = [item.strip() for item in self.cleaned_data.get('atenuantes', '').split(',') if item.strip()]
+        agravantes = [item.strip() for item in self.cleaned_data.get('agravantes', '').split(',') if item.strip()]
+        self.instance.circunstancias = {
+            'atenuantes': atenuantes,
+            'agravantes': agravantes
+        }
             
         return super().save(commit=commit)

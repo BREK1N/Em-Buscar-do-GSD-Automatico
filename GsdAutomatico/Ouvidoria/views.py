@@ -251,6 +251,7 @@ def generate_preclusao_document_text(patd):
         data_patd_fmt = data_inicio.strftime('%d%m%Y')
 
         replacements = {
+            '{Brasao da Republica}': f'<img src="{static("img/brasao.png")}" alt="Brasão da República" style="width: 100px; height: auto;">',
             '{N PATD}': str(patd.numero_patd),
             '{DataPatd}': data_patd_fmt,
             '{dia}': now.strftime('%d'),
@@ -565,50 +566,17 @@ class PATDDetailView(DetailView):
         context = super().get_context_data(**kwargs)
         patd = self.get_object()
         config = Configuracao.load()
-
-        # --- CORREÇÃO 2: LÓGICA DA ANÁLISE DE PUNIÇÃO ---
-        # A análise agora é acionada se o status for de apuração E a punição ainda não foi sugerida.
-        if (patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao') and not patd.punicao_sugerida:
-            try:
-                itens_obj = enquadra_item(patd.transgressao)
-                patd.itens_enquadrados = itens_obj.item
-                historico_punicoes = PATD.objects.filter(militar=patd.militar).exclude(pk=patd.pk).order_by('-data_inicio')
-                
-                reincidencia_count = 0
-                if patd.itens_enquadrados:
-                    current_item_numbers = {item.get('numero') for item in patd.itens_enquadrados if item.get('numero')}
-                    for p in historico_punicoes:
-                        if p.itens_enquadrados:
-                            past_item_numbers = {item.get('numero') for item in p.itens_enquadrados if item.get('numero')}
-                            if not current_item_numbers.isdisjoint(past_item_numbers):
-                                reincidencia_count += 1
-                
-                historico_str = f"O militar possui {historico_punicoes.count()} transgressões anteriores. "
-                if reincidencia_count > 0:
-                    historico_str += f"Foi reincidente na mesma falta {reincidencia_count} vez(es). "
-                historico_str += "Permanece no bom comportamento." if historico_punicoes.count() <= 5 else "Comportamento insuficiente."
-                justificativa = patd.alegacao_defesa if patd.alegacao_defesa else "O militar não apresentou alegação de defesa (preclusão)."
-                circunstancias_obj = verifica_agravante_atenuante(historico_str, patd.transgressao, justificativa, patd.itens_enquadrados)
-                patd.circunstancias = circunstancias_obj.item[0]
-                agravantes = patd.circunstancias.get('agravantes', [])
-                atenuantes = patd.circunstancias.get('atenuantes', [])
-                observacao = f"Militar reincidente {reincidencia_count} vez(es)." if reincidencia_count > 0 else "Não reincidente."
-                punicao_obj = sugere_punicao(patd.transgressao, agravantes, atenuantes, patd.itens_enquadrados, observacao)
-                patd.punicao_sugerida = punicao_obj.punicao.get('punicao', 'Erro na sugestão.')
-                patd.save()
-            except Exception as e:
-                logger.error(f"Erro no pré-carregamento da análise para PATD {patd.pk}: {e}")
-                messages.error(self.request, "Ocorreu um erro ao pré-carregar a análise da IA.")
-
-        # --- CORREÇÃO 1: LÓGICA DE GERAÇÃO DO DOCUMENTO DE PRECLUSÃO ---
+        
         document_content = generate_patd_document_text(patd)
         if patd.alegacao_defesa:
             document_content += "\n\n" + generate_alegacao_defesa_text(patd, patd.alegacao_defesa)
-        # O documento de preclusão só é adicionado se o status indicar ausência de defesa.
-        if patd.status in ['preclusao', 'apuracao_preclusao']:
+
+        # --- CORREÇÃO APLICADA AQUI ---
+        # Verifica se não há alegação de defesa e se o processo já passou da fase de ciência
+        if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura']:
             document_content += "\n\n" + generate_preclusao_document_text(patd)
         
-        # A apuração é adicionada se a punição já foi sugerida (ou seja, a análise foi concluída)
+        # A apuração é adicionada se a punição já foi sugerida
         if patd.punicao_sugerida:
             apuracao_text = "\n\n" + "="*50
             apuracao_text += "\n                   RESULTADO DA APURAÇÃO\n"
@@ -633,11 +601,12 @@ class PATDDetailView(DetailView):
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
         context['patd'] = patd
+        
         context['analise_data_json'] = json.dumps({
             'itens': patd.itens_enquadrados,
             'circunstancias': patd.circunstancias,
             'punicao': patd.punicao_sugerida
-        }) if patd.itens_enquadrados else 'null'
+        }) if patd.punicao_sugerida else 'null'
         
         return context
 
@@ -985,6 +954,16 @@ def analisar_punicao(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
         
+        # Se a análise já foi feita, apenas retorna os dados existentes.
+        if patd.punicao_sugerida:
+            return JsonResponse({
+                'status': 'success',
+                'itens': patd.itens_enquadrados,
+                'circunstancias': patd.circunstancias,
+                'punicao': patd.punicao_sugerida,
+                'explicacao': '(Dados recarregados)'
+            })
+
         # 1. Enquadrar os itens
         itens_obj = enquadra_item(patd.transgressao)
         itens_list = itens_obj.item
@@ -995,19 +974,18 @@ def analisar_punicao(request, pk):
         
         reincidencia_count = 0
         if itens_list:
-            primeiro_item_num = itens_list[0].get('numero')
+            current_item_numbers = {item.get('numero') for item in itens_list if item.get('numero')}
             for p in historico_punicoes:
-                if p.itens_enquadrados and any(item.get('numero') == primeiro_item_num for item in p.itens_enquadrados):
-                    reincidencia_count += 1
+                if p.itens_enquadrados:
+                    past_item_numbers = {item.get('numero') for item in p.itens_enquadrados if item.get('numero')}
+                    if not current_item_numbers.isdisjoint(past_item_numbers):
+                        reincidencia_count += 1
 
         historico_str = f"O militar possui {historico_punicoes.count()} transgressões anteriores. "
         if reincidencia_count > 0:
             historico_str += f"Foi reincidente na mesma falta {reincidencia_count} vez(es). "
         
-        if historico_punicoes.count() > 5:
-            historico_str += "Militar com comportamento tendendo a insuficiente."
-        else:
-            historico_str += "Permanece no bom comportamento."
+        historico_str += "Permanece no bom comportamento." if historico_punicoes.count() <= 5 else "Comportamento insuficiente."
             
         # 3. Verificar agravantes e atenuantes
         justificativa = patd.alegacao_defesa if patd.alegacao_defesa else "O militar não apresentou alegação de defesa (preclusão)."

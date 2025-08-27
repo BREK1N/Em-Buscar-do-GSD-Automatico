@@ -30,7 +30,7 @@
             {{ form.data_ocorrencia }}
         </p>
 
-        {# Mostra os campos da apuração apenas se eles já existirem #}
+        {# Mostra os campos da apuração apenas se a punição já foi sugerida #}
         {% if form.instance.punicao_sugerida %}
             <hr>
             <h3>Dados da Apuração</h3>
@@ -39,11 +39,21 @@
                 {{ form.itens_enquadrados_text }}
                 <small>{{ form.itens_enquadrados_text.help_text }}</small>
             </p>
-            <p>
-                <label for="{{ form.circunstancias_text.id_for_label }}">{{ form.circunstancias_text.label }}:</label>
-                {{ form.circunstancias_text }}
-                <small>{{ form.circunstancias_text.help_text }}</small>
-            </p>
+            
+            <!-- Campos de Atenuantes e Agravantes -->
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; margin-bottom: 15px;">
+                <p>
+                    <label for="{{ form.atenuantes.id_for_label }}">{{ form.atenuantes.label }}:</label>
+                    {{ form.atenuantes }}
+                    <small>{{ form.atenuantes.help_text }}</small>
+                </p>
+                <p>
+                    <label for="{{ form.agravantes.id_for_label }}">{{ form.agravantes.label }}:</label>
+                    {{ form.agravantes }}
+                    <small>{{ form.agravantes.help_text }}</small>
+                </p>
+            </div>
+
             <p>
                 <label for="{{ form.punicao_sugerida.id_for_label }}">{{ form.punicao_sugerida.label }}:</label>
                 {{ form.punicao_sugerida }}
