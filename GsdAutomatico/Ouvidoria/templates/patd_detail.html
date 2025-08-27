@@ -180,7 +180,6 @@
     <div id="documento-raw-text" style="display: none;">{{ patd.documento_texto }}</div>
 </div>
 
-<!-- ... (Todos os modais permanecem os mesmos) ... -->
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
         <h3>Confirmar Exclusão</h3>
@@ -244,9 +243,11 @@
         <h3>Extender Prazo de Defesa</h3>
         <p>Defina o novo prazo para a entrega da alegação de defesa a contar de agora.</p>
         <form id="extender-prazo-form" class="model-form">
-            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+            <div class="form-grid" style="grid-template-columns: 1fr {% if user.is_superuser %}1fr{% endif %}; gap: 15px;">
                 <p><label for="extender-dias">Dias:</label><input type="number" id="extender-dias" value="{{ prazo_defesa_dias }}" min="0"></p>
+                {% if user.is_superuser %}
                 <p><label for="extender-minutos">Minutos:</label><input type="number" id="extender-minutos" value="{{ prazo_defesa_minutos }}" min="0"></p>
+                {% endif %}
             </div>
             <div class="form-actions" style="justify-content: flex-end;">
                 <button type="button" class="btn btn-secondary" id="cancel-extender-prazo-btn">Cancelar</button>
@@ -391,7 +392,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('extender-prazo-form').addEventListener('submit', (e) => {
             e.preventDefault();
             const dias = document.getElementById('extender-dias').value;
-            const minutos = document.getElementById('extender-minutos').value;
+            const minutosInput = document.getElementById('extender-minutos');
+            const minutos = minutosInput ? minutosInput.value : 0;
             const url = `{% url 'Ouvidoria:extender_prazo' patd.pk %}`;
             fetch(url, {
                 method: 'POST',
@@ -411,7 +413,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (countdownTimer && '{{ patd.data_ciencia }}') {
         const dataCiencia = new Date('{{ patd.data_ciencia|date:"c" }}');
         const prazoDias = parseInt('{{ prazo_defesa_dias }}', 10) || 0;
-        const prazoMinutos = parseInt('{{ prazo_defesa_minutos }}', 10) || 0;
+
         function addBusinessDays(startDate, days) {
             let currentDate = new Date(startDate);
             let addedDays = 0;
@@ -423,8 +425,9 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return currentDate;
         }
-        let deadline = addBusinessDays(dataCiencia, prazoDias);
-        deadline.setMinutes(deadline.getMinutes() + prazoMinutos);
+        let deadlineDate = addBusinessDays(dataCiencia, prazoDias);
+        let deadline = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate() + 1);
+
         const interval = setInterval(() => {
             const now = new Date();
             const diff = deadline - now;

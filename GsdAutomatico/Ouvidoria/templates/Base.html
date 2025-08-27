@@ -172,11 +172,13 @@
                                 <input type="number" id="input-prazo-defesa-dias" name="prazo_defesa_dias" min="0" value="5">
                                 <small>Número de dias úteis que o militar tem para apresentar a sua defesa.</small>
                            </div>
+                           {% if user.is_superuser %}
                            <div class="form-group">
                                 <label for="input-prazo-defesa-minutos">Prazo para Defesa (minutos)</label>
                                 <input type="number" id="input-prazo-defesa-minutos" name="prazo_defesa_minutos" min="0" value="0">
                                 <small>Adiciona minutos ao prazo final (útil para testes).</small>
                            </div>
+                           {% endif %}
                            <div class="form-actions" style="justify-content: flex-end;">
                                <button type="submit" class="btn btn-primary">Salvar Padrões</button>
                            </div>
@@ -483,7 +485,9 @@
                                 selectComandante.value = data.comandante_gsd_id;
                             }
                             inputPrazoDefesaDias.value = data.prazo_defesa_dias;
-                            inputPrazoDefesaMinutos.value = data.prazo_defesa_minutos;
+                            if (inputPrazoDefesaMinutos) {
+                                inputPrazoDefesaMinutos.value = data.prazo_defesa_minutos;
+                            }
                         })
                         .catch(error => {
                             selectComandante.innerHTML = '<option value="">Erro ao carregar</option>';
@@ -495,7 +499,7 @@
                     e.preventDefault();
                     const comandanteId = selectComandante.value;
                     const prazoDias = inputPrazoDefesaDias.value;
-                    const prazoMinutos = inputPrazoDefesaMinutos.value;
+                    const prazoMinutos = inputPrazoDefesaMinutos ? inputPrazoDefesaMinutos.value : 0;
                     const url = "{% url 'Ouvidoria:gerenciar_configuracoes_padrao' %}";
 
                     fetch(url, {
@@ -600,17 +604,23 @@
             }
 
             function verificarPrazosBackend() {
-                fetch("{% url 'Ouvidoria:verificar_e_atualizar_prazos' %}", {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken },
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        loadNotificacoes();
-                    }
-                })
-                .catch(error => console.error('Erro ao verificar prazos:', error));
+                const now = new Date();
+                const hours = now.getHours();
+                const minutes = now.getMinutes();
+
+                if (hours === 0 && minutes <= 5) {
+                    fetch("{% url 'Ouvidoria:verificar_e_atualizar_prazos' %}", {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken },
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.status === 'success' && data.updated_count > 0) {
+                            loadNotificacoes();
+                        }
+                    })
+                    .catch(error => console.error('Erro ao verificar prazos:', error));
+                }
             }
 
             notificationsBtn.addEventListener('click', (e) => {

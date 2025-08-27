@@ -738,6 +738,10 @@ def extender_prazo(request, pk):
         data = json.loads(request.body)
         dias_extensao = int(data.get('dias', 0))
         minutos_extensao = int(data.get('minutos', 0))
+        
+        if not request.user.is_superuser and minutos_extensao != 0:
+            return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem alterar os minutos.'}, status=403)
+
 
         if dias_extensao < 0 or minutos_extensao < 0:
             return JsonResponse({'status': 'error', 'message': 'Valores de extensão de prazo inválidos.'}, status=400)
@@ -815,6 +819,8 @@ def salvar_assinatura_padrao(request, pk):
 def gerenciar_configuracoes_padrao(request):
     config = Configuracao.load()
     if request.method == 'POST':
+        if not request.user.is_superuser:
+            return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem alterar as configurações.'}, status=403)
         try:
             data = json.loads(request.body)
             comandante_id = data.get('comandante_gsd_id')
@@ -887,6 +893,9 @@ def extender_prazo_massa(request):
 @ouvidoria_required
 @require_POST
 def verificar_e_atualizar_prazos(request):
+    now = timezone.localtime(timezone.now())
+    if not (now.hour == 0 and 0 <= now.minute <= 5):
+        return JsonResponse({'status': 'not_in_time_window', 'updated_count': 0})
     try:
         patds_pendentes = PATD.objects.filter(status='aguardando_justificativa')
         config = Configuracao.load()
@@ -898,9 +907,11 @@ def verificar_e_atualizar_prazos(request):
                 dias_adicionados = 0
                 while dias_adicionados < dias_uteis_a_adicionar:
                     data_final += timedelta(days=1)
-                    if data_final.weekday() < 5:
+                    if data_final.weekday() < 5: # 0-4 são dias úteis
                         dias_adicionados += 1
-                deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
+                
+                deadline = (data_final + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
                 if timezone.now() > deadline:
                     patd.status = 'prazo_expirado'
                     patd.save(update_fields=['status'])
