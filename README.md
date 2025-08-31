@@ -152,4 +152,4 @@ A aplicação estará disponível no seu navegador nos seguintes endereços:
 
 ## 8\. Licença
 
-Este projeto está licenciado sob a Licença MIT. Consulte o ficheiro `LICENSE` para mais detalhes
+Este projeto está licenciado sob a Licença MIT. Consulte o ficheiro `LICENSE` para mais detalhes.
