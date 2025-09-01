@@ -28,8 +28,10 @@ from django.utils import timezone
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
 from django.utils.decorators import method_decorator
-from .analise_transgressao import enquadra_item, verifica_agravante_atenuante, sugere_punicao
+from .analise_transgressao import enquadra_item, verifica_agravante_atenuante, sugere_punicao, model
 from difflib import SequenceMatcher # Importado para a verificação de similaridade
+import os
+
 
 # --- Funções e Mixins de Permissão ---
 def has_ouvidoria_access(user):
@@ -322,19 +324,19 @@ def index(request):
             pdf_file = request.FILES.get('pdf_file')
             if not pdf_file:
                 return JsonResponse({'status': 'error', 'message': "Nenhum ficheiro foi enviado."}, status=400)
-            
+
             try:
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
                     for chunk in pdf_file.chunks():
                         temp_file.write(chunk)
                     temp_file_path = temp_file.name
-                
+
                 loader = PyPDFLoader(temp_file_path)
                 content = " ".join(page.page_content for page in loader.load_and_split())
                 os.remove(temp_file_path)
 
-                llm = ChatOpenAI(model="gpt-4o", temperature=0)
-                structured_llm = llm.with_structured_output(AnaliseTransgressao)
+
+                structured_llm = model.with_structured_output(AnaliseTransgressao)
                 prompt = ChatPromptTemplate.from_messages([
                     ("system", "Você é um assistente especialista em analisar documentos disciplinares militares. Extraia a data em que a transgressão ocorreu, no formato AAAA-MM-DD. Ignore a data de emissão do documento."),
                     ("human", "Analise o seguinte documento e extraia os dados: \n\n{documento}")

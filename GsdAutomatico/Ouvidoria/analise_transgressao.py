@@ -3,10 +3,21 @@ from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from langchain_core.output_parsers import PydanticOutputParser
+import os
 
 load_dotenv()
 
-model = ChatOpenAI(model="gpt-4o", temperature=0)
+openai_api_key = os.getenv("OPENAI_API_KEY")
+if not openai_api_key:
+    raise ValueError("A variável OPENAI_API_KEY não foi encontrada no ficheiro .env")
+
+# --- CÓDIGO FINAL E SIMPLIFICADO ---
+# Não criamos mais o http_client. A Langchain irá usar as variáveis de ambiente.
+model = ChatOpenAI(
+    model="gpt-4o",
+    temperature=0,
+    api_key=openai_api_key
+)
 
 def enquadra_item(transgressao):
     class Item(BaseModel):
