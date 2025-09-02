@@ -135,6 +135,7 @@ class PATD(models.Model):
     dias_punicao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Dias de Punição")
     punicao = models.CharField(max_length=255, blank=True, null=True, verbose_name="Punição")
     transgressao_afirmativa = models.TextField(blank=True, null=True, verbose_name="Transgressão Afirmativa")
+    ocorrencia_reescrita = models.TextField(blank=True, null=True, verbose_name="Ocorrência Reescrita")
     natureza_transgressao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Natureza da Transgressão")
     comportamento = models.CharField(max_length=100, blank=True, null=True, default="Permanece no \"Bom comportamento\"", verbose_name="Comportamento")
 

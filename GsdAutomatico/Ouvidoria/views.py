@@ -157,12 +157,13 @@ def _get_document_context(patd):
     atenuantes_str = ", ".join(patd.circunstancias.get('atenuantes', [])) if patd.circunstancias else "Nenhuma"
     agravantes_str = ", ".join(patd.circunstancias.get('agravantes', [])) if patd.circunstancias else "Nenhuma"
     
+    # --- LÓGICA DE FORMATAÇÃO DA PUNIÇÃO ATUALIZADA ---
     # Formatação da Punição Completa
-    punicao_completa_str = patd.punicao or "[Punição não definida]"
+    punicao_final_str = patd.punicao or "[Punição não definida]"
     if patd.dias_punicao and patd.punicao:
-        punicao_completa_str = f"{patd.dias_punicao} de {patd.punicao}"
-
-
+        # A lógica agora constrói a string completa, ex: "Seis (06) de detenção"
+        punicao_final_str = f"{patd.dias_punicao} de {patd.punicao}"
+    
     # Cálculo do Prazo Final (Deadline) para Preclusão
     deadline_str = "[Prazo não iniciado]"
     if patd.data_ciencia:
@@ -173,8 +174,8 @@ def _get_document_context(patd):
             data_final += timedelta(days=1)
             if data_final.weekday() < 5:
                 dias_adicionados += 1
-    # Se uma ocorrência reescrita existir, use-a; senão, use a original.
-    ocorrencia_final = patd.ocorrencia_reescrita or patd.transgressao
+        deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
+        deadline_str = deadline.strftime('%d/%m/%Y às %H:%M')
 
     return {
         # Placeholders Comuns
@@ -201,7 +202,7 @@ def _get_document_context(patd):
         
         # Dados da Transgressão
         '{data da Ocorrencia}': data_ocorrencia_fmt,
-        '{Ocorrencia reescrita}': ocorrencia_final,
+        '{Ocorrencia reescrita}': patd.ocorrencia_reescrita or patd.transgressao,
         '{protocolo comaer}': patd.protocolo_comaer,
         '{Oficio Transgrecao}': patd.oficio_transgrecao,
         '{data_oficio}': data_oficio_fmt,
@@ -216,14 +217,14 @@ def _get_document_context(patd):
         
         # Dados da Defesa
         '{data ciência}': data_ciencia_fmt,
-        '{data alegação}': data_alegacao_fmt,
+        '{Data da alegação}': data_alegacao_fmt,
         '{Alegação de defesa}': patd.alegacao_defesa or "[Defesa não apresentada]",
         '{Alegação_defesa_resumo}': patd.alegacao_defesa_resumo or "[Resumo não gerado]",
         
-        # Dados da Punição e Conclusão
-        '{punicao_completa}': punicao_completa_str,
-        '{punicao}': patd.punicao or "[Punição não definida]",
-        '{dias_punicao}': patd.dias_punicao or "",
+        # --- PLACEHOLDERS DE PUNIÇÃO ATUALIZADOS ---
+        '{punicao_completa}': punicao_final_str,
+        '{punicao}': punicao_final_str, # Agora contém a string completa e formatada
+        '{dias_punicao}': "", # Esvaziado para evitar duplicação no template
         '{comportamento}': patd.comportamento or "[Não avaliado]",
         
         # Assinaturas
