@@ -78,6 +78,7 @@ class PATD(models.Model):
 
     militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='patds', verbose_name="Militar Acusado")
     transgressao = models.TextField(verbose_name="Transgressão")
+    ocorrencia_reescrita = models.TextField(blank=True, null=True, verbose_name="Ocorrência Reescrita (Formal)")
     numero_patd = models.IntegerField(unique=True, verbose_name="N° PATD")
     oficial_responsavel = models.ForeignKey(
         Militar,

@@ -20,6 +20,11 @@
     .analise-container { margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
     .btn .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
+    /* Estilos para o formulário de apuração */
+    #apuracao-form { display: none; /* Começa oculto */ margin-top: 15px; }
+    #apuracao-form .form-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
+    #apuracao-form textarea { width: 100%; min-height: 100px; }
+    #apuracao-form .form-item-full { grid-column: 1 / -1; }
 </style>
 
 <h1>PATD Nº {{ patd.numero_patd }}</h1>
@@ -126,13 +131,41 @@
         {% if patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao' %}
         <div class="detail-item-full analise-container">
             <h2>Análise Disciplinar</h2>
-            <p>Clique no botão abaixo para que a Inteligência Artificial analise todos os dados do processo e sugira a punição aplicável.</p>
             <div id="analise-actions">
                 <button class="btn btn-primary" id="btn-apurar">
                     <span class="spinner" style="display: none;"></span>
-                    Apurar e Salvar Análise
+                    Apurar Transgressão
                 </button>
             </div>
+
+            <form id="apuracao-form" class="model-form">
+                <h3>Resultado da Apuração (Editável)</h3>
+                <div class="form-grid">
+                    <div class="form-item-full">
+                        <label for="itens_enquadrados">Itens Enquadrados:</label>
+                        <textarea id="itens_enquadrados" name="itens_enquadrados"></textarea>
+                    </div>
+                    <div>
+                        <label for="atenuantes">Atenuantes:</label>
+                        <input type="text" id="atenuantes" name="atenuantes">
+                    </div>
+                    <div>
+                        <label for="agravantes">Agravantes:</label>
+                        <input type="text" id="agravantes" name="agravantes">
+                    </div>
+                    <div class="form-item-full">
+                        <label for="punicao_sugerida">Punição Sugerida:</label>
+                        <textarea id="punicao_sugerida" name="punicao_sugerida"></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="btn-salvar-apuracao" class="btn btn-primary">
+                        <span class="spinner" style="display: none;"></span>
+                        Salvar Apuração e Concluir
+                    </button>
+                    <button type="button" id="btn-cancelar-apuracao" class="btn btn-secondary">Cancelar</button>
+                </div>
+            </form>
         </div>
         {% endif %}
     </div>
@@ -521,6 +554,10 @@ document.addEventListener('DOMContentLoaded', function() {
     renderDocument();
 
     const btnApurar = document.getElementById('btn-apurar');
+    const apuracaoForm = document.getElementById('apuracao-form');
+    const btnSalvarApuracao = document.getElementById('btn-salvar-apuracao');
+    const btnCancelarApuracao = document.getElementById('btn-cancelar-apuracao');
+
     if (btnApurar) {
         btnApurar.addEventListener('click', function() {
             const spinner = this.querySelector('.spinner');
@@ -535,14 +572,80 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    alert(data.message);
-                    window.location.reload();
+                    // Preenche o formulário com os dados recebidos
+                    const itensStr = data.data.itens_enquadrados.map(item => `${item.numero}: ${item.descricao}`).join('\n');
+                    document.getElementById('itens_enquadrados').value = itensStr;
+                    document.getElementById('atenuantes').value = data.data.circunstancias.atenuantes.join(', ');
+                    document.getElementById('agravantes').value = data.data.circunstancias.agravantes.join(', ');
+                    document.getElementById('punicao_sugerida').value = data.data.punicao_sugerida;
+                    
+                    // Mostra o formulário e oculta o botão de apurar
+                    apuracaoForm.style.display = 'block';
+                    btnApurar.style.display = 'none';
                 } else {
                     alert(`Erro na análise: ${data.message}`);
                 }
             })
             .catch(err => {
                 alert('Erro de comunicação ao iniciar a análise.');
+                console.error(err);
+            })
+            .finally(() => {
+                spinner.style.display = 'none';
+                this.disabled = false;
+            });
+        });
+    }
+
+    if (btnCancelarApuracao) {
+        btnCancelarApuracao.addEventListener('click', function() {
+            apuracaoForm.style.display = 'none';
+            btnApurar.style.display = 'block';
+        });
+    }
+
+    if (btnSalvarApuracao) {
+        btnSalvarApuracao.addEventListener('click', function() {
+            const spinner = this.querySelector('.spinner');
+            spinner.style.display = 'inline-block';
+            this.disabled = true;
+
+            // Coleta os dados do formulário (que podem ter sido editados)
+            const itensText = document.getElementById('itens_enquadrados').value;
+            const itensList = itensText.split('\n').map(line => {
+                const parts = line.split(':');
+                if (parts.length > 1) {
+                    return { numero: parseInt(parts[0].trim()), descricao: parts[1].trim() };
+                }
+                return null;
+            }).filter(item => item);
+
+            const dataToSave = {
+                itens_enquadrados: itensList,
+                circunstancias: {
+                    atenuantes: document.getElementById('atenuantes').value.split(',').map(s => s.trim()).filter(Boolean),
+                    agravantes: document.getElementById('agravantes').value.split(',').map(s => s.trim()).filter(Boolean),
+                },
+                punicao_sugerida: document.getElementById('punicao_sugerida').value
+            };
+
+            const url = `{% url 'Ouvidoria:salvar_apuracao' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify(dataToSave)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert(data.message);
+                    window.location.reload();
+                } else {
+                    alert(`Erro ao salvar apuração: ${data.message}`);
+                }
+            })
+            .catch(err => {
+                alert('Erro de comunicação ao salvar a apuração.');
                 console.error(err);
             })
             .finally(() => {

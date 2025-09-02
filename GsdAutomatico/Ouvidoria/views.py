@@ -27,7 +27,7 @@ from django.templatetags.static import static
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
-from .analise_transgressao import enquadra_item, verifica_agravante_atenuante, sugere_punicao, model
+from .analise_transgressao import enquadra_item, verifica_agravante_atenuante, sugere_punicao, model, analisar_e_resumir_defesa, reescrever_ocorrencia
 from difflib import SequenceMatcher # Importado para a verificação de similaridade
 from django.utils.decorators import method_decorator
 from num2words import num2words # Importação para converter números em texto
@@ -173,8 +173,8 @@ def _get_document_context(patd):
             data_final += timedelta(days=1)
             if data_final.weekday() < 5:
                 dias_adicionados += 1
-        deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
-        deadline_str = deadline.strftime('%d/%m/%Y às %H:%M')
+    # Se uma ocorrência reescrita existir, use-a; senão, use a original.
+    ocorrencia_final = patd.ocorrencia_reescrita or patd.transgressao
 
     return {
         # Placeholders Comuns
@@ -201,7 +201,7 @@ def _get_document_context(patd):
         
         # Dados da Transgressão
         '{data da Ocorrencia}': data_ocorrencia_fmt,
-        '{Ocorrencia reescrita}': patd.transgressao,
+        '{Ocorrencia reescrita}': ocorrencia_final,
         '{protocolo comaer}': patd.protocolo_comaer,
         '{Oficio Transgrecao}': patd.oficio_transgrecao,
         '{data_oficio}': data_oficio_fmt,
@@ -705,7 +705,30 @@ def salvar_alegacao_defesa(request, pk):
         patd.alegacao_defesa = alegacao_texto
         patd.status = 'em_apuracao' 
         patd.data_alegacao = timezone.now()
-        patd.save(update_fields=['alegacao_defesa', 'status', 'data_alegacao'])
+
+        try:
+            # Chama os agentes de IA para processar os textos
+            resumo_tecnico = analisar_e_resumir_defesa(patd.alegacao_defesa)
+            ocorrencia_formatada = reescrever_ocorrencia(patd.transgressao)
+            
+            # Atualiza o objeto PATD com os novos textos
+            patd.alegacao_defesa_resumo = resumo_tecnico
+            patd.ocorrencia_reescrita = ocorrencia_formatada
+            
+        except Exception as e:
+            # Se a IA falhar, o processo continua, mas registamos o erro.
+            logger.error(f"Erro ao chamar a IA para processar textos da PATD {pk}: {e}")
+            patd.alegacao_defesa_resumo = "Erro ao gerar resumo."
+            patd.ocorrencia_reescrita = patd.transgressao # Usa a original como fallback
+
+        # Salva todos os campos atualizados de uma vez
+        patd.save(update_fields=[
+            'alegacao_defesa', 
+            'status', 
+            'data_alegacao',
+            'ocorrencia_reescrita',
+            'alegacao_defesa_resumo'
+        ])
 
         return JsonResponse({'status': 'success', 'message': 'Alegação de defesa salva com sucesso.'})
     except Exception as e:
@@ -953,7 +976,6 @@ def analisar_punicao(request, pk):
 
         # 1. Enquadrar os itens
         itens_obj = enquadra_item(patd.transgressao)
-        patd.itens_enquadrados = itens_obj.item
         
         # 2. Histórico
         historico_punicoes = PATD.objects.filter(militar=patd.militar).exclude(pk=patd.pk).count()
@@ -961,42 +983,73 @@ def analisar_punicao(request, pk):
         
         # 3. Agravantes e Atenuantes
         justificativa = patd.alegacao_defesa or "O militar não apresentou alegação de defesa (preclusão)."
-        circunstancias_obj = verifica_agravante_atenuante(historico_str, patd.transgressao, justificativa, patd.itens_enquadrados)
-        patd.circunstancias = circunstancias_obj.item[0]
+        circunstancias_obj = verifica_agravante_atenuante(historico_str, patd.transgressao, justificativa, itens_obj.item)
         
         # 4. Punição
         punicao_obj = sugere_punicao(
-            patd.transgressao, patd.circunstancias.get('agravantes', []), 
-            patd.circunstancias.get('atenuantes', []), patd.itens_enquadrados, "N/A"
+            patd.transgressao, 
+            circunstancias_obj.item[0].get('agravantes', []), 
+            circunstancias_obj.item[0].get('atenuantes', []), 
+            itens_obj.item, 
+            "N/A"
         )
-        punicao_sugerida_str = punicao_obj.punicao.get('punicao', 'Erro na sugestão')
         
-        # 5. Processar e salvar a punição
-        patd.punicao_sugerida = punicao_sugerida_str # Mantém o texto completo para referência
-        
+        # 5. Retornar os dados para o frontend
+        return JsonResponse({
+            'status': 'success',
+            'data': {
+                'itens_enquadrados': itens_obj.item,
+                'circunstancias': circunstancias_obj.item[0],
+                'punicao_sugerida': punicao_obj.punicao.get('punicao', 'Erro na sugestão')
+            }
+        })
+
+    except Exception as e:
+        logger.error(f"Erro ao analisar punição da PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+@ouvidoria_required
+@require_POST
+def salvar_apuracao(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+
+        # Atualiza os campos da PATD com os dados recebidos
+        patd.itens_enquadrados = data.get('itens_enquadrados')
+        patd.circunstancias = data.get('circunstancias')
+        punicao_sugerida_str = data.get('punicao_sugerida', '')
+        patd.punicao_sugerida = punicao_sugerida_str
+
+        # Processa a string da punição para extrair dias e tipo
         match = re.search(r'(\d+)\s+dias\s+de\s+(.+)', punicao_sugerida_str, re.IGNORECASE)
         if match:
             dias_num = int(match.group(1))
             punicao_tipo = match.group(2).strip()
+            # Converte o número para extenso
             dias_texto = num2words(dias_num, lang='pt_BR')
             patd.dias_punicao = f"{dias_texto} ({dias_num:02d}) dias"
             patd.punicao = punicao_tipo
         else:
             patd.dias_punicao = ""
             patd.punicao = punicao_sugerida_str
-        
-        # 6. Salvar campos adicionais (a serem implementados com IA se necessário)
-        patd.natureza_transgressao = "Média" # Placeholder
-        patd.transgressao_afirmativa = f"foi verificado que o militar realmente cometeu a transgressão de '{patd.transgressao}'." # Placeholder
 
-        # 7. Atualizar status e salvar
-        patd.status = 'aguardando_punicao'
-        patd.save()
+        # Define valores placeholder para outros campos
+        patd.natureza_transgressao = "Média"
+        patd.transgressao_afirmativa = f"foi verificado que o militar realmente cometeu a transgressão de '{patd.transgressao}'."
         
-        return JsonResponse({'status': 'success', 'message': 'Apuração concluída e salva com sucesso!'})
+        # Atualiza o status
+        patd.status = 'aguardando_punicao'
+        
+        # Salva o objeto
+        patd.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Apuração salva com sucesso!'})
 
     except Exception as e:
-        logger.error(f"Erro ao analisar punição da PATD {pk}: {e}")
+        logger.error(f"Erro ao salvar apuração da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 
@@ -1017,3 +1070,4 @@ def search_militares_json(request):
     militares = militares.order_by('posto', 'nome_guerra')[:50]
     data = list(militares.values('id', 'posto', 'nome_guerra', 'nome_completo'))
     return JsonResponse(data, safe=False)
+

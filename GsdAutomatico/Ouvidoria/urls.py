@@ -30,6 +30,7 @@ urlpatterns = [
 
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
     path('patd/<int:pk>/analisar_punicao/', views.analisar_punicao, name='analisar_punicao'),
+    path('patd/<int:pk>/salvar_apuracao/', views.salvar_apuracao, name='salvar_apuracao'), # Nova rota
 
     # CONFIGURAÇÃO DE ASSINATURAS
     path('config/oficiais/', views.lista_oficiais, name='lista_oficiais'),

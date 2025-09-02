@@ -11,8 +11,6 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("A variável OPENAI_API_KEY não foi encontrada no ficheiro .env")
 
-# --- CÓDIGO FINAL E SIMPLIFICADO ---
-# Não criamos mais o http_client. A Langchain irá usar as variáveis de ambiente.
 model = ChatOpenAI(
     model="gpt-4o",
     temperature=0,
@@ -314,3 +312,77 @@ def sugere_punicao(transgressao, agravantes, atenuantes, itens, observacao):
     dicionario = {"transgressao": transgressao, "agravantes": agravantes, "atenuantes": atenuantes, "observacao": observacao, "itens": itens}
     resposta = chain.invoke(dicionario)
     return resposta
+
+def analisar_e_resumir_defesa(alegacao_defesa: str):
+    """
+    Analisa a alegação de defesa, extrai os pontos-chave e gera um
+    resumo formal e técnico para ser incluído no relatório de apuração.
+    """
+    class AnaliseDefesa(BaseModel):
+        resumo_tecnico: str = Field(
+            description="Um resumo formal e técnico da alegação de defesa, com no máximo 50 palavras, adequado para um relatório disciplinar militar."
+        )
+
+    parser = PydanticOutputParser(pydantic_object=AnaliseDefesa)
+
+    sys_prompt = """
+    Você é um Oficial Apurador encarregado de analisar a defesa de um militar. Sua tarefa é ler a alegação de defesa, identificar os argumentos centrais e sintetizá-los em um resumo técnico e formal para o relatório final.
+
+    **Instruções:**
+    1.  **Identifique os Argumentos Principais:** Leia a alegação de defesa e extraia os pontos essenciais. O militar nega o fato? Apresenta uma justificativa (ex: força maior, desconhecimento)? Apresenta circunstâncias atenuantes?
+    2.  **Sintetize:** Crie um resumo conciso que capture a essência da defesa.
+    3.  **Linguagem Formal:** Redija o resumo em linguagem formal e impessoal, adequada para um documento oficial militar.
+    4.  **Limite de Palavras:** O resumo final não deve exceder 50 palavras.
+
+    **Alegação de Defesa Original:**
+    {alegacao_defesa}
+
+    **Formato da Resposta (apenas o JSON):**
+    {format_instructions}
+    """
+
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", sys_prompt)
+    ]).partial(format_instructions=parser.get_format_instructions())
+
+    chain = prompt_template | model | parser
+
+    resposta = chain.invoke({"alegacao_defesa": alegacao_defesa})
+    return resposta.resumo_tecnico
+
+def reescrever_ocorrencia(transgressao: str):
+    """
+    Reescreve a descrição da transgressão de forma formal e objetiva para
+    ser usada em documentos oficiais.
+    """
+    class OcorrenciaFormal(BaseModel):
+        texto_reescrito: str = Field(
+            description="A descrição da transgressão, reescrita de forma formal, impessoal e objetiva, com no máximo 50 palavras."
+        )
+
+    parser = PydanticOutputParser(pydantic_object=OcorrenciaFormal)
+
+    sys_prompt = """
+    Você é um Oficial Apurador redigindo um relatório disciplinar. Sua tarefa é reescrever a descrição de uma transgressão para que ela seja formal, técnica e objetiva, adequada para um documento oficial.
+
+    **Instruções:**
+    1.  **Objetividade:** Remova qualquer linguagem informal, coloquial ou subjetiva.
+    2.  **Formalidade:** Utilize terminologia militar e jurídica apropriada.
+    3.  **Clareza e Concisão:** Seja direto e claro. O texto final não deve exceder 50 palavras.
+    4.  **Foco nos Fatos:** Descreva o ato transgressor sem adjetivos ou opiniões.
+
+    **Descrição Original da Transgressão:**
+    {transgressao}
+
+    **Formato da Resposta (apenas o JSON):**
+    {format_instructions}
+    """
+
+    prompt_template = ChatPromptTemplate.from_messages([
+        ("system", sys_prompt)
+    ]).partial(format_instructions=parser.get_format_instructions())
+
+    chain = prompt_template | model | parser
+
+    resposta = chain.invoke({"transgressao": transgressao})
+    return resposta.texto_reescrito
