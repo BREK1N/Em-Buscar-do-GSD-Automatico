@@ -65,6 +65,11 @@ class AnaliseTransgressao(BaseModel):
     transgressao: str = Field(description="A descrição detalhada da transgressão disciplinar cometida.")
     local: str = Field(description="O local onde a transgressão ocorreu.")
     data_ocorrencia: str = Field(description="A data em que a transgressão ocorreu, no formato AAAA-MM-DD. Se não for mencionada, retorne uma string vazia.")
+    
+    # NOVOS CAMPOS ADICIONADOS
+    protocolo_comaer: str = Field(description="O número de protocolo COMAER. Ex: 67112.004914/2025-10. Se não for mencionado, retorne uma string vazia.")
+    oficio_transgrecao: str = Field(description="O número do Ofício de Transgressão. Ex: 189/DSEG/5127. Se não for mencionado, retorne uma string vazia.")
+    data_oficio: str = Field(description="A data de emissão do ofício. Ex: Rio de Janeiro, 8 de julho de 2025. Se não for mencionada, retorne uma string vazia.")
 
 
 def get_next_patd_number():
@@ -142,6 +147,7 @@ def generate_patd_document_text(patd):
         data_inicio = patd.data_inicio
         data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else "[Data não informada]"
         data_patd_fmt = data_inicio.strftime('%d%m%Y')
+        data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else "[Data do ofício não informada]"
 
         # Formatação dos itens enquadrados para o documento
         itens_enquadrados_str = ""
@@ -169,6 +175,10 @@ def generate_patd_document_text(patd):
             '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', '[Não informado]') if patd.oficial_responsavel else "[Oficial apurador não definido]",
             '{Ocorrencia reescrita}': patd.transgressao,
             '{Itens enquadrados}': itens_enquadrados_str,
+            # NOVOS CAMPOS ADICIONADOS
+            '{protocolo comaer}': patd.protocolo_comaer,
+            '{Oficio Transgrecao}': patd.oficio_transgrecao,
+            '{data_oficio}': data_oficio_fmt,
         }
 
         document_content = template_content
@@ -196,6 +206,7 @@ def generate_alegacao_defesa_text(patd, alegacao_texto):
         
         now = timezone.now()
         data_alegacao_fmt = now.strftime('%d/%m/%Y')
+        data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else "[Data do ofício não informada]"
 
         data_inicio = patd.data_inicio
         data_patd_fmt = data_inicio.strftime('%d%m%Y')
@@ -212,6 +223,10 @@ def generate_alegacao_defesa_text(patd, alegacao_texto):
             '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else '[Oficial não definido]',
             '{DataPatd}': data_patd_fmt,
             '{N PATD}': str(patd.numero_patd),
+            # NOVOS CAMPOS ADICIONADOS
+            '{protocolo comaer}': patd.protocolo_comaer,
+            '{Oficio Transgrecao}': patd.oficio_transgrecao,
+            '{data_oficio}': data_oficio_fmt,
         }
 
         document_content = template_content
@@ -251,6 +266,7 @@ def generate_preclusao_document_text(patd):
 
         data_inicio = patd.data_inicio
         data_patd_fmt = data_inicio.strftime('%d%m%Y')
+        data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else "[Data do ofício não informada]"
 
         replacements = {
             '{Brasao da Republica}': f'<img src="{static("img/brasao.png")}" alt="Brasão da República" style="width: 100px; height: auto;">',
@@ -268,6 +284,10 @@ def generate_preclusao_document_text(patd):
             '{Assinatura Testemunha 1}': patd.assinatura_testemunha1 or '[Sem assinatura]',
             '{Testemunha 2}': format_militar_string(patd.testemunha2) if patd.testemunha2 else '[Testemunha não definida]',
             '{Assinatura Testemunha 2}': patd.assinatura_testemunha2 or '[Sem assinatura]',
+            # NOVOS CAMPOS ADICIONADOS
+            '{protocolo comaer}': patd.protocolo_comaer,
+            '{Oficio Transgrecao}': patd.oficio_transgrecao,
+            '{data_oficio}': data_oficio_fmt,
         }
 
         document_content = template_content
@@ -305,12 +325,28 @@ def index(request):
                         data_ocorrencia = datetime.strptime(data_ocorrencia_str, '%Y-%m-%d').date()
                     except (ValueError, TypeError):
                         pass
+                
+                # NOVOS CAMPOS OBTIDOS DO REQUEST
+                protocolo_comaer = request.POST.get('protocolo_comaer', '')
+                oficio_transgrecao = request.POST.get('oficio_transgrecao', '')
+                data_oficio_str = request.POST.get('data_oficio', '')
+
+                data_oficio = None
+                if data_oficio_str:
+                    try:
+                        data_oficio = datetime.strptime(data_oficio_str, '%d/%m/%Y').date()
+                    except (ValueError, TypeError):
+                        pass
 
                 patd = PATD.objects.create(
                     militar=new_militar,
                     transgressao=transgressao,
                     numero_patd=get_next_patd_number(),
-                    data_ocorrencia=data_ocorrencia
+                    data_ocorrencia=data_ocorrencia,
+                    # NOVOS CAMPOS ADICIONADOS À CRIAÇÃO
+                    protocolo_comaer=protocolo_comaer,
+                    oficio_transgrecao=oficio_transgrecao,
+                    data_oficio=data_oficio
                 )
                 return JsonResponse({
                     'status': 'success',
@@ -338,7 +374,7 @@ def index(request):
 
                 structured_llm = model.with_structured_output(AnaliseTransgressao)
                 prompt = ChatPromptTemplate.from_messages([
-                    ("system", "Você é um assistente especialista em analisar documentos disciplinares militares. Extraia a data em que a transgressão ocorreu, no formato AAAA-MM-DD. Ignore a data de emissão do documento."),
+                    ("system", "Você é um assistente especialista em analisar documentos disciplinares militares. Extraia a data em que a transgressão ocorreu, no formato AAAA-MM-DD. Ignore a data de emissão do documento. Extraia também o número de protocolo COMAER e o número do ofício de transgressão, se existirem. Extraia a data do ofício no formato 'Dia/Mês/Ano'."),
                     ("human", "Analise o seguinte documento e extraia os dados: \n\n{documento}")
                 ])
                 chain = prompt | structured_llm
@@ -354,6 +390,14 @@ def index(request):
                 if resultado.data_ocorrencia:
                     try:
                         data_ocorrencia = datetime.strptime(resultado.data_ocorrencia, '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        pass
+
+                data_oficio = None
+                if resultado.data_oficio:
+                    try:
+                        # Para converter a data do ofício "8 de julho de 2025" para "2025-07-08"
+                        data_oficio = datetime.strptime(resultado.data_oficio, '%d de %B de %Y').date()
                     except (ValueError, TypeError):
                         pass
 
@@ -382,7 +426,11 @@ def index(request):
                         militar=militar,
                         transgressao=resultado.transgressao,
                         numero_patd=get_next_patd_number(),
-                        data_ocorrencia=data_ocorrencia
+                        data_ocorrencia=data_ocorrencia,
+                        # NOVOS CAMPOS ADICIONADOS À CRIAÇÃO
+                        protocolo_comaer=resultado.protocolo_comaer,
+                        oficio_transgrecao=resultado.oficio_transgrecao,
+                        data_oficio=data_oficio
                     )
                     return JsonResponse({
                         'status': 'success',
@@ -397,6 +445,10 @@ def index(request):
                             'transgressao': resultado.transgressao,
                             'local': resultado.local,
                             'data_ocorrencia': resultado.data_ocorrencia,
+                            # NOVOS CAMPOS ADICIONADOS AO RETORNO
+                            'protocolo_comaer': resultado.protocolo_comaer,
+                            'oficio_transgrecao': resultado.oficio_transgrecao,
+                            'data_oficio': resultado.data_oficio,
                         }
                     })
             except Exception as e:

@@ -54,6 +54,7 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.getElementById('pdf_file_input');
+    const fileLabel = document.getElementById('file-label');
     const fileLabelText = document.getElementById('file-label-text');
     const submitButton = document.getElementById('submit-btn');
     const analiseBox = document.getElementById('analise-box');
@@ -72,6 +73,44 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // --- CÓDIGO PARA FUNCIONALIDADE DE ARRASTAR E SOLTAR ---
+    ['dragover', 'dragleave', 'drop'].forEach(eventName => {
+        fileLabel.addEventListener(eventName, preventDefaults, false);
+    });
+
+    function preventDefaults(e) {
+        e.preventDefault();
+        e.stopPropagation();
+    }
+
+    fileLabel.addEventListener('dragover', () => {
+        fileLabel.style.borderColor = 'var(--accent-color)';
+        fileLabel.style.backgroundColor = 'var(--sidebar-active-bg)';
+    });
+
+    fileLabel.addEventListener('dragleave', () => {
+        fileLabel.style.borderColor = 'var(--border-color)';
+        fileLabel.style.backgroundColor = 'transparent';
+    });
+
+    fileLabel.addEventListener('drop', handleDrop, false);
+
+    function handleDrop(e) {
+        preventDefaults(e);
+        const dt = e.dataTransfer;
+        const files = dt.files;
+
+        if (files.length) {
+            fileInput.files = files;
+            fileLabelText.textContent = files[0].name;
+        }
+
+        // Restaura o estilo
+        fileLabel.style.borderColor = 'var(--border-color)';
+        fileLabel.style.backgroundColor = 'transparent';
+    }
+    // --- FIM DO CÓDIGO ADICIONADO ---
 
     // --- FUNÇÃO PARA TRATAR PATD EXISTENTE ---
     function handlePatdExists(data) {

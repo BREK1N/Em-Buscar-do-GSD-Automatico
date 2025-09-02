@@ -100,6 +100,14 @@
             <strong>Data da Ocorrência:</strong>
             <p class="detail-item-value">{{ patd.data_ocorrencia|date:"d/m/Y"|default:"Não informada" }}</p>
         </div>
+        <div class="detail-item">
+            <strong>Protocolo COMAER:</strong>
+            <p class="detail-item-value">{{ patd.protocolo_comaer|default:"Não informado" }}</p>
+        </div>
+        <div class="detail-item">
+            <strong>Ofício da Transgressão:</strong>
+            <p class="detail-item-value">{{ patd.oficio_transgressao|default:"Não informado" }}</p>
+        </div>
         <div class="detail-item-full">
             <strong>Descrição da Transgressão:</strong>
             <p>{{ patd.transgressao|linebreaks }}</p>
@@ -491,7 +499,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         addSignatureTestemunhaBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                currentTestemunhaNum = btn.dataset.testemunhaNum;
+                currentTestemunhaNum = btn.dataset.testemunha-num;
                 modalTitle.textContent = `Assinatura da ${currentTestemunhaNum}ª Testemunha`;
                 signatureModalTestemunha.classList.add('active');
                 resizeCanvas();

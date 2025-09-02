@@ -123,6 +123,11 @@ class PATD(models.Model):
     itens_enquadrados = models.JSONField(null=True, blank=True, verbose_name="Itens Enquadrados na Análise")
     circunstancias = models.JSONField(null=True, blank=True, verbose_name="Atenuantes e Agravantes")
     punicao_sugerida = models.TextField(blank=True, null=True, verbose_name="Punição Sugerida pela IA")
+    
+    # NOVOS CAMPOS ADICIONADOS
+    protocolo_comaer = models.CharField(max_length=255, blank=True, verbose_name="Protocolo COMAER")
+    oficio_transgrecao = models.CharField(max_length=255, blank=True, verbose_name="Ofício Transgressão")
+    data_oficio = models.DateField(null=True, blank=True, verbose_name="Data do Ofício")
 
     def __str__(self):
         return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"
