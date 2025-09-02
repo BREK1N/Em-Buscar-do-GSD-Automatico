@@ -128,6 +128,15 @@ class PATD(models.Model):
     protocolo_comaer = models.CharField(max_length=255, blank=True, verbose_name="Protocolo COMAER")
     oficio_transgrecao = models.CharField(max_length=255, blank=True, verbose_name="Ofício Transgressão")
     data_oficio = models.DateField(null=True, blank=True, verbose_name="Data do Ofício")
+    data_alegacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Alegação de Defesa")
+    alegacao_defesa_resumo = models.TextField(blank=True, null=True, verbose_name="Resumo da Alegação de Defesa")
+    comprovante = models.TextField(blank=True, null=True, verbose_name="Comprovante da Transgressão")
+    dias_punicao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Dias de Punição")
+    punicao = models.CharField(max_length=255, blank=True, null=True, verbose_name="Punição")
+    transgressao_afirmativa = models.TextField(blank=True, null=True, verbose_name="Transgressão Afirmativa")
+    natureza_transgressao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Natureza da Transgressão")
+    comportamento = models.CharField(max_length=100, blank=True, null=True, default="Permanece no \"Bom comportamento\"", verbose_name="Comportamento")
+
 
     def __str__(self):
         return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"

@@ -18,12 +18,6 @@
     .prazo-defesa strong { display: block; margin-bottom: 5px; color: var(--text-primary); }
     .prazo-defesa small { display: block; margin-top: 8px; font-size: 12px; color: var(--text-secondary); }
     .analise-container { margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
-    .analise-form-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .form-card { background-color: var(--bg-main); padding: 15px; border-radius: 8px; }
-    .form-card h4 { margin-top: 0; border-bottom: 1px solid var(--border-color); padding-bottom: 8px; }
-    .form-card textarea, .form-card input { width: 100%; box-sizing: border-box; padding: 8px; border-radius: 4px; border: 1px solid var(--border-color); }
-    .alert-error { background-color: #f8d7da; color: #721c24; border: 1px solid #f5c6cb; padding: 15px; border-radius: 8px; }
-    /* --- CORREÇÃO APLICADA AQUI --- */
     .btn .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
     @keyframes spin { to { transform: rotate(360deg); } }
 </style>
@@ -106,7 +100,7 @@
         </div>
         <div class="detail-item">
             <strong>Ofício da Transgressão:</strong>
-            <p class="detail-item-value">{{ patd.oficio_transgressao|default:"Não informado" }}</p>
+            <p class="detail-item-value">{{ patd.oficio_transgrecao|default:"Não informado" }}</p>
         </div>
         <div class="detail-item-full">
             <strong>Descrição da Transgressão:</strong>
@@ -132,35 +126,12 @@
         {% if patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao' %}
         <div class="detail-item-full analise-container">
             <h2>Análise Disciplinar</h2>
+            <p>Clique no botão abaixo para que a Inteligência Artificial analise todos os dados do processo e sugira a punição aplicável.</p>
             <div id="analise-actions">
                 <button class="btn btn-primary" id="btn-apurar">
                     <span class="spinner" style="display: none;"></span>
-                    Apurar
+                    Apurar e Salvar Análise
                 </button>
-            </div>
-            <div id="analise-form-wrapper" style="display: none; margin-top: 20px;">
-                <form id="form-apuracao">
-                    <div class="analise-form-grid">
-                        <div class="form-card">
-                            <h4>Itens Enquadrados</h4>
-                            <textarea name="itens_enquadrados" id="input-itens" rows="5"></textarea>
-                        </div>
-                        <div class="form-card">
-                            <h4>Circunstâncias</h4>
-                            <label for="input-atenuantes">Atenuantes:</label>
-                            <input type="text" name="atenuantes" id="input-atenuantes">
-                            <label for="input-agravantes" style="margin-top:10px;">Agravantes:</label>
-                            <input type="text" name="agravantes" id="input-agravantes">
-                        </div>
-                    </div>
-                    <div class="form-card" style="margin-top: 20px;">
-                        <h4>Sugestão de Punição</h4>
-                        <textarea name="punicao_sugerida" id="input-punicao" rows="3"></textarea>
-                    </div>
-                    <div class="form-actions">
-                        <button type="submit" class="btn btn-success">Salvar Apuração</button>
-                    </div>
-                </form>
             </div>
         </div>
         {% endif %}
@@ -549,18 +520,14 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     renderDocument();
 
-    // --- NOVA LÓGICA PARA APURAÇÃO ---
     const btnApurar = document.getElementById('btn-apurar');
-    const formWrapper = document.getElementById('analise-form-wrapper');
-    const apuracaoForm = document.getElementById('form-apuracao');
-
     if (btnApurar) {
         btnApurar.addEventListener('click', function() {
             const spinner = this.querySelector('.spinner');
             spinner.style.display = 'inline-block';
             this.disabled = true;
 
-            const url = `/Ouvidoria/patd/{{ patd.pk }}/analisar_punicao/`;
+            const url = `{% url 'Ouvidoria:analisar_punicao' patd.pk %}`;
             fetch(url, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrfToken }
@@ -568,20 +535,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    // Formata os itens para o textarea
-                    const itensText = data.itens.map(i => `Item ${i.numero}: ${i.descricao}`).join('\n');
-                    document.getElementById('input-itens').value = itensText;
-
-                    // Popula as circunstâncias
-                    document.getElementById('input-atenuantes').value = data.circunstancias.atenuantes.join(', ');
-                    document.getElementById('input-agravantes').value = data.circunstancias.agravantes.join(', ');
-                    
-                    // Popula a punição
-                    document.getElementById('input-punicao').value = data.punicao;
-
-                    // Mostra o formulário
-                    formWrapper.style.display = 'block';
-                    this.style.display = 'none'; // Esconde o botão "Apurar"
+                    alert(data.message);
+                    window.location.reload();
                 } else {
                     alert(`Erro na análise: ${data.message}`);
                 }
@@ -593,58 +548,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .finally(() => {
                 spinner.style.display = 'none';
                 this.disabled = false;
-            });
-        });
-    }
-
-    if (apuracaoForm) {
-        apuracaoForm.addEventListener('submit', function(e) {
-            e.preventDefault();
-            const submitBtn = this.querySelector('button[type="submit"]');
-            submitBtn.disabled = true;
-            submitBtn.textContent = 'A Salvar...';
-
-            // Serializa os dados do formulário para JSON
-            const itensText = document.getElementById('input-itens').value;
-            const itensArray = itensText.split('\n').map(line => {
-                const match = line.match(/Item (\d+): (.*)/);
-                return match ? { numero: parseInt(match[1]), descricao: match[2] } : null;
-            }).filter(Boolean);
-
-            const dataToSave = {
-                itens_enquadrados: itensArray,
-                circunstancias: {
-                    atenuantes: document.getElementById('input-atenuantes').value.split(',').map(s => s.trim()).filter(Boolean),
-                    agravantes: document.getElementById('input-agravantes').value.split(',').map(s => s.trim()).filter(Boolean)
-                },
-                punicao_sugerida: document.getElementById('input-punicao').value
-            };
-
-            const url = `/Ouvidoria/patd/{{ patd.pk }}/salvar_apuracao/`;
-            fetch(url, {
-                method: 'POST',
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'X-CSRFToken': csrfToken 
-                },
-                body: JSON.stringify(dataToSave)
-            })
-            .then(response => response.json())
-            .then(data => {
-                if(data.status === 'success') {
-                    alert(data.message);
-                    window.location.reload(); // Recarrega para mostrar o documento atualizado
-                } else {
-                    alert(`Erro ao salvar: ${data.message}`);
-                }
-            })
-            .catch(err => {
-                alert('Erro de comunicação ao salvar a apuração.');
-                console.error(err);
-            })
-            .finally(() => {
-                submitBtn.disabled = false;
-                submitBtn.textContent = 'Salvar Apuração';
             });
         });
     }

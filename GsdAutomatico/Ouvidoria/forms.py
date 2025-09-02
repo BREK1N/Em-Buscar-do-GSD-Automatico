@@ -52,7 +52,9 @@ class PATDForm(forms.ModelForm):
         model = PATD
         fields = [
             'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2', 
-            'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'punicao_sugerida'
+            'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'punicao_sugerida',
+            'comprovante', 'dias_punicao', 'punicao', 'transgressao_afirmativa', 'natureza_transgressao', 'comportamento',
+            'alegacao_defesa_resumo'
         ]
         
         widgets = {
@@ -62,6 +64,9 @@ class PATDForm(forms.ModelForm):
                 attrs={'type': 'date', 'class': 'form-control'}
             ),
             'punicao_sugerida': forms.Textarea(attrs={'rows': 3}),
+            'comprovante': forms.Textarea(attrs={'rows': 3}),
+            'transgressao_afirmativa': forms.Textarea(attrs={'rows': 3}),
+            'alegacao_defesa_resumo': forms.Textarea(attrs={'rows': 3}),
         }
         labels = {
             'transgressao': "Descrição da Transgressão",
@@ -70,6 +75,13 @@ class PATDForm(forms.ModelForm):
             'testemunha2': "2ª Testemunha",
             'data_ocorrencia': "Data da Ocorrência",
             'punicao_sugerida': "Punição Sugerida pela IA",
+            'comprovante': "Comprovante da Transgressão",
+            'dias_punicao': "Dias de Punição",
+            'punicao': "Punição",
+            'transgressao_afirmativa': "Transgressão Afirmativa",
+            'natureza_transgressao': "Natureza da Transgressão",
+            'comportamento': "Comportamento",
+            'alegacao_defesa_resumo': "Resumo da Alegação de Defesa",
         }
 
     def __init__(self, *args, **kwargs):

@@ -27,10 +27,9 @@ urlpatterns = [
     path('patd/<int:pk>/extender_prazo/', views.extender_prazo, name='extender_prazo'),
     path('patd/<int:pk>/prosseguir_sem_alegacao/', views.prosseguir_sem_alegacao, name='prosseguir_sem_alegacao'), 
     path('patd/<int:pk>/salvar_assinatura_testemunha/<int:testemunha_num>/', views.salvar_assinatura_testemunha, name='salvar_assinatura_testemunha'),
-    
+
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
     path('patd/<int:pk>/analisar_punicao/', views.analisar_punicao, name='analisar_punicao'),
-    path('patd/<int:pk>/salvar_apuracao/', views.salvar_apuracao, name='salvar_apuracao'),
 
     # CONFIGURAÇÃO DE ASSINATURAS
     path('config/oficiais/', views.lista_oficiais, name='lista_oficiais'),

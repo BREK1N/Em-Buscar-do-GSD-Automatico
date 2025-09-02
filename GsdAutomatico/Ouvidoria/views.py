@@ -6,7 +6,7 @@ from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.urls import reverse_lazy, reverse
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
 from .models import Militar, PATD, Configuracao
 from .forms import MilitarForm, PATDForm
@@ -27,10 +27,10 @@ from django.templatetags.static import static
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
-from django.utils.decorators import method_decorator
 from .analise_transgressao import enquadra_item, verifica_agravante_atenuante, sugere_punicao, model
 from difflib import SequenceMatcher # Importado para a verificação de similaridade
-import os
+from django.utils.decorators import method_decorator
+from num2words import num2words # Importação para converter números em texto
 
 
 # --- Funções e Mixins de Permissão ---
@@ -77,6 +77,9 @@ def get_next_patd_number():
     max_num = PATD.objects.aggregate(max_num=Max('numero_patd'))['max_num']
     return (max_num or 0) + 1
 
+# =============================================================================
+# FUNÇÕES AUXILIARES MOVIMDAS PARA CIMA PARA CORRIGIR O ERRO
+# =============================================================================
 def format_militar_string(militar, with_spec=False):
     """
     Formata o nome do militar, colocando o nome de guerra em negrito (com **).
@@ -128,133 +131,41 @@ def format_militar_string(militar, with_spec=False):
     else:
         return f"{posto} {formatted_name}".strip()
 
+# =============================================================================
+# Otimização da Geração de Documentos
+# =============================================================================
 
-def generate_patd_document_text(patd):
+def _get_document_context(patd):
     """
-    Gera o texto do documento de uma PATD a partir de um modelo .docx,
-    substituindo os marcadores de posição pelos dados da PATD.
+    Função centralizada para coletar e formatar todos os dados 
+    necessários para qualquer documento.
     """
-    doc_path = ""
-    try:
-        config = Configuracao.load()
-        comandante_gsd = config.comandante_gsd
-        doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PATD_Coringa.docx')
-        document = docx.Document(doc_path)
-        
-        full_text = [para.text for para in document.paragraphs]
-        template_content = '\n'.join(full_text)
+    config = Configuracao.load()
+    comandante_gsd = config.comandante_gsd
+    now = timezone.now()
 
-        data_inicio = patd.data_inicio
-        data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else "[Data não informada]"
-        data_patd_fmt = data_inicio.strftime('%d%m%Y')
-        data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else "[Data do ofício não informada]"
+    # Formatações de Data
+    data_inicio = patd.data_inicio
+    data_patd_fmt = data_inicio.strftime('%d%m%Y')
+    data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else "[Data não informada]"
+    data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else "[Data do ofício não informada]"
+    data_ciencia_fmt = patd.data_ciencia.strftime('%d/%m/%Y') if patd.data_ciencia else "[Data não informada]"
+    data_alegacao_fmt = patd.data_alegacao.strftime('%d/%m/%Y') if patd.data_alegacao else "[Data não informada]"
 
-        # Formatação dos itens enquadrados para o documento
-        itens_enquadrados_str = ""
-        if patd.itens_enquadrados:
-            numeros_itens = [str(item.get('numero', '')) for item in patd.itens_enquadrados]
-            itens_enquadrados_str = ", ".join(numeros_itens)
+    # Formatação de Itens Enquadrados e Circunstâncias
+    itens_enquadrados_str = ", ".join([str(item.get('numero', '')) for item in patd.itens_enquadrados]) if patd.itens_enquadrados else ""
+    atenuantes_str = ", ".join(patd.circunstancias.get('atenuantes', [])) if patd.circunstancias else "Nenhuma"
+    agravantes_str = ", ".join(patd.circunstancias.get('agravantes', [])) if patd.circunstancias else "Nenhuma"
+    
+    # Formatação da Punição Completa
+    punicao_completa_str = patd.punicao or "[Punição não definida]"
+    if patd.dias_punicao and patd.punicao:
+        punicao_completa_str = f"{patd.dias_punicao} de {patd.punicao}"
 
-        replacements = {
-            '{Brasao da Republica}': f'<img src="{static("img/brasao.png")}" alt="Brasão da República" style="width: 100px; height: auto;">',
-            '{N PATD}': str(patd.numero_patd),
-            '{DataPatd}': data_patd_fmt,
-            '{dia}': data_inicio.strftime('%d'),
-            '{Mês}': data_inicio.strftime('%B').capitalize(),
-            '{Ano}': data_inicio.strftime('%Y'),
-            '{data da Ocorrencia}': data_ocorrencia_fmt,
-            '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
-            '{Assinatura Comandante do GSD}': getattr(comandante_gsd, 'assinatura', '[Sem assinatura]') if comandante_gsd else "[Comandante GSD não definido]",
-            '{Militar Arrolado}': format_militar_string(patd.militar),
-            '{Assinatura Militar Arrolado}': patd.assinatura_militar_ciencia or '[Sem assinatura]',
-            '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
-            '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]'),
-            '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if patd.oficial_responsavel else "[Oficial apurador não definido]",
-            '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else "[Oficial apurador não definido]",
-            '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', '[Não informado]')) if patd.oficial_responsavel else "[Oficial apurador não definido]",
-            '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', '[Não informado]') if patd.oficial_responsavel else "[Oficial apurador não definido]",
-            '{Ocorrencia reescrita}': patd.transgressao,
-            '{Itens enquadrados}': itens_enquadrados_str,
-            # NOVOS CAMPOS ADICIONADOS
-            '{protocolo comaer}': patd.protocolo_comaer,
-            '{Oficio Transgrecao}': patd.oficio_transgrecao,
-            '{data_oficio}': data_oficio_fmt,
-        }
 
-        document_content = template_content
-        for placeholder, value in replacements.items():
-            document_content = document_content.replace(placeholder, str(value))
-        
-        return document_content
-
-    except FileNotFoundError:
-        logger.warning(f"Ficheiro PATD_Coringa.docx não encontrado em {doc_path}")
-        return f"ERRO: Ficheiro modelo PATD_Coringa.docx não encontrado no servidor."
-    except Exception as e:
-        logger.error(f"Erro ao ler o ficheiro .docx: {e}")
-        return f"ERRO: Ocorreu um problema ao processar o ficheiro modelo: {e}"
-
-def generate_alegacao_defesa_text(patd, alegacao_texto):
-    """
-    Gera o texto da alegação de defesa a partir de um modelo .docx.
-    """
-    try:
-        doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PATD_Alegacao_DF.docx')
-        document = docx.Document(doc_path)
-        
-        template_content = '\n'.join([para.text for para in document.paragraphs])
-        
-        now = timezone.now()
-        data_alegacao_fmt = now.strftime('%d/%m/%Y')
-        data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else "[Data do ofício não informada]"
-
-        data_inicio = patd.data_inicio
-        data_patd_fmt = data_inicio.strftime('%d%m%Y')
-
-        replacements = {
-            '{Alegação de defesa}': alegacao_texto,
-            '<dia>': now.strftime('%d'),
-            '<Mês}': now.strftime('%B').capitalize(),
-            '<Ano>': now.strftime('%Y'),
-            '{Data da alegação}': data_alegacao_fmt,
-            '{Militar Arrolado}': format_militar_string(patd.militar),
-            '{Assinatura Militar Arrolado}': patd.assinatura_militar_ciencia or '[Assinatura não registrada]',
-            '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if patd.oficial_responsavel else '[Oficial não definido]',
-            '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else '[Oficial não definido]',
-            '{DataPatd}': data_patd_fmt,
-            '{N PATD}': str(patd.numero_patd),
-            # NOVOS CAMPOS ADICIONADOS
-            '{protocolo comaer}': patd.protocolo_comaer,
-            '{Oficio Transgrecao}': patd.oficio_transgrecao,
-            '{data_oficio}': data_oficio_fmt,
-        }
-
-        document_content = template_content
-        for placeholder, value in replacements.items():
-            document_content = document_content.replace(placeholder, str(value))
-            
-        return document_content
-
-    except FileNotFoundError:
-        logger.error(f"Ficheiro PATD_Alegacao_DF.docx não encontrado.")
-        return f"\n\n--- ERRO: Template de Alegação de Defesa não encontrado. ---"
-    except Exception as e:
-        logger.error(f"Erro ao gerar documento de alegação de defesa: {e}")
-        return f"\n\n--- ERRO ao processar documento de alegação de defesa: {e} ---"
-
-def generate_preclusao_document_text(patd):
-    """
-    Gera o texto do termo de preclusão a partir de um modelo .docx.
-    """
-    try:
-        doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PRECLUSAO.docx')
-        document = docx.Document(doc_path)
-        
-        template_content = '\n'.join([para.text for para in document.paragraphs])
-        
-        now = timezone.now()
-        config = Configuracao.load()
-        
+    # Cálculo do Prazo Final (Deadline) para Preclusão
+    deadline_str = "[Prazo não iniciado]"
+    if patd.data_ciencia:
         dias_uteis_a_adicionar = config.prazo_defesa_dias
         data_final = patd.data_ciencia
         dias_adicionados = 0
@@ -263,43 +174,98 @@ def generate_preclusao_document_text(patd):
             if data_final.weekday() < 5:
                 dias_adicionados += 1
         deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
+        deadline_str = deadline.strftime('%d/%m/%Y às %H:%M')
 
-        data_inicio = patd.data_inicio
-        data_patd_fmt = data_inicio.strftime('%d%m%Y')
-        data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else "[Data do ofício não informada]"
+    return {
+        # Placeholders Comuns
+        '{Brasao da Republica}': f'<img src="{static("img/brasao.png")}" alt="Brasão da República" style="width: 100px; height: auto;">',
+        '{N PATD}': str(patd.numero_patd),
+        '{DataPatd}': data_patd_fmt,
+        '{dia}': now.strftime('%d'),
+        '{Mês}': now.strftime('%B').capitalize(),
+        '{Ano}': now.strftime('%Y'),
+        
+        # Dados do Militar Arrolado
+        '{Militar Arrolado}': format_militar_string(patd.militar),
+        '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
+        '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]'),
+        
+        # Dados do Oficial Apurador
+        '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if patd.oficial_responsavel else '[Oficial não definido]',
+        '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if patd.oficial_responsavel else "[Oficial apurador não definido]",
+        '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', '[Não informado]')) if patd.oficial_responsavel else "[Oficial apurador não definido]",
+        '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', '[Não informado]') if patd.oficial_responsavel else "[Oficial apurador não definido]",
 
-        replacements = {
-            '{Brasao da Republica}': f'<img src="{static("img/brasao.png")}" alt="Brasão da República" style="width: 100px; height: auto;">',
-            '{N PATD}': str(patd.numero_patd),
-            '{DataPatd}': data_patd_fmt,
-            '{dia}': now.strftime('%d'),
-            '{Mês}': now.strftime('%B').capitalize(),
-            '{Ano}': now.strftime('%Y'),
-            '{Data Final Prazo}': deadline.strftime('%d/%m/%Y às %H:%M'),
-            '{Militar Arrolado}': format_militar_string(patd.militar),
-            '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
-            '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if patd.oficial_responsavel else '[Oficial não definido]',
-            '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else '[Oficial não definido]',
-            '{Testemunha 1}': format_militar_string(patd.testemunha1) if patd.testemunha1 else '[Testemunha não definida]',
-            '{Assinatura Testemunha 1}': patd.assinatura_testemunha1 or '[Sem assinatura]',
-            '{Testemunha 2}': format_militar_string(patd.testemunha2) if patd.testemunha2 else '[Testemunha não definida]',
-            '{Assinatura Testemunha 2}': patd.assinatura_testemunha2 or '[Sem assinatura]',
-            # NOVOS CAMPOS ADICIONADOS
-            '{protocolo comaer}': patd.protocolo_comaer,
-            '{Oficio Transgrecao}': patd.oficio_transgrecao,
-            '{data_oficio}': data_oficio_fmt,
-        }
+        # Dados do Comandante
+        '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
+        
+        # Dados da Transgressão
+        '{data da Ocorrencia}': data_ocorrencia_fmt,
+        '{Ocorrencia reescrita}': patd.transgressao,
+        '{protocolo comaer}': patd.protocolo_comaer,
+        '{Oficio Transgrecao}': patd.oficio_transgrecao,
+        '{data_oficio}': data_oficio_fmt,
+        '{comprovante}': patd.comprovante or "[Não informado]",
 
-        document_content = template_content
-        for placeholder, value in replacements.items():
-            document_content = document_content.replace(placeholder, str(value))
-            
-        return document_content
+        # Dados da Apuração
+        '{Itens enquadrados}': itens_enquadrados_str,
+        '{Atenuante}': atenuantes_str,
+        '{agravantes}': agravantes_str,
+        '{transgreção_afirmativa}': patd.transgressao_afirmativa or "[Análise não realizada]",
+        '{natureza_transgreção}': patd.natureza_transgressao or "[Análise não realizada]",
+        
+        # Dados da Defesa
+        '{data ciência}': data_ciencia_fmt,
+        '{data alegação}': data_alegacao_fmt,
+        '{Alegação de defesa}': patd.alegacao_defesa or "[Defesa não apresentada]",
+        '{Alegação_defesa_resumo}': patd.alegacao_defesa_resumo or "[Resumo não gerado]",
+        
+        # Dados da Punição e Conclusão
+        '{punicao_completa}': punicao_completa_str,
+        '{punicao}': patd.punicao or "[Punição não definida]",
+        '{dias_punicao}': patd.dias_punicao or "",
+        '{comportamento}': patd.comportamento or "[Não avaliado]",
+        
+        # Assinaturas
+        '{Assinatura Comandante do GSD}': getattr(comandante_gsd, 'assinatura', '[Sem assinatura]') if comandante_gsd else "[Comandante GSD não definido]",
+        '{Assinatura Militar Arrolado}': patd.assinatura_militar_ciencia or '[Assinatura não registrada]',
+        '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else '[Oficial não definido]',
+        '{Assinatura Testemunha 1}': patd.assinatura_testemunha1 or '[Sem assinatura]',
+        '{Assinatura Testemunha 2}': patd.assinatura_testemunha2 or '[Sem assinatura]',
+        
+        # Testemunhas
+        '{Testemunha 1}': format_militar_string(patd.testemunha1) if patd.testemunha1 else '[Testemunha não definida]',
+        '{Testemunha 2}': format_militar_string(patd.testemunha2) if patd.testemunha2 else '[Testemunha não definida]',
 
+        # Específico para Preclusão
+        '{Data Final Prazo}': deadline_str,
+    }
+
+def _render_document_from_template(template_name, context):
+    """
+    Função genérica para renderizar um documento .docx a partir de um template e um contexto.
+    """
+    try:
+        doc_path = os.path.join(settings.BASE_DIR, 'pdf', template_name)
+        document = docx.Document(doc_path)
+        template_content = '\n'.join([p.text for p in document.paragraphs])
+
+        for placeholder, value in context.items():
+            template_content = template_content.replace(placeholder, str(value))
+        
+        return template_content
     except FileNotFoundError:
-        return "\n\n--- ERRO: Template PRECLUSAO.docx não encontrado. ---"
+        error_msg = f"\n\n--- ERRO: Template '{template_name}' não encontrado. ---"
+        logger.error(error_msg)
+        return error_msg
     except Exception as e:
-        return f"\n\n--- ERRO ao processar documento de preclusão: {e} ---"
+        error_msg = f"\n\n--- ERRO ao processar o template '{template_name}': {e} ---"
+        logger.error(error_msg)
+        return error_msg
+
+# =============================================================================
+# Views e Lógica da Aplicação
+# =============================================================================
 
 @login_required
 @ouvidoria_required
@@ -621,33 +587,20 @@ class PATDDetailView(DetailView):
         patd = self.get_object()
         config = Configuracao.load()
         
-        document_content = generate_patd_document_text(patd)
-        if patd.alegacao_defesa:
-            document_content += "\n\n" + generate_alegacao_defesa_text(patd, patd.alegacao_defesa)
+        # Coleta todos os parâmetros necessários de uma vez
+        doc_context = _get_document_context(patd)
 
-        # --- CORREÇÃO APLICADA AQUI ---
-        # Verifica se não há alegação de defesa e se o processo já passou da fase de ciência
-        if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura']:
-            document_content += "\n\n" + generate_preclusao_document_text(patd)
+        # Monta o documento completo
+        document_content = _render_document_from_template('PATD_Coringa.docx', doc_context)
+
+        if patd.alegacao_defesa:
+            document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', doc_context)
         
-        # A apuração é adicionada se a punição já foi sugerida
+        if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura']:
+            document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
+        
         if patd.punicao_sugerida:
-            apuracao_text = "\n\n" + "="*50
-            apuracao_text += "\n                   RESULTADO DA APURAÇÃO\n"
-            apuracao_text += "="*50 + "\n\n"
-            if patd.itens_enquadrados:
-                apuracao_text += "**Itens Enquadrados:**\n"
-                for item in patd.itens_enquadrados:
-                    apuracao_text += f"- Item {item.get('numero', '?')}: {item.get('descricao', 'N/A')}\n"
-                apuracao_text += "\n"
-            if patd.circunstancias:
-                atenuantes = patd.circunstancias.get('atenuantes', [])
-                agravantes = patd.circunstancias.get('agravantes', [])
-                apuracao_text += "**Circunstâncias:**\n"
-                apuracao_text += f"- Atenuantes: {', '.join(atenuantes) if atenuantes else 'Nenhuma'}\n"
-                apuracao_text += f"- Agravantes: {', '.join(agravantes) if agravantes else 'Nenhuma'}\n\n"
-            apuracao_text += f"**Punição Sugerida:**\n{patd.punicao_sugerida}\n"
-            document_content += apuracao_text
+            document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
 
         patd.documento_texto = document_content
 
@@ -751,33 +704,12 @@ def salvar_alegacao_defesa(request, pk):
 
         patd.alegacao_defesa = alegacao_texto
         patd.status = 'em_apuracao' 
-        patd.save(update_fields=['alegacao_defesa', 'status'])
+        patd.data_alegacao = timezone.now()
+        patd.save(update_fields=['alegacao_defesa', 'status', 'data_alegacao'])
 
         return JsonResponse({'status': 'success', 'message': 'Alegação de defesa salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar alegação de defesa da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
-@login_required
-@ouvidoria_required
-@require_POST
-def salvar_apuracao(request, pk):
-    try:
-        patd = get_object_or_404(PATD, pk=pk)
-        data = json.loads(request.body)
-
-        patd.itens_enquadrados = data.get('itens_enquadrados')
-        patd.circunstancias = data.get('circunstancias')
-        patd.punicao_sugerida = data.get('punicao_sugerida')
-        
-        patd.status = 'aguardando_punicao'
-        
-        patd.save()
-        
-        return JsonResponse({'status': 'success', 'message': 'Dados da apuração salvos com sucesso. O processo agora aguarda a aplicação da punição.'})
-
-    except Exception as e:
-        logger.error(f"Erro ao salvar apuração da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
@@ -1018,69 +950,55 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
 def analisar_punicao(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        
-        # Se a análise já foi feita, apenas retorna os dados existentes.
-        if patd.punicao_sugerida:
-            return JsonResponse({
-                'status': 'success',
-                'itens': patd.itens_enquadrados,
-                'circunstancias': patd.circunstancias,
-                'punicao': patd.punicao_sugerida,
-                'explicacao': '(Dados recarregados)'
-            })
 
         # 1. Enquadrar os itens
         itens_obj = enquadra_item(patd.transgressao)
-        itens_list = itens_obj.item
-        patd.itens_enquadrados = itens_list
-
-        # 2. Obter histórico para análise de reincidência e comportamento
-        historico_punicoes = PATD.objects.filter(militar=patd.militar).exclude(pk=patd.pk).order_by('-data_inicio')
+        patd.itens_enquadrados = itens_obj.item
         
-        reincidencia_count = 0
-        if itens_list:
-            current_item_numbers = {item.get('numero') for item in itens_list if item.get('numero')}
-            for p in historico_punicoes:
-                if p.itens_enquadrados:
-                    past_item_numbers = {item.get('numero') for item in p.itens_enquadrados if item.get('numero')}
-                    if not current_item_numbers.isdisjoint(past_item_numbers):
-                        reincidencia_count += 1
-
-        historico_str = f"O militar possui {historico_punicoes.count()} transgressões anteriores. "
-        if reincidencia_count > 0:
-            historico_str += f"Foi reincidente na mesma falta {reincidencia_count} vez(es). "
+        # 2. Histórico
+        historico_punicoes = PATD.objects.filter(militar=patd.militar).exclude(pk=patd.pk).count()
+        historico_str = f"O militar possui {historico_punicoes} transgressões anteriores."
         
-        historico_str += "Permanece no bom comportamento." if historico_punicoes.count() <= 5 else "Comportamento insuficiente."
-            
-        # 3. Verificar agravantes e atenuantes
-        justificativa = patd.alegacao_defesa if patd.alegacao_defesa else "O militar não apresentou alegação de defesa (preclusão)."
-        circunstancias_obj = verifica_agravante_atenuante(historico_str, patd.transgressao, justificativa, itens_list)
-        circunstancias_dict = circunstancias_obj.item[0]
-        patd.circunstancias = circunstancias_dict
-
-        # 4. Sugerir Punição
-        agravantes = circunstancias_dict.get('agravantes', [])
-        atenuantes = circunstancias_dict.get('atenuantes', [])
-        observacao = f"Militar reincidente {reincidencia_count} vez(es) na mesma falta." if reincidencia_count > 0 else "Militar não reincidente."
+        # 3. Agravantes e Atenuantes
+        justificativa = patd.alegacao_defesa or "O militar não apresentou alegação de defesa (preclusão)."
+        circunstancias_obj = verifica_agravante_atenuante(historico_str, patd.transgressao, justificativa, patd.itens_enquadrados)
+        patd.circunstancias = circunstancias_obj.item[0]
         
-        punicao_obj = sugere_punicao(patd.transgressao, agravantes, atenuantes, itens_list, observacao)
-        punicao_dict = punicao_obj.punicao
-        patd.punicao_sugerida = punicao_dict.get('punicao', 'Erro na sugestão.')
+        # 4. Punição
+        punicao_obj = sugere_punicao(
+            patd.transgressao, patd.circunstancias.get('agravantes', []), 
+            patd.circunstancias.get('atenuantes', []), patd.itens_enquadrados, "N/A"
+        )
+        punicao_sugerida_str = punicao_obj.punicao.get('punicao', 'Erro na sugestão')
+        
+        # 5. Processar e salvar a punição
+        patd.punicao_sugerida = punicao_sugerida_str # Mantém o texto completo para referência
+        
+        match = re.search(r'(\d+)\s+dias\s+de\s+(.+)', punicao_sugerida_str, re.IGNORECASE)
+        if match:
+            dias_num = int(match.group(1))
+            punicao_tipo = match.group(2).strip()
+            dias_texto = num2words(dias_num, lang='pt_BR')
+            patd.dias_punicao = f"{dias_texto} ({dias_num:02d}) dias"
+            patd.punicao = punicao_tipo
+        else:
+            patd.dias_punicao = ""
+            patd.punicao = punicao_sugerida_str
+        
+        # 6. Salvar campos adicionais (a serem implementados com IA se necessário)
+        patd.natureza_transgressao = "Média" # Placeholder
+        patd.transgressao_afirmativa = f"foi verificado que o militar realmente cometeu a transgressão de '{patd.transgressao}'." # Placeholder
 
-        # 5. Salvar no banco
+        # 7. Atualizar status e salvar
+        patd.status = 'aguardando_punicao'
         patd.save()
         
-        return JsonResponse({
-            'status': 'success',
-            'itens': patd.itens_enquadrados,
-            'circunstancias': patd.circunstancias,
-            'punicao': patd.punicao_sugerida,
-            'explicacao': punicao_dict.get('explicacao', '')
-        })
+        return JsonResponse({'status': 'success', 'message': 'Apuração concluída e salva com sucesso!'})
 
     except Exception as e:
         logger.error(f"Erro ao analisar punição da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 
 @login_required
 @require_GET
