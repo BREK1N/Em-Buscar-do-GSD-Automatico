@@ -1,0 +1,73 @@
+{% extends 'base.html' %}
+
+{% block title %}PATDs Finalizadas{% endblock %}
+
+{% block content %}
+<div class="table-header">
+    <h1>Processos Administrativos Finalizados</h1>
+    <div class="actions">
+        <form method="get" class="search-form">
+            <input type="text" name="q" placeholder="Pesquisar por Nº ou Militar..." value="{{ request.GET.q|default:'' }}">
+            <button type="submit">Pesquisar</button>
+        </form>
+    </div>
+</div>
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>N° PATD</th>
+                <th>Militar Acusado</th>
+                <th>Data da Ocorrência</th>
+                <th>Punição Aplicada</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for patd in patds %}
+            <tr>
+                <td>{{ patd.numero_patd }}</td>
+                <td>
+                    <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
+                </td>
+                <td>
+                    {% if patd.data_ocorrencia %}
+                        {{ patd.data_ocorrencia|date:"d/m/Y" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>{{ patd.dias_punicao }} de {{ patd.punicao|default:"Repreensão" }}</td>
+                <td class="actions-cell">
+                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.432 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                        Ver Detalhes
+                    </a>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;">Nenhuma PATD finalizada encontrada.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if is_paginated %}
+<div class="pagination">
+    <span class="step-links">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&laquo; primeira</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">anterior</a>
+        {% endif %}
+        <span class="current">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
+        </span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">próxima</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">última &raquo;</a>
+        {% endif %}
+    </span>
+</div>
+{% endif %}
+{% endblock %}

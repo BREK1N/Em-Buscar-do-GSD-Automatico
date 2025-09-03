@@ -1,0 +1,47 @@
+{% extends 'base.html' %}
+
+{% block title %}Dashboard do Comandante{% endblock %}
+
+{% block content %}
+<h1>PATDs Aguardando Decisão</h1>
+<p>Processos que requerem sua análise para aprovação ou retorno.</p>
+
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>N° PATD</th>
+                <th>Militar Acusado</th>
+                <th>Data da Ocorrência</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for patd in patds %}
+            <tr>
+                <td>{{ patd.numero_patd }}</td>
+                <td>{{ patd.militar }}</td>
+                <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
+                <td>{{ patd.get_status_display }}</td>
+                <td class="actions-cell">
+                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver Detalhes</a>
+                    <form action="{% url 'Ouvidoria:patd_aprovar' patd.pk %}" method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-success">Aprovar e Finalizar</button>
+                    </form>
+                    <form action="{% url 'Ouvidoria:patd_retornar' patd.pk %}" method="post" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-warning">Retornar para Alteração</button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;">Nenhuma PATD aguardando decisão.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

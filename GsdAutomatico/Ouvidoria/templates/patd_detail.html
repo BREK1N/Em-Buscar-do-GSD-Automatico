@@ -1,4 +1,5 @@
 {% extends 'base.html' %}
+{% load auth_extras %}
 
 {% block title %}Detalhes da PATD Nº {{ patd.numero_patd }}{% endblock %}
 
@@ -181,6 +182,9 @@
         <button type="button" class="btn btn-warning" id="extender-prazo-btn">Extender Prazo</button>
         <button type="button" class="btn btn-danger" id="prosseguir-sem-defesa-btn">Prosseguir sem Alegação</button>
         {% endif %}
+        {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
+        <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
+        {% endif %}
         <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
         <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
         <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
@@ -201,6 +205,19 @@
             <div class="form-actions" style="justify-content: flex-end;">
                 <button type="button" class="btn btn-secondary" id="cancel-delete-btn">Cancelar</button>
                 <button type="submit" class="btn btn-delete">Sim, Excluir</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="modal-overlay" id="avancar-modal">
+    <div class="modal-content">
+        <h3>Avançar Processo</h3>
+        <p>Tem certeza? Esta PATD vai para análise do comandante. Já revisou tudo?</p>
+        <form id="avancar-form" method="post" action="{% url 'Ouvidoria:avancar_para_comandante' patd.pk %}" style="display: inline;">
+            {% csrf_token %}
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-avancar-btn">Cancelar</button>
+                <button type="submit" class="btn btn-success">Continuar</button>
             </div>
         </form>
     </div>
@@ -553,6 +570,28 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     renderDocument();
 
+    // --- LÓGICA PARA AVANÇAR PARA COMANDANTE ---
+    const btnAvancar = document.getElementById('btn-avancar-comandante');
+    const avancarModal = document.getElementById('avancar-modal');
+
+    if (btnAvancar && avancarModal) {
+        const cancelAvancarBtn = document.getElementById('cancel-avancar-btn');
+
+        btnAvancar.addEventListener('click', () => {
+            avancarModal.classList.add('active');
+        });
+
+        cancelAvancarBtn.addEventListener('click', () => {
+            avancarModal.classList.remove('active');
+        });
+
+        avancarModal.addEventListener('click', (e) => {
+            if (e.target === avancarModal) {
+                avancarModal.classList.remove('active');
+            }
+        });
+    }
+
     const btnApurar = document.getElementById('btn-apurar');
     const apuracaoForm = document.getElementById('apuracao-form');
     const btnSalvarApuracao = document.getElementById('btn-salvar-apuracao');
@@ -657,3 +696,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+

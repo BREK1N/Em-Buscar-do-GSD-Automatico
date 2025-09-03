@@ -225,7 +225,7 @@ def verifica_agravante_atenuante(historico, transgressao, justificativa, itens):
     h) abuso de autoridade hierárquica ou funcional;
     i) ocorrência da transgressão durante o serviço ou instrução.
     # Regras #
-    1. O militar ter bom ou mal comportamento depende exclusivamente do seu histórico
+    1. O militar por padrão possui bom comportamento (atenuante 'a'). Ele só perde esse atenuante e passa a ter mau comportamento (agravante 'a') se o seu histórico indicar que já recebeu alguma punição de natureza 'grave'.
     2. Se o militar for enquadrado em mais de um item ele está automaticamente enquadrado na letra c dos agravantes
     # Justificativa apresentada pelo militar #
     {justificativa}

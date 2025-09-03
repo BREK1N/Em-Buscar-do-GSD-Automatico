@@ -65,7 +65,7 @@ class Militar(models.Model):
 class PATD(models.Model):
     
     STATUS_CHOICES = [
-        ('definicao_oficial', 'Aguardando definição do Oficial'),
+         ('definicao_oficial', 'Aguardando definição do Oficial'),
         ('ciencia_militar', 'Aguardando ciência do militar'),
         ('aguardando_justificativa', 'Aguardando Justificativa'),
         ('prazo_expirado', 'Prazo expirado'),
@@ -73,7 +73,9 @@ class PATD(models.Model):
         ('em_apuracao', 'Em Apuração'),
         ('apuracao_preclusao', 'Em Apuração (Preclusão)'), 
         ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
-        ('aguardando_assinatura', 'Aguardando Assinatura NPD'),
+        ('aguardando_assinatura_npd', 'Aguardando Assinatura NPD'),
+        ('finalizado', 'Finalizado'),
+        ('aguardando_punicao_alterar', 'Aguardando Punição (alterar)'),
     ]
 
     militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='patds', verbose_name="Militar Acusado")

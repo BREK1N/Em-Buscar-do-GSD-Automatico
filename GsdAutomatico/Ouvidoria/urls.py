@@ -17,6 +17,7 @@ urlpatterns = [
 
     # Aba de PATDs
     path('patd/', views.PATDListView.as_view(), name='patd_list'),
+    path('patd/finalizadas/', views.PatdFinalizadoListView.as_view(), name='patd_finalizado_list'),
     path('patd/<int:pk>/', views.PATDDetailView.as_view(), name='patd_detail'),
     path('patd/<int:pk>/editar/', views.PATDUpdateView.as_view(), name='patd_update'),
     path('patd/<int:pk>/excluir/', views.PATDDeleteView.as_view(), name='patd_delete'),
@@ -30,7 +31,13 @@ urlpatterns = [
 
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
     path('patd/<int:pk>/analisar_punicao/', views.analisar_punicao, name='analisar_punicao'),
-    path('patd/<int:pk>/salvar_apuracao/', views.salvar_apuracao, name='salvar_apuracao'), # Nova rota
+    path('patd/<int:pk>/salvar_apuracao/', views.salvar_apuracao, name='salvar_apuracao'), 
+    path('patd/<int:pk>/avancar_para_comandante/', views.avancar_para_comandante, name='avancar_para_comandante'),
+
+    # ROTAS PARA O COMANDANTE
+    path('comandante/dashboard/', views.ComandanteDashboardView.as_view(), name='comandante_dashboard'),
+    path('patd/<int:pk>/aprovar/', views.patd_aprovar, name='patd_aprovar'),
+    path('patd/<int:pk>/retornar/', views.patd_retornar, name='patd_retornar'),
 
     # CONFIGURAÇÃO DE ASSINATURAS
     path('config/oficiais/', views.lista_oficiais, name='lista_oficiais'),
@@ -45,3 +52,4 @@ urlpatterns = [
     # API
     path('api/search-militares/', views.search_militares_json, name='search_militares_json')
 ]
+

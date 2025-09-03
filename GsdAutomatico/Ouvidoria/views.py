@@ -38,12 +38,22 @@ def has_ouvidoria_access(user):
     """Verifica se o utilizador pertence ao grupo 'Ouvidoria' ou é um superutilizador."""
     return user.groups.filter(name='Ouvidoria').exists() or user.is_superuser
 
+def has_comandante_access(user):
+    """Verifica se o utilizador pertence ao grupo 'Comandante' ou é um superutilizador."""
+    return user.groups.filter(name='Comandante').exists() or user.is_superuser
+
 class OuvidoriaAccessMixin(UserPassesTestMixin):
     """Mixin para Class-Based Views para verificar a permissão de acesso à Ouvidoria."""
     def test_func(self):
         return has_ouvidoria_access(self.request.user)
 
+class ComandanteAccessMixin(UserPassesTestMixin):
+    """Mixin para Class-Based Views para verificar a permissão de acesso do Comandante."""
+    def test_func(self):
+        return has_comandante_access(self.request.user)
+
 ouvidoria_required = user_passes_test(has_ouvidoria_access)
+comandante_required = user_passes_test(has_comandante_access)
 
 
 # Configuração de logging para depuração
@@ -561,7 +571,8 @@ class PATDListView(ListView):
     paginate_by = 15
     def get_queryset(self):
         query = self.request.GET.get('q')
-        qs = super().get_queryset().select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
+        # ALTERAÇÃO AQUI: Exclui PATDs com status 'finalizado'
+        qs = super().get_queryset().exclude(status='finalizado').select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
         if query:
             qs = qs.filter(
                 Q(numero_patd__icontains=query) | 
@@ -576,6 +587,16 @@ class PATDListView(ListView):
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
         return context
+
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
+class PatdFinalizadoListView(ListView):
+    model = PATD
+    template_name = 'patd_finalizado_list.html'
+    context_object_name = 'patds'
+    paginate_by = 15
+
+    def get_queryset(self):
+        return PATD.objects.filter(status='finalizado').order_by('-data_inicio')
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class PATDDetailView(DetailView):
@@ -597,11 +618,14 @@ class PATDDetailView(DetailView):
         if patd.alegacao_defesa:
             document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', doc_context)
         
-        if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura']:
+        if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar']:
             document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
         
         if patd.punicao_sugerida:
             document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
+
+        if patd.status == 'finalizado':
+            document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
 
         patd.documento_texto = document_content
 
@@ -1071,4 +1095,43 @@ def search_militares_json(request):
     militares = militares.order_by('posto', 'nome_guerra')[:50]
     data = list(militares.values('id', 'posto', 'nome_guerra', 'nome_completo'))
     return JsonResponse(data, safe=False)
+
+@method_decorator([login_required, comandante_required], name='dispatch')
+class ComandanteDashboardView(ListView):
+    model = PATD
+    template_name = 'comandante_dashboard.html'
+    context_object_name = 'patds'
+
+    def get_queryset(self):
+        return PATD.objects.filter(status='aguardando_assinatura_npd').order_by('-data_inicio')
+
+@login_required
+@comandante_required
+@require_POST
+def patd_aprovar(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    patd.status = 'finalizado'
+    patd.save()
+    messages.success(request, f"PATD Nº {patd.numero_patd} aprovada e finalizada com sucesso.")
+    return redirect('Ouvidoria:comandante_dashboard')
+
+@login_required
+@comandante_required
+@require_POST
+def patd_retornar(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    patd.status = 'aguardando_punicao_alterar'
+    patd.save()
+    messages.warning(request, f"PATD Nº {patd.numero_patd} retornada para alteração.")
+    return redirect('Ouvidoria:comandante_dashboard')
+
+@login_required
+@ouvidoria_required
+@require_POST
+def avancar_para_comandante(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    patd.status = 'aguardando_assinatura_npd'
+    patd.save()
+    messages.success(request, f"PATD Nº {patd.numero_patd} enviada para análise do Comandante.")
+    return redirect('Ouvidoria:patd_detail', pk=pk)
 
