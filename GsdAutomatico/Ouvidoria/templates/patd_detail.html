@@ -96,7 +96,7 @@
                 <div class="oficial-container">
                     <p class="detail-item-value">1ª: {{ patd.testemunha1|default:"Não atribuída" }}</p>
                     <div class="signature-display-container">
-                        {% if patd.testemunha1 and patd.status in 'preclusao,apuracao_preclusao' and not patd.assinatura_testemunha1 %}
+                        {% if patd.testemunha1 and patd.status in 'preclusao,apuracao_preclusao,aguardando_assinatura_npd' and not patd.assinatura_testemunha1 %}
                             <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="1">Assinar</button>
                         {% elif patd.assinatura_testemunha1 %}
                             <img src="{{ patd.assinatura_testemunha1 }}" alt="Assinatura da 1ª Testemunha" class="signature-image">
@@ -106,7 +106,7 @@
                 <div class="oficial-container">
                     <p class="detail-item-value">2ª: {{ patd.testemunha2|default:"Não atribuída" }}</p>
                      <div class="signature-display-container">
-                        {% if patd.testemunha2 and patd.status in 'preclusao,apuracao_preclusao' and not patd.assinatura_testemunha2 %}
+                        {% if patd.testemunha2 and patd.status in 'preclusao,apuracao_preclusao,aguardando_assinatura_npd' and not patd.assinatura_testemunha2 %}
                             <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="2">Assinar</button>
                         {% elif patd.assinatura_testemunha2 %}
                             <img src="{{ patd.assinatura_testemunha2 }}" alt="Assinatura da 2ª Testemunha" class="signature-image">
@@ -897,4 +897,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

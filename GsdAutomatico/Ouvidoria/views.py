@@ -299,10 +299,82 @@ def get_raw_document_text(patd):
     if patd.punicao_sugerida:
         document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
 
-    if patd.status == 'finalizado':
+    if patd.status in ['aguardando_assinatura_npd', 'finalizado']:
         document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
     
     return document_content
+
+
+def _check_preclusao_signatures(patd):
+    """
+    Verifica se as assinaturas das testemunhas para o documento de preclusão
+    foram coletadas, APENAS se as testemunhas tiverem sido designadas.
+    Retorna True se as assinaturas estiverem completas, False caso contrário.
+    """
+    # Se a testemunha 1 foi designada, sua assinatura é necessária.
+    if patd.testemunha1 and not patd.assinatura_testemunha1:
+        return False
+    # Se a testemunha 2 foi designada, sua assinatura é necessária.
+    if patd.testemunha2 and not patd.assinatura_testemunha2:
+        return False
+    
+    # Se passou por todas as verificações, as assinaturas estão completas.
+    return True
+
+def _check_and_finalize_patd(patd):
+    """
+    Verifica se todas as assinaturas necessárias para a NPD foram coletadas
+    e, em caso afirmativo, finaliza o PATD.
+    """
+    if patd.status != 'aguardando_assinatura_npd':
+        return False
+
+    raw_document_text = get_raw_document_text(patd)
+    
+    # 1. Verifica a assinatura do militar arrolado
+    required_mil_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
+    provided_mil_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s)
+    if provided_mil_signatures < required_mil_signatures:
+        return False
+
+    # 2. Verifica assinatura da testemunha 1, se ELA FOI DESIGNADA
+    if patd.testemunha1 and not patd.assinatura_testemunha1:
+        return False
+        
+    # 3. Verifica assinatura da testemunha 2, se ELA FOI DESIGNADA
+    if patd.testemunha2 and not patd.assinatura_testemunha2:
+        return False
+
+    # Se todas as assinaturas necessárias estiverem presentes, finaliza o processo
+    patd.status = 'finalizado'
+    patd.data_termino = timezone.now() # Marcar a data de término
+    return True
+
+def _try_advance_status_from_justificativa(patd):
+    """
+    Verifica se a PATD no status 'aguardando_justificativa' pode avançar
+    para 'em_apuracao'. Isso só deve ocorrer se tanto a alegação de defesa
+    quanto todas as assinaturas necessárias estiverem presentes.
+    """
+    if patd.status != 'aguardando_justificativa':
+        return False
+
+    # 1. Verificar se a alegação de defesa foi preenchida.
+    if not patd.alegacao_defesa:
+        return False
+
+    # 2. Verificar se todas as assinaturas necessárias foram coletadas.
+    raw_document_text = get_raw_document_text(patd)
+    required_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
+    provided_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s)
+    
+    if provided_signatures < required_signatures:
+        return False
+
+    # Se ambas as condições forem atendidas, avança o status.
+    patd.status = 'em_apuracao'
+    return True
+
 
 # =============================================================================
 # Views e Lógica da Aplicação
@@ -730,24 +802,24 @@ def salvar_assinatura_ciencia(request, pk):
 
         patd.assinaturas_militar[assinatura_index] = signature_data
         
-        # --- LÓGICA DE AVANÇO DE STATUS CORRIGIDA ---
-        raw_document_text = get_raw_document_text(patd)
-        required_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
-        provided_signatures = sum(1 for s in patd.assinaturas_militar if s is not None)
+        # --- LÓGICA DE AVANÇO DE STATUS ---
         
         # Avança do status de ciência inicial
         if patd.status == 'ciencia_militar':
             coringa_doc_text = _render_document_from_template('PATD_Coringa.docx', _get_document_context(patd))
             required_initial_signatures = coringa_doc_text.count('{Assinatura Militar Arrolado}')
+            provided_signatures = sum(1 for s in patd.assinaturas_militar if s is not None)
             if provided_signatures >= required_initial_signatures:
                 if patd.data_ciencia is None:
                     patd.data_ciencia = timezone.now()
                 patd.status = 'aguardando_justificativa'
         
-        # Avança do status de aguardando justificativa (após alegação E assinatura)
-        elif patd.status == 'aguardando_justificativa':
-            if patd.alegacao_defesa and provided_signatures >= required_signatures:
-                patd.status = 'em_apuracao'
+        # Tenta avançar o status se estiver aguardando justificativa
+        _try_advance_status_from_justificativa(patd)
+        
+        # Verifica se o PATD pode ser finalizado
+        if _check_and_finalize_patd(patd):
+            patd.save()
 
         patd.save()
 
@@ -781,13 +853,8 @@ def salvar_alegacao_defesa(request, pk):
             patd.alegacao_defesa_resumo = "Erro ao gerar resumo."
             patd.ocorrencia_reescrita = patd.transgressao
 
-        # Verifica se todas as assinaturas já foram dadas para avançar o status
-        raw_document_text = get_raw_document_text(patd)
-        required_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
-        provided_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s is not None)
-        
-        if patd.status == 'aguardando_justificativa' and provided_signatures >= required_signatures:
-            patd.status = 'em_apuracao'
+        # Tenta avançar o status após salvar a alegação
+        _try_advance_status_from_justificativa(patd)
 
         patd.save()
 
@@ -1024,6 +1091,11 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
             patd.assinatura_testemunha2 = signature_data
         else:
             return JsonResponse({'status': 'error', 'message': 'Número de testemunha inválido.'}, status=400)
+        
+        # Verifica se o PATD pode ser finalizado
+        if _check_and_finalize_patd(patd):
+             patd.save()
+        
         patd.save()
         return JsonResponse({'status': 'success', 'message': f'Assinatura da {testemunha_num}ª testemunha salva.'})
     except Exception as e:
@@ -1079,6 +1151,14 @@ def salvar_apuracao(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
+
+        # Se o status for de preclusão, verifica as assinaturas das testemunhas primeiro.
+        if patd.status == 'apuracao_preclusao':
+            if not _check_preclusao_signatures(patd):
+                return JsonResponse({
+                    'status': 'error',
+                    'message': 'A apuração não pode ser concluída. Faltam assinaturas das testemunhas no termo de preclusão.'
+                }, status=400)
 
         # Atualiza os campos da PATD com os dados recebidos
         patd.itens_enquadrados = data.get('itens_enquadrados')
