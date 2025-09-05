@@ -26,6 +26,11 @@
     #apuracao-form .form-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
     #apuracao-form textarea { width: 100%; min-height: 100px; }
     #apuracao-form .form-item-full { grid-column: 1 / -1; }
+    .no-signature-warning {
+        font-size: 12px;
+        color: var(--warning-color);
+        font-style: italic;
+    }
 </style>
 
 <h1>PATD Nº {{ patd.numero_patd }}</h1>
@@ -63,10 +68,16 @@
             <div class="oficial-container">
                 <p class="detail-item-value">{{ patd.oficial_responsavel|default:"Não atribuído" }}</p>
                 <div class="signature-display-container">
-                    {% if patd.oficial_responsavel and not patd.assinatura_oficial %}
-                        <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
-                    {% elif patd.assinatura_oficial %}
-                        <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
+                    {% if patd.oficial_responsavel %}
+                        {% if patd.oficial_responsavel.assinatura %}
+                            {% if not patd.assinatura_oficial %}
+                                <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
+                            {% else %}
+                                <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
+                            {% endif %}
+                        {% else %}
+                             <span class="no-signature-warning">Oficial sem assinatura cadastrada.</span>
+                        {% endif %}
                     {% endif %}
                 </div>
             </div>
@@ -308,7 +319,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
     let isExpired = `{{ patd.status }}` === 'prazo_expirado';
 
-    // ... (toda a lógica de modais e contagem regressiva permanece a mesma) ...
     const deleteBtn = document.getElementById('delete-patd-btn');
     const deleteModal = document.getElementById('delete-modal');
     if (deleteBtn && deleteModal) {
@@ -319,6 +329,53 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target === deleteModal) deleteModal.classList.remove('active');
         });
     }
+
+    // --- LÓGICA DO MODAL DE ASSINATURA DO OFICIAL RESPONSÁVEL ---
+    const addSignatureBtn = document.getElementById('add-signature-btn');
+    const signatureModal = document.getElementById('signature-modal');
+    if (addSignatureBtn && signatureModal) {
+        const canvas = document.getElementById('signature-canvas');
+        const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
+        
+        function resizeCanvasOficial() {
+            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            canvas.width = canvas.offsetWidth * ratio;
+            canvas.height = canvas.offsetHeight * ratio;
+            canvas.getContext("2d").scale(ratio, ratio);
+            signaturePad.clear();
+        }
+
+        addSignatureBtn.addEventListener('click', () => {
+            signatureModal.classList.add('active');
+            resizeCanvasOficial();
+        });
+
+        document.getElementById('cancel-signature-btn').addEventListener('click', () => signatureModal.classList.remove('active'));
+        document.getElementById('clear-signature-btn').addEventListener('click', () => signaturePad.clear());
+        document.getElementById('save-signature-btn').addEventListener('click', () => {
+            if (signaturePad.isEmpty()) {
+                alert("Por favor, forneça a assinatura.");
+                return;
+            }
+            const signatureData = signaturePad.toDataURL('image/png');
+            const url = `{% url 'Ouvidoria:salvar_assinatura' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ 'signature_data': signatureData })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Erro ao salvar assinatura: ' + data.message);
+                }
+            })
+            .catch(error => console.error('Erro:', error));
+        });
+    }
+
     const addSignatureCienciaBtn = document.getElementById('add-signature-ciencia-btn');
     const signatureModalCiencia = document.getElementById('signature-modal-ciencia');
     if (addSignatureCienciaBtn && signatureModalCiencia) {
@@ -511,7 +568,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const canvas = document.getElementById('signature-canvas-testemunha');
         const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
         let currentTestemunhaNum = null;
-        function resizeCanvas() {
+        function resizeCanvasTestemunha() {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
             canvas.width = canvas.offsetWidth * ratio;
             canvas.height = canvas.offsetHeight * ratio;
@@ -520,10 +577,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         addSignatureTestemunhaBtns.forEach(btn => {
             btn.addEventListener('click', () => {
-                currentTestemunhaNum = btn.dataset.testemunha-num;
+                currentTestemunhaNum = btn.dataset.testemunhaNum;
                 modalTitle.textContent = `Assinatura da ${currentTestemunhaNum}ª Testemunha`;
                 signatureModalTestemunha.classList.add('active');
-                resizeCanvas();
+                resizeCanvasTestemunha();
             });
         });
         document.getElementById('cancel-signature-btn-testemunha').addEventListener('click', () => signatureModalTestemunha.classList.remove('active'));
