@@ -118,7 +118,8 @@ class PATD(models.Model):
         verbose_name="Status"
     )
     assinatura_oficial = models.TextField(blank=True, null=True, verbose_name="Assinatura do Oficial (Base64)")
-    assinatura_militar_ciencia = models.TextField(blank=True, null=True, verbose_name="Assinatura de Ciência do Militar (Base64)")
+    # Alterado para JSONField para armazenar múltiplas assinaturas
+    assinaturas_militar = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas do Militar Arrolado (Base64)")
     assinatura_testemunha1 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 1ª Testemunha (Base64)")
     assinatura_testemunha2 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 2ª Testemunha (Base64)")
     alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Alegação de Defesa")

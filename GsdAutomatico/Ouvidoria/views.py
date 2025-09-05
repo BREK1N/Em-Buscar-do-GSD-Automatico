@@ -228,7 +228,6 @@ def _get_document_context(patd):
         # Dados da Defesa
         '{data ciência}': data_ciencia_fmt,
         '{Data da alegação}': data_alegacao_fmt,
-        '{Alegação de defesa}': patd.alegacao_defesa or "[Defesa não apresentada]",
         '{Alegação_defesa_resumo}': patd.alegacao_defesa_resumo or "[Resumo não gerado]",
         
         # --- PLACEHOLDERS DE PUNIÇÃO ATUALIZADOS ---
@@ -239,7 +238,6 @@ def _get_document_context(patd):
         
         # Assinaturas
         '{Assinatura Comandante do GSD}': getattr(comandante_gsd, 'assinatura', '[Sem assinatura]') if comandante_gsd else "[Comandante GSD não definido]",
-        '{Assinatura Militar Arrolado}': patd.assinatura_militar_ciencia or '[Assinatura não registrada]',
         '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else '[Oficial não definido]',
         '{Assinatura Testemunha 1}': patd.assinatura_testemunha1 or '[Sem assinatura]',
         '{Assinatura Testemunha 2}': patd.assinatura_testemunha2 or '[Sem assinatura]',
@@ -262,7 +260,7 @@ def _render_document_from_template(template_name, context):
         template_content = '\n'.join([p.text for p in document.paragraphs])
 
         for placeholder, value in context.items():
-            template_content = template_content.replace(placeholder, str(value))
+            template_content = template_content.replace(str(placeholder), str(value))
         
         return template_content
     except FileNotFoundError:
@@ -273,6 +271,38 @@ def _render_document_from_template(template_name, context):
         error_msg = f"\n\n--- ERRO ao processar o template '{template_name}': {e} ---"
         logger.error(error_msg)
         return error_msg
+
+
+def get_raw_document_text(patd):
+    """
+    Gera o texto completo do documento a partir dos templates,
+    preservando os placeholders que serão substituídos no frontend.
+    """
+    doc_context = _get_document_context(patd)
+    
+    document_content = _render_document_from_template('PATD_Coringa.docx', doc_context)
+
+    # Lógica para incluir a parte da alegação de defesa
+    if patd.status in ['aguardando_justificativa', 'prazo_expirado', 'em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar']:
+        alegacao_context = doc_context.copy()
+        if patd.alegacao_defesa:
+            alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa
+        else:
+            # Placeholder especial que o JS transformará em um botão
+            alegacao_context['{Alegação de defesa}'] = '{Botao Adicionar Alegacao}'
+        
+        document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
+    
+    if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar']:
+        document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
+    
+    if patd.punicao_sugerida:
+        document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
+
+    if patd.status == 'finalizado':
+        document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
+    
+    return document_content
 
 # =============================================================================
 # Views e Lógica da Aplicação
@@ -609,30 +639,15 @@ class PATDDetailView(DetailView):
         patd = self.get_object()
         config = Configuracao.load()
         
-        # Coleta todos os parâmetros necessários de uma vez
-        doc_context = _get_document_context(patd)
+        # Gera o documento "cru" para ser processado pelo JavaScript
+        document_content = get_raw_document_text(patd)
+        context['documento_texto_json'] = json.dumps(document_content)
+        context['assinaturas_militar_json'] = json.dumps(patd.assinaturas_militar or [])
 
-        # Monta o documento completo
-        document_content = _render_document_from_template('PATD_Coringa.docx', doc_context)
-
-        if patd.alegacao_defesa:
-            document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', doc_context)
-        
-        if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar']:
-            document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
-        
-        if patd.punicao_sugerida:
-            document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
-
-        if patd.status == 'finalizado':
-            document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
-
-        patd.documento_texto = document_content
 
         context['now_iso'] = timezone.now().isoformat()
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
-        context['patd'] = patd
         
         context['analise_data_json'] = json.dumps({
             'itens': patd.itens_enquadrados,
@@ -701,16 +716,42 @@ def salvar_assinatura_ciencia(request, pk):
         patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
         signature_data = data.get('signature_data')
+        assinatura_index = int(data.get('assinatura_index', -1))
 
-        if not signature_data:
-            return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
+        if not signature_data or assinatura_index < 0:
+            return JsonResponse({'status': 'error', 'message': 'Dados de assinatura inválidos.'}, status=400)
 
-        patd.assinatura_militar_ciencia = signature_data
-        patd.data_ciencia = timezone.now()
-        patd.status = 'aguardando_justificativa'
+        if patd.assinaturas_militar is None:
+            patd.assinaturas_militar = []
+        
+        # Garante que a lista tem o tamanho necessário
+        while len(patd.assinaturas_militar) <= assinatura_index:
+            patd.assinaturas_militar.append(None)
+
+        patd.assinaturas_militar[assinatura_index] = signature_data
+        
+        # --- LÓGICA DE AVANÇO DE STATUS CORRIGIDA ---
+        raw_document_text = get_raw_document_text(patd)
+        required_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
+        provided_signatures = sum(1 for s in patd.assinaturas_militar if s is not None)
+        
+        # Avança do status de ciência inicial
+        if patd.status == 'ciencia_militar':
+            coringa_doc_text = _render_document_from_template('PATD_Coringa.docx', _get_document_context(patd))
+            required_initial_signatures = coringa_doc_text.count('{Assinatura Militar Arrolado}')
+            if provided_signatures >= required_initial_signatures:
+                if patd.data_ciencia is None:
+                    patd.data_ciencia = timezone.now()
+                patd.status = 'aguardando_justificativa'
+        
+        # Avança do status de aguardando justificativa (após alegação E assinatura)
+        elif patd.status == 'aguardando_justificativa':
+            if patd.alegacao_defesa and provided_signatures >= required_signatures:
+                patd.status = 'em_apuracao'
+
         patd.save()
 
-        return JsonResponse({'status': 'success', 'message': 'Ciência registrada com sucesso.'})
+        return JsonResponse({'status': 'success', 'message': 'Assinatura registrada com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura de ciência da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -728,32 +769,27 @@ def salvar_alegacao_defesa(request, pk):
              return JsonResponse({'status': 'error', 'message': 'Nenhum texto de alegação recebido.'}, status=400)
 
         patd.alegacao_defesa = alegacao_texto
-        patd.status = 'em_apuracao' 
         patd.data_alegacao = timezone.now()
 
         try:
-            # Chama os agentes de IA para processar os textos
             resumo_tecnico = analisar_e_resumir_defesa(patd.alegacao_defesa)
             ocorrencia_formatada = reescrever_ocorrencia(patd.transgressao)
-            
-            # Atualiza o objeto PATD com os novos textos
             patd.alegacao_defesa_resumo = resumo_tecnico
             patd.ocorrencia_reescrita = ocorrencia_formatada
-            
         except Exception as e:
-            # Se a IA falhar, o processo continua, mas registamos o erro.
             logger.error(f"Erro ao chamar a IA para processar textos da PATD {pk}: {e}")
             patd.alegacao_defesa_resumo = "Erro ao gerar resumo."
-            patd.ocorrencia_reescrita = patd.transgressao # Usa a original como fallback
+            patd.ocorrencia_reescrita = patd.transgressao
 
-        # Salva todos os campos atualizados de uma vez
-        patd.save(update_fields=[
-            'alegacao_defesa', 
-            'status', 
-            'data_alegacao',
-            'ocorrencia_reescrita',
-            'alegacao_defesa_resumo'
-        ])
+        # Verifica se todas as assinaturas já foram dadas para avançar o status
+        raw_document_text = get_raw_document_text(patd)
+        required_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
+        provided_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s is not None)
+        
+        if patd.status == 'aguardando_justificativa' and provided_signatures >= required_signatures:
+            patd.status = 'em_apuracao'
+
+        patd.save()
 
         return JsonResponse({'status': 'success', 'message': 'Alegação de defesa salva com sucesso.'})
     except Exception as e:
@@ -1136,3 +1172,4 @@ def avancar_para_comandante(request, pk):
     patd.save()
     messages.success(request, f"PATD Nº {patd.numero_patd} enviada para análise do Comandante.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
+

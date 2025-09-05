@@ -31,6 +31,14 @@
         color: var(--warning-color);
         font-style: italic;
     }
+    .btn-sign-placeholder {
+        display: inline-block;
+        padding: 5px 10px;
+        background-color: var(--accent-color);
+        color: white;
+        border-radius: 4px;
+        cursor: pointer;
+    }
 </style>
 
 <h1>PATD Nº {{ patd.numero_patd }}</h1>
@@ -125,12 +133,8 @@
         </div>
         <div class="detail-item-full">
             <strong>Ciência do Militar Acusado:</strong>
-            <div class="signature-display-container">
-                {% if patd.assinatura_militar_ciencia %}
-                    <img src="{{ patd.assinatura_militar_ciencia }}" alt="Assinatura do Militar" class="signature-image">
-                {% else %}
-                    <p class="detail-item-value">Aguardando assinatura de ciência.</p>
-                {% endif %}
+            <div id="assinaturas-militar-container" class="signature-display-container" style="flex-wrap: wrap; gap: 10px;">
+                <!-- As assinaturas serão inseridas aqui pelo JS -->
             </div>
         </div>
         {% if patd.alegacao_defesa %}
@@ -183,9 +187,6 @@
     </div>
 
     <div class="form-actions" id="form-actions-container">
-        {% if patd.status == 'ciencia_militar' and not patd.assinatura_militar_ciencia %}
-        <button type="button" class="btn btn-success" id="add-signature-ciencia-btn">Assinar Ciência</button>
-        {% endif %}
         {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa %}
         <button type="button" class="btn btn-primary" id="add-defesa-btn">Adicionar Alegação de Defesa</button>
         {% endif %}
@@ -204,7 +205,6 @@
 
 <div id="tab-documento" class="tab-panel">
     <div id="documento-view" class="document-view"></div>
-    <div id="documento-raw-text" style="display: none;">{{ patd.documento_texto }}</div>
 </div>
 
 <div class="modal-overlay" id="delete-modal">
@@ -314,6 +314,8 @@
 <script>
 // Dados da análise pré-carregados pelo Django
 const analiseData = {{ analise_data_json|safe }};
+const assinaturasMilitar = {{ assinaturas_militar_json|safe }};
+const rawDocumentText = {{ documento_texto_json|safe }};
 
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -377,11 +379,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    const addSignatureCienciaBtn = document.getElementById('add-signature-ciencia-btn');
     const signatureModalCiencia = document.getElementById('signature-modal-ciencia');
-    if (addSignatureCienciaBtn && signatureModalCiencia) {
+    if (signatureModalCiencia) {
         const canvasCiencia = document.getElementById('signature-canvas-ciencia');
         const signaturePadCiencia = new SignaturePad(canvasCiencia, { backgroundColor: 'rgb(255, 255, 255)' });
+        let currentSignatureIndex = -1;
+
         function resizeCanvasCiencia() {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
             const parentWidth = canvasCiencia.parentElement.offsetWidth;
@@ -390,10 +393,17 @@ document.addEventListener('DOMContentLoaded', function() {
             canvasCiencia.getContext("2d").scale(ratio, ratio);
             signaturePadCiencia.clear();
         }
-        addSignatureCienciaBtn.addEventListener('click', () => {
-            signatureModalCiencia.classList.add('active');
-            resizeCanvasCiencia();
+        
+        // Listener para abrir o modal de assinatura
+        document.body.addEventListener('click', function(e) {
+            const btn = e.target.closest('.add-signature-ciencia-btn');
+            if (btn) {
+                currentSignatureIndex = parseInt(btn.dataset.index, 10);
+                signatureModalCiencia.classList.add('active');
+                resizeCanvasCiencia();
+            }
         });
+
         document.getElementById('cancel-signature-btn-ciencia').addEventListener('click', () => signatureModalCiencia.classList.remove('active'));
         document.getElementById('clear-signature-btn-ciencia').addEventListener('click', () => signaturePadCiencia.clear());
         document.getElementById('save-signature-btn-ciencia').addEventListener('click', () => {
@@ -406,7 +416,10 @@ document.addEventListener('DOMContentLoaded', function() {
             fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                body: JSON.stringify({ 'signature_data': signatureData })
+                body: JSON.stringify({ 
+                    'signature_data': signatureData,
+                    'assinatura_index': currentSignatureIndex
+                })
             })
             .then(response => response.json())
             .then(data => {
@@ -416,16 +429,32 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => console.error('Erro:', error));
         });
     }
-    const addDefesaBtn = document.getElementById('add-defesa-btn');
+
     const defesaModal = document.getElementById('defesa-modal');
-    const confirmDefesaModal = document.getElementById('confirm-defesa-modal');
-    if (addDefesaBtn && defesaModal) {
+    if (defesaModal) {
+        const addDefesaBtn = document.getElementById('add-defesa-btn');
+        const confirmDefesaModal = document.getElementById('confirm-defesa-modal');
         const cancelDefesaBtn = document.getElementById('cancel-defesa-btn');
         const submitDefesaBtn = document.getElementById('submit-defesa-btn');
         const cancelConfirmDefesaBtn = document.getElementById('cancel-confirm-defesa-btn');
         const finalSubmitDefesaBtn = document.getElementById('final-submit-defesa-btn');
         const alegacaoText = document.getElementById('alegacao-defesa-texto');
-        addDefesaBtn.addEventListener('click', () => defesaModal.classList.add('active'));
+
+        function openDefesaModal() {
+            defesaModal.classList.add('active');
+        }
+
+        if (addDefesaBtn) {
+            addDefesaBtn.addEventListener('click', openDefesaModal);
+        }
+
+        // Listener delegado para o botão no documento
+        document.body.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'add-defesa-btn-doc') {
+                openDefesaModal();
+            }
+        });
+
         cancelDefesaBtn.addEventListener('click', () => defesaModal.classList.remove('active'));
         submitDefesaBtn.addEventListener('click', () => {
             if (alegacaoText.value.trim() === "") {
@@ -607,6 +636,21 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     const tabLinks = document.querySelectorAll('.tab-link');
     const tabPanels = document.querySelectorAll('.tab-panel');
+
+    const savedTabId = localStorage.getItem('activePatdTab-{{ patd.pk }}');
+    if (savedTabId) {
+        tabLinks.forEach(l => l.classList.remove('active'));
+        tabPanels.forEach(p => p.classList.remove('active'));
+
+        const activeLink = document.querySelector(`.tab-link[data-target="${savedTabId}"]`);
+        const activePanel = document.getElementById(savedTabId);
+
+        if (activeLink && activePanel) {
+            activeLink.classList.add('active');
+            activePanel.classList.add('active');
+        }
+    }
+
     tabLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -615,19 +659,89 @@ document.addEventListener('DOMContentLoaded', function() {
             link.classList.add('active');
             const targetPanel = document.getElementById(link.dataset.target);
             if (targetPanel) targetPanel.classList.add('active');
+            localStorage.setItem('activePatdTab-{{ patd.pk }}', link.dataset.target);
         });
     });
+
     function renderDocument() {
-        const rawTextContainer = document.getElementById('documento-raw-text');
         const viewer = document.getElementById('documento-view');
-        if (!rawTextContainer || !viewer) return;
-        let processedHtml = rawTextContainer.textContent;
+        if (!viewer) return;
+
+        let processedHtml = rawDocumentText;
+
+        processedHtml = processedHtml.replace(/\{Botao Adicionar Alegacao\}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
+
         processedHtml = processedHtml.replace(/(data:image\/png;base64,[A-Za-z0-9+/=]+)/g, '<img class="signature-image-embedded" src="$1" alt="Assinatura">');
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
         processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+        
+        let signatureIndex = 0;
+        processedHtml = processedHtml.replace(/{Assinatura Militar Arrolado}/g, () => {
+            const index = signatureIndex++;
+            if (assinaturasMilitar[index]) {
+                return `<img class="signature-image-embedded" src="${assinaturasMilitar[index]}" alt="Assinatura ${index + 1}">`;
+            } else {
+                 return `<button class="btn btn-sm btn-success add-signature-ciencia-btn" data-index="${index}">Assinar</button>`;
+            }
+        });
+
         processedHtml = processedHtml.replace(/\n/g, '<br>');
         viewer.innerHTML = processedHtml;
+
+        renderAssinaturasMilitarTab();
     }
+    
+    function renderAssinaturasMilitarTab() {
+        const container = document.getElementById('assinaturas-militar-container');
+        if (!container) return;
+
+        container.innerHTML = ''; 
+        const placeholdersNoDoc = (rawDocumentText.match(/{Assinatura Militar Arrolado}/g) || []).length;
+        
+        if (placeholdersNoDoc === 0) {
+             container.innerHTML = '<p class="detail-item-value">Nenhuma assinatura de ciência necessária.</p>';
+             return;
+        }
+
+        let hasUnsigned = false;
+        let signedCount = 0;
+        for (let i = 0; i < placeholdersNoDoc; i++) {
+            if (assinaturasMilitar[i]) {
+                const img = document.createElement('img');
+                img.src = assinaturasMilitar[i];
+                img.alt = `Assinatura ${i + 1}`;
+                img.className = 'signature-image';
+                container.appendChild(img);
+                signedCount++;
+            } else {
+                 hasUnsigned = true;
+            }
+        }
+
+        if (hasUnsigned && `{{patd.status}}` === 'ciencia_militar') {
+            const firstUnsignedIndex = assinaturasMilitar.filter(s => s).length;
+            const button = document.createElement('button');
+            button.type = 'button';
+            button.className = 'btn btn-success add-signature-ciencia-btn';
+            button.dataset.index = firstUnsignedIndex;
+            button.textContent = `Assinar Ciência (${signedCount + 1}/${placeholdersNoDoc})`;
+            container.appendChild(button);
+        } else if (!hasUnsigned && placeholdersNoDoc > 0) {
+            container.innerHTML += '<p class="detail-item-value">Todas as assinaturas coletadas.</p>';
+        } else if (placeholdersNoDoc > 0 && assinaturasMilitar.length === 0) {
+            container.innerHTML = '<p class="detail-item-value">Aguardando assinatura de ciência.</p>';
+            if (`{{patd.status}}` === 'ciencia_militar') {
+                const button = document.createElement('button');
+                button.type = 'button';
+                button.className = 'btn btn-success add-signature-ciencia-btn';
+                button.dataset.index = 0;
+                button.textContent = `Assinar Ciência (1/${placeholdersNoDoc})`;
+                container.appendChild(button);
+            }
+        }
+
+    }
+
     renderDocument();
 
     // --- LÓGICA PARA AVANÇAR PARA COMANDANTE ---
@@ -756,3 +870,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
