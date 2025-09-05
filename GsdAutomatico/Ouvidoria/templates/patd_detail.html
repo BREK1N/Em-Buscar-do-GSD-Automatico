@@ -339,7 +339,8 @@ document.addEventListener('DOMContentLoaded', function() {
         
         function resizeCanvasOficial() {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            canvas.width = canvas.offsetWidth * ratio;
+            const parentWidth = canvas.parentElement.offsetWidth;
+            canvas.width = parentWidth * ratio;
             canvas.height = canvas.offsetHeight * ratio;
             canvas.getContext("2d").scale(ratio, ratio);
             signaturePad.clear();
@@ -383,7 +384,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const signaturePadCiencia = new SignaturePad(canvasCiencia, { backgroundColor: 'rgb(255, 255, 255)' });
         function resizeCanvasCiencia() {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            canvasCiencia.width = canvasCiencia.offsetWidth * ratio;
+            const parentWidth = canvasCiencia.parentElement.offsetWidth;
+            canvasCiencia.width = parentWidth * ratio;
             canvasCiencia.height = canvasCiencia.offsetHeight * ratio;
             canvasCiencia.getContext("2d").scale(ratio, ratio);
             signaturePadCiencia.clear();
@@ -570,7 +572,8 @@ document.addEventListener('DOMContentLoaded', function() {
         let currentTestemunhaNum = null;
         function resizeCanvasTestemunha() {
             const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            canvas.width = canvas.offsetWidth * ratio;
+            const parentWidth = canvas.parentElement.offsetWidth;
+            canvas.width = parentWidth * ratio;
             canvas.height = canvas.offsetHeight * ratio;
             canvas.getContext("2d").scale(ratio, ratio);
             signaturePad.clear();
@@ -753,4 +756,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

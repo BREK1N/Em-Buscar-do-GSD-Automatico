@@ -269,6 +269,7 @@
 
     <script>
         document.addEventListener('DOMContentLoaded', function() {
+            const isSuperuser = {{ request.user.is_superuser|yesno:"true,false" }};
             const body = document.body;
             const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '{{ csrf_token }}';
             
@@ -392,7 +393,8 @@
 
                 function resizeCanvasPessoal() {
                     const ratio = Math.max(window.devicePixelRatio || 1, 1);
-                    signatureCanvasPessoal.width = signatureCanvasPessoal.offsetWidth * ratio;
+                    const parentWidth = signatureCanvasPessoal.parentElement.offsetWidth;
+                    signatureCanvasPessoal.width = parentWidth * ratio;
                     signatureCanvasPessoal.height = signatureCanvasPessoal.offsetHeight * ratio;
                     signatureCanvasPessoal.getContext("2d").scale(ratio, ratio);
                     signaturePadPessoal.clear();
@@ -416,14 +418,18 @@
                                     ? `<img src="${oficial.assinatura}" alt="Assinatura">`
                                     : '<span class="no-signature">Sem assinatura</span>';
 
+                                const manageButton = isSuperuser ? `
+                                    <button class="btn btn-sm btn-secondary manage-signature-btn" data-oficial-id="${oficial.id}" data-oficial-nome="${oficial.posto} ${oficial.nome_guerra}">
+                                        ${oficial.assinatura ? 'Alterar' : 'Adicionar'} Assinatura
+                                    </button>
+                                ` : '';
+
                                 listItem.innerHTML = `
                                     <div class="oficial-info">
                                         <div class="signature-preview">${signaturePreview}</div>
                                         <span>${oficial.posto} ${oficial.nome_guerra}</span>
                                     </div>
-                                    <button class="btn btn-sm btn-secondary manage-signature-btn" data-oficial-id="${oficial.id}" data-oficial-nome="${oficial.posto} ${oficial.nome_guerra}">
-                                        ${oficial.assinatura ? 'Alterar' : 'Adicionar'} Assinatura
-                                    </button>
+                                    ${manageButton}
                                 `;
                                 oficiaisListContainer.appendChild(listItem);
                             });
@@ -442,6 +448,7 @@
                 });
 
                 oficiaisListContainer.addEventListener('click', function(e) {
+                    if (!isSuperuser) return;
                     const targetButton = e.target.closest('.manage-signature-btn');
                     if (targetButton) {
                         currentOficialId = targetButton.dataset.oficialId;

@@ -836,6 +836,8 @@ def lista_oficiais(request):
 @ouvidoria_required
 @require_POST
 def salvar_assinatura_padrao(request, pk):
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem alterar assinaturas.'}, status=403)
     try:
         oficial = get_object_or_404(Militar, pk=pk, oficial=True)
         data = json.loads(request.body)
@@ -1134,4 +1136,3 @@ def avancar_para_comandante(request, pk):
     patd.save()
     messages.success(request, f"PATD Nº {patd.numero_patd} enviada para análise do Comandante.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
-

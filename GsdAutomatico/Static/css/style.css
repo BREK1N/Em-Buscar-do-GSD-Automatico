@@ -251,7 +251,7 @@ p {
 .form-actions { margin-top: 20px; display: flex; gap: 15px; flex-wrap: wrap; }
 .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
 .modal-overlay.active { opacity: 1; visibility: visible; }
-.modal-content { background-color: var(--bg-content); padding: 30px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: var(--box-shadow); transform: scale(0.9); transition: transform 0.3s; }
+.modal-content { background-color: var(--bg-content); padding: 30px; border-radius: 12px; width: 90%; max-width: 500px; box-shadow: var(--box-shadow); transform: scale(0.9); transition: transform 0.3s; box-sizing: border-box; }
 .modal-overlay.active .modal-content { transform: scale(1); }
 .modal-content h3 { margin-top: 0; color: var(--text-primary); }
 .modal-content p { color: var(--text-secondary); }
@@ -288,6 +288,7 @@ p {
     width: 90%;
     max-width: 500px;
     box-shadow: var(--box-shadow);
+    box-sizing: border-box;
 }
 .canvas-container {
     border: 1px solid var(--border-color);
@@ -295,7 +296,7 @@ p {
     margin-bottom: 20px;
     background-color: #fff;
 }
-#signature-canvas {
+#signature-canvas, #signature-canvas-ciencia, #signature-canvas-testemunha {
     width: 100%;
     height: 200px;
     cursor: crosshair;
