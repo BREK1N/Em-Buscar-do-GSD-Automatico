@@ -197,6 +197,19 @@
         {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
         <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
         {% endif %}
+        
+        <!-- BOTÕES DO COMANDANTE ADICIONADOS AQUI -->
+        {% if patd.status == 'analise_comandante' and user|has_comandante_access %}
+        <form action="{% url 'Ouvidoria:patd_aprovar' patd.pk %}" method="post" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-success">Aprovar PATD</button>
+        </form>
+        <form action="{% url 'Ouvidoria:patd_retornar' patd.pk %}" method="post" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-warning">Retornar para Alteração</button>
+        </form>
+        {% endif %}
+        
         <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
         <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
         <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
@@ -672,8 +685,6 @@ document.addEventListener('DOMContentLoaded', function() {
         processedHtml = processedHtml.replace(/\{Botao Adicionar Alegacao\}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
 
         processedHtml = processedHtml.replace(/(data:image\/png;base64,[A-Za-z0-9+/=]+)/g, '<img class="signature-image-embedded" src="$1" alt="Assinatura">');
-        processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
-        processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         
         let signatureIndex = 0;
         processedHtml = processedHtml.replace(/{Assinatura Militar Arrolado}/g, () => {
@@ -684,7 +695,23 @@ document.addEventListener('DOMContentLoaded', function() {
                  return `<button class="btn btn-sm btn-success add-signature-ciencia-btn" data-index="${index}">Assinar</button>`;
             }
         });
+        
+        const canSignTestemunha = ['preclusao', 'apuracao_preclusao', 'aguardando_assinatura_npd'].includes(`{{ patd.status }}`);
+        
+        if (canSignTestemunha && `{{ patd.testemunha1 }}`) {
+            processedHtml = processedHtml.replace(/{SIGN_BTN_T1}/g, `<button class="btn btn-sm btn-success add-signature-testemunha-btn" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
+        } else {
+            processedHtml = processedHtml.replace(/{SIGN_BTN_T1}/g, '<span class="no-signature-text">[Assinatura Pendente]</span>');
+        }
 
+        if (canSignTestemunha && `{{ patd.testemunha2 }}`) {
+            processedHtml = processedHtml.replace(/{SIGN_BTN_T2}/g, `<button class="btn btn-sm btn-success add-signature-testemunha-btn" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
+        } else {
+             processedHtml = processedHtml.replace(/{SIGN_BTN_T2}/g, '<span class="no-signature-text">[Assinatura Pendente]</span>');
+        }
+
+        processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
+        processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         processedHtml = processedHtml.replace(/\n/g, '<br>');
         viewer.innerHTML = processedHtml;
 
@@ -718,7 +745,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        if (hasUnsigned && `{{patd.status}}` === 'ciencia_militar') {
+        if (hasUnsigned && (`{{patd.status}}` === 'ciencia_militar' || `{{patd.status}}` === 'aguardando_assinatura_npd')) {
             const firstUnsignedIndex = assinaturasMilitar.filter(s => s).length;
             const button = document.createElement('button');
             button.type = 'button';
@@ -730,7 +757,7 @@ document.addEventListener('DOMContentLoaded', function() {
             container.innerHTML += '<p class="detail-item-value">Todas as assinaturas coletadas.</p>';
         } else if (placeholdersNoDoc > 0 && assinaturasMilitar.length === 0) {
             container.innerHTML = '<p class="detail-item-value">Aguardando assinatura de ciência.</p>';
-            if (`{{patd.status}}` === 'ciencia_militar') {
+            if (`{{patd.status}}` === 'ciencia_militar' || `{{patd.status}}` === 'aguardando_assinatura_npd') {
                 const button = document.createElement('button');
                 button.type = 'button';
                 button.className = 'btn btn-success add-signature-ciencia-btn';

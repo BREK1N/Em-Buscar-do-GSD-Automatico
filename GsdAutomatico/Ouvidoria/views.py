@@ -283,7 +283,7 @@ def get_raw_document_text(patd):
     document_content = _render_document_from_template('PATD_Coringa.docx', doc_context)
 
     # Lógica para incluir a parte da alegação de defesa
-    if patd.status in ['aguardando_justificativa', 'prazo_expirado', 'em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar']:
+    if patd.status in ['aguardando_justificativa', 'prazo_expirado', 'em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante']:
         alegacao_context = doc_context.copy()
         if patd.alegacao_defesa:
             alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa
@@ -293,7 +293,7 @@ def get_raw_document_text(patd):
         
         document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
     
-    if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar']:
+    if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante']:
         document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
     
     if patd.punicao_sugerida:
@@ -1141,16 +1141,16 @@ class ComandanteDashboardView(ListView):
     context_object_name = 'patds'
 
     def get_queryset(self):
-        return PATD.objects.filter(status='aguardando_assinatura_npd').order_by('-data_inicio')
+        return PATD.objects.filter(status='analise_comandante').order_by('-data_inicio')
 
 @login_required
 @comandante_required
 @require_POST
 def patd_aprovar(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
-    patd.status = 'finalizado'
+    patd.status = 'aguardando_assinatura_npd'
     patd.save()
-    messages.success(request, f"PATD Nº {patd.numero_patd} aprovada e finalizada com sucesso.")
+    messages.success(request, f"PATD Nº {patd.numero_patd} aprovada. Aguardando assinatura da NPD.")
     return redirect('Ouvidoria:comandante_dashboard')
 
 @login_required
@@ -1168,7 +1168,7 @@ def patd_retornar(request, pk):
 @require_POST
 def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
-    patd.status = 'aguardando_assinatura_npd'
+    patd.status = 'analise_comandante'
     patd.save()
     messages.success(request, f"PATD Nº {patd.numero_patd} enviada para análise do Comandante.")
     return redirect('Ouvidoria:patd_detail', pk=pk)

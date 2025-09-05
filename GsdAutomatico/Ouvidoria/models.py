@@ -73,6 +73,7 @@ class PATD(models.Model):
         ('em_apuracao', 'Em Apuração'),
         ('apuracao_preclusao', 'Em Apuração (Preclusão)'), 
         ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
+        ('analise_comandante', 'Em Análise pelo Comandante'),
         ('aguardando_assinatura_npd', 'Aguardando Assinatura NPD'),
         ('finalizado', 'Finalizado'),
         ('aguardando_punicao_alterar', 'Aguardando Punição (alterar)'),
@@ -177,3 +178,4 @@ class PATD(models.Model):
     class Meta:
         verbose_name = "PATD"
         verbose_name_plural = "PATDs"
+
