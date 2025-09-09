@@ -27,7 +27,7 @@ from django.templatetags.static import static
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
-from .analise_transgressao import enquadra_item, verifica_agravante_atenuante, sugere_punicao, model, analisar_e_resumir_defesa, reescrever_ocorrencia
+from .analise_transgressao import enquadra_item, verifica_agravante_atenuante, sugere_punicao, model, analisar_e_resumir_defesa, reescrever_ocorrencia, texto_relatorio
 from difflib import SequenceMatcher # Importado para a verificação de similaridade
 from django.utils.decorators import method_decorator
 from num2words import num2words # Importação para converter números em texto
@@ -174,6 +174,11 @@ def _get_document_context(patd):
     if patd.dias_punicao and patd.punicao:
         # A lógica agora constrói a string completa, ex: "Seis (06) de detenção"
         punicao_final_str = f"{patd.dias_punicao} de {patd.punicao}"
+
+    texto_relatorio_gerado = ""
+    if patd.punicao_sugerida:
+        justificativa_para_relatorio = patd.alegacao_defesa or "O militar não apresentou alegação de defesa (preclusão)."
+        texto_relatorio_gerado = texto_relatorio(patd.transgressao, justificativa_para_relatorio)
     
     # Cálculo do Prazo Final (Deadline) para Preclusão
     deadline_str = "[Prazo não iniciado]"
@@ -214,6 +219,7 @@ def _get_document_context(patd):
 
         # Dados do Comandante
         '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
+    
         
         # Dados da Transgressão
         '{data da Ocorrencia}': data_ocorrencia_fmt,
@@ -252,6 +258,7 @@ def _get_document_context(patd):
 
         # Específico para Preclusão
         '{Data Final Prazo}': deadline_str,
+        '{texto_relatorio}': texto_relatorio_gerado,
         
     }
 
