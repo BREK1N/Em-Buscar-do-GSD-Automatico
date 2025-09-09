@@ -2,7 +2,7 @@ from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
-from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
 import os
 
 load_dotenv()
@@ -318,12 +318,6 @@ def analisar_e_resumir_defesa(alegacao_defesa: str):
     Analisa a alegação de defesa, extrai os pontos-chave e gera um
     resumo formal e técnico para ser incluído no relatório de apuração.
     """
-    class AnaliseDefesa(BaseModel):
-        resumo_tecnico: str = Field(
-            description="Um resumo formal e técnico da alegação de defesa, com no máximo 50 palavras, adequado para um relatório disciplinar militar."
-        )
-
-    parser = PydanticOutputParser(pydantic_object=AnaliseDefesa)
 
     sys_prompt = """
     Você é um Oficial Apurador encarregado de analisar a defesa de um militar. Sua tarefa é ler a alegação de defesa, identificar os argumentos centrais e sintetizá-los em um resumo técnico e formal para o relatório final.
@@ -336,18 +330,16 @@ def analisar_e_resumir_defesa(alegacao_defesa: str):
 
     **Alegação de Defesa Original:**
     {alegacao_defesa}
-
-    **Formato da Resposta (apenas o JSON):**
-    {format_instructions}
     """
 
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", sys_prompt)
-    ]).partial(format_instructions=parser.get_format_instructions())
+    ])
 
-    chain = prompt_template | model | parser
+    chain = prompt_template | model | StrOutputParser()
 
     resposta = chain.invoke({"alegacao_defesa": alegacao_defesa})
+
     return resposta.resumo_tecnico
 
 def reescrever_ocorrencia(transgressao: str):
@@ -355,12 +347,6 @@ def reescrever_ocorrencia(transgressao: str):
     Reescreve a descrição da transgressão de forma formal e objetiva para
     ser usada em documentos oficiais.
     """
-    class OcorrenciaFormal(BaseModel):
-        texto_reescrito: str = Field(
-            description="A descrição da transgressão, reescrita de forma formal, impessoal e objetiva, com no máximo 50 palavras."
-        )
-
-    parser = PydanticOutputParser(pydantic_object=OcorrenciaFormal)
 
     sys_prompt = """
     Você é um Oficial Apurador redigindo um relatório disciplinar. Sua tarefa é reescrever a descrição de uma transgressão para que ela seja formal, técnica e objetiva, adequada para um documento oficial.
@@ -373,16 +359,53 @@ def reescrever_ocorrencia(transgressao: str):
 
     **Descrição Original da Transgressão:**
     {transgressao}
-
-    **Formato da Resposta (apenas o JSON):**
-    {format_instructions}
     """
 
     prompt_template = ChatPromptTemplate.from_messages([
         ("system", sys_prompt)
-    ]).partial(format_instructions=parser.get_format_instructions())
+    ])
 
-    chain = prompt_template | model | parser
+    chain = prompt_template | model | StrOutputParser()
 
     resposta = chain.invoke({"transgressao": transgressao})
     return resposta.texto_reescrito
+
+def texto_relatorio(transgressao, justificativa):
+
+    sys_prompt = """
+    # Contexto #
+    Você é um Oficial militar encarregado de fazer um relatório de apuração de transgressão disciplinar. 
+    
+    # Tarefa #
+    Sua tarefa é ler a alegação de defesa, identificar os argumentos centrais, confrontar os argumentos da defesa com os dados da transgressão e produzir um relatório final.
+
+    # Instruções #
+    1.  **Culpabilidade:** Considere que, se chegou a esta fase de produção do relatório, o militar já foi considerado culpado.
+    2.  **Argumentação:** Cada ponto levantado pela alegação de defesa deve ser respondido informando o porque ele não procede. Leve em consideração as informações da transgressão. 
+    3.  **Linguagem Formal:** Redija o resumo em linguagem formal e impessoal, adequada para um documento oficial militar.
+    4.  **Limite de Palavras:** O resumo final não deve exceder 75 palavras.
+
+    # Formatação #
+
+    Não escreva nada antes ou depois do texto do relatório. Escreva somente o texto diretamente.
+
+    # Alegação de Defesa #
+    <alegacao_defesa>
+    {justificativa}
+    </alegacao_defesa>
+
+    # Transgressão #
+    <transgressao>
+    {transgressao}
+    </transgressao>
+    """
+
+    prompt_template = ChatPromptTemplate([
+        ("system", sys_prompt)
+    ])
+
+    chain = prompt_template | model | StrOutputParser()
+
+    resposta = chain.invoke({"transgressao":transgressao, "justificativa": justificativa})
+
+    return resposta

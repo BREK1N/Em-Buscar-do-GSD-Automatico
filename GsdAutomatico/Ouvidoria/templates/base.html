@@ -583,22 +583,43 @@
 
             let ultimoNumeroNotificacoes = 0;
 
-            function loadNotificacoes(forceOpen = false) {
-                // Notificações de Prazo Expirado
+            function loadAtribuicoesPendentes() {
+                {% if request.user.profile.militar.oficial %}
+                fetch("{% url 'Ouvidoria:patd_atribuicoes_pendentes_json' %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        const count = data.count || 0;
+                        if (atribuicoesBadge) {
+                            if (count > 0) {
+                                atribuicoesBadge.textContent = count;
+                                atribuicoesBadge.style.display = 'inline-block';
+                            } else {
+                                atribuicoesBadge.style.display = 'none';
+                            }
+                        }
+                    })
+                    .catch(error => console.error('Erro ao carregar atribuições pendentes:', error));
+                {% endif %}
+            }
+
+            function updateExpiradosBadgeUI(count) {
+                if (notificacaoBadge) {
+                    if (count > 0) {
+                        notificacaoBadge.textContent = count;
+                        notificacaoBadge.style.display = 'flex';
+                    } else {
+                        notificacaoBadge.style.display = 'none';
+                    }
+                }
+            }
+            
+            function loadExpiradosNotifications(forceOpen = false) {
                 fetch("{% url 'Ouvidoria:patds_expirados_json' %}")
                     .then(response => response.json())
                     .then(data => {
                         const numeroAtual = data ? data.length : 0;
-                        if (numeroAtual > 0) {
-                            notificacaoBadge.textContent = numeroAtual;
-                            notificacaoBadge.style.display = 'flex';
-                            
-                            if (numeroAtual > ultimoNumeroNotificacoes && !forceOpen) {
-                                notificationsPanel.classList.add('active');
-                            }
-                        } else {
-                            notificacaoBadge.style.display = 'none';
-                        }
+                        sessionStorage.setItem('expiradosCount', numeroAtual);
+                        updateExpiradosBadgeUI(numeroAtual);
                         
                         ultimoNumeroNotificacoes = numeroAtual;
                         
@@ -625,23 +646,7 @@
                             }
                         }
                     })
-                    .catch(error => console.error('Erro ao carregar notificações:', error));
-
-                {% if request.user.profile.militar.oficial %}
-                // Notificações de Atribuições Pendentes
-                 fetch("{% url 'Ouvidoria:patd_atribuicoes_pendentes_json' %}")
-                    .then(response => response.json())
-                    .then(data => {
-                        const count = data.count || 0;
-                        if (count > 0) {
-                            atribuicoesBadge.textContent = count;
-                            atribuicoesBadge.style.display = 'inline-block';
-                        } else {
-                            atribuicoesBadge.style.display = 'none';
-                        }
-                    })
-                    .catch(error => console.error('Erro ao carregar atribuições pendentes:', error));
-                {% endif %}
+                    .catch(error => console.error('Erro ao carregar notificações de expirados:', error));
             }
 
             function prosseguirSemAlegacaoFromNotificacao(patdId) {
@@ -654,7 +659,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
-                            loadNotificacoes(true); // Recarrega a lista de notificações
+                            loadExpiradosNotifications(true);
                             if (window.location.pathname.includes(`/patd/${patdId}`)) {
                                 window.location.reload();
                             }
@@ -666,31 +671,11 @@
                 }
             }
 
-            function verificarPrazosBackend() {
-                const now = new Date();
-                const hours = now.getHours();
-                const minutes = now.getMinutes();
-
-                if (hours === 0 && minutes <= 5) {
-                    fetch("{% url 'Ouvidoria:verificar_e_atualizar_prazos' %}", {
-                        method: 'POST',
-                        headers: { 'X-CSRFToken': csrfToken },
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.status === 'success' && data.updated_count > 0) {
-                            loadNotificacoes();
-                        }
-                    })
-                    .catch(error => console.error('Erro ao verificar prazos:', error));
-                }
-            }
-
             notificationsBtn.addEventListener('click', (e) => {
                 e.stopPropagation();
                 const isActive = notificationsPanel.classList.toggle('active');
                 if (isActive) {
-                    loadNotificacoes(true);
+                    loadExpiradosNotifications(true);
                 }
             });
 
@@ -740,7 +725,7 @@
                 .then(data => {
                     if (data.status === 'success') {
                         extenderIndividualModal.classList.remove('active');
-                        loadNotificacoes();
+                        loadExpiradosNotifications();
                         if (window.location.pathname.includes('/patd_list/')) {
                             window.location.reload();
                         }
@@ -758,11 +743,34 @@
                 });
             });
 
-            // --- Otimização das Chamadas de Notificação ---
-            // Verifica os prazos expirados uma vez à meia-noite (a lógica já está no backend)
-            verificarPrazosBackend(); 
-            // Carrega todas as notificações uma vez quando a página é carregada
-            loadNotificacoes();
+            // --- INÍCIO DA LÓGICA DE OTIMIZAÇÃO DE CHAMADAS ---
+
+            // ATRIBUIÇÕES PENDENTES: Verifica em toda navegação de página.
+            loadAtribuicoesPendentes();
+
+            // PRAZOS EXPIRADOS: Lógica otimizada.
+            if (!sessionStorage.getItem('prazosVerificadosNestaSessao')) {
+                console.log("Executando verificação de prazos expirados (primeira vez na sessão).");
+                fetch("{% url 'Ouvidoria:verificar_e_atualizar_prazos' %}", {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                })
+                .then(response => response.json())
+                .then(data => {
+                    loadExpiradosNotifications();
+                })
+                .catch(error => console.error('Erro ao verificar prazos no backend:', error));
+                sessionStorage.setItem('prazosVerificadosNestaSessao', 'true'); 
+            } else {
+                console.log("Sessão já iniciada. Restaurando contagem de expirados do cache da sessão.");
+                const cachedCount = sessionStorage.getItem('expiradosCount');
+                if (cachedCount !== null) {
+                    updateExpiradosBadgeUI(parseInt(cachedCount, 10));
+                } else {
+                    loadExpiradosNotifications();
+                }
+            }
+            // --- FIM DA LÓGICA DE OTIMIZAÇÃO ---
             
         });
     </script>

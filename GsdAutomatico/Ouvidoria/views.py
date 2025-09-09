@@ -252,6 +252,7 @@ def _get_document_context(patd):
 
         # Específico para Preclusão
         '{Data Final Prazo}': deadline_str,
+        
     }
 
 def _render_document_from_template(template_name, context):
