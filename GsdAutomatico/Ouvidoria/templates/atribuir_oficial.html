@@ -1,0 +1,31 @@
+{% extends 'base.html' %}
+
+{% block title %}Atribuir Oficial Responsável{% endblock %}
+
+{% block content %}
+<h1>Atribuir Oficial para a PATD Nº {{ patd.numero_patd }}</h1>
+<p>Militar Acusado: <strong>{{ patd.militar }}</strong></p>
+
+<div class="alert alert-info" role="alert">
+    Selecione um oficial da lista abaixo para ser o responsável por apurar esta transgressão. O oficial selecionado será notificado para aceitar a atribuição.
+</div>
+
+<form method="post" class="model-form">
+    {% csrf_token %}
+    <div class="form-grid">
+        <p>
+            <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}:</label>
+            {{ form.oficial_responsavel }}
+            {% for error in form.oficial_responsavel.errors %}
+                <div class="alert-error" style="margin-top: 10px;">{{ error }}</div>
+            {% endfor %}
+        </p>
+    </div>
+    
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Confirmar Atribuição</button>
+        <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}
+

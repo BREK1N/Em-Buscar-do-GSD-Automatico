@@ -9,7 +9,7 @@ from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
 from .models import Militar, PATD, Configuracao
-from .forms import MilitarForm, PATDForm
+from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -31,6 +31,7 @@ from .analise_transgressao import enquadra_item, verifica_agravante_atenuante, s
 from difflib import SequenceMatcher # Importado para a verificação de similaridade
 from django.utils.decorators import method_decorator
 from num2words import num2words # Importação para converter números em texto
+from django.contrib.auth import authenticate
 
 
 # --- Funções e Mixins de Permissão ---
@@ -187,6 +188,9 @@ def _get_document_context(patd):
         deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
         deadline_str = deadline.strftime('%d/%m/%Y às %H:%M')
 
+    # Lógica para Oficial Apurador
+    oficial_definido = patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
+    
     return {
         # Placeholders Comuns
         '{Brasao da Republica}': f'<img src="{static("img/brasao.png")}" alt="Brasão da República" style="width: 100px; height: auto;">',
@@ -201,11 +205,12 @@ def _get_document_context(patd):
         '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
         '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]'),
         
-        # Dados do Oficial Apurador
-        '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if patd.oficial_responsavel else '[Oficial não definido]',
-        '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if patd.oficial_responsavel else "[Oficial apurador não definido]",
-        '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', '[Não informado]')) if patd.oficial_responsavel else "[Oficial apurador não definido]",
-        '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', '[Não informado]') if patd.oficial_responsavel else "[Oficial apurador não definido]",
+        # Dados do Oficial Apurador - SÓ APARECE SE JÁ ACEITOU
+        '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if oficial_definido else '[Aguardando Oficial confirmar]',
+        '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if oficial_definido else "[Aguardando Oficial confirmar]",
+        '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', 'N/A')) if oficial_definido else "[Aguardando Oficial confirmar]",
+        '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', 'N/A') if oficial_definido else "[Aguardando Oficial confirmar]",
+        '{Assinatura Oficial Apurador}': getattr(patd, 'assinatura_oficial', '[Aguardando Oficial confirmar]') if oficial_definido else '[Aguardando Oficial confirmar]',
 
         # Dados do Comandante
         '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
@@ -238,7 +243,6 @@ def _get_document_context(patd):
         
         # Assinaturas
         '{Assinatura Comandante do GSD}': getattr(comandante_gsd, 'assinatura', '[Sem assinatura]') if comandante_gsd else "[Comandante GSD não definido]",
-        '{Assinatura Oficial Apurador}': getattr(patd.oficial_responsavel, 'assinatura', '[Sem assinatura]') if patd.oficial_responsavel else '[Oficial não definido]',
         '{Assinatura Testemunha 1}': patd.assinatura_testemunha1 or '[Sem assinatura]',
         '{Assinatura Testemunha 2}': patd.assinatura_testemunha2 or '[Sem assinatura]',
         
@@ -379,6 +383,73 @@ def _try_advance_status_from_justificativa(patd):
 # =============================================================================
 # Views e Lógica da Aplicação
 # =============================================================================
+
+@login_required
+@ouvidoria_required
+def atribuir_oficial(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    if request.method == 'POST':
+        form = AtribuirOficialForm(request.POST, instance=patd)
+        if form.is_valid():
+            form.save()
+            messages.success(request, f'Oficial {patd.oficial_responsavel.nome_guerra} foi atribuído. Aguardando aceitação.')
+            return redirect('Ouvidoria:patd_detail', pk=pk)
+    else:
+        form = AtribuirOficialForm(instance=patd)
+    return render(request, 'atribuir_oficial.html', {'form': form, 'patd': patd})
+
+@login_required
+def patd_atribuicoes_pendentes(request):
+    if not hasattr(request.user, 'profile') or not request.user.profile.militar:
+        messages.warning(request, "Seu usuário não está associado a um militar.")
+        return redirect('Ouvidoria:index')
+        
+    patds = PATD.objects.filter(
+        oficial_responsavel=request.user.profile.militar,
+        status='aguardando_aprovacao_atribuicao'
+    ).order_by('-data_inicio')
+    
+    return render(request, 'patd_atribuicoes_pendentes.html', {'patds': patds})
+
+@login_required
+@require_POST
+def aceitar_atribuicao(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    
+    if not (hasattr(request.user, 'profile') and request.user.profile.militar and request.user.profile.militar == patd.oficial_responsavel):
+        messages.error(request, "Você não tem permissão para aceitar esta atribuição.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    form = AceitarAtribuicaoForm(request.POST)
+    if form.is_valid():
+        senha = form.cleaned_data['senha']
+        user = authenticate(username=request.user.username, password=senha)
+        if user is not None:
+            patd.status = 'ciencia_militar'
+            if patd.oficial_responsavel and patd.oficial_responsavel.assinatura:
+                patd.assinatura_oficial = patd.oficial_responsavel.assinatura
+            patd.save()
+            messages.success(request, f'Atribuição da PATD Nº {patd.numero_patd} aceite com sucesso.')
+            return redirect('Ouvidoria:patd_atribuicoes_pendentes')
+        else:
+            messages.error(request, "Senha incorreta. A atribuição não foi aceite.")
+    else:
+        messages.error(request, "Formulário inválido.")
+    
+    return redirect('Ouvidoria:patd_atribuicoes_pendentes')
+
+
+@login_required
+@require_GET
+def patd_atribuicoes_pendentes_json(request):
+    count = 0
+    if hasattr(request.user, 'profile') and request.user.profile.militar:
+        count = PATD.objects.filter(
+            oficial_responsavel=request.user.profile.militar,
+            status='aguardando_aprovacao_atribuicao'
+        ).count()
+    return JsonResponse({'count': count})
+
 
 @login_required
 @ouvidoria_required

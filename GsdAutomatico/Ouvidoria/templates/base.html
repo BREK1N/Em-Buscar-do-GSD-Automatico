@@ -40,6 +40,18 @@
                     </a>
                 </li>
                 
+                {% if request.user.profile.militar.oficial %}
+                <li>
+                    <a href="{% url 'Ouvidoria:patd_atribuicoes_pendentes' %}" class="{% if 'patd_atribuicoes_pendentes' in request.resolver_match.url_name %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:24px;height:24px">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" />
+                        </svg>
+                        <span>Minhas Atribuições</span>
+                         <span id="atribuicoes-badge" class="badge" style="display: none;"></span>
+                    </a>
+                </li>
+                {% endif %}
+                
                 {% with can_access_comandante=request.user|has_comandante_access %}
                 {% if can_access_comandante %}
                 <li>
@@ -563,6 +575,7 @@
             const notificationsPanel = document.getElementById('notifications-panel');
             const notificacoesListContainer = document.getElementById('notificacoes-list-container');
             const notificacaoBadge = document.getElementById('notificacao-badge');
+            const atribuicoesBadge = document.getElementById('atribuicoes-badge');
             
             const extenderIndividualModal = document.getElementById('extender-prazo-individual-modal');
             const extenderIndividualForm = document.getElementById('extender-prazo-individual-form');
@@ -571,6 +584,7 @@
             let ultimoNumeroNotificacoes = 0;
 
             function loadNotificacoes(forceOpen = false) {
+                // Notificações de Prazo Expirado
                 fetch("{% url 'Ouvidoria:patds_expirados_json' %}")
                     .then(response => response.json())
                     .then(data => {
@@ -612,6 +626,22 @@
                         }
                     })
                     .catch(error => console.error('Erro ao carregar notificações:', error));
+
+                {% if request.user.profile.militar.oficial %}
+                // Notificações de Atribuições Pendentes
+                 fetch("{% url 'Ouvidoria:patd_atribuicoes_pendentes_json' %}")
+                    .then(response => response.json())
+                    .then(data => {
+                        const count = data.count || 0;
+                        if (count > 0) {
+                            atribuicoesBadge.textContent = count;
+                            atribuicoesBadge.style.display = 'inline-block';
+                        } else {
+                            atribuicoesBadge.style.display = 'none';
+                        }
+                    })
+                    .catch(error => console.error('Erro ao carregar atribuições pendentes:', error));
+                {% endif %}
             }
 
             function prosseguirSemAlegacaoFromNotificacao(patdId) {
@@ -728,8 +758,12 @@
                 });
             });
 
-            verificarPrazosBackend();
-            setInterval(verificarPrazosBackend, 60000);
+            // --- Otimização das Chamadas de Notificação ---
+            // Verifica os prazos expirados uma vez à meia-noite (a lógica já está no backend)
+            verificarPrazosBackend(); 
+            // Carrega todas as notificações uma vez quando a página é carregada
+            loadNotificacoes();
+            
         });
     </script>
     

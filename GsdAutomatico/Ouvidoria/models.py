@@ -53,6 +53,7 @@ class Militar(models.Model):
     subsetor = models.CharField(max_length=100, blank=True, verbose_name="Subsetor")
     oficial = models.BooleanField(default=False, verbose_name="É Oficial?")
     assinatura = models.TextField(blank=True, null=True, verbose_name="Assinatura Padrão (Base64)")
+    senha_unica = models.CharField(max_length=128, blank=True, null=True, verbose_name="Senha Única")
 
 
     def __str__(self):
@@ -65,7 +66,8 @@ class Militar(models.Model):
 class PATD(models.Model):
     
     STATUS_CHOICES = [
-         ('definicao_oficial', 'Aguardando definição do Oficial'),
+        ('definicao_oficial', 'Aguardando definição do Oficial'),
+        ('aguardando_aprovacao_atribuicao', 'Aguardando aprovação de atribuição de oficial'),
         ('ciencia_militar', 'Aguardando ciência do militar'),
         ('aguardando_justificativa', 'Aguardando Justificativa'),
         ('prazo_expirado', 'Prazo expirado'),
@@ -153,25 +155,26 @@ class PATD(models.Model):
         orig = None
         if not is_new:
             # Pega o estado original do objeto do banco de dados
-            orig = PATD.objects.get(pk=self.pk)
+            try:
+                orig = PATD.objects.get(pk=self.pk)
+            except PATD.DoesNotExist:
+                orig = None
 
         # --- LÓGICA DE ATUALIZAÇÃO DE STATUS ---
-        # 1. Se um oficial for REMOVIDO (deixou de ter um para não ter nenhum)
-        if not self.oficial_responsavel:
-            self.status = 'definicao_oficial'
-        # 2. Se um oficial for ADICIONADO pela primeira vez (ou se o status era 'aguardando')
-        elif self.oficial_responsavel and (is_new or (orig and orig.status == 'definicao_oficial')):
-            self.status = 'ciencia_militar'
+        # Se um oficial foi atribuído e antes não havia nenhum, ou o oficial foi trocado
+        if (orig is None and self.oficial_responsavel) or \
+           (orig and orig.oficial_responsavel != self.oficial_responsavel and self.oficial_responsavel):
+            self.status = 'aguardando_aprovacao_atribuicao'
         
+        # Se o oficial foi removido
+        elif orig and orig.oficial_responsavel and not self.oficial_responsavel:
+            self.status = 'definicao_oficial'
+
         # --- LÓGICA DE ATUALIZAÇÃO DE ASSINATURA ---
         # Apenas executa se não for um objeto novo e se o oficial tiver mudado
         if not is_new and orig and orig.oficial_responsavel != self.oficial_responsavel:
-            # Se um novo oficial foi atribuído e ele tem uma assinatura padrão
-            if self.oficial_responsavel and self.oficial_responsavel.assinatura:
-                self.assinatura_oficial = self.oficial_responsavel.assinatura
-            # Se o oficial foi removido ou o novo oficial não tem assinatura
-            else:
-                self.assinatura_oficial = None
+            # Limpa a assinatura ao trocar de oficial, a nova será adicionada na aceitação
+            self.assinatura_oficial = None
 
         super().save(*args, **kwargs)
 

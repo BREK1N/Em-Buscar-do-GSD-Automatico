@@ -28,6 +28,10 @@ urlpatterns = [
     path('patd/<int:pk>/extender_prazo/', views.extender_prazo, name='extender_prazo'),
     path('patd/<int:pk>/prosseguir_sem_alegacao/', views.prosseguir_sem_alegacao, name='prosseguir_sem_alegacao'), 
     path('patd/<int:pk>/salvar_assinatura_testemunha/<int:testemunha_num>/', views.salvar_assinatura_testemunha, name='salvar_assinatura_testemunha'),
+    path('patd/<int:pk>/atribuir_oficial/', views.atribuir_oficial, name='atribuir_oficial'),
+    path('patd/atribuicoes-pendentes/', views.patd_atribuicoes_pendentes, name='patd_atribuicoes_pendentes'),
+    path('patd/<int:pk>/aceitar_atribuicao/', views.aceitar_atribuicao, name='aceitar_atribuicao'),
+
 
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
     path('patd/<int:pk>/analisar_punicao/', views.analisar_punicao, name='analisar_punicao'),
@@ -46,6 +50,7 @@ urlpatterns = [
 
     # ROTAS PARA NOTIFICAÇÕES
     path('notificacoes/patds-expirados/', views.patds_expirados_json, name='patds_expirados_json'),
+    path('notificacoes/atribuicoes-pendentes/', views.patd_atribuicoes_pendentes_json, name='patd_atribuicoes_pendentes_json'),
     path('notificacoes/extender-prazo-massa/', views.extender_prazo_massa, name='extender_prazo_massa'),
     path('notificacoes/verificar-prazos/', views.verificar_e_atualizar_prazos, name='verificar_e_atualizar_prazos'),
 

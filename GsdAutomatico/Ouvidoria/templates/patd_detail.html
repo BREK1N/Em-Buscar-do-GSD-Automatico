@@ -74,18 +74,23 @@
         <div class="detail-item-full">
             <strong>Oficial Responsável:</strong>
             <div class="oficial-container">
-                <p class="detail-item-value">{{ patd.oficial_responsavel|default:"Não atribuído" }}</p>
-                <div class="signature-display-container">
-                    {% if patd.oficial_responsavel %}
-                        {% if patd.oficial_responsavel.assinatura %}
-                            {% if not patd.assinatura_oficial %}
-                                <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
-                            {% else %}
-                                <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
-                            {% endif %}
-                        {% else %}
-                             <span class="no-signature-warning">Oficial sem assinatura cadastrada.</span>
+                <div class="detail-item-value">
+                    {% if patd.status == 'definicao_oficial' %}
+                        <a href="{% url 'Ouvidoria:atribuir_oficial' patd.pk %}" class="btn btn-sm btn-primary">Atribuir Oficial</a>
+                    {% elif patd.status == 'aguardando_aprovacao_atribuicao' %}
+                        Aguardando aceite de: <strong>{{ patd.oficial_responsavel }}</strong>
+                        {% if user.profile.militar == patd.oficial_responsavel %}
+                             <button type="button" class="btn btn-sm btn-success" id="btn-aceitar-atribuicao-modal">Aceitar Atribuição</button>
                         {% endif %}
+                    {% else %}
+                        {{ patd.oficial_responsavel|default:"Não definido" }}
+                    {% endif %}
+                </div>
+                <div class="signature-display-container">
+                    {% if patd.oficial_responsavel and patd.assinatura_oficial %}
+                        <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
+                    {% elif patd.oficial_responsavel and not patd.assinatura_oficial and patd.status != 'aguardando_aprovacao_atribuicao' and patd.status != 'definicao_oficial' %}
+                        <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
                     {% endif %}
                 </div>
             </div>
@@ -321,6 +326,25 @@
         </div>
     </div>
 </div>
+<div class="modal-overlay" id="aceitar-atribuicao-modal">
+    <div class="modal-content">
+        <h3>Aceitar Atribuição</h3>
+        <p>Para confirmar que aceita ser o oficial responsável por esta PATD, por favor, insira a sua senha.</p>
+        <form id="aceitar-atribuicao-form" method="post" action="{% url 'Ouvidoria:aceitar_atribuicao' patd.pk %}" class="model-form">
+            {% csrf_token %}
+            <div class="form-grid">
+                <p>
+                    <label for="id_senha_aceite">Sua Senha:</label>
+                    <input type="password" name="senha" required id="id_senha_aceite">
+                </p>
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-aceitar-btn">Cancelar</button>
+                <button type="submit" class="btn btn-success">Confirmar e Aceitar</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -389,6 +413,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             })
             .catch(error => console.error('Erro:', error));
+        });
+    }
+
+    const aceitarAtribuicaoModal = document.getElementById('aceitar-atribuicao-modal');
+    if (aceitarAtribuicaoModal) {
+        const openBtn = document.getElementById('btn-aceitar-atribuicao-modal');
+        const cancelBtn = document.getElementById('cancel-aceitar-btn');
+        if(openBtn) {
+            openBtn.addEventListener('click', () => aceitarAtribuicaoModal.classList.add('active'));
+        }
+        cancelBtn.addEventListener('click', () => aceitarAtribuicaoModal.classList.remove('active'));
+        aceitarAtribuicaoModal.addEventListener('click', e => {
+            if (e.target === aceitarAtribuicaoModal) aceitarAtribuicaoModal.classList.remove('active');
         });
     }
 
@@ -897,3 +934,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+

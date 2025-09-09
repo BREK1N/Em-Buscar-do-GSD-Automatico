@@ -1,0 +1,101 @@
+{% extends 'base.html' %}
+
+{% block title %}Atribuições de PATD Pendentes{% endblock %}
+
+{% block content %}
+<h1>Atribuições de PATD Pendentes</h1>
+<p>Os seguintes processos foram atribuídos a você e aguardam seu aceite para continuar.</p>
+
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>N° PATD</th>
+                <th>Militar Acusado</th>
+                <th>Data da Ocorrência</th>
+                <th>Ação</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for patd in patds %}
+            <tr>
+                <td>{{ patd.numero_patd }}</td>
+                <td>
+                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
+                </td>
+                <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
+                <td class="actions-cell">
+                    <button type="button" class="btn btn-sm btn-success open-aceite-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
+                        Aceitar Atribuição
+                    </button>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="4" style="text-align: center; padding: 20px;">Você não possui nenhuma atribuição de PATD pendente.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<!-- Modal para Aceitar Atribuição -->
+<div class="modal-overlay" id="aceitar-atribuicao-modal">
+    <div class="modal-content">
+        <h3 id="aceitar-modal-title">Aceitar Atribuição</h3>
+        <p>Para confirmar que aceita ser o oficial responsável por esta PATD, por favor, insira a sua senha.</p>
+        <form id="aceitar-atribuicao-form" method="post" action="" class="model-form">
+            {% csrf_token %}
+            <div class="form-grid">
+                <p>
+                    <label for="id_senha_aceite">Sua Senha:</label>
+                    <input type="password" name="senha" required id="id_senha_aceite" autocomplete="current-password">
+                </p>
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-aceitar-btn">Cancelar</button>
+                <button type="submit" class="btn btn-success">Confirmar e Aceitar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const aceitarModal = document.getElementById('aceitar-atribuicao-modal');
+    const aceitarForm = document.getElementById('aceitar-atribuicao-form');
+    const aceitarModalTitle = document.getElementById('aceitar-modal-title');
+    const cancelAceitarBtn = document.getElementById('cancel-aceitar-btn');
+    
+    document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('open-aceite-modal-btn')) {
+            const patdPk = e.target.dataset.patdPk;
+            const patdNumero = e.target.dataset.patdNumero;
+            
+            const url = `/Ouvidoria/patd/${patdPk}/aceitar_atribuicao/`;
+            aceitarForm.action = url;
+            aceitarModalTitle.textContent = `Aceitar Atribuição - PATD Nº ${patdNumero}`;
+            
+            aceitarModal.classList.add('active');
+        }
+    });
+
+    if (cancelAceitarBtn) {
+        cancelAceitarBtn.addEventListener('click', () => {
+            aceitarModal.classList.remove('active');
+        });
+    }
+
+    if (aceitarModal) {
+        aceitarModal.addEventListener('click', (e) => {
+            if (e.target === aceitarModal) {
+                aceitarModal.classList.remove('active');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+

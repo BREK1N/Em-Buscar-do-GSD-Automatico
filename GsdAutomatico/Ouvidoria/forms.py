@@ -2,6 +2,22 @@ from django import forms
 from .models import Militar, PATD
 import json
 
+class AtribuirOficialForm(forms.ModelForm):
+    class Meta:
+        model = PATD
+        fields = ['oficial_responsavel']
+        labels = {
+            'oficial_responsavel': 'Selecione o Oficial para Atribuir'
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.fields['oficial_responsavel'].queryset = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
+        self.fields['oficial_responsavel'].empty_label = "--- Selecione um Oficial ---"
+
+class AceitarAtribuicaoForm(forms.Form):
+    senha = forms.CharField(widget=forms.PasswordInput, label="Sua Senha de Acesso")
+
 class MilitarForm(forms.ModelForm):
     # Formulário para criar e atualizar registros de Militares.
     class Meta:
@@ -126,3 +142,4 @@ class PATDForm(forms.ModelForm):
         }
             
         return super().save(commit=commit)
+
