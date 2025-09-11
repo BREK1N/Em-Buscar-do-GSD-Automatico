@@ -139,9 +139,9 @@ class PATD(models.Model):
     circunstancias = models.JSONField(null=True, blank=True, verbose_name="Atenuantes e Agravantes")
     punicao_sugerida = models.TextField(blank=True, null=True, verbose_name="Punição Sugerida pela IA")
     
-    # NOVOS CAMPOS ADICIONADOS
+    # --- CORREÇÃO DE NOMENCLATURA ---
     protocolo_comaer = models.CharField(max_length=255, blank=True, verbose_name="Protocolo COMAER")
-    oficio_transgrecao = models.CharField(max_length=255, blank=True, verbose_name="Ofício Transgressão")
+    oficio_transgressao = models.CharField(max_length=255, blank=True, verbose_name="Ofício da Transgressão")
     data_oficio = models.DateField(null=True, blank=True, verbose_name="Data do Ofício")
     data_alegacao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Alegação de Defesa")
     alegacao_defesa_resumo = models.TextField(blank=True, null=True, verbose_name="Resumo da Alegação de Defesa")
@@ -191,4 +191,3 @@ class PATD(models.Model):
     class Meta:
         verbose_name = "PATD"
         verbose_name_plural = "PATDs"
-

@@ -33,6 +33,7 @@ from django.utils.decorators import method_decorator
 from num2words import num2words # Importação para converter números em texto
 from django.contrib.auth import authenticate
 from functools import wraps # Importado para criar o decorator
+import threading # Importado para tarefas em background
 
 
 # --- Funções e Mixins de Permissão ---
@@ -99,7 +100,7 @@ class AnaliseTransgressao(BaseModel):
     
     # NOVOS CAMPOS ADICIONADOS
     protocolo_comaer: str = Field(description="O número de protocolo COMAER. Ex: 67112.004914/2025-10. Se não for mencionado, retorne uma string vazia.")
-    oficio_transgrecao: str = Field(description="O número do Ofício de Transgressão. Ex: 189/DSEG/5127. Se não for mencionado, retorne uma string vazia.")
+    oficio_transgressao: str = Field(description="O número do Ofício de Transgressão. Ex: 189/DSEG/5127. Se não for mencionado, retorne uma string vazia.")
     data_oficio: str = Field(description="A data de emissão do ofício. Ex: Rio de Janeiro, 8 de julho de 2025. Se não for mencionada, retorne uma string vazia.")
 
 
@@ -248,7 +249,7 @@ def _get_document_context(patd):
         '{data da Ocorrencia}': data_ocorrencia_fmt,
         '{Ocorrencia reescrita}': patd.ocorrencia_reescrita or patd.transgressao,
         '{protocolo comaer}': patd.protocolo_comaer,
-        '{Oficio Transgrecao}': patd.oficio_transgrecao,
+        '{Oficio Transgressao}': patd.oficio_transgressao,
         '{data_oficio}': data_oficio_fmt,
         '{comprovante}': patd.comprovante or "[Não informado]",
 
@@ -256,8 +257,8 @@ def _get_document_context(patd):
         '{Itens enquadrados}': itens_enquadrados_str,
         '{Atenuante}': atenuantes_str,
         '{agravantes}': agravantes_str,
-        '{transgreção_afirmativa}': patd.transgressao_afirmativa or "[Análise não realizada]",
-        '{natureza_transgreção}': patd.natureza_transgressao or "[Análise não realizada]",
+        '{transgressao_afirmativa}': patd.transgressao_afirmativa or "[Análise não realizada]",
+        '{natureza_transgressao}': patd.natureza_transgressao or "[Análise não realizada]",
         
         # Dados da Defesa
         '{data ciência}': data_ciencia_fmt,
@@ -463,16 +464,16 @@ def patd_atribuicoes_pendentes(request):
         patds = PATD.objects.filter(
             oficial_responsavel=militar_logado,
             status__in=status_list_apuracao
-        ).order_by('-data_inicio')
+        ).select_related('militar').order_by('-data_inicio')
     elif active_tab == 'todas':
         patds = PATD.objects.filter(
             oficial_responsavel=militar_logado
-        ).order_by('-data_inicio')
+        ).select_related('militar').order_by('-data_inicio')
     else: # default is 'aprovar'
         patds = PATD.objects.filter(
             oficial_responsavel=militar_logado,
             status='aguardando_aprovacao_atribuicao'
-        ).order_by('-data_inicio')
+        ).select_related('militar').order_by('-data_inicio')
 
     context = {
         'patds': patds,
@@ -559,9 +560,8 @@ def index(request):
                     except (ValueError, TypeError):
                         pass
                 
-                # NOVOS CAMPOS OBTIDOS DO REQUEST
                 protocolo_comaer = request.POST.get('protocolo_comaer', '')
-                oficio_transgrecao = request.POST.get('oficio_transgrecao', '')
+                oficio_transgressao = request.POST.get('oficio_transgressao', '')
                 data_oficio_str = request.POST.get('data_oficio', '')
 
                 data_oficio = None
@@ -576,9 +576,8 @@ def index(request):
                     transgressao=transgressao,
                     numero_patd=get_next_patd_number(),
                     data_ocorrencia=data_ocorrencia,
-                    # NOVOS CAMPOS ADICIONADOS À CRIAÇÃO
                     protocolo_comaer=protocolo_comaer,
-                    oficio_transgrecao=oficio_transgrecao,
+                    oficio_transgressao=oficio_transgressao,
                     data_oficio=data_oficio
                 )
                 return JsonResponse({
@@ -660,9 +659,8 @@ def index(request):
                         transgressao=resultado.transgressao,
                         numero_patd=get_next_patd_number(),
                         data_ocorrencia=data_ocorrencia,
-                        # NOVOS CAMPOS ADICIONADOS À CRIAÇÃO
                         protocolo_comaer=resultado.protocolo_comaer,
-                        oficio_transgrecao=resultado.oficio_transgrecao,
+                        oficio_transgressao=resultado.oficio_transgressao,
                         data_oficio=data_oficio
                     )
                     return JsonResponse({
@@ -678,9 +676,8 @@ def index(request):
                             'transgressao': resultado.transgressao,
                             'local': resultado.local,
                             'data_ocorrencia': resultado.data_ocorrencia,
-                            # NOVOS CAMPOS ADICIONADOS AO RETORNO
                             'protocolo_comaer': resultado.protocolo_comaer,
-                            'oficio_transgrecao': resultado.oficio_transgrecao,
+                            'oficio_transgressao': resultado.oficio_transgressao,
                             'data_oficio': resultado.data_oficio,
                         }
                     })
@@ -827,7 +824,6 @@ class PATDListView(ListView):
     paginate_by = 15
     def get_queryset(self):
         query = self.request.GET.get('q')
-        # ALTERAÇÃO AQUI: Exclui PATDs com status 'finalizado'
         qs = super().get_queryset().exclude(status='finalizado').select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
         if query:
             qs = qs.filter(
@@ -852,13 +848,19 @@ class PatdFinalizadoListView(ListView):
     paginate_by = 15
 
     def get_queryset(self):
-        return PATD.objects.filter(status='finalizado').order_by('-data_inicio')
+        return PATD.objects.filter(status='finalizado').select_related('militar').order_by('-data_inicio')
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class PATDDetailView(DetailView):
     model = PATD
     template_name = 'patd_detail.html'
     context_object_name = 'patd'
+
+    def get_queryset(self):
+        # Otimiza a consulta para buscar dados relacionados de uma só vez
+        return super().get_queryset().select_related(
+            'militar', 'oficial_responsavel', 'testemunha1', 'testemunha2'
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1273,42 +1275,48 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
 @oficial_responsavel_required
 @require_POST
 def analisar_punicao(request, pk):
-    try:
-        patd = get_object_or_404(PATD, pk=pk)
+    patd = get_object_or_404(PATD, pk=pk)
 
-        # 1. Enquadrar os itens
-        itens_obj = enquadra_item(patd.transgressao)
-        
-        # 2. Histórico
-        historico_punicoes = PATD.objects.filter(militar=patd.militar).exclude(pk=patd.pk).count()
-        historico_str = f"O militar possui {historico_punicoes} transgressões anteriores."
-        
-        # 3. Agravantes e Atenuantes
-        justificativa = patd.alegacao_defesa or "O militar não apresentou alegação de defesa (preclusão)."
-        circunstancias_obj = verifica_agravante_atenuante(historico_str, patd.transgressao, justificativa, itens_obj.item)
-        
-        # 4. Punição
-        punicao_obj = sugere_punicao(
-            patd.transgressao, 
-            circunstancias_obj.item[0].get('agravantes', []), 
-            circunstancias_obj.item[0].get('atenuantes', []), 
-            itens_obj.item, 
-            "N/A"
-        )
-        
-        # 5. Retornar os dados para o frontend
-        return JsonResponse({
-            'status': 'success',
-            'data': {
-                'itens_enquadrados': itens_obj.item,
-                'circunstancias': circunstancias_obj.item[0],
-                'punicao_sugerida': punicao_obj.punicao.get('punicao', 'Erro na sugestão')
-            }
-        })
+    def run_analysis_in_background():
+        try:
+            logger.info(f"Iniciando análise em background para PATD {pk}...")
+            # 1. Enquadrar os itens
+            itens_obj = enquadra_item(patd.transgressao)
+            
+            # 2. Histórico
+            historico_punicoes = PATD.objects.filter(militar=patd.militar).exclude(pk=patd.pk).count()
+            historico_str = f"O militar possui {historico_punicoes} transgressões anteriores."
+            
+            # 3. Agravantes e Atenuantes
+            justificativa = patd.alegacao_defesa or "O militar não apresentou alegação de defesa (preclusão)."
+            circunstancias_obj = verifica_agravante_atenuante(historico_str, patd.transgressao, justificativa, itens_obj.item)
+            
+            # 4. Punição
+            punicao_obj = sugere_punicao(
+                patd.transgressao, 
+                circunstancias_obj.item[0].get('agravantes', []), 
+                circunstancias_obj.item[0].get('atenuantes', []), 
+                itens_obj.item, 
+                "N/A"
+            )
+            
+            # 5. Salvar os resultados no objeto PATD
+            patd.itens_enquadrados = itens_obj.item
+            patd.circunstancias = circunstancias_obj.item[0]
+            patd.punicao_sugerida = punicao_obj.punicao.get('punicao', 'Erro na sugestão')
+            patd.save()
+            logger.info(f"Análise em background para PATD {pk} concluída com sucesso.")
 
-    except Exception as e:
-        logger.error(f"Erro ao analisar punição da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        except Exception as e:
+            logger.error(f"Erro na thread de análise para PATD {pk}: {e}")
+
+    thread = threading.Thread(target=run_analysis_in_background)
+    thread.start()
+
+    return JsonResponse({
+        'status': 'processing',
+        'message': 'A análise da punição foi iniciada em segundo plano. Os resultados aparecerão na página em instantes, por favor, aguarde.'
+    })
 
 
 @login_required
@@ -1388,7 +1396,7 @@ class ComandanteDashboardView(ListView):
     context_object_name = 'patds'
 
     def get_queryset(self):
-        return PATD.objects.filter(status='analise_comandante').order_by('-data_inicio')
+        return PATD.objects.filter(status='analise_comandante').select_related('militar').order_by('-data_inicio')
 
 @login_required
 @comandante_required
@@ -1463,4 +1471,3 @@ def salvar_reconsideracao(request, pk):
     except Exception as e:
         logger.error(f"Erro ao salvar texto de reconsideração para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
