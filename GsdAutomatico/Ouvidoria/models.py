@@ -66,19 +66,26 @@ class Militar(models.Model):
 class PATD(models.Model):
     
     STATUS_CHOICES = [
+        # Fase Inicial
         ('definicao_oficial', 'Aguardando definição do Oficial'),
         ('aguardando_aprovacao_atribuicao', 'Aguardando aprovação de atribuição de oficial'),
+        # Fase de Defesa
         ('ciencia_militar', 'Aguardando ciência do militar'),
         ('aguardando_justificativa', 'Aguardando Justificativa'),
         ('prazo_expirado', 'Prazo expirado'),
+        # Fase de Apuração
         ('preclusao', 'Preclusão - Sem Defesa'),
         ('em_apuracao', 'Em Apuração'),
         ('apuracao_preclusao', 'Em Apuração (Preclusão)'), 
         ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
+        ('aguardando_punicao_alterar', 'Aguardando Punição (alterar)'),
+        # Fase de Decisão
         ('analise_comandante', 'Em Análise pelo Comandante'),
         ('aguardando_assinatura_npd', 'Aguardando Assinatura NPD'),
+        # Fase Final
+        ('periodo_reconsideracao', 'Período de Reconsideração'),
+        ('em_reconsideracao', 'Em Reconsideração'),
         ('finalizado', 'Finalizado'),
-        ('aguardando_punicao_alterar', 'Aguardando Punição (alterar)'),
     ]
 
     militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='patds', verbose_name="Militar Acusado")
@@ -114,6 +121,7 @@ class PATD(models.Model):
     data_inicio = models.DateTimeField(default=timezone.now, verbose_name="Data de Início")
     data_termino = models.DateTimeField(null=True, blank=True, verbose_name="Data de Término")
     data_ciencia = models.DateTimeField(null=True, blank=True, verbose_name="Data da Ciência")
+    data_publicacao_punicao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Publicação da Punição")
     status = models.CharField(
         max_length=50,
         choices=STATUS_CHOICES,
@@ -144,6 +152,8 @@ class PATD(models.Model):
     ocorrencia_reescrita = models.TextField(blank=True, null=True, verbose_name="Ocorrência Reescrita")
     natureza_transgressao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Natureza da Transgressão")
     comportamento = models.CharField(max_length=100, blank=True, null=True, default="Permanece no \"Bom comportamento\"", verbose_name="Comportamento")
+    texto_reconsideracao = models.TextField(blank=True, null=True, verbose_name="Texto da Reconsideração")
+    data_reconsideracao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Reconsideração")
 
 
     def __str__(self):

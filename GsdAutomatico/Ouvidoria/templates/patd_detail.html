@@ -58,6 +58,14 @@
     </div>
     {% endif %}
 
+    {% if patd.status == 'periodo_reconsideracao' %}
+    <div id="reconsideracao-prazo-box" class="prazo-defesa">
+        <strong>Prazo para Reconsideração:</strong>
+        <span id="reconsideracao-countdown-timer">A calcular...</span>
+        <small>Nota: O prazo é contado em 15 dias corridos.</small>
+    </div>
+    {% endif %}
+
     <div class="detail-grid">
         <div class="detail-item">
             <strong>Militar Acusado:</strong>
@@ -87,9 +95,9 @@
                     {% endif %}
                 </div>
                 <div class="signature-display-container">
-                    {% if patd.oficial_responsavel and patd.assinatura_oficial %}
+                    {% if patd.assinatura_oficial %}
                         <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
-                    {% elif patd.oficial_responsavel and not patd.assinatura_oficial and patd.status != 'aguardando_aprovacao_atribuicao' and patd.status != 'definicao_oficial' %}
+                    {% elif request.user.profile.militar == patd.oficial_responsavel and patd.oficial_responsavel and not patd.assinatura_oficial and patd.status != 'aguardando_aprovacao_atribuicao' and patd.status != 'definicao_oficial' %}
                         <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
                     {% endif %}
                 </div>
@@ -101,8 +109,10 @@
                 <div class="oficial-container">
                     <p class="detail-item-value">1ª: {{ patd.testemunha1|default:"Não atribuída" }}</p>
                     <div class="signature-display-container">
-                        {% if patd.testemunha1 and patd.status in 'preclusao,apuracao_preclusao,aguardando_assinatura_npd' and not patd.assinatura_testemunha1 %}
-                            <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="1">Assinar</button>
+                        {% if patd.testemunha1 and not patd.assinatura_testemunha1 %}
+                             {% if patd.status == 'preclusao' or patd.status == 'apuracao_preclusao' or patd.status == 'aguardando_assinatura_npd' %}
+                                <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="1">Assinar</button>
+                            {% endif %}
                         {% elif patd.assinatura_testemunha1 %}
                             <img src="{{ patd.assinatura_testemunha1 }}" alt="Assinatura da 1ª Testemunha" class="signature-image">
                         {% endif %}
@@ -111,8 +121,10 @@
                 <div class="oficial-container">
                     <p class="detail-item-value">2ª: {{ patd.testemunha2|default:"Não atribuída" }}</p>
                      <div class="signature-display-container">
-                        {% if patd.testemunha2 and patd.status in 'preclusao,apuracao_preclusao,aguardando_assinatura_npd' and not patd.assinatura_testemunha2 %}
-                            <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="2">Assinar</button>
+                        {% if patd.testemunha2 and not patd.assinatura_testemunha2 %}
+                            {% if patd.status == 'preclusao' or patd.status == 'apuracao_preclusao' or patd.status == 'aguardando_assinatura_npd' %}
+                                <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="2">Assinar</button>
+                            {% endif %}
                         {% elif patd.assinatura_testemunha2 %}
                             <img src="{{ patd.assinatura_testemunha2 }}" alt="Assinatura da 2ª Testemunha" class="signature-image">
                         {% endif %}
@@ -149,45 +161,47 @@
         </div>
         {% endif %}
 
-        {% if patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao' %}
-        <div class="detail-item-full analise-container">
-            <h2>Análise Disciplinar</h2>
-            <div id="analise-actions">
-                <button class="btn btn-primary" id="btn-apurar">
-                    <span class="spinner" style="display: none;"></span>
-                    Apurar Transgressão
-                </button>
-            </div>
-
-            <form id="apuracao-form" class="model-form">
-                <h3>Resultado da Apuração (Editável)</h3>
-                <div class="form-grid">
-                    <div class="form-item-full">
-                        <label for="itens_enquadrados">Itens Enquadrados:</label>
-                        <textarea id="itens_enquadrados" name="itens_enquadrados"></textarea>
-                    </div>
-                    <div>
-                        <label for="atenuantes">Atenuantes:</label>
-                        <input type="text" id="atenuantes" name="atenuantes">
-                    </div>
-                    <div>
-                        <label for="agravantes">Agravantes:</label>
-                        <input type="text" id="agravantes" name="agravantes">
-                    </div>
-                    <div class="form-item-full">
-                        <label for="punicao_sugerida">Punição Sugerida:</label>
-                        <textarea id="punicao_sugerida" name="punicao_sugerida"></textarea>
-                    </div>
-                </div>
-                <div class="form-actions">
-                    <button type="button" id="btn-salvar-apuracao" class="btn btn-primary">
+        {% if request.user.profile.militar == patd.oficial_responsavel %}
+            {% if patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao' %}
+            <div class="detail-item-full analise-container">
+                <h2>Análise Disciplinar</h2>
+                <div id="analise-actions">
+                    <button class="btn btn-primary" id="btn-apurar">
                         <span class="spinner" style="display: none;"></span>
-                        Salvar Apuração e Concluir
+                        Apurar Transgressão
                     </button>
-                    <button type="button" id="btn-cancelar-apuracao" class="btn btn-secondary">Cancelar</button>
                 </div>
-            </form>
-        </div>
+
+                <form id="apuracao-form" class="model-form">
+                    <h3>Resultado da Apuração (Editável)</h3>
+                    <div class="form-grid">
+                        <div class="form-item-full">
+                            <label for="itens_enquadrados">Itens Enquadrados:</label>
+                            <textarea id="itens_enquadrados" name="itens_enquadrados"></textarea>
+                        </div>
+                        <div>
+                            <label for="atenuantes">Atenuantes:</label>
+                            <input type="text" id="atenuantes" name="atenuantes">
+                        </div>
+                        <div>
+                            <label for="agravantes">Agravantes:</label>
+                            <input type="text" id="agravantes" name="agravantes">
+                        </div>
+                        <div class="form-item-full">
+                            <label for="punicao_sugerida">Punição Sugerida:</label>
+                            <textarea id="punicao_sugerida" name="punicao_sugerida"></textarea>
+                        </div>
+                    </div>
+                    <div class="form-actions">
+                        <button type="button" id="btn-salvar-apuracao" class="btn btn-primary">
+                            <span class="spinner" style="display: none;"></span>
+                            Salvar Apuração e Concluir
+                        </button>
+                        <button type="button" id="btn-cancelar-apuracao" class="btn btn-secondary">Cancelar</button>
+                    </div>
+                </form>
+            </div>
+            {% endif %}
         {% endif %}
     </div>
 
@@ -199,8 +213,14 @@
         <button type="button" class="btn btn-warning" id="extender-prazo-btn">Extender Prazo</button>
         <button type="button" class="btn btn-danger" id="prosseguir-sem-defesa-btn">Prosseguir sem Alegação</button>
         {% endif %}
-        {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
-        <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
+        {% if request.user.profile.militar == patd.oficial_responsavel %}
+            {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
+            <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
+            {% endif %}
+        {% endif %}
+
+        {% if patd.status == 'periodo_reconsideracao' %}
+        <button type="button" class="btn btn-warning" id="btn-reconsideracao-modal">Solicitar Reconsideração</button>
         {% endif %}
         
         <!-- BOTÕES DO COMANDANTE ADICIONADOS AQUI -->
@@ -315,7 +335,7 @@
     </div>
 </div>
 <div class="modal-overlay" id="signature-modal-testemunha">
-    <div class="signature-modal-content">
+    <div class="modal-content">
         <h3 id="signature-modal-testemunha-title">Assinatura da Testemunha</h3>
         <p>A testemunha deve desenhar a assinatura no campo abaixo.</p>
         <div class="canvas-container"><canvas id="signature-canvas-testemunha"></canvas></div>
@@ -345,6 +365,29 @@
         </form>
     </div>
 </div>
+
+<div class="modal-overlay" id="reconsideracao-modal">
+    <div class="modal-content">
+        <h3>Confirmar Reconsideração</h3>
+        <p>Tem certeza de que deseja iniciar o processo de reconsideração para esta PATD? Um novo documento será adicionado para edição.</p>
+        <div class="form-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" id="cancel-reconsideracao-btn">Cancelar</button>
+            <button type="button" class="btn btn-warning" id="confirm-reconsideracao-btn">Sim, Solicitar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="reconsideracao-texto-modal">
+    <div class="modal-content">
+        <h3>Texto de Reconsideração</h3>
+        <p>Escreva abaixo o texto do pedido de reconsideração.</p>
+        <textarea id="reconsideracao-texto-input" style="width: 100%; min-height: 150px;"></textarea>
+        <div class="form-actions" style="justify-content: flex-end;">
+            <button type="button" class="btn btn-secondary" id="cancel-reconsideracao-texto-btn">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="submit-reconsideracao-texto-btn">Salvar Texto</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -363,7 +406,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (deleteBtn && deleteModal) {
         const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
         deleteBtn.addEventListener('click', () => deleteModal.classList.add('active'));
-        cancelDeleteBtn.addEventListener('click', () => deleteModal.classList.remove('active'));
+        if(cancelDeleteBtn) cancelDeleteBtn.addEventListener('click', () => deleteModal.classList.remove('active'));
         deleteModal.addEventListener('click', (e) => {
             if (e.target === deleteModal) deleteModal.classList.remove('active');
         });
@@ -423,7 +466,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if(openBtn) {
             openBtn.addEventListener('click', () => aceitarAtribuicaoModal.classList.add('active'));
         }
-        cancelBtn.addEventListener('click', () => aceitarAtribuicaoModal.classList.remove('active'));
+        if(cancelBtn) cancelBtn.addEventListener('click', () => aceitarAtribuicaoModal.classList.remove('active'));
         aceitarAtribuicaoModal.addEventListener('click', e => {
             if (e.target === aceitarAtribuicaoModal) aceitarAtribuicaoModal.classList.remove('active');
         });
@@ -505,17 +548,17 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        cancelDefesaBtn.addEventListener('click', () => defesaModal.classList.remove('active'));
-        submitDefesaBtn.addEventListener('click', () => {
+        if(cancelDefesaBtn) cancelDefesaBtn.addEventListener('click', () => defesaModal.classList.remove('active'));
+        if(submitDefesaBtn) submitDefesaBtn.addEventListener('click', () => {
             if (alegacaoText.value.trim() === "") {
                 alert("O campo de alegação de defesa não pode estar vazio.");
                 return;
             }
             defesaModal.classList.remove('active');
-            confirmDefesaModal.classList.add('active');
+            if(confirmDefesaModal) confirmDefesaModal.classList.add('active');
         });
-        cancelConfirmDefesaBtn.addEventListener('click', () => confirmDefesaModal.classList.remove('active'));
-        finalSubmitDefesaBtn.addEventListener('click', () => {
+        if(cancelConfirmDefesaBtn) cancelConfirmDefesaBtn.addEventListener('click', () => confirmDefesaModal.classList.remove('active'));
+        if(finalSubmitDefesaBtn) finalSubmitDefesaBtn.addEventListener('click', () => {
             const url = `{% url 'Ouvidoria:salvar_alegacao_defesa' patd.pk %}`;
             fetch(url, {
                 method: 'POST',
@@ -555,8 +598,11 @@ document.addEventListener('DOMContentLoaded', function() {
         prosseguirBtn.addEventListener('click', handleProsseguirSemAlegacao);
     }
     if (extenderPrazoModal) {
-        document.getElementById('cancel-extender-prazo-btn').addEventListener('click', () => extenderPrazoModal.classList.remove('active'));
-        document.getElementById('extender-prazo-form').addEventListener('submit', (e) => {
+        const cancelExtenderBtn = document.getElementById('cancel-extender-prazo-btn');
+        if(cancelExtenderBtn) cancelExtenderBtn.addEventListener('click', () => extenderPrazoModal.classList.remove('active'));
+        
+        const extenderForm = document.getElementById('extender-prazo-form');
+        if(extenderForm) extenderForm.addEventListener('submit', (e) => {
             e.preventDefault();
             const dias = document.getElementById('extender-dias').value;
             const minutosInput = document.getElementById('extender-minutos');
@@ -645,44 +691,46 @@ document.addEventListener('DOMContentLoaded', function() {
     const addSignatureTestemunhaBtns = document.querySelectorAll('.add-signature-testemunha-btn');
     if (addSignatureTestemunhaBtns.length > 0) {
         const signatureModalTestemunha = document.getElementById('signature-modal-testemunha');
-        const modalTitle = document.getElementById('signature-modal-testemunha-title');
-        const canvas = document.getElementById('signature-canvas-testemunha');
-        const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
-        let currentTestemunhaNum = null;
-        function resizeCanvasTestemunha() {
-            const ratio = Math.max(window.devicePixelRatio || 1, 1);
-            const parentWidth = canvas.parentElement.offsetWidth;
-            canvas.width = parentWidth * ratio;
-            canvas.height = canvas.offsetHeight * ratio;
-            canvas.getContext("2d").scale(ratio, ratio);
-            signaturePad.clear();
-        }
-        addSignatureTestemunhaBtns.forEach(btn => {
-            btn.addEventListener('click', () => {
-                currentTestemunhaNum = btn.dataset.testemunhaNum;
-                modalTitle.textContent = `Assinatura da ${currentTestemunhaNum}ª Testemunha`;
-                signatureModalTestemunha.classList.add('active');
-                resizeCanvasTestemunha();
+        if (signatureModalTestemunha) {
+            const modalTitle = document.getElementById('signature-modal-testemunha-title');
+            const canvas = document.getElementById('signature-canvas-testemunha');
+            const signaturePad = new SignaturePad(canvas, { backgroundColor: 'rgb(255, 255, 255)' });
+            let currentTestemunhaNum = null;
+            function resizeCanvasTestemunha() {
+                const ratio = Math.max(window.devicePixelRatio || 1, 1);
+                const parentWidth = canvas.parentElement.offsetWidth;
+                canvas.width = parentWidth * ratio;
+                canvas.height = canvas.offsetHeight * ratio;
+                canvas.getContext("2d").scale(ratio, ratio);
+                signaturePad.clear();
+            }
+            addSignatureTestemunhaBtns.forEach(btn => {
+                btn.addEventListener('click', () => {
+                    currentTestemunhaNum = btn.dataset.testemunhaNum;
+                    modalTitle.textContent = `Assinatura da ${currentTestemunhaNum}ª Testemunha`;
+                    signatureModalTestemunha.classList.add('active');
+                    resizeCanvasTestemunha();
+                });
             });
-        });
-        document.getElementById('cancel-signature-btn-testemunha').addEventListener('click', () => signatureModalTestemunha.classList.remove('active'));
-        document.getElementById('clear-signature-btn-testemunha').addEventListener('click', () => signaturePad.clear());
-        document.getElementById('save-signature-btn-testemunha').addEventListener('click', () => {
-            if (signaturePad.isEmpty() || !currentTestemunhaNum) return;
-            const signatureData = signaturePad.toDataURL('image/png');
-            const url = `/Ouvidoria/patd/{{ patd.pk }}/salvar_assinatura_testemunha/${currentTestemunhaNum}/`;
-            fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                body: JSON.stringify({ 'signature_data': signatureData })
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') window.location.reload();
-                else alert('Erro: ' + data.message);
-            })
-            .catch(error => console.error('Erro:', error));
-        });
+            document.getElementById('cancel-signature-btn-testemunha').addEventListener('click', () => signatureModalTestemunha.classList.remove('active'));
+            document.getElementById('clear-signature-btn-testemunha').addEventListener('click', () => signaturePad.clear());
+            document.getElementById('save-signature-btn-testemunha').addEventListener('click', () => {
+                if (signaturePad.isEmpty() || !currentTestemunhaNum) return;
+                const signatureData = signaturePad.toDataURL('image/png');
+                const url = `/Ouvidoria/patd/{{ patd.pk }}/salvar_assinatura_testemunha/${currentTestemunhaNum}/`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ 'signature_data': signatureData })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') window.location.reload();
+                    else alert('Erro: ' + data.message);
+                })
+                .catch(error => console.error('Erro:', error));
+            });
+        }
     }
     const tabLinks = document.querySelectorAll('.tab-link');
     const tabPanels = document.querySelectorAll('.tab-panel');
@@ -720,6 +768,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let processedHtml = rawDocumentText;
 
         processedHtml = processedHtml.replace(/\{Botao Adicionar Alegacao\}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
+        processedHtml = processedHtml.replace(/\{Botao Adicionar Reconsideracao\}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
 
         processedHtml = processedHtml.replace(/(data:image\/png;base64,[A-Za-z0-9+/=]+)/g, '<img class="signature-image-embedded" src="$1" alt="Assinatura">');
         
@@ -819,7 +868,7 @@ document.addEventListener('DOMContentLoaded', function() {
             avancarModal.classList.add('active');
         });
 
-        cancelAvancarBtn.addEventListener('click', () => {
+        if(cancelAvancarBtn) cancelAvancarBtn.addEventListener('click', () => {
             avancarModal.classList.remove('active');
         });
 
@@ -877,7 +926,7 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btnCancelarApuracao) {
         btnCancelarApuracao.addEventListener('click', function() {
             apuracaoForm.style.display = 'none';
-            btnApurar.style.display = 'block';
+            if (btnApurar) btnApurar.style.display = 'block';
         });
     }
 
@@ -929,6 +978,119 @@ document.addEventListener('DOMContentLoaded', function() {
                 spinner.style.display = 'none';
                 this.disabled = false;
             });
+        });
+    }
+    
+    // --- LÓGICA PARA RECONSIDERAÇÃO ---
+    const reconsideracaoModal = document.getElementById('reconsideracao-modal');
+    if (reconsideracaoModal) {
+        const openBtn = document.getElementById('btn-reconsideracao-modal');
+        const cancelBtn = document.getElementById('cancel-reconsideracao-btn');
+        const confirmBtn = document.getElementById('confirm-reconsideracao-btn');
+
+        if (openBtn) {
+            openBtn.addEventListener('click', () => reconsideracaoModal.classList.add('active'));
+        }
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => reconsideracaoModal.classList.remove('active'));
+        }
+        if (confirmBtn) {
+            confirmBtn.addEventListener('click', () => {
+                const url = `{% url 'Ouvidoria:solicitar_reconsideracao' patd.pk %}`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload();
+                    } else {
+                        alert('Erro: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('Erro:', error));
+            });
+        }
+        reconsideracaoModal.addEventListener('click', e => {
+            if (e.target === reconsideracaoModal) reconsideracaoModal.classList.remove('active');
+        });
+    }
+
+    // --- LÓGICA PARA O PRAZO DE RECONSIDERAÇÃO ---
+    const reconsideracaoCountdownTimer = document.getElementById('reconsideracao-countdown-timer');
+    const reconsideracaoPrazoBox = document.getElementById('reconsideracao-prazo-box');
+
+    if (reconsideracaoCountdownTimer && '{{ patd.data_publicacao_punicao }}') {
+        const dataPublicacao = new Date('{{ patd.data_publicacao_punicao|date:"c" }}');
+        const deadline = new Date(dataPublicacao.getTime() + 15 * 24 * 60 * 60 * 1000); // Adiciona 15 dias
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const diff = deadline - now;
+
+            if (diff <= 0) {
+                reconsideracaoCountdownTimer.textContent = "Prazo expirado.";
+                if (reconsideracaoPrazoBox) reconsideracaoPrazoBox.classList.add('expirado');
+                clearInterval(interval);
+                // O backend cuidará da mudança de status, então apenas atualizamos a UI.
+                return;
+            }
+
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+            reconsideracaoCountdownTimer.textContent = `${d}d ${h}h ${m}m ${s}s restantes`;
+        }, 1000);
+    }
+
+    // --- LÓGICA PARA MODAL DE TEXTO DE RECONSIDERAÇÃO ---
+    const reconsideracaoTextoModal = document.getElementById('reconsideracao-texto-modal');
+    if (reconsideracaoTextoModal) {
+        const cancelBtn = document.getElementById('cancel-reconsideracao-texto-btn');
+        const submitBtn = document.getElementById('submit-reconsideracao-texto-btn');
+        const textArea = document.getElementById('reconsideracao-texto-input');
+
+        // Listener no body para o botão que é renderizado dinamicamente
+        document.body.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'add-reconsideracao-texto-btn-doc') {
+                textArea.value = '{{ patd.texto_reconsideracao|default_if_none:""|escapejs }}';
+                reconsideracaoTextoModal.classList.add('active');
+            }
+        });
+
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => reconsideracaoTextoModal.classList.remove('active'));
+        }
+
+        if (submitBtn) {
+            submitBtn.addEventListener('click', () => {
+                const texto = textArea.value;
+                if (texto.trim() === "") {
+                    alert("O campo de reconsideração não pode estar vazio.");
+                    return;
+                }
+                const url = `{% url 'Ouvidoria:salvar_reconsideracao' patd.pk %}`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                    body: JSON.stringify({ 'texto_reconsideracao': texto })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload();
+                    } else {
+                        alert('Erro: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('Erro:', error));
+            });
+        }
+        
+        reconsideracaoTextoModal.addEventListener('click', e => {
+            if (e.target === reconsideracaoTextoModal) reconsideracaoTextoModal.classList.remove('active');
         });
     }
 });

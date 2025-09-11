@@ -42,6 +42,8 @@ urlpatterns = [
     path('comandante/dashboard/', views.ComandanteDashboardView.as_view(), name='comandante_dashboard'),
     path('patd/<int:pk>/aprovar/', views.patd_aprovar, name='patd_aprovar'),
     path('patd/<int:pk>/retornar/', views.patd_retornar, name='patd_retornar'),
+    path('patd/<int:pk>/solicitar_reconsideracao/', views.solicitar_reconsideracao, name='solicitar_reconsideracao'),
+    path('patd/<int:pk>/salvar_reconsideracao/', views.salvar_reconsideracao, name='salvar_reconsideracao'),
 
     # CONFIGURAÇÃO DE ASSINATURAS
     path('config/oficiais/', views.lista_oficiais, name='lista_oficiais'),

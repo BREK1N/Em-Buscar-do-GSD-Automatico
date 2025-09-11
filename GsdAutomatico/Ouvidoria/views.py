@@ -32,6 +32,7 @@ from difflib import SequenceMatcher # Importado para a verificação de similari
 from django.utils.decorators import method_decorator
 from num2words import num2words # Importação para converter números em texto
 from django.contrib.auth import authenticate
+from functools import wraps # Importado para criar o decorator
 
 
 # --- Funções e Mixins de Permissão ---
@@ -42,6 +43,25 @@ def has_ouvidoria_access(user):
 def has_comandante_access(user):
     """Verifica se o utilizador pertence ao grupo 'Comandante' ou é um superutilizador."""
     return user.groups.filter(name='Comandante').exists() or user.is_superuser
+
+# --- NOVO DECORATOR ---
+def oficial_responsavel_required(view_func):
+    """
+    Decorator que verifica se o usuário logado é o oficial responsável pela PATD.
+    """
+    @wraps(view_func)
+    def _wrapped_view(request, pk, *args, **kwargs):
+        patd = get_object_or_404(PATD, pk=pk)
+        
+        # Verifica se o usuário tem um perfil militar e se ele é o oficial responsável
+        if (hasattr(request.user, 'profile') and 
+            request.user.profile.militar and 
+            request.user.profile.militar == patd.oficial_responsavel):
+            return view_func(request, pk, *args, **kwargs)
+        else:
+            messages.error(request, "Acesso negado. Apenas o oficial apurador designado pode executar esta ação.")
+            return redirect('Ouvidoria:patd_detail', pk=pk)
+    return _wrapped_view
 
 class OuvidoriaAccessMixin(UserPassesTestMixin):
     """Mixin para Class-Based Views para verificar a permissão de acesso à Ouvidoria."""
@@ -193,6 +213,9 @@ def _get_document_context(patd):
         deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
         deadline_str = deadline.strftime('%d/%m/%Y às %H:%M')
 
+    data_publicacao_fmt = patd.data_publicacao_punicao.strftime('%d/%m/%Y às %H:%M') if patd.data_publicacao_punicao else "[Data não informada]"
+    data_reconsideracao_fmt = patd.data_reconsideracao.strftime('%d/%m/%Y') if patd.data_reconsideracao else "[Data não informada]"
+
     # Lógica para Oficial Apurador
     oficial_definido = patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
     
@@ -246,6 +269,7 @@ def _get_document_context(patd):
         '{punicao}': punicao_final_str, # Agora contém a string completa e formatada
         '{dias_punicao}': "", # Esvaziado para evitar duplicação no template
         '{comportamento}': patd.comportamento or "[Não avaliado]",
+        '{data_publicacao_punicao}': data_publicacao_fmt,
         
         # Assinaturas
         '{Assinatura Comandante do GSD}': getattr(comandante_gsd, 'assinatura', '[Sem assinatura]') if comandante_gsd else "[Comandante GSD não definido]",
@@ -259,7 +283,8 @@ def _get_document_context(patd):
         # Específico para Preclusão
         '{Data Final Prazo}': deadline_str,
         '{texto_relatorio}': texto_relatorio_gerado,
-        
+        '{Texto_reconsideracao}': patd.texto_reconsideracao or '',
+        '{Data_reconsideracao}': data_reconsideracao_fmt,
     }
 
 def _render_document_from_template(template_name, context):
@@ -295,7 +320,7 @@ def get_raw_document_text(patd):
     document_content = _render_document_from_template('PATD_Coringa.docx', doc_context)
 
     # Lógica para incluir a parte da alegação de defesa
-    if patd.status in ['aguardando_justificativa', 'prazo_expirado', 'em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante']:
+    if patd.status in ['aguardando_justificativa', 'prazo_expirado', 'em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao']:
         alegacao_context = doc_context.copy()
         if patd.alegacao_defesa:
             alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa
@@ -305,15 +330,22 @@ def get_raw_document_text(patd):
         
         document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
     
-    if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante']:
+    if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao']:
         document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
     
     if patd.punicao_sugerida:
         document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
 
-    if patd.status in ['aguardando_assinatura_npd', 'finalizado']:
+    if patd.status in ['aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 'em_reconsideracao']:
         document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
     
+    if patd.status == 'em_reconsideracao':
+        reconsideracao_context = doc_context.copy()
+        if not patd.texto_reconsideracao:
+            reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
+        document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+
+
     return document_content
 
 
@@ -336,7 +368,7 @@ def _check_preclusao_signatures(patd):
 def _check_and_finalize_patd(patd):
     """
     Verifica se todas as assinaturas necessárias para a NPD foram coletadas
-    e, em caso afirmativo, finaliza o PATD.
+    e, em caso afirmativo, avança o PATD para o período de reconsideração.
     """
     if patd.status != 'aguardando_assinatura_npd':
         return False
@@ -357,9 +389,9 @@ def _check_and_finalize_patd(patd):
     if patd.testemunha2 and not patd.assinatura_testemunha2:
         return False
 
-    # Se todas as assinaturas necessárias estiverem presentes, finaliza o processo
-    patd.status = 'finalizado'
-    patd.data_termino = timezone.now() # Marcar a data de término
+    # Se todas as assinaturas necessárias estiverem presentes, avança para reconsideração
+    patd.status = 'periodo_reconsideracao'
+    patd.data_publicacao_punicao = timezone.now()
     return True
 
 def _try_advance_status_from_justificativa(patd):
@@ -411,13 +443,45 @@ def patd_atribuicoes_pendentes(request):
     if not hasattr(request.user, 'profile') or not request.user.profile.militar:
         messages.warning(request, "Seu usuário não está associado a um militar.")
         return redirect('Ouvidoria:index')
-        
-    patds = PATD.objects.filter(
-        oficial_responsavel=request.user.profile.militar,
-        status='aguardando_aprovacao_atribuicao'
-    ).order_by('-data_inicio')
     
-    return render(request, 'patd_atribuicoes_pendentes.html', {'patds': patds})
+    militar_logado = request.user.profile.militar
+    active_tab = request.GET.get('tab', 'aprovar') # 'aprovar' is the default tab
+
+    # Counts for badges
+    count_aprovar = PATD.objects.filter(
+        oficial_responsavel=militar_logado,
+        status='aguardando_aprovacao_atribuicao'
+    ).count()
+    
+    status_list_apuracao = ['em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_punicao_alterar']
+    count_apuracao = PATD.objects.filter(
+        oficial_responsavel=militar_logado,
+        status__in=status_list_apuracao
+    ).count()
+
+    if active_tab == 'apuracao':
+        patds = PATD.objects.filter(
+            oficial_responsavel=militar_logado,
+            status__in=status_list_apuracao
+        ).order_by('-data_inicio')
+    elif active_tab == 'todas':
+        patds = PATD.objects.filter(
+            oficial_responsavel=militar_logado
+        ).order_by('-data_inicio')
+    else: # default is 'aprovar'
+        patds = PATD.objects.filter(
+            oficial_responsavel=militar_logado,
+            status='aguardando_aprovacao_atribuicao'
+        ).order_by('-data_inicio')
+
+    context = {
+        'patds': patds,
+        'active_tab': active_tab,
+        'count_aprovar': count_aprovar,
+        'count_apuracao': count_apuracao
+    }
+    
+    return render(request, 'patd_atribuicoes_pendentes.html', context)
 
 @login_required
 @require_POST
@@ -452,10 +516,21 @@ def aceitar_atribuicao(request, pk):
 def patd_atribuicoes_pendentes_json(request):
     count = 0
     if hasattr(request.user, 'profile') and request.user.profile.militar:
-        count = PATD.objects.filter(
-            oficial_responsavel=request.user.profile.militar,
+        militar_logado = request.user.profile.militar
+        
+        count_aprovar = PATD.objects.filter(
+            oficial_responsavel=militar_logado,
             status='aguardando_aprovacao_atribuicao'
         ).count()
+        
+        status_list_apuracao = ['em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_punicao_alterar']
+        count_apuracao = PATD.objects.filter(
+            oficial_responsavel=militar_logado,
+            status__in=status_list_apuracao
+        ).count()
+        
+        count = count_aprovar + count_apuracao
+
     return JsonResponse({'count': count})
 
 
@@ -839,7 +914,7 @@ class MilitarPATDListView(ListView):
         return context
 
 @login_required
-@ouvidoria_required
+@oficial_responsavel_required
 @require_POST
 def salvar_assinatura(request, pk):
     try:
@@ -1111,13 +1186,11 @@ def extender_prazo_massa(request):
 @ouvidoria_required
 @require_POST
 def verificar_e_atualizar_prazos(request):
-    now = timezone.localtime(timezone.now())
-    if not (now.hour == 0 and 0 <= now.minute <= 5):
-        return JsonResponse({'status': 'not_in_time_window', 'updated_count': 0})
     try:
+        prazos_atualizados = 0
         patds_pendentes = PATD.objects.filter(status='aguardando_justificativa')
         config = Configuracao.load()
-        prazos_atualizados = 0
+        
         for patd in patds_pendentes:
             if patd.data_ciencia:
                 dias_uteis_a_adicionar = config.prazo_defesa_dias
@@ -1134,7 +1207,22 @@ def verificar_e_atualizar_prazos(request):
                     patd.status = 'prazo_expirado'
                     patd.save(update_fields=['status'])
                     prazos_atualizados += 1
-        return JsonResponse({'status': 'success', 'updated_count': prazos_atualizados})
+        
+        # --- LÓGICA PARA RECONSIDERAÇÃO ---
+        patds_em_reconsideracao = PATD.objects.filter(status='periodo_reconsideracao')
+        reconsideracoes_finalizadas = 0
+        for patd in patds_em_reconsideracao:
+            if patd.data_publicacao_punicao:
+                deadline = patd.data_publicacao_punicao + timedelta(days=15)
+                if timezone.now() > deadline:
+                    patd.status = 'finalizado'
+                    patd.data_termino = timezone.now()
+                    patd.save(update_fields=['status', 'data_termino'])
+                    reconsideracoes_finalizadas += 1
+        
+        total_updated = prazos_atualizados + reconsideracoes_finalizadas
+        return JsonResponse({'status': 'success', 'updated_count': total_updated})
+        
     except Exception as e:
         logger.error(f"Erro ao verificar e atualizar prazos: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -1182,7 +1270,7 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
-@ouvidoria_required
+@oficial_responsavel_required
 @require_POST
 def analisar_punicao(request, pk):
     try:
@@ -1224,7 +1312,7 @@ def analisar_punicao(request, pk):
 
 
 @login_required
-@ouvidoria_required
+@oficial_responsavel_required
 @require_POST
 def salvar_apuracao(request, pk):
     try:
@@ -1323,7 +1411,7 @@ def patd_retornar(request, pk):
     return redirect('Ouvidoria:comandante_dashboard')
 
 @login_required
-@ouvidoria_required
+@oficial_responsavel_required
 @require_POST
 def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
@@ -1331,4 +1419,48 @@ def avancar_para_comandante(request, pk):
     patd.save()
     messages.success(request, f"PATD Nº {patd.numero_patd} enviada para análise do Comandante.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
+
+@login_required
+@ouvidoria_required
+@require_POST
+def solicitar_reconsideracao(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        if patd.status != 'periodo_reconsideracao':
+            return JsonResponse({'status': 'error', 'message': 'A PATD não está no período de reconsideração.'}, status=400)
+        
+        patd.status = 'em_reconsideracao'
+        patd.save(update_fields=['status'])
+        messages.success(request, f'PATD Nº {patd.numero_patd} movida para "Em Reconsideração".')
+        return JsonResponse({'status': 'success', 'message': 'Status atualizado com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao solicitar reconsideração para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@ouvidoria_required
+@require_POST
+def salvar_reconsideracao(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        if patd.status != 'em_reconsideracao':
+            return JsonResponse({'status': 'error', 'message': 'A PATD não está em fase de reconsideração.'}, status=400)
+        
+        data = json.loads(request.body)
+        texto = data.get('texto_reconsideracao')
+
+        if texto is None:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum texto recebido.'}, status=400)
+
+        patd.texto_reconsideracao = texto
+        # Define a data da reconsideração se ainda não tiver sido definida
+        if not patd.data_reconsideracao:
+            patd.data_reconsideracao = timezone.now()
+            
+        patd.save(update_fields=['texto_reconsideracao', 'data_reconsideracao'])
+        
+        return JsonResponse({'status': 'success', 'message': 'Texto de reconsideração salvo com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao salvar texto de reconsideração para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 

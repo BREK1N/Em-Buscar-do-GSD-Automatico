@@ -1,10 +1,31 @@
 {% extends 'base.html' %}
 
-{% block title %}Atribuições de PATD Pendentes{% endblock %}
+{% block title %}Minhas Atribuições de PATD{% endblock %}
 
 {% block content %}
-<h1>Atribuições de PATD Pendentes</h1>
-<p>Os seguintes processos foram atribuídos a você e aguardam seu aceite para continuar.</p>
+<style>
+    /* Estilos para as abas, similar ao patd_detail.html */
+    .tabs-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
+    .tabs-nav a { padding: 10px 20px; text-decoration: none; color: var(--text-secondary); border-bottom: 3px solid transparent; margin-bottom: -1px; /* Alinha com a borda inferior */ cursor: pointer; display: flex; align-items: center; gap: 8px; }
+    .tabs-nav a.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+</style>
+
+<h1>Minhas Atribuições de PATD</h1>
+<p>Gerencie os processos administrativos que foram atribuídos a você.</p>
+
+<nav class="tabs-nav">
+    <a href="{% url 'Ouvidoria:patd_atribuicoes_pendentes' %}?tab=aprovar" class="tab-link {% if active_tab == 'aprovar' %}active{% endif %}">
+        <span>Para Aprovar</span>
+        {% if count_aprovar > 0 %}<span class="badge">{{ count_aprovar }}</span>{% endif %}
+    </a>
+    <a href="{% url 'Ouvidoria:patd_atribuicoes_pendentes' %}?tab=apuracao" class="tab-link {% if active_tab == 'apuracao' %}active{% endif %}">
+        <span>Em Apuração</span>
+        {% if count_apuracao > 0 %}<span class="badge">{{ count_apuracao }}</span>{% endif %}
+    </a>
+    <a href="{% url 'Ouvidoria:patd_atribuicoes_pendentes' %}?tab=todas" class="tab-link {% if active_tab == 'todas' %}active{% endif %}">
+        Todas as Atribuições
+    </a>
+</nav>
 
 <div class="table-responsive">
     <table class="data-table">
@@ -13,6 +34,9 @@
                 <th>N° PATD</th>
                 <th>Militar Acusado</th>
                 <th>Data da Ocorrência</th>
+                {% if active_tab != 'aprovar' %}
+                <th>Status</th>
+                {% endif %}
                 <th>Ação</th>
             </tr>
         </thead>
@@ -24,22 +48,30 @@
                     <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
                 </td>
                 <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
-                <td class="actions-cell">
-                    <button type="button" class="btn btn-sm btn-success open-aceite-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
-                        Aceitar Atribuição
-                    </button>
-                </td>
+                
+                {% if active_tab == 'aprovar' %}
+                    <td class="actions-cell">
+                        <button type="button" class="btn btn-sm btn-success open-aceite-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
+                            Aceitar Atribuição
+                        </button>
+                    </td>
+                {% else %}
+                    <td>{{ patd.get_status_display }}</td>
+                    <td class="actions-cell">
+                         <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver Detalhes</a>
+                    </td>
+                {% endif %}
             </tr>
             {% empty %}
             <tr>
-                <td colspan="4" style="text-align: center; padding: 20px;">Você não possui nenhuma atribuição de PATD pendente.</td>
+                <td colspan="{% if active_tab == 'aprovar' %}4{% else %}5{% endif %}" style="text-align: center; padding: 20px;">Nenhuma PATD encontrada nesta categoria.</td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-<!-- Modal para Aceitar Atribuição -->
+<!-- Modal para Aceitar Atribuição (permanece o mesmo) -->
 <div class="modal-overlay" id="aceitar-atribuicao-modal">
     <div class="modal-content">
         <h3 id="aceitar-modal-title">Aceitar Atribuição</h3>
@@ -74,6 +106,7 @@ document.addEventListener('DOMContentLoaded', function() {
             const patdPk = e.target.dataset.patdPk;
             const patdNumero = e.target.dataset.patdNumero;
             
+            // A action do form agora aponta para a URL de aceite correta
             const url = `/Ouvidoria/patd/${patdPk}/aceitar_atribuicao/`;
             aceitarForm.action = url;
             aceitarModalTitle.textContent = `Aceitar Atribuição - PATD Nº ${patdNumero}`;
