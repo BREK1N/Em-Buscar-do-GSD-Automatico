@@ -154,6 +154,7 @@ class PATD(models.Model):
     comportamento = models.CharField(max_length=100, blank=True, null=True, default="Permanece no \"Bom comportamento\"", verbose_name="Comportamento")
     texto_reconsideracao = models.TextField(blank=True, null=True, verbose_name="Texto da Reconsideração")
     data_reconsideracao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Reconsideração")
+    texto_relatorio = models.TextField(blank=True, null=True, verbose_name="Texto do Relatório de Apuração")
 
 
     def __str__(self):

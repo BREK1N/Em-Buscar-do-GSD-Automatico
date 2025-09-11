@@ -196,11 +196,6 @@ def _get_document_context(patd):
         # A lógica agora constrói a string completa, ex: "Seis (06) de detenção"
         punicao_final_str = f"{patd.dias_punicao} de {patd.punicao}"
 
-    texto_relatorio_gerado = ""
-    if patd.punicao_sugerida:
-        justificativa_para_relatorio = patd.alegacao_defesa or "O militar não apresentou alegação de defesa (preclusão)."
-        texto_relatorio_gerado = texto_relatorio(patd.transgressao, justificativa_para_relatorio)
-    
     # Cálculo do Prazo Final (Deadline) para Preclusão
     deadline_str = "[Prazo não iniciado]"
     if patd.data_ciencia:
@@ -283,7 +278,7 @@ def _get_document_context(patd):
 
         # Específico para Preclusão
         '{Data Final Prazo}': deadline_str,
-        '{texto_relatorio}': texto_relatorio_gerado,
+        '{texto_relatorio}': patd.texto_relatorio or "[Relatório não gerado]",
         '{Texto_reconsideracao}': patd.texto_reconsideracao or '',
         '{Data_reconsideracao}': data_reconsideracao_fmt,
     }
@@ -1300,10 +1295,15 @@ def analisar_punicao(request, pk):
                 "N/A"
             )
             
-            # 5. Salvar os resultados no objeto PATD
+            # 5. Gerar e salvar o texto do relatório
+            justificativa_para_relatorio = patd.alegacao_defesa or "O militar não apresentou alegação de defesa (preclusão)."
+            texto_relatorio_gerado = texto_relatorio(patd.transgressao, justificativa_para_relatorio)
+            
+            # 6. Salvar todos os resultados no objeto PATD
             patd.itens_enquadrados = itens_obj.item
             patd.circunstancias = circunstancias_obj.item[0]
             patd.punicao_sugerida = punicao_obj.punicao.get('punicao', 'Erro na sugestão')
+            patd.texto_relatorio = texto_relatorio_gerado
             patd.save()
             logger.info(f"Análise em background para PATD {pk} concluída com sucesso.")
 
