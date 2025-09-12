@@ -194,9 +194,9 @@ def verifica_agravante_atenuante(historico, transgressao, justificativa, itens):
 
     class Item(BaseModel):
         item: list = Field(description="""Defina um dicionário python com a chave 'agravantes' e o valor sendo as letras correspondentes as situações agravantes
-                            e a chave 'atenuantes' e o valor sendo as letras correspondentes as situações atenuantes
-                           e a chave 'itens' e o valor sendo os itens que o militar foi enquadrado
-                        """)
+                                e a chave 'atenuantes' e o valor sendo as letras correspondentes as situações atenuantes
+                               e a chave 'itens' e o valor sendo os itens que o militar foi enquadrado
+                            """)
 
 
     parser = PydanticOutputParser(pydantic_object=Item)
@@ -222,11 +222,12 @@ def verifica_agravante_atenuante(historico, transgressao, justificativa, itens):
     f) ocorrência de transgressão colocando em risco vidas humanas, segurança de aeronave, viaturas
     ou propriedade do Estado ou de particulares;
     g) ocorrência da transgressão em presença de subordinado, de tropa ou em público;
-    h) abuso de autoridade hierárquica ou funcional;
+    h) abuso de autoridade hierárquiquca ou funcional;
     i) ocorrência da transgressão durante o serviço ou instrução.
     # Regras #
     1. O militar por padrão possui bom comportamento (atenuante 'a'). Ele só perde esse atenuante e passa a ter mau comportamento (agravante 'a') se o seu histórico indicar que já recebeu alguma punição de natureza 'grave'.
-    2. Se o militar for enquadrado em mais de um item ele está automaticamente enquadrado na letra c dos agravantes
+    2. Se o militar for enquadrado em mais de um item na transgressão ATUAL, ele está automaticamente enquadrado na letra 'c' dos agravantes.
+    3. **Verificação de Reincidência (Agravante 'b'):** Você DEVE verificar se há reincidência. O histórico do militar informa os NÚMEROS dos itens de punições anteriores. A transgressão atual foi enquadrada nos seguintes itens: {itens}. Compare os números dos itens do histórico com os números dos itens da transgressão atual. Se QUALQUER número de item do histórico for EXATAMENTE IGUAL a qualquer número de item da transgressão atual, isso é reincidência. Neste caso, você DEVE OBRIGATORIAMENTE adicionar a letra 'b' à lista de agravantes. Se o histórico indicar "Nenhuma punição anterior registrada", não aplique o agravante 'b'.
     # Justificativa apresentada pelo militar #
     {justificativa}
     # Histórico do militar #
@@ -409,3 +410,4 @@ def texto_relatorio(transgressao, justificativa):
     resposta = chain.invoke({"transgressao":transgressao, "justificativa": justificativa})
 
     return resposta
+

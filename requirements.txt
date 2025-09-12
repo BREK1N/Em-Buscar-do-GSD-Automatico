@@ -5,6 +5,7 @@ Django
 langchain
 langchain-openai
 langchain-community
+pydantic
 openai
 django-bootstrap-v5
 docx2pdf

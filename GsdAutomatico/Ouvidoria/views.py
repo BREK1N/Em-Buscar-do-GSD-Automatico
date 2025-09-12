@@ -1292,7 +1292,22 @@ def analisar_punicao(request, pk):
         patd.itens_enquadrados = itens_list
         
         # 2. Verificar agravantes e atenuantes
-        historico_militar = "" # Placeholder para o histórico do militar, pode ser implementado no futuro
+        # --- CORREÇÃO: Busca o histórico de PATDs finalizadas do militar ---
+        militar_acusado = patd.militar
+        patds_anteriores = PATD.objects.filter(
+            militar=militar_acusado, 
+            status='finalizado'
+        ).exclude(pk=patd.pk)
+
+        historico_list = []
+        if patds_anteriores.exists():
+            for p_antiga in patds_anteriores:
+                if p_antiga.itens_enquadrados and isinstance(p_antiga.itens_enquadrados, list):
+                    itens_str = ", ".join([f"Item {item.get('numero')}" for item in p_antiga.itens_enquadrados if 'numero' in item])
+                    if itens_str:
+                         historico_list.append(f"PATD anterior (Nº {p_antiga.numero_patd}) foi enquadrada em: {itens_str}.")
+
+        historico_militar = "\n".join(historico_list) if historico_list else "Nenhuma punição anterior registrada."
         justificativa = patd.alegacao_defesa or "Nenhuma alegação de defesa foi apresentada."
         
         circunstancias_obj = verifica_agravante_atenuante(historico_militar, patd.transgressao, justificativa, patd.itens_enquadrados)
