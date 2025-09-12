@@ -340,7 +340,7 @@ def analisar_e_resumir_defesa(alegacao_defesa: str):
 
     resposta = chain.invoke({"alegacao_defesa": alegacao_defesa})
 
-    return resposta
+    return resposta.resumo_tecnico
 
 def reescrever_ocorrencia(transgressao: str):
     """
@@ -368,7 +368,7 @@ def reescrever_ocorrencia(transgressao: str):
     chain = prompt_template | model | StrOutputParser()
 
     resposta = chain.invoke({"transgressao": transgressao})
-    return resposta
+    return resposta.texto_reescrito
 
 def texto_relatorio(transgressao, justificativa):
 
