@@ -3,23 +3,77 @@
 {% block title %}Atribuir Oficial Responsável{% endblock %}
 
 {% block content %}
+<style>
+    .form-card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 25px;
+        margin-top: 20px;
+        box-shadow: var(--box-shadow);
+    }
+    .form-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .form-card-header svg {
+        width: 24px;
+        height: 24px;
+        color: var(--accent-color);
+    }
+    .form-card-header h2 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+    .form-card-body .form-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .form-card-body .form-item label {
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+    .form-card-body .form-item select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        box-sizing: border-box;
+    }
+    .alert-error {
+        margin-top: 10px;
+        color: var(--danger-color);
+        font-size: 0.9rem;
+    }
+</style>
+
 <h1>Atribuir Oficial para a PATD Nº {{ patd.numero_patd }}</h1>
 <p>Militar Acusado: <strong>{{ patd.militar }}</strong></p>
 
-<div class="alert alert-info" role="alert">
-    Selecione um oficial da lista abaixo para ser o responsável por apurar esta transgressão. O oficial selecionado será notificado para aceitar a atribuição.
-</div>
-
 <form method="post" class="model-form">
     {% csrf_token %}
-    <div class="form-grid">
-        <p>
-            <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}:</label>
-            {{ form.oficial_responsavel }}
-            {% for error in form.oficial_responsavel.errors %}
-                <div class="alert-error" style="margin-top: 10px;">{{ error }}</div>
-            {% endfor %}
-        </p>
+    <div class="form-card">
+        <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /></svg>
+            <h2>Oficial Apurador</h2>
+        </div>
+        <div class="form-card-body">
+            <p>Selecione um oficial da lista abaixo para ser o responsável por apurar esta transgressão. O oficial selecionado será notificado para aceitar a atribuição.</p>
+            <div class="form-item">
+                <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}:</label>
+                {{ form.oficial_responsavel }}
+                {% for error in form.oficial_responsavel.errors %}
+                    <div class="alert-error">{{ error }}</div>
+                {% endfor %}
+            </div>
+        </div>
     </div>
     
     <div class="form-actions">
@@ -28,4 +82,3 @@
     </div>
 </form>
 {% endblock %}
-

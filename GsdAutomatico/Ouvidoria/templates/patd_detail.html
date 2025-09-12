@@ -141,6 +141,21 @@
     #apuracao-form .form-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
     #apuracao-form textarea, #apuracao-form input { width: 100%; box-sizing: border-box; }
     #apuracao-form .form-item-full { grid-column: 1 / -1; }
+    
+    /* Animação do Spinner */
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .spinner {
+        width: 16px;
+        height: 16px;
+        border: 2px solid rgba(255, 255, 255, 0.3);
+        border-top-color: #fff;
+        border-radius: 50%;
+        animation: spin 1s linear infinite;
+        display: none; /* Oculto por padrão */
+    }
+    .btn.loading .spinner { display: inline-block; }
+    .btn.loading .btn-text { display: none; }
+
 </style>
 
 <div class="patd-header">
@@ -338,8 +353,8 @@
         <div class="card-body">
             <div id="analise-actions">
                 <button class="btn btn-primary" id="btn-apurar">
-                    <span class="spinner" style="display: none;"></span>
-                    Visualizar Apuração
+                    <span class="spinner"></span>
+                    <span class="btn-text">Visualizar Apuração</span>
                 </button>
             </div>
              <form id="apuracao-form" class="model-form">
@@ -1025,9 +1040,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
     if (btnApurar) {
         btnApurar.addEventListener('click', function() {
-            const spinner = this.querySelector('.spinner');
             const analiseActions = document.getElementById('analise-actions');
-            spinner.style.display = 'inline-block';
+            this.classList.add('loading');
             this.disabled = true;
     
             // Limpa mensagens de feedback anteriores
@@ -1071,7 +1085,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 analiseActions.appendChild(feedback);
             })
             .finally(() => {
-                spinner.style.display = 'none';
+                this.classList.remove('loading');
                 this.disabled = false;
             });
         });
@@ -1250,5 +1264,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
-

@@ -1,65 +1,159 @@
 {% extends 'base.html' %}
+{% load auth_extras %}
 
 {% block title %}Editar PATD Nº {{ form.instance.numero_patd }}{% endblock %}
 
 {% block content %}
-<h1>Editar PATD Nº {{ form.instance.numero_patd }}</h1>
-<p>Militar: <strong>{{ form.instance.militar }}</strong></p>
+<style>
+    /* Estilos para o novo layout do formulário */
+    .form-card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: var(--box-shadow);
+    }
+    .form-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .form-card-header svg {
+        width: 24px;
+        height: 24px;
+        color: var(--accent-color);
+    }
+    .form-card-header h2 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+    .form-card-body .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    .form-card-body .form-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .form-card-body .form-item.full-width {
+        grid-column: 1 / -1;
+    }
+    .form-card-body .form-item label {
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+    .form-card-body .form-item input,
+    .form-card-body .form-item select,
+    .form-card-body .form-item textarea {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        box-sizing: border-box;
+    }
+    .form-card-body .form-item textarea {
+        min-height: 100px;
+        resize: vertical;
+    }
+    .form-card-body .form-item small {
+        margin-top: 5px;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+    }
+</style>
+
+<div class="patd-header">
+    <h1>Editar PATD Nº {{ form.instance.numero_patd }}</h1>
+    <p>Militar: <strong>{{ form.instance.militar }}</strong></p>
+</div>
 
 <form method="post" class="model-form">
     {% csrf_token %}
-    <div class="form-grid">
-        <p>
-            <label for="{{ form.transgressao.id_for_label }}">{{ form.transgressao.label }}:</label>
-            {{ form.transgressao }}
-        </p>
-        <p>
-            <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}:</label>
-            {{ form.oficial_responsavel }}
-        </p>
-        <p>
-            <label for="{{ form.testemunha1.id_for_label }}">{{ form.testemunha1.label }}:</label>
-            {{ form.testemunha1 }}
-        </p>
-        <p>
-            <label for="{{ form.testemunha2.id_for_label }}">{{ form.testemunha2.label }}:</label>
-            {{ form.testemunha2 }}
-        </p>
-        <p>
-            <label for="{{ form.data_ocorrencia.id_for_label }}">{{ form.data_ocorrencia.label }}:</label>
-            {{ form.data_ocorrencia }}
-        </p>
+    
+    <!-- Card de Informações Principais -->
+    <div class="form-card">
+        <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12.75h.008M8.25 15h.008M8.25 18h.008m3.75-12h.008m2.25-3h.008M12 6h.008m-2.25 6h.008m2.25 6h.008M12 18h.008m-3.75-6h.008m2.25-6h.008" /></svg>
+            <h2>Informações da Transgressão</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="form-grid">
+                <div class="form-item full-width">
+                    <label for="{{ form.transgressao.id_for_label }}">{{ form.transgressao.label }}:</label>
+                    {{ form.transgressao }}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.data_ocorrencia.id_for_label }}">{{ form.data_ocorrencia.label }}:</label>
+                    {{ form.data_ocorrencia }}
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Card de Envolvidos -->
+    <div class="form-card">
+        <div class="form-card-header">
+             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /></svg>
+            <h2>Envolvidos</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="form-grid">
+                <div class="form-item">
+                    <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}:</label>
+                    {{ form.oficial_responsavel }}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.testemunha1.id_for_label }}">{{ form.testemunha1.label }}:</label>
+                    {{ form.testemunha1 }}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.testemunha2.id_for_label }}">{{ form.testemunha2.label }}:</label>
+                    {{ form.testemunha2 }}
+                </div>
+            </div>
+        </div>
+    </div>
 
-        {# Mostra os campos da apuração apenas se a punição já foi sugerida #}
-        {% if form.instance.punicao_sugerida %}
-            <hr>
-            <h3>Dados da Apuração</h3>
-            <p>
-                <label for="{{ form.itens_enquadrados_text.id_for_label }}">{{ form.itens_enquadrados_text.label }}:</label>
-                {{ form.itens_enquadrados_text }}
-                <small>{{ form.itens_enquadrados_text.help_text }}</small>
-            </p>
-            
-            <!-- Campos de Atenuantes e Agravantes -->
-            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 20px; margin-top: 15px; margin-bottom: 15px;">
-                <p>
+    <!-- Card de Dados da Apuração (condicional) -->
+    {% if form.instance.punicao_sugerida %}
+    <div class="form-card">
+        <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
+             <h2>Dados da Apuração</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="form-grid">
+                <div class="form-item full-width">
+                    <label for="{{ form.itens_enquadrados_text.id_for_label }}">{{ form.itens_enquadrados_text.label }}:</label>
+                    {{ form.itens_enquadrados_text }}
+                    <small>{{ form.itens_enquadrados_text.help_text }}</small>
+                </div>
+                <div class="form-item">
                     <label for="{{ form.atenuantes.id_for_label }}">{{ form.atenuantes.label }}:</label>
                     {{ form.atenuantes }}
                     <small>{{ form.atenuantes.help_text }}</small>
-                </p>
-                <p>
+                </div>
+                <div class="form-item">
                     <label for="{{ form.agravantes.id_for_label }}">{{ form.agravantes.label }}:</label>
                     {{ form.agravantes }}
                     <small>{{ form.agravantes.help_text }}</small>
-                </p>
+                </div>
+                <div class="form-item full-width">
+                    <label for="{{ form.punicao_sugerida.id_for_label }}">{{ form.punicao_sugerida.label }}:</label>
+                    {{ form.punicao_sugerida }}
+                </div>
             </div>
-
-            <p>
-                <label for="{{ form.punicao_sugerida.id_for_label }}">{{ form.punicao_sugerida.label }}:</label>
-                {{ form.punicao_sugerida }}
-            </p>
-        {% endif %}
+        </div>
     </div>
+    {% endif %}
     
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar Alterações</button>

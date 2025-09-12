@@ -3,8 +3,15 @@
 {% block title %}Histórico de PATDs de {{ militar }}{% endblock %}
 
 {% block content %}
-<h1>Histórico de PATDs</h1>
-<p>Militar: <strong>{{ militar.nome_completo }}</strong></p>
+<div class="table-header">
+    <div>
+        <h1>Histórico de PATDs</h1>
+        <p style="margin-top: 5px; color: var(--text-secondary);">Militar: <strong>{{ militar.nome_completo }}</strong></p>
+    </div>
+     <div class="actions">
+        <a href="{% url 'Ouvidoria:militar_list' %}" class="btn btn-secondary">Voltar para Efetivo</a>
+    </div>
+</div>
 
 <div class="table-responsive">
     <table class="data-table">
@@ -21,7 +28,6 @@
             <tr>
                 <td>{{ patd.numero_patd }}</td>
                 <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
-                <!-- CORREÇÃO APLICADA AQUI -->
                 <td>{{ patd.get_status_display }}</td>
                 <td class="actions-cell">
                     <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver Detalhes</a>
@@ -34,9 +40,5 @@
             {% endfor %}
         </tbody>
     </table>
-</div>
-
-<div class="form-actions">
-    <a href="{% url 'Ouvidoria:militar_list' %}" class="btn btn-secondary">Voltar para Efetivo</a>
 </div>
 {% endblock %}

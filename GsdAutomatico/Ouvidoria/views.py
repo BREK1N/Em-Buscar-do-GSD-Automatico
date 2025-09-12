@@ -1272,7 +1272,7 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
 def analisar_punicao(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
 
-    # A análise agora é acionada por um signal. Esta view apenas verifica se o resultado está pronto.
+    # Verifica se a análise já foi feita
     if patd.punicao_sugerida:
         return JsonResponse({
             'status': 'success',
@@ -1282,12 +1282,55 @@ def analisar_punicao(request, pk):
                 'punicao': patd.punicao_sugerida
             }
         })
-    else:
-        # Se os dados não estiverem prontos, significa que a tarefa em background ainda está a ser executada.
+    
+    # Se não, executa a análise agora
+    try:
+        # 1. Enquadrar os itens
+        itens_obj = enquadra_item(patd.transgressao)
+        # Acessa o atributo 'item' do objeto Pydantic que é uma lista de dicionários
+        itens_list = [item for item in itens_obj.item]
+        patd.itens_enquadrados = itens_list
+        
+        # 2. Verificar agravantes e atenuantes
+        historico_militar = "" # Placeholder para o histórico do militar, pode ser implementado no futuro
+        justificativa = patd.alegacao_defesa or "Nenhuma alegação de defesa foi apresentada."
+        
+        circunstancias_obj = verifica_agravante_atenuante(historico_militar, patd.transgressao, justificativa, patd.itens_enquadrados)
+        # O resultado é um objeto Pydantic com um atributo 'item' que é uma lista contendo um dicionário
+        circunstancias_dict = circunstancias_obj.item[0] 
+        patd.circunstancias = {
+            'atenuantes': circunstancias_dict.get('atenuantes', []),
+            'agravantes': circunstancias_dict.get('agravantes', [])
+        }
+
+        # 3. Sugerir Punição
+        punicao_obj = sugere_punicao(
+            transgressao=patd.transgressao,
+            agravantes=patd.circunstancias.get('agravantes', []),
+            atenuantes=patd.circunstancias.get('atenuantes', []),
+            itens=patd.itens_enquadrados,
+            observacao="Análise inicial"
+        )
+        patd.punicao_sugerida = punicao_obj.punicao.get('punicao', 'Erro na sugestão.')
+
+        patd.save()
+
+        # Retorna os dados da análise recém-concluída
         return JsonResponse({
-            'status': 'processing',
-            'message': 'A análise automática está em andamento. Por favor, aguarde alguns instantes e tente novamente.'
+            'status': 'success',
+            'analise_data': {
+                'itens': patd.itens_enquadrados,
+                'circunstancias': patd.circunstancias,
+                'punicao': patd.punicao_sugerida
+            }
         })
+
+    except Exception as e:
+        logger.error(f"Erro ao chamar a IA para apuração da PATD {pk}: {e}")
+        return JsonResponse({
+            'status': 'error',
+            'message': f'Ocorreu um erro durante a análise da IA: {e}'
+        }, status=500)
 
 
 @login_required
