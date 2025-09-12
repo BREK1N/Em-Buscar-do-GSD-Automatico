@@ -1272,51 +1272,22 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
 def analisar_punicao(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
 
-    def run_analysis_in_background():
-        try:
-            logger.info(f"Iniciando análise em background para PATD {pk}...")
-            # 1. Enquadrar os itens
-            itens_obj = enquadra_item(patd.transgressao)
-            
-            # 2. Histórico
-            historico_punicoes = PATD.objects.filter(militar=patd.militar).exclude(pk=patd.pk).count()
-            historico_str = f"O militar possui {historico_punicoes} transgressões anteriores."
-            
-            # 3. Agravantes e Atenuantes
-            justificativa = patd.alegacao_defesa or "O militar não apresentou alegação de defesa (preclusão)."
-            circunstancias_obj = verifica_agravante_atenuante(historico_str, patd.transgressao, justificativa, itens_obj.item)
-            
-            # 4. Punição
-            punicao_obj = sugere_punicao(
-                patd.transgressao, 
-                circunstancias_obj.item[0].get('agravantes', []), 
-                circunstancias_obj.item[0].get('atenuantes', []), 
-                itens_obj.item, 
-                "N/A"
-            )
-            
-            # 5. Gerar e salvar o texto do relatório
-            justificativa_para_relatorio = patd.alegacao_defesa or "O militar não apresentou alegação de defesa (preclusão)."
-            texto_relatorio_gerado = texto_relatorio(patd.transgressao, justificativa_para_relatorio)
-            
-            # 6. Salvar todos os resultados no objeto PATD
-            patd.itens_enquadrados = itens_obj.item
-            patd.circunstancias = circunstancias_obj.item[0]
-            patd.punicao_sugerida = punicao_obj.punicao.get('punicao', 'Erro na sugestão')
-            patd.texto_relatorio = texto_relatorio_gerado
-            patd.save()
-            logger.info(f"Análise em background para PATD {pk} concluída com sucesso.")
-
-        except Exception as e:
-            logger.error(f"Erro na thread de análise para PATD {pk}: {e}")
-
-    thread = threading.Thread(target=run_analysis_in_background)
-    thread.start()
-
-    return JsonResponse({
-        'status': 'processing',
-        'message': 'A análise da punição foi iniciada em segundo plano. Os resultados aparecerão na página em instantes, por favor, aguarde.'
-    })
+    # A análise agora é acionada por um signal. Esta view apenas verifica se o resultado está pronto.
+    if patd.punicao_sugerida:
+        return JsonResponse({
+            'status': 'success',
+            'analise_data': {
+                'itens': patd.itens_enquadrados,
+                'circunstancias': patd.circunstancias,
+                'punicao': patd.punicao_sugerida
+            }
+        })
+    else:
+        # Se os dados não estiverem prontos, significa que a tarefa em background ainda está a ser executada.
+        return JsonResponse({
+            'status': 'processing',
+            'message': 'A análise automática está em andamento. Por favor, aguarde alguns instantes e tente novamente.'
+        })
 
 
 @login_required
@@ -1471,3 +1442,4 @@ def salvar_reconsideracao(request, pk):
     except Exception as e:
         logger.error(f"Erro ao salvar texto de reconsideração para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+

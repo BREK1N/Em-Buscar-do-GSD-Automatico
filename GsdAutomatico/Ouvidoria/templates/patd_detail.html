@@ -5,242 +5,385 @@
 
 {% block content %}
 <style>
+    .status-timeline {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 30px;
+        padding: 0;
+        list-style: none;
+        position: relative;
+    }
+    .status-timeline::before {
+        content: '';
+        position: absolute;
+        top: 50%;
+        left: 0;
+        right: 0;
+        height: 2px;
+        background-color: var(--border-color);
+        transform: translateY(-50%);
+        z-index: 1;
+    }
+    .status-step {
+        position: relative;
+        text-align: center;
+        width: 100%;
+        z-index: 2;
+    }
+    .status-step .status-dot {
+        width: 20px;
+        height: 20px;
+        border-radius: 50%;
+        background-color: var(--border-color);
+        margin: 0 auto 10px;
+        border: 3px solid var(--bg-content);
+        transition: background-color 0.3s;
+    }
+    .status-step.completed .status-dot,
+    .status-step.active .status-dot {
+        background-color: var(--accent-color);
+    }
+    .status-step .status-label {
+        font-size: 12px;
+        color: var(--text-secondary);
+    }
+     .status-step.active .status-label {
+        font-weight: bold;
+        color: var(--text-primary);
+    }
+
+    .patd-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-start;
+        margin-bottom: 20px;
+    }
+
+    .patd-header h1 {
+        border-bottom: none;
+        padding-bottom: 0;
+    }
+
+    .patd-actions {
+        display: flex;
+        gap: 10px;
+        flex-shrink: 0;
+        margin-left: 20px;
+    }
+
+    .card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: var(--box-shadow);
+    }
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .card-header svg {
+        width: 24px;
+        height: 24px;
+        color: var(--accent-color);
+    }
+    .card-header h2 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+    .card-body .detail-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+        gap: 20px;
+    }
+     .card-body .detail-item strong {
+        display: block;
+        color: var(--text-secondary);
+        font-size: 0.8rem;
+        margin-bottom: 5px;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+     .card-body .detail-item p, .card-body .detail-item .detail-value {
+        margin: 0;
+        color: var(--text-primary);
+        font-weight: 500;
+    }
+
+    .full-width {
+        grid-column: 1 / -1;
+    }
+
+    .document-view {
+        white-space: pre-wrap;
+    }
+
+    /* Estilos copiados para consistência */
     .tabs-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
-    .tabs-nav a { padding: 10px 20px; text-decoration: none; color: var(--text-secondary); border-bottom: 3px solid transparent; margin-bottom: -1px; /* Alinha com a borda inferior */ cursor: pointer; }
+    .tabs-nav a { padding: 10px 20px; text-decoration: none; color: var(--text-secondary); border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: pointer; }
     .tabs-nav a.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
-    .document-view { width: 100%; min-height: 500px; padding: 20px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); font-family: var(--font-family); /* Alterado para a fonte padrão da aplicação */ font-size: 14px; line-height: 1.7; box-sizing: border-box; white-space: pre-wrap; /* Preserva espaços e quebras de linha */ }
     .document-view .signature-image-embedded { max-height: 60px; width: auto; background-color: white; border: 1px solid #ccc; border-radius: 4px; padding: 2px; vertical-align: middle; }
     .document-view .no-signature-text { font-style: italic; color: var(--text-secondary); }
     .btn-success { background: linear-gradient(45deg, var(--success-color), #5cb85c); color: #fff; }
     .prazo-defesa { background-color: var(--sidebar-active-bg); border-left: 4px solid var(--warning-color); padding: 15px; margin-bottom: 20px; border-radius: 4px; }
     .prazo-defesa.expirado { border-left-color: var(--danger-color); }
-    .prazo-defesa strong { display: block; margin-bottom: 5px; color: var(--text-primary); }
-    .prazo-defesa small { display: block; margin-top: 8px; font-size: 12px; color: var(--text-secondary); }
-    .analise-container { margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px; }
-    .btn .spinner { display: inline-block; width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, 0.3); border-top-color: #fff; border-radius: 50%; animation: spin 1s linear infinite; }
-    @keyframes spin { to { transform: rotate(360deg); } }
-    /* Estilos para o formulário de apuração */
-    #apuracao-form { display: none; /* Começa oculto */ margin-top: 15px; }
+    .analise-container .feedback-message { margin-top: 10px; padding: 10px; border-radius: 6px; font-weight: 500; }
+    .feedback-message.processing { background-color: var(--sidebar-active-bg); border-left: 4px solid var(--warning-color); color: var(--text-primary); }
+    .feedback-message.error { background-color: #f8d7da; border-left: 4px solid var(--danger-color); color: #721c24; }
+    #apuracao-form { display: none; margin-top: 15px; }
     #apuracao-form .form-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
-    #apuracao-form textarea { width: 100%; min-height: 100px; }
+    #apuracao-form textarea, #apuracao-form input { width: 100%; box-sizing: border-box; }
     #apuracao-form .form-item-full { grid-column: 1 / -1; }
-    .no-signature-warning {
-        font-size: 12px;
-        color: var(--warning-color);
-        font-style: italic;
-    }
-    .btn-sign-placeholder {
-        display: inline-block;
-        padding: 5px 10px;
-        background-color: var(--accent-color);
-        color: white;
-        border-radius: 4px;
-        cursor: pointer;
-    }
 </style>
 
-<h1>PATD Nº {{ patd.numero_patd }}</h1>
-
-<nav class="tabs-nav">
-    <a class="tab-link active" data-target="tab-detalhes">Detalhes</a>
-    <a class="tab-link" data-target="tab-documento">Documento</a>
-</nav>
-
-<div id="tab-detalhes" class="tab-panel active">
-
-    {% if patd.status == 'aguardando_justificativa' or patd.status == 'prazo_expirado' %}
-    <div id="prazo-box" class="prazo-defesa">
-        <strong>Prazo para Alegação de Defesa:</strong>
-        <span id="countdown-timer">A calcular...</span>
-        <small>Nota: O prazo é contado em dias úteis.</small>
-    </div>
-    {% endif %}
-
-    {% if patd.status == 'periodo_reconsideracao' %}
-    <div id="reconsideracao-prazo-box" class="prazo-defesa">
-        <strong>Prazo para Reconsideração:</strong>
-        <span id="reconsideracao-countdown-timer">A calcular...</span>
-        <small>Nota: O prazo é contado em 15 dias corridos.</small>
-    </div>
-    {% endif %}
-
-    <div class="detail-grid">
-        <div class="detail-item">
-            <strong>Militar Acusado:</strong>
-            <p class="detail-item-value">
-                <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">
-                    {{ patd.militar.posto }} {{ patd.militar.especializacao }} {{ patd.militar.nome_completo }} (<strong>{{ patd.militar.nome_guerra }}</strong>)
-                </a>
-            </p>
-        </div>
-        <div class="detail-item">
-            <strong>Status:</strong>
-            <p id="patd-status" class="detail-item-value">{{ patd.get_status_display }}</p>
-        </div>
-        <div class="detail-item-full">
-            <strong>Oficial Responsável:</strong>
-            <div class="oficial-container">
-                <div class="detail-item-value">
-                    {% if patd.status == 'definicao_oficial' %}
-                        <a href="{% url 'Ouvidoria:atribuir_oficial' patd.pk %}" class="btn btn-sm btn-primary">Atribuir Oficial</a>
-                    {% elif patd.status == 'aguardando_aprovacao_atribuicao' %}
-                        Aguardando aceite de: <strong>{{ patd.oficial_responsavel }}</strong>
-                        {% if user.profile.militar == patd.oficial_responsavel %}
-                             <button type="button" class="btn btn-sm btn-success" id="btn-aceitar-atribuicao-modal">Aceitar Atribuição</button>
-                        {% endif %}
-                    {% else %}
-                        {{ patd.oficial_responsavel|default:"Não definido" }}
-                    {% endif %}
-                </div>
-                <div class="signature-display-container">
-                    {% if patd.assinatura_oficial %}
-                        <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
-                    {% elif request.user.profile.militar == patd.oficial_responsavel and patd.oficial_responsavel and not patd.assinatura_oficial and patd.status != 'aguardando_aprovacao_atribuicao' and patd.status != 'definicao_oficial' %}
-                        <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
-                    {% endif %}
-                </div>
-            </div>
-        </div>
-        <div class="detail-item-full">
-            <strong>Testemunhas:</strong>
-            <div class="testemunha-container" style="display: flex; gap: 40px;">
-                <div class="oficial-container">
-                    <p class="detail-item-value">1ª: {{ patd.testemunha1|default:"Não atribuída" }}</p>
-                    <div class="signature-display-container">
-                        {% if patd.testemunha1 and not patd.assinatura_testemunha1 %}
-                            <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="1">Assinar</button>
-                        {% elif patd.assinatura_testemunha1 %}
-                            <img src="{{ patd.assinatura_testemunha1 }}" alt="Assinatura da 1ª Testemunha" class="signature-image">
-                        {% endif %}
-                    </div>
-                </div>
-                <div class="oficial-container">
-                    <p class="detail-item-value">2ª: {{ patd.testemunha2|default:"Não atribuída" }}</p>
-                     <div class="signature-display-container">
-                        {% if patd.testemunha2 and not patd.assinatura_testemunha2 %}
-                            <button type="button" class="btn btn-sm btn-secondary add-signature-testemunha-btn" data-testemunha-num="2">Assinar</button>
-                        {% elif patd.assinatura_testemunha2 %}
-                            <img src="{{ patd.assinatura_testemunha2 }}" alt="Assinatura da 2ª Testemunha" class="signature-image">
-                        {% endif %}
-                    </div>
-                </div>
-            </div>
-        </div>
-        <div class="detail-item">
-            <strong>Data da Ocorrência:</strong>
-            <p class="detail-item-value">{{ patd.data_ocorrencia|date:"d/m/Y"|default:"Não informada" }}</p>
-        </div>
-        <div class="detail-item">
-            <strong>Protocolo COMAER:</strong>
-            <p class="detail-item-value">{{ patd.protocolo_comaer|default:"Não informado" }}</p>
-        </div>
-        <div class="detail-item">
-            <strong>Ofício da Transgressão:</strong>
-            <p class="detail-item-value">{{ patd.oficio_transgressao|default:"Não informado" }}</p>
-        </div>
-        <div class="detail-item-full">
-            <strong>Descrição da Transgressão:</strong>
-            <p>{{ patd.transgressao|linebreaks }}</p>
-        </div>
-        <div class="detail-item-full">
-            <strong>Ciência do Militar Acusado:</strong>
-            <div id="assinaturas-militar-container" class="signature-display-container" style="flex-wrap: wrap; gap: 10px;">
-                <!-- As assinaturas serão inseridas aqui pelo JS -->
-            </div>
-        </div>
-        {% if patd.alegacao_defesa %}
-        <div class="detail-item-full">
-            <strong>Alegação de Defesa:</strong>
-            <p>{{ patd.alegacao_defesa|linebreaks }}</p>
-        </div>
-        {% endif %}
-
-        {% if request.user.profile.militar == patd.oficial_responsavel %}
-            {% if patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao' %}
-            <div class="detail-item-full analise-container">
-                <h2>Análise Disciplinar</h2>
-                <div id="analise-actions">
-                    <button class="btn btn-primary" id="btn-apurar">
-                        <span class="spinner" style="display: none;"></span>
-                        Apurar Transgressão
-                    </button>
-                </div>
-
-                <form id="apuracao-form" class="model-form">
-                    <h3>Resultado da Apuração (Editável)</h3>
-                    <div class="form-grid">
-                        <div class="form-item-full">
-                            <label for="itens_enquadrados">Itens Enquadrados:</label>
-                            <textarea id="itens_enquadrados" name="itens_enquadrados"></textarea>
-                        </div>
-                        <div>
-                            <label for="atenuantes">Atenuantes:</label>
-                            <input type="text" id="atenuantes" name="atenuantes">
-                        </div>
-                        <div>
-                            <label for="agravantes">Agravantes:</label>
-                            <input type="text" id="agravantes" name="agravantes">
-                        </div>
-                        <div class="form-item-full">
-                            <label for="punicao_sugerida">Punição Sugerida:</label>
-                            <textarea id="punicao_sugerida" name="punicao_sugerida"></textarea>
-                        </div>
-                    </div>
-                    <div class="form-actions">
-                        <button type="button" id="btn-salvar-apuracao" class="btn btn-primary">
-                            <span class="spinner" style="display: none;"></span>
-                            Salvar Apuração e Concluir
-                        </button>
-                        <button type="button" id="btn-cancelar-apuracao" class="btn btn-secondary">Cancelar</button>
-                    </div>
-                </form>
-            </div>
-            {% endif %}
-        {% endif %}
-    </div>
-
-    <div class="form-actions" id="form-actions-container">
-        {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa %}
-        <button type="button" class="btn btn-primary" id="add-defesa-btn">Adicionar Alegação de Defesa</button>
-        {% endif %}
-        {% if patd.status == 'prazo_expirado' %}
-        <button type="button" class="btn btn-warning" id="extender-prazo-btn">Extender Prazo</button>
-        <button type="button" class="btn btn-danger" id="prosseguir-sem-defesa-btn">Prosseguir sem Alegação</button>
-        {% endif %}
-        {% if request.user.profile.militar == patd.oficial_responsavel %}
-            {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
-            <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
-            {% endif %}
-        {% endif %}
-
-        {% if patd.status == 'periodo_reconsideracao' %}
-        <button type="button" class="btn btn-warning" id="btn-reconsideracao-modal">Solicitar Reconsideração</button>
-        {% endif %}
-        
-        <!-- BOTÕES DO COMANDANTE ADICIONADOS AQUI -->
-        {% if patd.status == 'analise_comandante' and user|has_comandante_access %}
-        <form action="{% url 'Ouvidoria:patd_aprovar' patd.pk %}" method="post" style="display: inline;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-success">Aprovar PATD</button>
-        </form>
-        <form action="{% url 'Ouvidoria:patd_retornar' patd.pk %}" method="post" style="display: inline;">
-            {% csrf_token %}
-            <button type="submit" class="btn btn-warning">Retornar para Alteração</button>
-        </form>
-        {% endif %}
-        
-        <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-primary">Editar PATD</a>
-        <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">Voltar para a Lista</a>
+<div class="patd-header">
+    <h1>PATD Nº {{ patd.numero_patd }}</h1>
+    <div class="patd-actions">
+        <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
         <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
     </div>
 </div>
 
-<div id="tab-documento" class="tab-panel">
-    <div id="documento-view" class="document-view"></div>
+<!-- Barra de Status -->
+<ul class="status-timeline">
+    {% with current_status=patd.status %}
+    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
+        <div class="status-dot"></div>
+        <div class="status-label">Abertura</div>
+    </li>
+    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
+        <div class="status-dot"></div>
+        <div class="status-label">Defesa</div>
+    </li>
+    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
+        <div class="status-dot"></div>
+        <div class="status-label">Apuração</div>
+    </li>
+    <li class="status-step {% if current_status in 'analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
+        <div class="status-dot"></div>
+        <div class="status-label">Decisão</div>
+    </li>
+    <li class="status-step {% if current_status == 'finalizado' %}active completed{% endif %}">
+        <div class="status-dot"></div>
+        <div class="status-label">Finalizado</div>
+    </li>
+    {% endwith %}
+</ul>
+
+
+<nav class="tabs-nav">
+    <a class="tab-link active" data-target="tab-detalhes">Visão Geral</a>
+    <a class="tab-link" data-target="tab-documento">Documento Completo</a>
+</nav>
+
+<div id="tab-detalhes" class="tab-panel active">
+    
+    <!-- Card de Ações e Prazos -->
+    <div class="card">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <h2>Ações e Prazos</h2>
+        </div>
+        <div class="card-body">
+            {% if patd.status == 'aguardando_justificativa' or patd.status == 'prazo_expirado' %}
+            <div id="prazo-box" class="prazo-defesa">
+                <strong>Prazo para Alegação de Defesa:</strong>
+                <span id="countdown-timer">A calcular...</span>
+            </div>
+            {% endif %}
+            {% if patd.status == 'periodo_reconsideracao' %}
+            <div id="reconsideracao-prazo-box" class="prazo-defesa">
+                <strong>Prazo para Reconsideração:</strong>
+                <span id="reconsideracao-countdown-timer">A calcular...</span>
+            </div>
+            {% endif %}
+
+             <div class="form-actions" id="form-actions-container">
+                {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa %}
+                <button type="button" class="btn btn-primary" id="add-defesa-btn">Adicionar Alegação de Defesa</button>
+                {% endif %}
+                {% if patd.status == 'prazo_expirado' %}
+                <button type="button" class="btn btn-warning" id="extender-prazo-btn">Extender Prazo</button>
+                <button type="button" class="btn btn-danger" id="prosseguir-sem-defesa-btn">Prosseguir sem Alegação</button>
+                {% endif %}
+                {% if request.user.profile.militar == patd.oficial_responsavel %}
+                    {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
+                    <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
+                    {% endif %}
+                {% endif %}
+                {% if patd.status == 'periodo_reconsideracao' %}
+                <button type="button" class="btn btn-warning" id="btn-reconsideracao-modal">Solicitar Reconsideração</button>
+                {% endif %}
+                {% if patd.status == 'analise_comandante' and user|has_comandante_access %}
+                <form action="{% url 'Ouvidoria:patd_aprovar' patd.pk %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">Aprovar PATD</button>
+                </form>
+                <form action="{% url 'Ouvidoria:patd_retornar' patd.pk %}" method="post" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-warning">Retornar para Alteração</button>
+                </form>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+
+    <!-- Card de Detalhes do Processo -->
+    <div class="card">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12.75h.008M8.25 15h.008M8.25 18h.008m3.75-12h.008m2.25-3h.008M12 6h.008m-2.25 6h.008m2.25 6h.008M12 18h.008m-3.75-6h.008m2.25-6h.008" /></svg>
+            <h2>Detalhes do Processo</h2>
+        </div>
+        <div class="card-body">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <strong>Militar Acusado:</strong>
+                    <p class="detail-value"><a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a></p>
+                </div>
+                <div class="detail-item">
+                    <strong>Data da Ocorrência:</strong>
+                    <p class="detail-value">{{ patd.data_ocorrencia|date:"d/m/Y"|default:"Não informada" }}</p>
+                </div>
+                <div class="detail-item">
+                    <strong>Protocolo COMAER:</strong>
+                    <p class="detail-value">{{ patd.protocolo_comaer|default:"Não informado" }}</p>
+                </div>
+                 <div class="detail-item">
+                    <strong>Ofício da Transgressão:</strong>
+                    <p class="detail-value">{{ patd.oficio_transgressao|default:"Não informado" }}</p>
+                </div>
+                <div class="detail-item full-width">
+                    <strong>Descrição da Transgressão:</strong>
+                    <p>{{ patd.transgressao|linebreaks }}</p>
+                </div>
+                 {% if patd.alegacao_defesa %}
+                <div class="detail-item full-width">
+                    <strong>Alegação de Defesa:</strong>
+                    <p>{{ patd.alegacao_defesa|linebreaks }}</p>
+                </div>
+                {% endif %}
+                 <div class="detail-item">
+                    <strong>Status:</strong>
+                    <p id="patd-status" class="detail-value">{{ patd.get_status_display }}</p>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Card de Envolvidos -->
+    <div class="card">
+         <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /></svg>
+            <h2>Envolvidos e Assinaturas</h2>
+        </div>
+        <div class="card-body">
+             <div class="detail-grid">
+                  <div class="detail-item full-width">
+                    <strong>Oficial Responsável:</strong>
+                     <div class="oficial-container">
+                         <div class="detail-value">
+                            {% if patd.status == 'definicao_oficial' %}
+                                <a href="{% url 'Ouvidoria:atribuir_oficial' patd.pk %}" class="btn btn-sm btn-primary">Atribuir Oficial</a>
+                            {% elif patd.status == 'aguardando_aprovacao_atribuicao' %}
+                                Aguardando aceite de: <strong>{{ patd.oficial_responsavel }}</strong>
+                                {% if user.profile.militar == patd.oficial_responsavel %}
+                                     <button type="button" class="btn btn-sm btn-success" id="btn-aceitar-atribuicao-modal">Aceitar Atribuição</button>
+                                {% endif %}
+                            {% else %}
+                                {{ patd.oficial_responsavel|default:"Não definido" }}
+                            {% endif %}
+                        </div>
+                        <div class="signature-display-container">
+                            {% if patd.assinatura_oficial %}
+                                <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
+                            {% elif request.user.profile.militar == patd.oficial_responsavel and patd.oficial_responsavel and not patd.assinatura_oficial and patd.status != 'aguardando_aprovacao_atribuicao' and patd.status != 'definicao_oficial' %}
+                                <button type="button" class="btn btn-sm btn-secondary" id="add-signature-btn">Adicionar Assinatura</button>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="detail-item">
+                    <strong>1ª Testemunha:</strong>
+                    <div class="detail-value">{{ patd.testemunha1|default:"Não atribuída" }}</div>
+                </div>
+                 <div class="detail-item">
+                    <strong>2ª Testemunha:</strong>
+                    <div class="detail-value">{{ patd.testemunha2|default:"Não atribuída" }}</div>
+                </div>
+
+                 <div class="detail-item full-width">
+                    <strong>Ciência do Militar Acusado:</strong>
+                    <div id="assinaturas-militar-container" class="signature-display-container" style="flex-wrap: wrap; gap: 10px; margin-top: 10px;">
+                        <!-- As assinaturas serão inseridas aqui pelo JS -->
+                    </div>
+                </div>
+             </div>
+        </div>
+    </div>
+    
+     {% if request.user.profile.militar == patd.oficial_responsavel and patd.status in 'em_apuracao,apuracao_preclusao' %}
+    <div class="card">
+        <div class="card-header">
+             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
+             <h2>Análise Disciplinar</h2>
+        </div>
+        <div class="card-body">
+            <div id="analise-actions">
+                <button class="btn btn-primary" id="btn-apurar">
+                    <span class="spinner" style="display: none;"></span>
+                    Visualizar Apuração
+                </button>
+            </div>
+             <form id="apuracao-form" class="model-form">
+                <h3>Resultado da Apuração (Editável)</h3>
+                <div class="form-grid">
+                    <div class="form-item-full">
+                        <label for="itens_enquadrados">Itens Enquadrados:</label>
+                        <textarea id="itens_enquadrados" name="itens_enquadrados" rows="4"></textarea>
+                    </div>
+                    <div>
+                        <label for="atenuantes">Atenuantes:</label>
+                        <input type="text" id="atenuantes" name="atenuantes">
+                    </div>
+                    <div>
+                        <label for="agravantes">Agravantes:</label>
+                        <input type="text" id="agravantes" name="agravantes">
+                    </div>
+                    <div class="form-item-full">
+                        <label for="punicao_sugerida">Punição Sugerida:</label>
+                        <textarea id="punicao_sugerida" name="punicao_sugerida" rows="3"></textarea>
+                    </div>
+                </div>
+                <div class="form-actions">
+                    <button type="button" id="btn-salvar-apuracao" class="btn btn-primary">
+                        <span class="spinner" style="display: none;"></span>
+                        Salvar Apuração e Concluir
+                    </button>
+                    <button type="button" id="btn-cancelar-apuracao" class="btn btn-secondary">Ocultar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+
 </div>
 
+<div id="tab-documento" class="tab-panel">
+    <div class="card">
+        <div class="card-body">
+            <div id="documento-view" class="document-view"></div>
+        </div>
+    </div>
+</div>
+<!-- Modals... -->
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
         <h3>Confirmar Exclusão</h3>
@@ -883,9 +1026,16 @@ document.addEventListener('DOMContentLoaded', function() {
     if (btnApurar) {
         btnApurar.addEventListener('click', function() {
             const spinner = this.querySelector('.spinner');
+            const analiseActions = document.getElementById('analise-actions');
             spinner.style.display = 'inline-block';
             this.disabled = true;
-
+    
+            // Limpa mensagens de feedback anteriores
+            const existingFeedback = analiseActions.querySelector('.feedback-message');
+            if (existingFeedback) {
+                existingFeedback.remove();
+            }
+    
             const url = `{% url 'Ouvidoria:analisar_punicao' patd.pk %}`;
             fetch(url, {
                 method: 'POST',
@@ -893,17 +1043,32 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .then(response => response.json())
             .then(data => {
-                if (data.status === 'processing') {
-                    alert(data.message); // Avisa o usuário que começou
-                    btnApurar.style.display = 'none'; // Esconde o botão
-                    // Adicionar lógica de polling se necessário para atualizar a UI quando terminar
-                } else {
-                    alert(`Erro na análise: ${data.message}`);
+                if (data.status === 'success') {
+                    // Os dados estão prontos, preenche e exibe o formulário
+                    const analise = data.analise_data;
+                    const itensStr = (analise.itens || []).map(item => `${item.numero || 'N/A'}: ${item.descricao || ''}`).join('\n');
+                    document.getElementById('itens_enquadrados').value = itensStr;
+                    document.getElementById('atenuantes').value = (analise.circunstancias.atenuantes || []).join(', ');
+                    document.getElementById('agravantes').value = (analise.circunstancias.agravantes || []).join(', ');
+                    document.getElementById('punicao_sugerida').value = analise.punicao || '';
+    
+                    btnApurar.style.display = 'none';
+                    if (apuracaoForm) apuracaoForm.style.display = 'block';
+    
+                } else { // Cobre 'processing' e qualquer outro status de erro
+                    const feedback = document.createElement('div');
+                    feedback.className = 'feedback-message';
+                    feedback.classList.add(data.status === 'processing' ? 'processing' : 'error');
+                    feedback.textContent = data.message;
+                    analiseActions.appendChild(feedback);
                 }
             })
             .catch(err => {
-                alert('Erro de comunicação ao iniciar a análise.');
-                console.error(err);
+                console.error('Fetch Error:', err);
+                const feedback = document.createElement('div');
+                feedback.className = 'feedback-message error';
+                feedback.textContent = 'Erro de comunicação ao buscar análise.';
+                analiseActions.appendChild(feedback);
             })
             .finally(() => {
                 spinner.style.display = 'none';
@@ -1085,3 +1250,5 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
+
