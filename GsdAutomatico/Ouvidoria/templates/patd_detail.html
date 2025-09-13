@@ -156,6 +156,29 @@
     .btn.loading .spinner { display: inline-block; }
     .btn.loading .btn-text { display: none; }
 
+    /* Estilos para o histórico */
+    .historico-list {
+        list-style-type: none;
+        padding-left: 0;
+        max-height: 200px;
+        overflow-y: auto;
+    }
+    .historico-item {
+        background-color: var(--bg-main);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 10px;
+        border-left: 4px solid var(--border-color);
+    }
+    .historico-item strong {
+        color: var(--text-primary);
+    }
+    .historico-item span {
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+        display: block;
+    }
+
 </style>
 
 <div class="patd-header">
@@ -344,7 +367,7 @@
         </div>
     </div>
     
-     {% if request.user.profile.militar == patd.oficial_responsavel and patd.status in 'em_apuracao,apuracao_preclusao' %}
+     {% if request.user.profile.militar == patd.oficial_responsavel and patd.status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}
     <div class="card">
         <div class="card-header">
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
@@ -359,6 +382,23 @@
             </div>
              <form id="apuracao-form" class="model-form">
                 <h3>Resultado da Apuração (Editável)</h3>
+                
+                <!-- NOVO CAMPO DE HISTÓRICO -->
+                <div class="form-item form-item-full">
+                    <label for="historico_disciplinar">Histórico Disciplinar do Militar</label>
+                    <div id="historico_disciplinar" class="historico-list">
+                        {% for punicao in historico_punicoes %}
+                            <li class="historico-item">
+                                <strong>PATD Nº {{ punicao.numero_patd }} ({{ punicao.data }})</strong>
+                                <span>Punição: {{ punicao.punicao }}</span>
+                                <span>Itens: {{ punicao.itens }}</span>
+                            </li>
+                        {% empty %}
+                            <p>Nenhuma punição anterior encontrada.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+
                 <div class="form-grid">
                     <div class="form-item-full">
                         <label for="itens_enquadrados">Itens Enquadrados:</label>
@@ -381,6 +421,10 @@
                     <button type="button" id="btn-salvar-apuracao" class="btn btn-primary">
                         <span class="spinner" style="display: none;"></span>
                         Salvar Apuração e Concluir
+                    </button>
+                    <button type="button" id="btn-reanalisar-apuracao" class="btn btn-warning">
+                        <span class="spinner" style="display: none;"></span>
+                        Analisar Novamente
                     </button>
                     <button type="button" id="btn-cancelar-apuracao" class="btn btn-secondary">Ocultar</button>
                 </div>
@@ -545,6 +589,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 <script>
 // Dados da análise pré-carregados pelo Django
 const analiseData = {{ analise_data_json|safe }};
@@ -1261,6 +1306,51 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target === reconsideracaoTextoModal) reconsideracaoTextoModal.classList.remove('active');
         });
     }
+
+    // --- NOVA LÓGICA PARA O BOTÃO DE REANÁLISE ---
+    const btnReanalisar = document.getElementById('btn-reanalisar-apuracao');
+
+    if (btnReanalisar) {
+        btnReanalisar.addEventListener('click', function() {
+            const spinner = this.querySelector('.spinner');
+            spinner.style.display = 'inline-block';
+            this.disabled = true;
+
+            const url = `{% url 'Ouvidoria:analisar_punicao' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ force_reanalyze: true }) // Envia o sinalizador para forçar a reanálise
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Atualiza os campos do formulário com os novos dados
+                    const analise = data.analise_data;
+                    const itensStr = (analise.itens || []).map(item => `${item.numero || 'N/A'}: ${item.descricao || ''}`).join('\n');
+                    document.getElementById('itens_enquadrados').value = itensStr;
+                    document.getElementById('atenuantes').value = (analise.circunstancias.atenuantes || []).join(', ');
+                    document.getElementById('agravantes').value = (analise.circunstancias.agravantes || []).join(', ');
+                    document.getElementById('punicao_sugerida').value = analise.punicao || '';
+                    alert('A análise foi atualizada com sucesso.');
+                } else {
+                    alert(`Erro ao reanalisar: ${data.message}`);
+                }
+            })
+            .catch(err => {
+                console.error('Fetch Error:', err);
+                alert('Erro de comunicação ao solicitar nova análise.');
+            })
+            .finally(() => {
+                spinner.style.display = 'none';
+                this.disabled = false;
+            });
+        });
+    }
 });
 </script>
 {% endblock %}
+

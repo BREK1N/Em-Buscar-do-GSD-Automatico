@@ -193,19 +193,15 @@ def enquadra_item(transgressao):
 def verifica_agravante_atenuante(historico, transgressao, justificativa, itens):
 
     class Item(BaseModel):
-        item: list = Field(description="""Defina um dicionário python com a chave 'agravantes' e o valor sendo as letras correspondentes as situações agravantes
-                                e a chave 'atenuantes' e o valor sendo as letras correspondentes as situações atenuantes
-                               e a chave 'itens' e o valor sendo os itens que o militar foi enquadrado
-                            """)
-
+        item: list = Field(description="""Defina uma lista contendo um único dicionário python. O dicionário deve ter a chave 'agravantes' com uma lista das letras correspondentes, e a chave 'atenuantes' com uma lista das letras correspondentes.""")
 
     parser = PydanticOutputParser(pydantic_object=Item)
 
     sys_prompt = """
     # Contexto #
-    Você é um especialista em determinar o que são circunstâncias atenuantes e agravantes no julgamento de uma transgressão disciplinar praticada por um militar.
-    Você deve avaliar com muita atenção se a justificativa apresentada realmente é válida, pois o militar tentará de qualquer formar possível ser justificado.
-    # Informações #
+    Você é um especialista em determinar o que são circunstâncias atenuantes e agravantes no julgamento de uma transgressão disciplinar militar, de acordo com o Regulamento Disciplinar da Aeronáutica (RDAER). Você deve ser extremamente rigoroso e técnico.
+
+    # Informações do RDAER #
     2 - São circunstâncias atenuantes:
     a) o bom comportamento;
     b) relevância de serviços prestados;
@@ -213,35 +209,35 @@ def verifica_agravante_atenuante(historico, transgressao, justificativa, itens):
     d) ter sido a transgressão, cometida por influência de fatores adversos;
     e) ocorrência da transgressão para evitar mal maior;
     f) defesa dos direitos próprios ou de outrem.
+
     3 - São circunstâncias agravantes:
     a) mau comportamento;
     b) reincidência na mesma transgressão;
     c) prática simultânea ou conexão de duas ou mais transgressões;
     d) existência de conluio;
     e) premeditação ou má-fé;
-    f) ocorrência de transgressão colocando em risco vidas humanas, segurança de aeronave, viaturas
-    ou propriedade do Estado ou de particulares;
+    f) ocorrência de transgressão colocando em risco vidas humanas, segurança de aeronave, viaturas ou propriedade do Estado ou de particulares;
     g) ocorrência da transgressão em presença de subordinado, de tropa ou em público;
-    h) abuso de autoridade hierárquiquca ou funcional;
+    h) abuso de autoridade hierárquica ou funcional;
     i) ocorrência da transgressão durante o serviço ou instrução.
-    # Regras #
-    1. O militar por padrão possui bom comportamento (atenuante 'a'). Ele só perde esse atenuante e passa a ter mau comportamento (agravante 'a') se o seu histórico indicar que já recebeu alguma punição de natureza 'grave'.
-    2. Se o militar for enquadrado em mais de um item na transgressão ATUAL, ele está automaticamente enquadrado na letra 'c' dos agravantes.
-    3. **Verificação de Reincidência (Agravante 'b'):** Você DEVE verificar se há reincidência. O histórico do militar informa os NÚMEROS dos itens de punições anteriores. A transgressão atual foi enquadrada nos seguintes itens: {itens}. Compare os números dos itens do histórico com os números dos itens da transgressão atual. Se QUALQUER número de item do histórico for EXATAMENTE IGUAL a qualquer número de item da transgressão atual, isso é reincidência. Neste caso, você DEVE OBRIGATORIAMENTE adicionar a letra 'b' à lista de agravantes. Se o histórico indicar "Nenhuma punição anterior registrada", não aplique o agravante 'b'.
-    # Justificativa apresentada pelo militar #
-    {justificativa}
-    # Histórico do militar #
-    {historico}
-    # Itens em que o militar foi enquadrado durante a atual transgressão #
-    {itens}
 
-    # Formatação #
-    Você deve retornar no seguinte formato:
-    <formato>
+    # Regras de Análise Obrigatórias #
+    1.  **Atenuante 'a' (Bom Comportamento):** O militar SEMPRE começa com o atenuante 'a', a menos que a Regra 2 se aplique.
+    2.  **Agravante 'a' (Mau Comportamento):** Se o histórico do militar mencionar punições anteriores por transgressões consideradas 'graves', remova o atenuante 'a' e adicione o agravante 'a'.
+    3.  **Agravante 'c' (Conexão de Transgressões):** Se a transgressão atual foi enquadrada em mais de um item do RDAER (a lista de 'Itens da Transgressão Atual' terá mais de um elemento), adicione o agravante 'c'.
+    4.  **Agravante 'i' (Ocorrência em Serviço):** Leia a descrição da 'Transgressão Atual'. Se o texto indicar que o fato ocorreu "durante o serviço", "em escala de serviço", "de serviço", "em missão", ou qualquer expressão sinônima, adicione OBRIGATORIAMENTE o agravante 'i'.
+    5.  **Agravante 'b' (Reincidência):** ESTA É A VERIFICAÇÃO MAIS CRÍTICA. Compare os NÚMEROS dos itens da 'Itens da Transgressão Atual' com os NÚMEROS dos itens mencionados no 'Histórico do Militar'. Se houver QUALQUER número de item em comum, adicione OBRIGATORIAMENTE o agravante 'b'.
+
+    # Dados para Análise #
+    - **Transgressão Atual:** {transgressao}
+    - **Itens da Transgressão Atual:** {itens}
+    - **Histórico do Militar:** {historico}
+    - **Justificativa do Militar:** {justificativa}
+
+    # Formato da Resposta #
+    Você deve retornar no seguinte formato JSON, sem nenhum texto adicional.
     {format_instructions}
-    </formato>
-    # Transgressão #
-    {transgressao}"""
+    """
 
     prompt_template = ChatPromptTemplate.from_messages(
         [("system", sys_prompt)],
@@ -410,4 +406,3 @@ def texto_relatorio(transgressao, justificativa):
     resposta = chain.invoke({"transgressao":transgressao, "justificativa": justificativa})
 
     return resposta
-

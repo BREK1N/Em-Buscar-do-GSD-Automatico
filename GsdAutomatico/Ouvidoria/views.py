@@ -244,7 +244,7 @@ def _get_document_context(patd):
         '{data da Ocorrencia}': data_ocorrencia_fmt,
         '{Ocorrencia reescrita}': patd.ocorrencia_reescrita or patd.transgressao,
         '{protocolo comaer}': patd.protocolo_comaer,
-        '{Oficio Transgressao}': patd.oficio_transgressao,
+        '{Oficio Transgrecao}': patd.oficio_transgressao,
         '{data_oficio}': data_oficio_fmt,
         '{comprovante}': patd.comprovante or "[Não informado]",
 
@@ -253,7 +253,7 @@ def _get_document_context(patd):
         '{Atenuante}': atenuantes_str,
         '{agravantes}': agravantes_str,
         '{transgressao_afirmativa}': patd.transgressao_afirmativa or "[Análise não realizada]",
-        '{natureza_transgressao}': patd.natureza_transgressao or "[Análise não realizada]",
+        '{natureza_transgrecao}': patd.natureza_transgressao or "[Análise não realizada]",
         
         # Dados da Defesa
         '{data ciência}': data_ciencia_fmt,
@@ -877,6 +877,31 @@ class PATDDetailView(DetailView):
             'circunstancias': patd.circunstancias,
             'punicao': patd.punicao_sugerida
         }) if patd.punicao_sugerida else 'null'
+
+        # --- NOVA LÓGICA PARA HISTÓRICO DE PUNIÇÕES ---
+        militar_acusado = patd.militar
+        # Busca todas as PATDs anteriores, exceto a atual
+        patds_anteriores = PATD.objects.filter(
+            militar=militar_acusado
+        ).exclude(pk=patd.pk).order_by('-data_inicio')
+
+        historico_punicoes = []
+        for p_antiga in patds_anteriores:
+            # Apenas inclui no histórico visível se já houver uma punição definida
+            if p_antiga.punicao:
+                itens_str = ""
+                if p_antiga.itens_enquadrados and isinstance(p_antiga.itens_enquadrados, list):
+                    itens_str = ", ".join([str(item.get('numero', '')) for item in p_antiga.itens_enquadrados])
+                
+                historico_punicoes.append({
+                    'numero_patd': p_antiga.numero_patd,
+                    'punicao': f"{p_antiga.dias_punicao} de {p_antiga.punicao}" if p_antiga.dias_punicao else p_antiga.punicao,
+                    'itens': itens_str,
+                    'data': p_antiga.data_inicio.strftime('%d/%m/%Y')
+                })
+                
+        context['historico_punicoes'] = historico_punicoes
+        # --- FIM DA NOVA LÓGICA ---
         
         return context
 
@@ -892,6 +917,7 @@ class PATDUpdateView(UpdateView):
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class PATDDeleteView(DeleteView):
     model = PATD
+    template_name = 'patd_confirm_delete.html'
     success_url = reverse_lazy('Ouvidoria:patd_list')
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
@@ -1271,9 +1297,16 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
 @require_POST
 def analisar_punicao(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+    force_reanalyze = False
+    
+    if request.content_type == 'application/json':
+        try:
+            data = json.loads(request.body)
+            force_reanalyze = data.get('force_reanalyze', False)
+        except json.JSONDecodeError:
+            pass 
 
-    # Verifica se a análise já foi feita
-    if patd.punicao_sugerida:
+    if patd.punicao_sugerida and not force_reanalyze:
         return JsonResponse({
             'status': 'success',
             'analise_data': {
@@ -1283,20 +1316,16 @@ def analisar_punicao(request, pk):
             }
         })
     
-    # Se não, executa a análise agora
     try:
         # 1. Enquadrar os itens
         itens_obj = enquadra_item(patd.transgressao)
-        # Acessa o atributo 'item' do objeto Pydantic que é uma lista de dicionários
         itens_list = [item for item in itens_obj.item]
         patd.itens_enquadrados = itens_list
         
         # 2. Verificar agravantes e atenuantes
-        # --- CORREÇÃO: Busca o histórico de PATDs finalizadas do militar ---
         militar_acusado = patd.militar
         patds_anteriores = PATD.objects.filter(
-            militar=militar_acusado, 
-            status='finalizado'
+            militar=militar_acusado
         ).exclude(pk=patd.pk)
 
         historico_list = []
@@ -1311,13 +1340,13 @@ def analisar_punicao(request, pk):
         justificativa = patd.alegacao_defesa or "Nenhuma alegação de defesa foi apresentada."
         
         circunstancias_obj = verifica_agravante_atenuante(historico_militar, patd.transgressao, justificativa, patd.itens_enquadrados)
-        # O resultado é um objeto Pydantic com um atributo 'item' que é uma lista contendo um dicionário
+        
         circunstancias_dict = circunstancias_obj.item[0] 
         patd.circunstancias = {
             'atenuantes': circunstancias_dict.get('atenuantes', []),
             'agravantes': circunstancias_dict.get('agravantes', [])
         }
-
+        
         # 3. Sugerir Punição
         punicao_obj = sugere_punicao(
             transgressao=patd.transgressao,
@@ -1329,19 +1358,20 @@ def analisar_punicao(request, pk):
         patd.punicao_sugerida = punicao_obj.punicao.get('punicao', 'Erro na sugestão.')
 
         patd.save()
-
-        # Retorna os dados da análise recém-concluída
-        return JsonResponse({
+        
+        final_response_data = {
             'status': 'success',
             'analise_data': {
                 'itens': patd.itens_enquadrados,
                 'circunstancias': patd.circunstancias,
                 'punicao': patd.punicao_sugerida
             }
-        })
+        }
+
+        return JsonResponse(final_response_data)
 
     except Exception as e:
-        logger.error(f"Erro ao chamar a IA para apuração da PATD {pk}: {e}")
+        logger.error(f"Erro na análise da IA para PATD {pk}: {e}", exc_info=True)
         return JsonResponse({
             'status': 'error',
             'message': f'Ocorreu um erro durante a análise da IA: {e}'
@@ -1356,7 +1386,6 @@ def salvar_apuracao(request, pk):
         patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
 
-        # Se o status for de preclusão, verifica as assinaturas das testemunhas primeiro.
         if patd.status == 'apuracao_preclusao':
             if not _check_preclusao_signatures(patd):
                 return JsonResponse({
@@ -1500,4 +1529,14 @@ def salvar_reconsideracao(request, pk):
     except Exception as e:
         logger.error(f"Erro ao salvar texto de reconsideração para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+# --- NOVA VIEW PARA NOTIFICAÇÃO DO COMANDANTE ---
+@login_required
+@require_GET
+def comandante_pendencias_json(request):
+    if not has_comandante_access(request.user):
+        return JsonResponse({'count': 0})
+        
+    count = PATD.objects.filter(status='analise_comandante').count()
+    return JsonResponse({'count': count})
 

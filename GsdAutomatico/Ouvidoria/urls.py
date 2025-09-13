@@ -53,10 +53,10 @@ urlpatterns = [
     # ROTAS PARA NOTIFICAÇÕES
     path('notificacoes/patds-expirados/', views.patds_expirados_json, name='patds_expirados_json'),
     path('notificacoes/atribuicoes-pendentes/', views.patd_atribuicoes_pendentes_json, name='patd_atribuicoes_pendentes_json'),
+    path('notificacoes/comandante-pendencias/', views.comandante_pendencias_json, name='comandante_pendencias_json'),
     path('notificacoes/extender-prazo-massa/', views.extender_prazo_massa, name='extender_prazo_massa'),
     path('notificacoes/verificar-prazos/', views.verificar_e_atualizar_prazos, name='verificar_e_atualizar_prazos'),
 
     # API
     path('api/search-militares/', views.search_militares_json, name='search_militares_json')
 ]
-
