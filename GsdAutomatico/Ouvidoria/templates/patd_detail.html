@@ -37,7 +37,7 @@
         background-color: var(--border-color);
         margin: 0 auto 10px;
         border: 3px solid var(--bg-content);
-        transition: background-color 0.3s;
+        transition: background-color: 0.3s;
     }
     .status-step.completed .status-dot,
     .status-step.active .status-dot {
@@ -121,6 +121,7 @@
 
     .document-view {
         white-space: pre-wrap;
+        line-height: 1.6;
     }
 
     /* Estilos copiados para consistência */
@@ -179,6 +180,95 @@
         display: block;
     }
 
+    /* NOVOS ESTILOS PARA O VISUALIZADOR */
+    .document-editor-container {
+        display: flex;
+        gap: 20px;
+    }
+    .document-toolbar {
+        display: flex;
+        flex-direction: column;
+        gap: 15px;
+        background-color: var(--bg-main);
+        padding: 15px;
+        border-radius: 8px;
+        border: 1px solid var(--border-color);
+        margin-bottom: 20px;
+    }
+     .toolbar-section {
+        display: flex;
+        flex-direction: column;
+        gap: 10px;
+    }
+    .toolbar-section label {
+        font-weight: bold;
+        font-size: 0.9rem;
+        color: var(--text-secondary);
+    }
+    .toolbar-group {
+        display: flex;
+        gap: 5px;
+    }
+    .toolbar-button, .toolbar-select {
+        padding: 8px;
+        border-radius: 4px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-content);
+        cursor: pointer;
+    }
+     .toolbar-button.active {
+        background-color: var(--accent-color);
+        color: white;
+    }
+    .toolbar-input {
+         width: 100%;
+         padding: 8px;
+         border-radius: 4px;
+         border: 1px solid var(--border-color);
+         background-color: var(--bg-content);
+    }
+
+    .document-preview-container {
+        flex-grow: 1;
+        background-color: var(--bg-main);
+        padding: 20px;
+        border-radius: 8px;
+        overflow: auto;
+    }
+    .page {
+        background: white;
+        color: black;
+        width: 21cm;
+        min-height: 29.7cm;
+        margin: 0 auto 20px auto;
+        padding: 2.5cm; /* Ajustado para ABNT */
+        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        box-sizing: border-box;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12pt;
+        position: relative;
+    }
+    .page .page-header, .page .page-footer {
+        position: absolute;
+        width: calc(100% - 5cm); /* Ajustado para padding */
+        font-size: 9pt;
+        color: #666;
+    }
+    .page .page-header {
+        top: 1.5cm;
+        text-align: center;
+    }
+    .page .page-footer {
+        bottom: 1.5cm;
+        text-align: center;
+    }
+    .page-content {
+        line-height: 1.5;
+    }
+    .page-content p {
+        min-height: 1em; /* Garante que parágrafos vazios sejam clicáveis */
+    }
+
 </style>
 
 <div class="patd-header">
@@ -219,6 +309,7 @@
 <nav class="tabs-nav">
     <a class="tab-link active" data-target="tab-detalhes">Visão Geral</a>
     <a class="tab-link" data-target="tab-documento">Documento Completo</a>
+    <a class="tab-link" data-target="tab-visualizador">Visualizador</a>
 </nav>
 
 <div id="tab-detalhes" class="tab-panel active">
@@ -442,6 +533,53 @@
         </div>
     </div>
 </div>
+
+<div id="tab-visualizador" class="tab-panel">
+    <div class="document-toolbar">
+        <div class="toolbar-section">
+            <label>Formatação</label>
+            <div class="toolbar-group">
+                <button class="toolbar-button" data-command="textAlign" data-value="left" title="Alinhar à Esquerda"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M2 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"/></svg></button>
+                <button class="toolbar-button active" data-command="textAlign" data-value="center" title="Centralizar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"/></svg></button>
+                <button class="toolbar-button" data-command="textAlign" data-value="right" title="Alinhar à Direita"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M6 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-4-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m4-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-4-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"/></svg></button>
+            </div>
+            <div class="toolbar-group">
+                <select id="font-family-select" class="toolbar-select">
+                    <option value="'Times New Roman', Times, serif">Times New Roman</option>
+                    <option value="Arial, sans-serif">Arial</option>
+                    <option value="'Courier New', Courier, monospace">Courier New</option>
+                </select>
+                <select id="font-size-select" class="toolbar-select">
+                    <option value="10pt">10</option>
+                    <option value="12pt" selected>12</option>
+                    <option value="14pt">14</option>
+                    <option value="16pt">16</option>
+                </select>
+            </div>
+        </div>
+        <div class="toolbar-section">
+             <label for="header-input">Cabeçalho</label>
+             <input type="text" id="header-input" class="toolbar-input" placeholder="Texto do cabeçalho...">
+        </div>
+        <div class="toolbar-section">
+             <label for="footer-input">Rodapé</label>
+             <input type="text" id="footer-input" class="toolbar-input" placeholder="Texto do rodapé...">
+        </div>
+        <div class="toolbar-section">
+            <label>Ações</label>
+            <div class="toolbar-group">
+                <button class="btn btn-success" id="save-visualizador-btn">Salvar Alterações</button>
+                <button class="btn btn-secondary" id="export-pdf-btn">Exportar PDF</button>
+                <button class="btn btn-primary" id="export-docx-btn">Exportar DOCX</button>
+            </div>
+        </div>
+    </div>
+    <div id="document-preview-container" class="document-preview-container">
+        <!-- As páginas serão inseridas aqui dinamicamente -->
+    </div>
+</div>
+
+
 <!-- Modals... -->
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
@@ -589,12 +727,11 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 <script>
 // Dados da análise pré-carregados pelo Django
 const analiseData = {{ analise_data_json|safe }};
 const assinaturasMilitar = {{ assinaturas_militar_json|safe }};
-const rawDocumentText = {{ documento_texto_json|safe }};
+let rawDocumentText = {{ documento_texto_json|safe }};
 
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -955,7 +1092,12 @@ document.addEventListener('DOMContentLoaded', function() {
             tabPanels.forEach(p => p.classList.remove('active'));
             link.classList.add('active');
             const targetPanel = document.getElementById(link.dataset.target);
-            if (targetPanel) targetPanel.classList.add('active');
+            if (targetPanel) {
+                 targetPanel.classList.add('active');
+                if (link.dataset.target === 'tab-visualizador') {
+                     renderVisualizador();
+                }
+            }
             localStorage.setItem('activePatdTab-{{ patd.pk }}', link.dataset.target);
         });
     });
@@ -1349,6 +1491,224 @@ document.addEventListener('DOMContentLoaded', function() {
                 this.disabled = false;
             });
         });
+    }
+
+    // --- LÓGICA DO VISUALIZADOR DE DOCUMENTO ---
+    const pageContainer = document.getElementById('document-preview-container');
+    const headerInput = document.getElementById('header-input');
+    const footerInput = document.getElementById('footer-input');
+    const fontFamilySelect = document.getElementById('font-family-select');
+    const fontSizeSelect = document.getElementById('font-size-select');
+    const alignButtons = document.querySelectorAll('.toolbar-button[data-command="textAlign"]');
+    const exportPdfBtn = document.getElementById('export-pdf-btn');
+    const exportDocxBtn = document.getElementById('export-docx-btn');
+    const saveVisualizadorBtn = document.getElementById('save-visualizador-btn');
+    let saveTimeout;
+
+
+    function renderVisualizador() {
+        if (!pageContainer) return;
+        pageContainer.innerHTML = ''; // Limpa o conteúdo anterior
+
+        // Separa o documento em "páginas" usando um delimitador que aparece nos templates
+        const pageDelimiter = 'PATD Nº {{ patd.numero_patd }}/BAGL-GSDGL/{{ patd.data_inicio|date:"dmy" }}';
+        const pageTexts = rawDocumentText.split(pageDelimiter);
+
+        pageTexts.forEach((pageText, index) => {
+            if (pageText.trim() === '') return;
+
+            let fullPageText = (index > 0 ? pageDelimiter : '') + pageText;
+
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'page';
+            
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'page-header';
+            headerDiv.textContent = headerInput.value;
+            
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'page-content';
+            contentDiv.style.textAlign = document.querySelector('.toolbar-button[data-command="textAlign"].active')?.dataset.value || 'center';
+            contentDiv.style.fontFamily = fontFamilySelect.value;
+            contentDiv.style.fontSize = fontSizeSelect.value;
+
+            const footerDiv = document.createElement('div');
+            footerDiv.className = 'page-footer';
+            footerDiv.textContent = footerInput.value;
+
+            // Divide o texto em parágrafos e torna-os editáveis
+            const paragraphs = fullPageText.split('\n');
+            paragraphs.forEach(pText => {
+                const p = document.createElement('p');
+                p.setAttribute('contenteditable', 'true');
+                
+                // Processa o texto para HTML ANTES de inserir
+                let processedPText = pText.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
+                processedPText = processedPText.replace(/(data:image\/png;base64,[A-Za-z0-9+/=]+)/g, (match) => {
+                    return `<img src="${match}" alt="Assinatura" style="max-height: 50px; vertical-align: middle;">`;
+                });
+                
+                p.innerHTML = processedPText.trim() === '' ? '<br>' : processedPText;
+                contentDiv.appendChild(p);
+            });
+            
+            pageDiv.appendChild(headerDiv);
+            pageDiv.appendChild(contentDiv);
+            pageDiv.appendChild(footerDiv);
+            pageContainer.appendChild(pageDiv);
+        });
+    }
+
+    function scheduleSave() {
+        clearTimeout(saveTimeout);
+        saveVisualizadorBtn.textContent = 'Salvando...';
+        saveTimeout = setTimeout(() => {
+            saveDocumentChanges();
+        }, 1500); // Aguarda 1.5 segundos após a última edição
+    }
+    
+    pageContainer.addEventListener('input', scheduleSave);
+
+
+    function applyToolbarStyles() {
+        const pages = pageContainer.querySelectorAll('.page-content');
+        pages.forEach(content => {
+            content.style.textAlign = document.querySelector('.toolbar-button[data-command="textAlign"].active')?.dataset.value || 'center';
+            content.style.fontFamily = fontFamilySelect.value;
+            content.style.fontSize = fontSizeSelect.value;
+        });
+        const headers = pageContainer.querySelectorAll('.page-header');
+        headers.forEach(h => h.textContent = headerInput.value);
+        const footers = pageContainer.querySelectorAll('.page-footer');
+        footers.forEach(f => f.textContent = footerInput.value);
+        scheduleSave();
+    }
+
+    alignButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            alignButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            applyToolbarStyles();
+        });
+    });
+
+    [fontFamilySelect, fontSizeSelect, headerInput, footerInput].forEach(el => {
+        el.addEventListener('change', applyToolbarStyles);
+        el.addEventListener('input', applyToolbarStyles);
+    });
+
+    function saveDocumentChanges() {
+        if (!pageContainer) return;
+        const pageDelimiter = 'PATD Nº {{ patd.numero_patd }}/BAGL-GSDGL/{{ patd.data_inicio|date:"dmy" }}';
+        let fullContent = [];
+        
+        pageContainer.querySelectorAll('.page .page-content').forEach(contentDiv => {
+            let pageContent = [];
+            contentDiv.querySelectorAll('p').forEach(p => {
+                // Ao extrair, converte <strong> de volta para ** e <img> de volta para texto
+                let cleanText = p.innerHTML.replace(/<br>/g, '');
+                cleanText = cleanText.replace(/<strong>(.*?)<\/strong>/g, '**$1**');
+                cleanText = cleanText.replace(/<img src="(data:image\/png;base64,[A-Za-z0-9+/=]+)".*?>/g, '$1');
+                pageContent.push(cleanText);
+            });
+            fullContent.push(pageContent.join('\n'));
+        });
+
+        const newDocumentText = fullContent.join(`\n${pageDelimiter}\n`);
+        
+        // Atualiza a variável global para refletir as mudanças
+        rawDocumentText = newDocumentText;
+        
+        const url = `{% url 'Ouvidoria:salvar_documento_patd' patd.pk %}`;
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ 'texto_documento': newDocumentText })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                saveVisualizadorBtn.textContent = 'Salvo!';
+                setTimeout(() => { saveVisualizadorBtn.textContent = 'Salvar Alterações'; }, 2000);
+            } else {
+                saveVisualizadorBtn.textContent = 'Erro ao Salvar';
+                alert('Erro: ' + data.message);
+            }
+        })
+        .catch(error => {
+            saveVisualizadorBtn.textContent = 'Erro ao Salvar';
+            console.error('Erro:', error)
+        });
+    }
+
+    saveVisualizadorBtn.addEventListener('click', saveDocumentChanges);
+
+    exportPdfBtn.addEventListener('click', async () => {
+        const { jsPDF } = window.jspdf;
+        const pdf = new jsPDF('p', 'cm', 'a4');
+        const pages = pageContainer.querySelectorAll('.page');
+        exportPdfBtn.textContent = 'Gerando...';
+
+        for (let i = 0; i < pages.length; i++) {
+            const pageElement = pages[i];
+            const canvas = await html2canvas(pageElement, { scale: 3, useCORS: true });
+            const imgData = canvas.toDataURL('image/png');
+            const pdfWidth = pdf.internal.pageSize.getWidth();
+            const pdfHeight = pdf.internal.pageSize.getHeight();
+            
+            if (i > 0) {
+                pdf.addPage();
+            }
+            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+        }
+
+        pdf.save(`PATD_{{ patd.numero_patd }}.pdf`);
+        exportPdfBtn.textContent = 'Exportar PDF';
+    });
+
+    exportDocxBtn.addEventListener('click', async () => {
+        exportDocxBtn.textContent = 'Gerando...';
+        let combinedHtml = '';
+        const pages = pageContainer.querySelectorAll('.page');
+        
+        pages.forEach((page, index) => {
+            const pageClone = page.cloneNode(true);
+            pageClone.querySelectorAll('img').forEach(img => {
+                const src = img.getAttribute('src');
+                if (src && !src.startsWith('data:')) {
+                    img.src = new URL(src, window.location.href).href;
+                }
+            });
+            combinedHtml += pageClone.outerHTML;
+             if (index < pages.length - 1) {
+                combinedHtml += '<br style="page-break-before: always">';
+            }
+        });
+
+        const content = `
+            <!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${combinedHtml}</body></html>
+        `;
+
+        try {
+            const fileBuffer = await htmlDocx.asBlob(content);
+            const url = URL.createObjectURL(fileBuffer);
+            const a = document.createElement("a");
+            a.href = url;
+            a.download = `PATD_{{ patd.numero_patd }}.docx`;
+            a.click();
+            URL.revokeObjectURL(url);
+        } catch (err) {
+            console.error("Erro ao gerar DOCX:", err);
+            alert("Ocorreu um erro ao gerar o DOCX.");
+        } finally {
+            exportDocxBtn.textContent = 'Exportar DOCX';
+        }
+    });
+
+    renderDocument();
+    // Inicializa o visualizador com o conteúdo e formatação padrão
+    if (document.getElementById('tab-visualizador').classList.contains('active')) {
+        renderVisualizador();
     }
 });
 </script>

@@ -244,7 +244,7 @@ def _get_document_context(patd):
         '{data da Ocorrencia}': data_ocorrencia_fmt,
         '{Ocorrencia reescrita}': patd.ocorrencia_reescrita or patd.transgressao,
         '{protocolo comaer}': patd.protocolo_comaer,
-        '{Oficio Transgrecao}': patd.oficio_transgressao,
+        '{Oficio Transgressao}': patd.oficio_transgressao,
         '{data_oficio}': data_oficio_fmt,
         '{comprovante}': patd.comprovante or "[Não informado]",
 
@@ -253,7 +253,7 @@ def _get_document_context(patd):
         '{Atenuante}': atenuantes_str,
         '{agravantes}': agravantes_str,
         '{transgressao_afirmativa}': patd.transgressao_afirmativa or "[Análise não realizada]",
-        '{natureza_transgrecao}': patd.natureza_transgressao or "[Análise não realizada]",
+        '{natureza_transgressao}': patd.natureza_transgressao or "[Análise não realizada]",
         
         # Dados da Defesa
         '{data ciência}': data_ciencia_fmt,
