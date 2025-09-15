@@ -271,7 +271,9 @@ def _get_document_context(patd):
         '{Assinatura Comandante do GSD}': getattr(comandante_gsd, 'assinatura', '[Sem assinatura]') if comandante_gsd else "[Comandante GSD não definido]",
         '{Assinatura Testemunha 1}': patd.assinatura_testemunha1 or '[Sem assinatura]',
         '{Assinatura Testemunha 2}': patd.assinatura_testemunha2 or '[Sem assinatura]',
-        
+        '{Assinatura Alegacao Defesa}': patd.assinatura_alegacao_defesa or '{Botao Assinar Defesa}',
+        '{Assinatura Reconsideracao}': patd.assinatura_reconsideracao or '{Botao Assinar Reconsideracao}',
+
         # Testemunhas
         '{Testemunha 1}': format_militar_string(patd.testemunha1) if patd.testemunha1 else '[Testemunha não definida]',
         '{Testemunha 2}': format_militar_string(patd.testemunha2) if patd.testemunha2 else '[Testemunha não definida]',
@@ -891,7 +893,7 @@ class PATDDetailView(DetailView):
             if p_antiga.punicao:
                 itens_str = ""
                 if p_antiga.itens_enquadrados and isinstance(p_antiga.itens_enquadrados, list):
-                    itens_str = ", ".join([str(item.get('numero', '')) for item in p_antiga.itens_enquadrados])
+                    itens_str = ", ".join([str(item.get('numero', '')) for item in p_antiga.itens_enquadrados if 'numero' in item])
                 
                 historico_punicoes.append({
                     'numero_patd': p_antiga.numero_patd,
@@ -1039,6 +1041,48 @@ def salvar_alegacao_defesa(request, pk):
     except Exception as e:
         logger.error(f"Erro ao salvar alegação de defesa da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+# --- NOVAS VIEWS DE ASSINATURA ---
+@login_required
+@ouvidoria_required
+@require_POST
+def salvar_assinatura_defesa(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+        signature_data = data.get('signature_data')
+
+        if not signature_data:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
+
+        patd.assinatura_alegacao_defesa = signature_data
+        patd.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Assinatura da defesa salva com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao salvar assinatura da defesa da PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@ouvidoria_required
+@require_POST
+def salvar_assinatura_reconsideracao(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+        signature_data = data.get('signature_data')
+
+        if not signature_data:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
+
+        patd.assinatura_reconsideracao = signature_data
+        patd.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Assinatura da reconsideração salva com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao salvar assinatura da reconsideração da PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+# --- FIM DAS NOVAS VIEWS ---
 
 @login_required
 @ouvidoria_required
@@ -1539,4 +1583,3 @@ def comandante_pendencias_json(request):
         
     count = PATD.objects.filter(status='analise_comandante').count()
     return JsonResponse({'count': count})
-

@@ -129,7 +129,6 @@ class PATD(models.Model):
         verbose_name="Status"
     )
     assinatura_oficial = models.TextField(blank=True, null=True, verbose_name="Assinatura do Oficial (Base64)")
-    # Alterado para JSONField para armazenar múltiplas assinaturas
     assinaturas_militar = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas do Militar Arrolado (Base64)")
     assinatura_testemunha1 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 1ª Testemunha (Base64)")
     assinatura_testemunha2 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 2ª Testemunha (Base64)")
@@ -139,7 +138,6 @@ class PATD(models.Model):
     circunstancias = models.JSONField(null=True, blank=True, verbose_name="Atenuantes e Agravantes")
     punicao_sugerida = models.TextField(blank=True, null=True, verbose_name="Punição Sugerida pela IA")
     
-    # --- CORREÇÃO DE NOMENCLATURA ---
     protocolo_comaer = models.CharField(max_length=255, blank=True, verbose_name="Protocolo COMAER")
     oficio_transgressao = models.CharField(max_length=255, blank=True, verbose_name="Ofício da Transgressão")
     data_oficio = models.DateField(null=True, blank=True, verbose_name="Data do Ofício")
@@ -156,6 +154,10 @@ class PATD(models.Model):
     data_reconsideracao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Reconsideração")
     texto_relatorio = models.TextField(blank=True, null=True, verbose_name="Texto do Relatório de Apuração")
 
+    # NOVOS CAMPOS PARA ASSINATURAS ESPECÍFICAS
+    assinatura_alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Assinatura da Alegação de Defesa (Base64)")
+    assinatura_reconsideracao = models.TextField(blank=True, null=True, verbose_name="Assinatura da Reconsideração (Base64)")
+
 
     def __str__(self):
         return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"
@@ -165,26 +167,19 @@ class PATD(models.Model):
         is_new = self._state.adding
         orig = None
         if not is_new:
-            # Pega o estado original do objeto do banco de dados
             try:
                 orig = PATD.objects.get(pk=self.pk)
             except PATD.DoesNotExist:
                 orig = None
 
-        # --- LÓGICA DE ATUALIZAÇÃO DE STATUS ---
-        # Se um oficial foi atribuído e antes não havia nenhum, ou o oficial foi trocado
         if (orig is None and self.oficial_responsavel) or \
            (orig and orig.oficial_responsavel != self.oficial_responsavel and self.oficial_responsavel):
             self.status = 'aguardando_aprovacao_atribuicao'
         
-        # Se o oficial foi removido
         elif orig and orig.oficial_responsavel and not self.oficial_responsavel:
             self.status = 'definicao_oficial'
 
-        # --- LÓGICA DE ATUALIZAÇÃO DE ASSINATURA ---
-        # Apenas executa se não for um objeto novo e se o oficial tiver mudado
         if not is_new and orig and orig.oficial_responsavel != self.oficial_responsavel:
-            # Limpa a assinatura ao trocar de oficial, a nova será adicionada na aceitação
             self.assinatura_oficial = None
 
         super().save(*args, **kwargs)
