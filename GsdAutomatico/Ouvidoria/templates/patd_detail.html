@@ -422,13 +422,6 @@
                                 {{ patd.oficial_responsavel|default:"Não definido" }}
                             {% endif %}
                         </div>
-                        <div class="signature-display-container">
-                            {% if patd.assinatura_oficial %}
-                                <img src="{{ patd.assinatura_oficial }}" alt="Assinatura do Oficial" class="signature-image">
-                            {% elif request.user.profile.militar == patd.oficial_responsavel and patd.oficial_responsavel and not patd.assinatura_oficial and patd.status != 'aguardando_aprovacao_atribuicao' and patd.status != 'definicao_oficial' %}
-                                <button type="button" class="btn btn-sm btn-secondary open-signature-modal" data-type="oficial">Adicionar Assinatura</button>
-                            {% endif %}
-                        </div>
                     </div>
                 </div>
 
@@ -441,12 +434,6 @@
                     <div class="detail-value">{{ patd.testemunha2|default:"Não atribuída" }}</div>
                 </div>
 
-                 <div class="detail-item full-width">
-                    <strong>Ciência do Militar Acusado:</strong>
-                    <div id="assinaturas-militar-container" class="signature-display-container" style="flex-wrap: wrap; gap: 10px; margin-top: 10px;">
-                        <!-- As assinaturas serão inseridas aqui pelo JS -->
-                    </div>
-                </div>
              </div>
         </div>
     </div>
@@ -1060,18 +1047,22 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        const canSignTestemunha = ['preclusao', 'apuracao_preclusao', 'aguardando_assinatura_npd'].includes(`{{ patd.status }}`);
-        
-        if (canSignTestemunha && `{{ patd.testemunha1 }}`) {
-            processedHtml = processedHtml.replace(/{SIGN_BTN_T1}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
+        // Lógica para assinatura da Testemunha 1
+        if ('{{ patd.assinatura_testemunha1 }}' && '{{ patd.assinatura_testemunha1 }}' !== 'None') {
+            processedHtml = processedHtml.replace(/{Assinatura Testemunha 1}/g, `<img class="signature-image-embedded" src="{{ patd.assinatura_testemunha1 }}" alt="Assinatura da Testemunha 1">`);
+        } else if (`{{ patd.testemunha1 }}`) {
+            processedHtml = processedHtml.replace(/{Assinatura Testemunha 1}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
         } else {
-            processedHtml = processedHtml.replace(/{SIGN_BTN_T1}/g, '<span class="no-signature-text">[Assinatura Pendente]</span>');
+            processedHtml = processedHtml.replace(/{Assinatura Testemunha 1}/g, '[Sem assinatura]');
         }
 
-        if (canSignTestemunha && `{{ patd.testemunha2 }}`) {
-            processedHtml = processedHtml.replace(/{SIGN_BTN_T2}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
+        // Lógica para assinatura da Testemunha 2
+        if ('{{ patd.assinatura_testemunha2 }}' && '{{ patd.assinatura_testemunha2 }}' !== 'None') {
+            processedHtml = processedHtml.replace(/{Assinatura Testemunha 2}/g, `<img class="signature-image-embedded" src="{{ patd.assinatura_testemunha2 }}" alt="Assinatura da Testemunha 2">`);
+        } else if (`{{ patd.testemunha2 }}`) {
+            processedHtml = processedHtml.replace(/{Assinatura Testemunha 2}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
         } else {
-             processedHtml = processedHtml.replace(/{SIGN_BTN_T2}/g, '<span class="no-signature-text">[Assinatura Pendente]</span>');
+            processedHtml = processedHtml.replace(/{Assinatura Testemunha 2}/g, '[Sem assinatura]');
         }
 
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
@@ -1085,7 +1076,6 @@ document.addEventListener('DOMContentLoaded', function() {
         signatureIndex = 0; // Reinicia o contador para a aba "Documento Completo"
         let processedHtml = processPlaceholders(rawDocumentText);
         viewer.innerHTML = processedHtml.replace(/\n/g, '<br>');
-        renderAssinaturasMilitarTab();
     }
 
     function renderVisualizador() {
@@ -1124,55 +1114,6 @@ document.addEventListener('DOMContentLoaded', function() {
             pageDiv.appendChild(footerDiv);
             pageContainer.appendChild(pageDiv);
         });
-    }
-
-    function renderAssinaturasMilitarTab() {
-        const container = document.getElementById('assinaturas-militar-container');
-        if (!container) return;
-        container.innerHTML = ''; 
-        signatureIndex = 0; // Reinicia o contador para esta função específica
-        const placeholdersNoDoc = (rawDocumentText.match(/{Assinatura Militar Arrolado}/g) || []).length;
-        if (placeholdersNoDoc === 0) {
-             container.innerHTML = '<p class="detail-item-value">Nenhuma assinatura de ciência necessária.</p>';
-             return;
-        }
-        let hasUnsigned = false;
-        let signedCount = 0;
-        for (let i = 0; i < placeholdersNoDoc; i++) {
-            if (assinaturasMilitar[i]) {
-                const img = document.createElement('img');
-                img.src = assinaturasMilitar[i];
-                img.alt = `Assinatura ${i + 1}`;
-                img.className = 'signature-image';
-                container.appendChild(img);
-                signedCount++;
-            } else {
-                 hasUnsigned = true;
-            }
-        }
-        if (hasUnsigned && (`{{patd.status}}` === 'ciencia_militar' || `{{patd.status}}` === 'aguardando_assinatura_npd')) {
-            const firstUnsignedIndex = assinaturasMilitar.filter(s => s).length;
-            const button = document.createElement('button');
-            button.type = 'button';
-            button.className = 'btn btn-success open-signature-modal';
-            button.dataset.type = 'ciencia';
-            button.dataset.index = firstUnsignedIndex;
-            button.textContent = `Assinar Ciência (${signedCount + 1}/${placeholdersNoDoc})`;
-            container.appendChild(button);
-        } else if (!hasUnsigned && placeholdersNoDoc > 0) {
-            container.innerHTML += '<p class="detail-item-value">Todas as assinaturas coletadas.</p>';
-        } else if (placeholdersNoDoc > 0 && assinaturasMilitar.length === 0) {
-            container.innerHTML = '<p class="detail-item-value">Aguardando assinatura de ciência.</p>';
-            if (`{{patd.status}}` === 'ciencia_militar' || `{{patd.status}}` === 'aguardando_assinatura_npd') {
-                const button = document.createElement('button');
-                button.type = 'button';
-                button.className = 'btn btn-success open-signature-modal';
-                button.dataset.type = 'ciencia';
-                button.dataset.index = 0;
-                button.textContent = `Assinar Ciência (1/${placeholdersNoDoc})`;
-                container.appendChild(button);
-            }
-        }
     }
 
     renderDocument();

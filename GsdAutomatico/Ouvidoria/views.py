@@ -34,16 +34,21 @@ from num2words import num2words # Importação para converter números em texto
 from django.contrib.auth import authenticate
 from functools import wraps # Importado para criar o decorator
 import threading # Importado para tarefas em background
+from .permissions import has_comandante_access, has_ouvidoria_access
 
 
 # --- Funções e Mixins de Permissão ---
-def has_ouvidoria_access(user):
-    """Verifica se o utilizador pertence ao grupo 'Ouvidoria' ou é um superutilizador."""
-    return user.groups.filter(name='Ouvidoria').exists() or user.is_superuser
-
-def has_comandante_access(user):
-    """Verifica se o utilizador pertence ao grupo 'Comandante' ou é um superutilizador."""
-    return user.groups.filter(name='Comandante').exists() or user.is_superuser
+def comandante_redirect(view_func):
+    """
+    Decorator for views that checks that the user is NOT a comandante,
+    redirecting to the comandante dashboard if they are.
+    """
+    @wraps(view_func)
+    def _wrapped_view(request, *args, **kwargs):
+        if has_comandante_access(request.user) and not request.user.is_superuser:
+            return redirect('Ouvidoria:comandante_dashboard')
+        return view_func(request, *args, **kwargs)
+    return _wrapped_view
 
 # --- NOVO DECORATOR ---
 def oficial_responsavel_required(view_func):
@@ -533,6 +538,7 @@ def patd_atribuicoes_pendentes_json(request):
 
 
 @login_required
+@comandante_redirect
 @ouvidoria_required
 def index(request):
     config = Configuracao.load()
@@ -813,7 +819,7 @@ class MilitarDeleteView(DeleteView):
     template_name = 'militar_confirm_delete.html'
     success_url = reverse_lazy('Ouvidoria:militar_list')
 
-@method_decorator([login_required, ouvidoria_required], name='dispatch')
+@method_decorator([login_required, comandante_redirect, ouvidoria_required], name='dispatch')
 class PATDListView(ListView):
     model = PATD
     template_name = 'patd_list.html'
@@ -1583,3 +1589,4 @@ def comandante_pendencias_json(request):
         
     count = PATD.objects.filter(status='analise_comandante').count()
     return JsonResponse({'count': count})
+
