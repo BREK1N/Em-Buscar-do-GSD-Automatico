@@ -157,6 +157,7 @@ class PATD(models.Model):
     # NOVOS CAMPOS PARA ASSINATURAS ESPECÍFICAS
     assinatura_alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Assinatura da Alegação de Defesa (Base64)")
     assinatura_reconsideracao = models.TextField(blank=True, null=True, verbose_name="Assinatura da Reconsideração (Base64)")
+    comentario_comandante = models.TextField(blank=True, null=True, verbose_name="Comentário do Comandante para Retorno")
 
 
     def __str__(self):
@@ -187,3 +188,4 @@ class PATD(models.Model):
     class Meta:
         verbose_name = "PATD"
         verbose_name_plural = "PATDs"
+

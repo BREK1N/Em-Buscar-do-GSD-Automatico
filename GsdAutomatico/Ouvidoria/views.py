@@ -220,7 +220,7 @@ def _get_document_context(patd):
     # Lógica para Oficial Apurador
     oficial_definido = patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
     
-    return {
+    context = {
         # Placeholders Comuns
         '{Brasao da Republica}': f'<img src="{static("img/brasao.png")}" alt="Brasão da República" style="width: 100px; height: auto;">',
         '{N PATD}': str(patd.numero_patd),
@@ -234,12 +234,12 @@ def _get_document_context(patd):
         '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
         '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]'),
         
-        # Dados do Oficial Apurador - SÓ APARECE SE JÁ ACEITOU
+        # Dados do Oficial Apurador
         '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if oficial_definido else '[Aguardando Oficial confirmar]',
         '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if oficial_definido else "[Aguardando Oficial confirmar]",
         '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', 'N/A')) if oficial_definido else "[Aguardando Oficial confirmar]",
         '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', 'N/A') if oficial_definido else "[Aguardando Oficial confirmar]",
-        '{Assinatura Oficial Apurador}': getattr(patd, 'assinatura_oficial', '[Aguardando Oficial confirmar]') if oficial_definido else '[Aguardando Oficial confirmar]',
+        '{Assinatura Oficial Apurador}': '{Assinatura_Imagem_Oficial_Apurador}' if oficial_definido and patd.assinatura_oficial else ('[Aguardando Oficial confirmar]' if not oficial_definido else '{Botao Assinar Oficial}'),
 
         # Dados do Comandante
         '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
@@ -265,30 +265,39 @@ def _get_document_context(patd):
         '{Data da alegação}': data_alegacao_fmt,
         '{Alegação_defesa_resumo}': patd.alegacao_defesa_resumo or "[Resumo não gerado]",
         
-        # --- PLACEHOLDERS DE PUNIÇÃO ATUALIZADOS ---
+        # Placeholders de Punição
         '{punicao_completa}': punicao_final_str,
-        '{punicao}': punicao_final_str, # Agora contém a string completa e formatada
-        '{dias_punicao}': "", # Esvaziado para evitar duplicação no template
+        '{punicao}': punicao_final_str,
+        '{dias_punicao}': "", 
         '{comportamento}': patd.comportamento or "[Não avaliado]",
         '{data_publicacao_punicao}': data_publicacao_fmt,
         
-        # Assinaturas
-        '{Assinatura Comandante do GSD}': getattr(comandante_gsd, 'assinatura', '[Sem assinatura]') if comandante_gsd else "[Comandante GSD não definido]",
-        '{Assinatura Testemunha 1}': patd.assinatura_testemunha1 or '[Sem assinatura]',
-        '{Assinatura Testemunha 2}': patd.assinatura_testemunha2 or '[Sem assinatura]',
-        '{Assinatura Alegacao Defesa}': patd.assinatura_alegacao_defesa or '{Botao Assinar Defesa}',
-        '{Assinatura Reconsideracao}': patd.assinatura_reconsideracao or '{Botao Assinar Reconsideracao}',
+        # Placeholders de Assinatura
+        '{Assinatura Comandante do GSD}': '{Assinatura_Imagem_Comandante_GSD}' if comandante_gsd and comandante_gsd.assinatura else '[Sem assinatura]',
+        '{Assinatura Alegacao Defesa}': '{Assinatura Alegacao Defesa}' if patd.assinatura_alegacao_defesa else '{Botao Assinar Defesa}',
+        '{Assinatura Reconsideracao}': '{Assinatura Reconsideracao}' if patd.assinatura_reconsideracao else '{Botao Assinar Reconsideracao}',
 
         # Testemunhas
         '{Testemunha 1}': format_militar_string(patd.testemunha1) if patd.testemunha1 else '[Testemunha não definida]',
         '{Testemunha 2}': format_militar_string(patd.testemunha2) if patd.testemunha2 else '[Testemunha não definida]',
+        '{Assinatura Testemunha 1}': '{Assinatura_Imagem_Testemunha_1}' if patd.assinatura_testemunha1 else ('{Botao Assinar Testemunha 1}' if patd.testemunha1 else '[Sem assinatura]'),
+        '{Assinatura Testemunha 2}': '{Assinatura_Imagem_Testemunha_2}' if patd.assinatura_testemunha2 else ('{Botao Assinar Testemunha 2}' if patd.testemunha2 else '[Sem assinatura]'),
 
-        # Específico para Preclusão
+        # Específicos
         '{Data Final Prazo}': deadline_str,
         '{texto_relatorio}': patd.texto_relatorio or "[Relatório não gerado]",
         '{Texto_reconsideracao}': patd.texto_reconsideracao or '',
         '{Data_reconsideracao}': data_reconsideracao_fmt,
     }
+
+    # Adiciona os dados das assinaturas ao contexto para o frontend
+    if oficial_definido and patd.assinatura_oficial:
+        context['assinatura_oficial_data'] = patd.assinatura_oficial
+    if comandante_gsd and comandante_gsd.assinatura:
+        context['assinatura_comandante_data'] = comandante_gsd.assinatura
+    
+    return context
+
 
 def _render_document_from_template(template_name, context):
     """
@@ -880,6 +889,10 @@ class PATDDetailView(DetailView):
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
         
+        # Passa os dados das assinaturas para o template
+        doc_context = _get_document_context(patd)
+        context['comandante_assinatura'] = doc_context.get('assinatura_comandante_data')
+
         context['analise_data_json'] = json.dumps({
             'itens': patd.itens_enquadrados,
             'circunstancias': patd.circunstancias,
@@ -925,7 +938,7 @@ class PATDUpdateView(UpdateView):
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class PATDDeleteView(DeleteView):
     model = PATD
-    template_name = 'patd_confirm_delete.html'
+    template_name = 'militar_confirm_delete.html'
     success_url = reverse_lazy('Ouvidoria:patd_list')
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
@@ -1521,10 +1534,18 @@ def patd_aprovar(request, pk):
 @require_POST
 def patd_retornar(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+    comentario = request.POST.get('comentario')
+    
+    if not comentario:
+        messages.error(request, "O comentário é obrigatório para retornar a PATD.")
+        return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
+
+
     patd.status = 'aguardando_punicao_alterar'
+    patd.comentario_comandante = comentario
     patd.save()
-    messages.warning(request, f"PATD Nº {patd.numero_patd} retornada para alteração.")
-    return redirect('Ouvidoria:comandante_dashboard')
+    messages.warning(request, f"PATD Nº {patd.numero_patd} retornada para alteração com observações.")
+    return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
 
 @login_required
 @oficial_responsavel_required
@@ -1589,4 +1610,3 @@ def comandante_pendencias_json(request):
         
     count = PATD.objects.filter(status='analise_comandante').count()
     return JsonResponse({'count': count})
-

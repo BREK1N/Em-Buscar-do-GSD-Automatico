@@ -30,10 +30,7 @@
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-success">Aprovar e Finalizar</button>
                     </form>
-                    <form action="{% url 'Ouvidoria:patd_retornar' patd.pk %}" method="post" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-warning">Retornar para Alteração</button>
-                    </form>
+                    <button type="button" class="btn btn-sm btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
                 </td>
             </tr>
             {% empty %}
@@ -44,4 +41,62 @@
         </tbody>
     </table>
 </div>
+
+<!-- Modal para Retornar com Comentário -->
+<div class="modal-overlay" id="retornar-patd-modal">
+    <div class="modal-content">
+        <h3 id="retornar-modal-title">Retornar PATD</h3>
+        <p>Por favor, insira abaixo o motivo para retornar esta PATD para alteração. O oficial apurador será notificado com sua observação.</p>
+        <form id="retornar-patd-form" method="post" action="" class="model-form">
+            {% csrf_token %}
+            <div class="form-item">
+                <label for="id_comentario">Comentário:</label>
+                <textarea name="comentario" required id="id_comentario" rows="5" style="width: 100%;"></textarea>
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-retornar-btn">Cancelar</button>
+                <button type="submit" class="btn btn-warning">Confirmar Retorno</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const retornarModal = document.getElementById('retornar-patd-modal');
+    const retornarForm = document.getElementById('retornar-patd-form');
+    const retornarModalTitle = document.getElementById('retornar-modal-title');
+    const cancelRetornarBtn = document.getElementById('cancel-retornar-btn');
+    
+    document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('open-retornar-modal-btn')) {
+            const patdPk = e.target.dataset.patdPk;
+            const patdNumero = e.target.dataset.patdNumero;
+            
+            const url = `/Ouvidoria/patd/${patdPk}/retornar/`;
+            retornarForm.action = url;
+            retornarModalTitle.textContent = `Retornar PATD Nº ${patdNumero}`;
+            
+            retornarModal.classList.add('active');
+        }
+    });
+
+    if (cancelRetornarBtn) {
+        cancelRetornarBtn.addEventListener('click', () => {
+            retornarModal.classList.remove('active');
+        });
+    }
+
+    if (retornarModal) {
+        retornarModal.addEventListener('click', (e) => {
+            if (e.target === retornarModal) {
+                retornarModal.classList.remove('active');
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
+

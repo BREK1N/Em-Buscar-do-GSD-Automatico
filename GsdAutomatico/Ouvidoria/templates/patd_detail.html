@@ -263,6 +263,11 @@
         font-weight: bold; /* Garante o negrito */
     }
 
+    .signature-image-embedded {
+        max-height: 45px; /* Define uma altura máxima para as imagens de assinatura */
+        vertical-align: middle; /* Alinha a imagem verticalmente com o texto ao redor */
+    }
+
 </style>
 
 <div class="patd-header">
@@ -348,14 +353,24 @@
                     {% csrf_token %}
                     <button type="submit" class="btn btn-success">Aprovar PATD</button>
                 </form>
-                <form action="{% url 'Ouvidoria:patd_retornar' patd.pk %}" method="post" style="display: inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-warning">Retornar para Alteração</button>
-                </form>
+                <button type="button" class="btn btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
                 {% endif %}
             </div>
         </div>
     </div>
+
+    {% if patd.comentario_comandante and patd.status == 'aguardando_punicao_alterar' %}
+    <div class="card" style="border-left: 4px solid var(--warning-color);">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--warning-color);"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+            <h2>Observação do Comandante</h2>
+        </div>
+        <div class="card-body">
+            <p><strong>A PATD foi retornada para alteração com o seguinte comentário:</strong></p>
+            <p style="background-color: var(--bg-main); padding: 15px; border-radius: 8px;"><em>{{ patd.comentario_comandante|linebreaksbr }}</em></p>
+        </div>
+    </div>
+    {% endif %}
 
     <!-- Card de Detalhes do Processo -->
     <div class="card">
@@ -675,6 +690,24 @@
         </div>
     </div>
 </div>
+
+<div class="modal-overlay" id="retornar-patd-modal">
+    <div class="modal-content">
+        <h3 id="retornar-modal-title">Retornar PATD</h3>
+        <p>Por favor, insira abaixo o motivo para retornar esta PATD para alteração. O oficial apurador será notificado com sua observação.</p>
+        <form id="retornar-patd-form" method="post" action="" class="model-form">
+            {% csrf_token %}
+            <div class="form-item">
+                <label for="id_comentario_detalhe">Comentário:</label>
+                <textarea name="comentario" required id="id_comentario_detalhe" rows="5" style="width: 100%;"></textarea>
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-retornar-btn">Cancelar</button>
+                <button type="submit" class="btn btn-warning">Confirmar Retorno</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -689,6 +722,10 @@ const hasDefesaSig = '{{ patd.assinatura_alegacao_defesa|yesno:"true,false" }}' 
 const defesaSigData = '{{ patd.assinatura_alegacao_defesa|default:"" }}';
 const hasReconSig = '{{ patd.assinatura_reconsideracao|yesno:"true,false" }}' === 'true';
 const reconSigData = '{{ patd.assinatura_reconsideracao|default:"" }}';
+const testemunha1SigData = '{{ patd.assinatura_testemunha1|default:"" }}';
+const testemunha2SigData = '{{ patd.assinatura_testemunha2|default:"" }}';
+const oficialSigData = '{{ patd.assinatura_oficial|default:"" }}';
+const comandanteSigData = '{{ comandante_assinatura|default:"" }}';
 
 let signatureIndex = 0; // Contador de assinaturas movido para o escopo externo
 
@@ -1023,21 +1060,17 @@ document.addEventListener('DOMContentLoaded', function() {
         processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
         
-        if (hasDefesaSig) {
-            processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, `<img class="signature-image-embedded" src="${defesaSigData}" alt="Assinatura da Defesa">`);
-        } else {
-            processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
-        }
+        // Assinaturas que podem ter imagem ou botão
+        processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? `<img class="signature-image-embedded" src="${defesaSigData}" alt="Assinatura da Defesa">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
+        processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? `<img class="signature-image-embedded" src="${reconSigData}" alt="Assinatura da Reconsideração">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
         
-        if (hasReconSig) {
-            processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, `<img class="signature-image-embedded" src="${reconSigData}" alt="Assinatura da Reconsideração">`);
-        } else {
-            processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
-        }
+        // Assinaturas que SEMPRE são imagens (se existirem)
+        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Oficial_Apurador}/g, oficialSigData ? `<img class="signature-image-embedded" src="${oficialSigData}" alt="Assinatura do Oficial Apurador">` : '[Sem assinatura]');
+        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Comandante_GSD}/g, comandanteSigData ? `<img class="signature-image-embedded" src="${comandanteSigData}" alt="Assinatura do Comandante">` : '[Sem assinatura]');
+        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Testemunha_1}/g, testemunha1SigData ? `<img class="signature-image-embedded" src="${testemunha1SigData}" alt="Assinatura da Testemunha 1">` : '[Sem assinatura]');
+        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Testemunha_2}/g, testemunha2SigData ? `<img class="signature-image-embedded" src="${testemunha2SigData}" alt="Assinatura da Testemunha 2">` : '[Sem assinatura]');
 
-        processedHtml = processedHtml.replace(/(data:image\/png;base64,[A-Za-z0-9+/=]+)/g, '<img class="signature-image-embedded" src="$1" alt="Assinatura">');
-        
-        // CORREÇÃO: Usar uma função de substituição para garantir que o contador incremente corretamente.
+        // Assinatura do militar (pode ser várias)
         processedHtml = processedHtml.replace(/{Assinatura Militar Arrolado}/g, () => {
             const index = signatureIndex++;
             if (assinaturasMilitar[index]) {
@@ -1047,24 +1080,12 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
         
-        // Lógica para assinatura da Testemunha 1
-        if ('{{ patd.assinatura_testemunha1 }}' && '{{ patd.assinatura_testemunha1 }}' !== 'None') {
-            processedHtml = processedHtml.replace(/{Assinatura Testemunha 1}/g, `<img class="signature-image-embedded" src="{{ patd.assinatura_testemunha1 }}" alt="Assinatura da Testemunha 1">`);
-        } else if (`{{ patd.testemunha1 }}`) {
-            processedHtml = processedHtml.replace(/{Assinatura Testemunha 1}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
-        } else {
-            processedHtml = processedHtml.replace(/{Assinatura Testemunha 1}/g, '[Sem assinatura]');
-        }
+        // Botões de assinatura restantes
+        processedHtml = processedHtml.replace(/{Botao Assinar Oficial}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="oficial">Assinar</button>`);
+        processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 1}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
+        processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 2}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
 
-        // Lógica para assinatura da Testemunha 2
-        if ('{{ patd.assinatura_testemunha2 }}' && '{{ patd.assinatura_testemunha2 }}' !== 'None') {
-            processedHtml = processedHtml.replace(/{Assinatura Testemunha 2}/g, `<img class="signature-image-embedded" src="{{ patd.assinatura_testemunha2 }}" alt="Assinatura da Testemunha 2">`);
-        } else if (`{{ patd.testemunha2 }}`) {
-            processedHtml = processedHtml.replace(/{Assinatura Testemunha 2}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
-        } else {
-            processedHtml = processedHtml.replace(/{Assinatura Testemunha 2}/g, '[Sem assinatura]');
-        }
-
+        // Formatação final
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
         processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         return processedHtml;
@@ -1105,7 +1126,11 @@ document.addEventListener('DOMContentLoaded', function() {
             paragraphs.forEach(pText => {
                 const p = document.createElement('p');
                 p.setAttribute('contenteditable', 'true');
-                let processedPText = processPlaceholders(pText);
+                
+                // Substitui múltiplos espaços por `&nbsp;` para manter o layout do DOCX
+                let textWithSpaces = pText.replace(/ {2,}/g, (match) => '&nbsp;'.repeat(match.length));
+
+                let processedPText = processPlaceholders(textWithSpaces);
                 p.innerHTML = processedPText.trim() === '' ? '<br>' : processedPText;
                 contentDiv.appendChild(p);
             });
@@ -1459,16 +1484,61 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function saveDocumentChanges() {
         if (!pageContainer) return;
+
+        const tempContainer = pageContainer.cloneNode(true);
+
+        // Reverte as imagens para placeholders
+        const signaturePlaceholders = {
+            'Assinatura da Defesa': '{Assinatura Alegacao Defesa}',
+            'Assinatura da Reconsideração': '{Assinatura Reconsideracao}',
+            'Assinatura da Testemunha 1': '{Assinatura_Imagem_Testemunha_1}',
+            'Assinatura da Testemunha 2': '{Assinatura_Imagem_Testemunha_2}',
+            'Assinatura do Oficial Apurador': '{Assinatura_Imagem_Oficial_Apurador}',
+            'Assinatura do Comandante': '{Assinatura_Imagem_Comandante_GSD}'
+        };
+
+        tempContainer.querySelectorAll('img.signature-image-embedded').forEach(img => {
+            let alt = img.getAttribute('alt');
+            let placeholder = signaturePlaceholders[alt] || '{Assinatura Militar Arrolado}';
+            if (alt && alt.startsWith('Assinatura ')) { // Lida com "Assinatura 1", "Assinatura 2", etc.
+                placeholder = '{Assinatura Militar Arrolado}';
+            }
+            img.replaceWith(document.createTextNode(placeholder));
+        });
+
+        // Reverte os botões para placeholders
+        tempContainer.querySelectorAll('button.open-signature-modal').forEach(btn => {
+            const type = btn.dataset.type;
+            let placeholder = '';
+            if (type === 'ciencia') placeholder = '{Assinatura Militar Arrolado}';
+            else if (type === 'defesa') placeholder = '{Assinatura Alegacao Defesa}';
+            else if (type === 'reconsideracao') placeholder = '{Assinatura Reconsideracao}';
+            else if (type === 'oficial') placeholder = '{Botao Assinar Oficial}';
+            else if (type === 'testemunha') placeholder = `{Botao Assinar Testemunha ${btn.dataset.testemunhaNum}}`;
+            btn.replaceWith(document.createTextNode(placeholder));
+        });
+        
+        tempContainer.querySelectorAll('button#add-defesa-btn-doc').forEach(btn => btn.replaceWith(document.createTextNode('{Botao Adicionar Alegacao}')));
+        tempContainer.querySelectorAll('button#add-reconsideracao-texto-btn-doc').forEach(btn => btn.replaceWith(document.createTextNode('{Botao Adicionar Reconsideracao}')));
+
+
+        // Extrai o texto limpo
         const pageDelimiter = 'PATD Nº {{ patd.numero_patd }}/BAGL-GSDGL/{{ patd.data_inicio|date:"dmy" }}';
         let fullContent = [];
         
-        pageContainer.querySelectorAll('.page .page-content').forEach(contentDiv => {
+        tempContainer.querySelectorAll('.page .page-content').forEach(contentDiv => {
             let pageContent = [];
             contentDiv.querySelectorAll('p').forEach(p => {
-                let cleanText = p.innerHTML.replace(/<br>/g, '');
+                // Converte <br> para nova linha e &nbsp; para espaço
+                let cleanText = p.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+                cleanText = cleanText.replace(/&nbsp;/g, ' ');
+                // Converte ** para negrito
                 cleanText = cleanText.replace(/<strong>(.*?)<\/strong>/g, '**$1**');
-                cleanText = cleanText.replace(/<img.*?src="(data:image\/png;base64,[A-Za-z0-9+/=]+)".*?>/g, '$1');
-                pageContent.push(cleanText);
+                
+                // Remove tags HTML restantes
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = cleanText;
+                pageContent.push(tempDiv.textContent || tempDiv.innerText || '');
             });
             fullContent.push(pageContent.join('\n'));
         });
@@ -1488,7 +1558,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 saveVisualizadorBtn.textContent = 'Salvo!';
                 setTimeout(() => { saveVisualizadorBtn.textContent = 'Salvar Alterações'; }, 2000);
             } else {
-                saveVisualizadorBtn.textContent = 'Erro ao Salvar';
+               saveVisualizadorBtn.textContent = 'Erro ao Salvar';
                 alert('Erro: ' + data.message);
             }
         })
@@ -1569,6 +1639,40 @@ document.addEventListener('DOMContentLoaded', function() {
     renderDocument();
     if (document.getElementById('tab-visualizador').classList.contains('active')) {
         renderVisualizador();
+    }
+    
+    // --- LÓGICA DO MODAL DE RETORNO DO COMANDANTE NA PÁGINA DE DETALHES ---
+    const retornarModal = document.getElementById('retornar-patd-modal');
+    if (retornarModal) {
+        const retornarForm = document.getElementById('retornar-patd-form');
+        const retornarModalTitle = document.getElementById('retornar-modal-title');
+        const cancelRetornarBtn = document.getElementById('cancel-retornar-btn');
+
+        document.body.addEventListener('click', function(e) {
+            const btn = e.target.closest('.open-retornar-modal-btn');
+            if (btn) {
+                const patdPk = btn.dataset.patdPk;
+                const patdNumero = btn.dataset.patdNumero;
+                
+                const url = `/Ouvidoria/patd/${patdPk}/retornar/`;
+                retornarForm.action = url;
+                retornarModalTitle.textContent = `Retornar PATD Nº ${patdNumero}`;
+                
+                retornarModal.classList.add('active');
+            }
+        });
+
+        if (cancelRetornarBtn) {
+            cancelRetornarBtn.addEventListener('click', () => {
+                retornarModal.classList.remove('active');
+            });
+        }
+
+        retornarModal.addEventListener('click', (e) => {
+            if (e.target === retornarModal) {
+                retornarModal.classList.remove('active');
+            }
+        });
     }
 });
 </script>
