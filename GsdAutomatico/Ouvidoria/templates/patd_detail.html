@@ -124,6 +124,7 @@
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
     .btn-success { background: linear-gradient(45deg, var(--success-color), #5cb85c); color: #fff; }
+    .btn-info { background: linear-gradient(45deg, #17a2b8, #2ca8ff); color: #fff; }
     .prazo-defesa { background-color: var(--sidebar-active-bg); border-left: 4px solid var(--warning-color); padding: 15px; margin-bottom: 20px; border-radius: 4px; }
     .prazo-defesa.expirado { border-left-color: var(--danger-color); }
     .analise-container .feedback-message { margin-top: 10px; padding: 10px; border-radius: 6px; font-weight: 500; }
@@ -171,7 +172,7 @@
         display: block;
     }
 
-    /* NOVOS ESTILOS PARA O VISUALIZADOR */
+    /* ESTILOS PARA O VISUALIZADOR E ANEXOS */
     .document-editor-container {
         display: flex;
         gap: 20px;
@@ -267,7 +268,22 @@
         max-height: 45px; /* Define uma altura máxima para as imagens de assinatura */
         vertical-align: middle; /* Alinha a imagem verticalmente com o texto ao redor */
     }
-
+    
+    #anexos-card-geral ul {
+        list-style-type: none;
+        padding-left: 0;
+    }
+    #anexos-card-geral li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px;
+        border-radius: 6px;
+        transition: background-color: 0.2s;
+    }
+    #anexos-card-geral li:hover {
+        background-color: var(--bg-main);
+    }
 </style>
 
 <div class="patd-header">
@@ -281,21 +297,25 @@
 <!-- Barra de Status -->
 <ul class="status-timeline">
     {% with current_status=patd.status %}
-    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Abertura</div>
     </li>
-    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Defesa</div>
     </li>
-    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Apuração</div>
     </li>
-    <li class="status-step {% if current_status in 'analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Decisão</div>
+    </li>
+     <li class="status-step {% if current_status in 'aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status == 'finalizado' %}completed{% endif %}">
+        <div class="status-dot"></div>
+        <div class="status-label">Publicação</div>
     </li>
     <li class="status-step {% if current_status == 'finalizado' %}active completed{% endif %}">
         <div class="status-dot"></div>
@@ -333,7 +353,7 @@
             {% endif %}
 
              <div class="form-actions" id="form-actions-container">
-                {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa %}
+                {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa and not patd.anexos.exists %}
                 <button type="button" class="btn btn-primary" id="add-defesa-btn">Adicionar Alegação de Defesa</button>
                 {% endif %}
                 {% if patd.status == 'prazo_expirado' %}
@@ -354,6 +374,9 @@
                     <button type="submit" class="btn btn-success">Aprovar PATD</button>
                 </form>
                 <button type="button" class="btn btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
+                {% endif %}
+                {% if patd.status == 'aguardando_publicacao' and user|has_ouvidoria_access %}
+                <button type="button" class="btn btn-success" id="btn-finalizar-modal">Finalizar Publicação</button>
                 {% endif %}
             </div>
         </div>
@@ -410,6 +433,12 @@
                     <strong>Status:</strong>
                     <p id="patd-status" class="detail-value">{{ patd.get_status_display }}</p>
                 </div>
+                {% if patd.boletim_publicacao %}
+                 <div class="detail-item">
+                    <strong>Publicado no Boletim:</strong>
+                    <p class="detail-value">{{ patd.boletim_publicacao }}</p>
+                </div>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -450,6 +479,24 @@
                 </div>
 
              </div>
+        </div>
+    </div>
+
+    <!-- Card de Anexos -->
+    <div class="card" id="anexos-card-geral" style="display: none;">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.122 2.122l7.81-7.81-2.122-2.122z" /></svg>
+            <h2>Anexos do Processo</h2>
+        </div>
+        <div class="card-body">
+            <div id="anexos-defesa-container-geral" style="display: none; margin-bottom: 20px;">
+                <h4>Anexos da Alegação de Defesa</h4>
+                <ul id="anexos-defesa-list-geral"></ul>
+            </div>
+            <div id="anexos-reconsideracao-container-geral" style="display: none;">
+                <h4>Anexos da Reconsideração</h4>
+                <ul id="anexos-reconsideracao-list-geral"></ul>
+            </div>
         </div>
     </div>
     
@@ -508,6 +555,9 @@
                         <span class="spinner" style="display: none;"></span>
                         Salvar Apuração e Concluir
                     </button>
+                    <button type="button" id="btn-justificar-patd" class="btn btn-info">
+                        Justificar Transgressão
+                    </button>
                     <button type="button" id="btn-reanalisar-apuracao" class="btn btn-warning">
                         <span class="spinner" style="display: none;"></span>
                         Analisar Novamente
@@ -561,6 +611,7 @@
             </div>
         </div>
     </div>
+    
     <div id="document-preview-container" class="document-preview-container">
         <!-- As páginas serão inseridas aqui dinamicamente -->
     </div>
@@ -612,14 +663,23 @@
 <div class="modal-overlay" id="defesa-modal">
     <div class="modal-content">
         <h3>Alegação de Defesa</h3>
-        <p>Escreva abaixo a sua alegação de defesa referente aos fatos imputados.</p>
-        <textarea id="alegacao-defesa-texto" style="width: 100%; min-height: 150px;"></textarea>
-        <div class="form-actions" style="justify-content: flex-end;">
-            <button type="button" class="btn btn-secondary" id="cancel-defesa-btn">Cancelar</button>
-            <button type="button" class="btn btn-primary" id="submit-defesa-btn">Concluir</button>
-        </div>
+        <form id="form-alegacao-defesa" enctype="multipart/form-data">
+            <p>Escreva abaixo a sua alegação de defesa e/ou anexe ficheiros de suporte.</p>
+            <textarea name="alegacao_defesa" id="alegacao-defesa-texto" style="width: 100%; min-height: 150px;"></textarea>
+            
+            <div class="form-item" style="margin-top: 15px;">
+                <label for="anexos_defesa">Anexar Ficheiros:</label>
+                <input type="file" name="anexos_defesa" id="anexos_defesa" multiple style="width: 100%; padding: 10px;">
+            </div>
+
+            <div class="form-actions" style="justify-content: flex-end; margin-top: 15px;">
+                <button type="button" class="btn btn-secondary" id="cancel-defesa-btn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="submit-defesa-btn">Concluir</button>
+            </div>
+        </form>
     </div>
 </div>
+
 <div class="modal-overlay" id="confirm-defesa-modal">
     <div class="modal-content">
         <h3>Confirmar Envio</h3>
@@ -630,6 +690,7 @@
         </div>
     </div>
 </div>
+
 <div class="modal-overlay" id="extender-prazo-modal">
     <div class="modal-content">
         <h3>Extender Prazo de Defesa</h3>
@@ -682,12 +743,20 @@
 <div class="modal-overlay" id="reconsideracao-texto-modal">
     <div class="modal-content">
         <h3>Texto de Reconsideração</h3>
-        <p>Escreva abaixo o texto do pedido de reconsideração.</p>
-        <textarea id="reconsideracao-texto-input" style="width: 100%; min-height: 150px;"></textarea>
-        <div class="form-actions" style="justify-content: flex-end;">
-            <button type="button" class="btn btn-secondary" id="cancel-reconsideracao-texto-btn">Cancelar</button>
-            <button type="button" class="btn btn-primary" id="submit-reconsideracao-texto-btn">Salvar Texto</button>
-        </div>
+        <form id="form-reconsideracao" enctype="multipart/form-data">
+            <p>Escreva abaixo o texto do pedido de reconsideração e/ou anexe ficheiros de suporte.</p>
+            <textarea name="texto_reconsideracao" id="reconsideracao-texto-input" style="width: 100%; min-height: 150px;"></textarea>
+            
+            <div class="form-item" style="margin-top: 15px;">
+                <label for="anexos_reconsideracao">Anexar Ficheiros:</label>
+                <input type="file" name="anexos_reconsideracao" id="anexos_reconsideracao" multiple style="width: 100%; padding: 10px;">
+            </div>
+
+            <div class="form-actions" style="justify-content: flex-end; margin-top: 15px;">
+                <button type="button" class="btn btn-secondary" id="cancel-reconsideracao-texto-btn">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="submit-reconsideracao-texto-btn">Salvar</button>
+            </div>
+        </form>
     </div>
 </div>
 
@@ -708,9 +777,33 @@
         </form>
     </div>
 </div>
+
+<div class="modal-overlay" id="finalizar-publicacao-modal">
+    <div class="modal-content">
+        <h3>Finalizar Processo</h3>
+        <p>Insira o número do boletim em que a decisão desta PATD foi publicada para finalizar o processo.</p>
+        <form id="finalizar-publicacao-form" method="post" action="{% url 'Ouvidoria:finalizar_publicacao' patd.pk %}" class="model-form">
+            {% csrf_token %}
+            <div class="form-item">
+                <label for="id_boletim_publicacao">Número do Boletim:</label>
+                <input type="text" name="boletim_publicacao" required id="id_boletim_publicacao" placeholder="Ex: BCA Nº 123 - 25/12/2025">
+            </div>
+            <div class="form-actions" style="justify-content: flex-end; margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" id="cancel-finalizar-btn">Cancelar</button>
+                <button type="submit" class="btn btn-success">Finalizar</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
+<script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
+
 <script>
 // Dados da análise pré-carregados pelo Django
 const analiseData = {{ analise_data_json|safe }};
@@ -726,6 +819,8 @@ const testemunha1SigData = '{{ patd.assinatura_testemunha1|default:"" }}';
 const testemunha2SigData = '{{ patd.assinatura_testemunha2|default:"" }}';
 const oficialSigData = '{{ patd.assinatura_oficial|default:"" }}';
 const comandanteSigData = '{{ comandante_assinatura|default:"" }}';
+let anexosDefesa = {{ anexos_defesa_json|safe }};
+let anexosReconsideracao = {{ anexos_reconsideracao_json|safe }};
 
 let signatureIndex = 0; // Contador de assinaturas movido para o escopo externo
 
@@ -864,39 +959,39 @@ document.addEventListener('DOMContentLoaded', function() {
         const submitDefesaBtn = document.getElementById('submit-defesa-btn');
         const cancelConfirmDefesaBtn = document.getElementById('cancel-confirm-defesa-btn');
         const finalSubmitDefesaBtn = document.getElementById('final-submit-defesa-btn');
-        const alegacaoText = document.getElementById('alegacao-defesa-texto');
+        const formDefesa = document.getElementById('form-alegacao-defesa');
 
         function openDefesaModal() {
             defesaModal.classList.add('active');
         }
 
-        if (addDefesaBtn) {
-            addDefesaBtn.addEventListener('click', openDefesaModal);
-        }
-
-        // Listener delegado para o botão no documento
-        document.body.addEventListener('click', function(e) {
-            if (e.target && e.target.id === 'add-defesa-btn-doc') {
-                openDefesaModal();
-            }
+        if (addDefesaBtn) addDefesaBtn.addEventListener('click', openDefesaModal);
+        document.body.addEventListener('click', e => {
+            if (e.target && e.target.id === 'add-defesa-btn-doc') openDefesaModal();
         });
 
         if(cancelDefesaBtn) cancelDefesaBtn.addEventListener('click', () => defesaModal.classList.remove('active'));
         if(submitDefesaBtn) submitDefesaBtn.addEventListener('click', () => {
-            if (alegacaoText.value.trim() === "") {
-                alert("O campo de alegação de defesa não pode estar vazio.");
-                return;
-            }
+             const alegacaoText = document.getElementById('alegacao-defesa-texto').value;
+             const anexosInput = document.getElementById('anexos_defesa');
+             if (alegacaoText.trim() === "" && anexosInput.files.length === 0) {
+                 alert("É necessário fornecer um texto ou anexar pelo menos um ficheiro.");
+                 return;
+             }
             defesaModal.classList.remove('active');
             if(confirmDefesaModal) confirmDefesaModal.classList.add('active');
         });
+
         if(cancelConfirmDefesaBtn) cancelConfirmDefesaBtn.addEventListener('click', () => confirmDefesaModal.classList.remove('active'));
+
         if(finalSubmitDefesaBtn) finalSubmitDefesaBtn.addEventListener('click', () => {
+            const formData = new FormData(formDefesa);
             const url = `{% url 'Ouvidoria:salvar_alegacao_defesa' patd.pk %}`;
+            
             fetch(url, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                body: JSON.stringify({ 'alegacao_defesa': alegacaoText.value })
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
             })
             .then(response => response.json())
             .then(data => {
@@ -906,6 +1001,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => console.error('Erro:', error));
         });
     }
+
     const extenderPrazoModal = document.getElementById('extender-prazo-modal');
     const extenderPrazoBtn = document.getElementById('extender-prazo-btn');
     const prosseguirBtn = document.getElementById('prosseguir-sem-defesa-btn');
@@ -1024,20 +1120,6 @@ document.addEventListener('DOMContentLoaded', function() {
     const tabLinks = document.querySelectorAll('.tab-link');
     const tabPanels = document.querySelectorAll('.tab-panel');
 
-    const savedTabId = localStorage.getItem('activePatdTab-{{ patd.pk }}');
-    if (savedTabId) {
-        tabLinks.forEach(l => l.classList.remove('active'));
-        tabPanels.forEach(p => p.classList.remove('active'));
-
-        const activeLink = document.querySelector(`.tab-link[data-target="${savedTabId}"]`);
-        const activePanel = document.getElementById(savedTabId);
-
-        if (activeLink && activePanel) {
-            activeLink.classList.add('active');
-            activePanel.classList.add('active');
-        }
-    }
-
     tabLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
@@ -1055,11 +1137,36 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    function generateAnexosHtmlForExport() {
+        if (anexosDefesa.length === 0 && anexosReconsideracao.length === 0) {
+            return '';
+        }
+        
+        let html = '<div style="page-break-before: always;"></div><h2>ANEXOS DO PROCESSO</h2>';
+
+        if (anexosDefesa.length > 0) {
+            html += '<h3>Anexos da Alegação de Defesa</h3>';
+            anexosDefesa.forEach(anexo => {
+                html += anexo.content_html;
+            });
+        }
+
+        if (anexosReconsideracao.length > 0) {
+            html += '<h3>Anexos da Reconsideração</h3>';
+            anexosReconsideracao.forEach(anexo => {
+                html += anexo.content_html;
+            });
+        }
+        return html;
+    }
+
     function processPlaceholders(text) {
         let processedHtml = text;
         processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
         
+        processedHtml = processedHtml.replace(/{ANEXOS_PLACEHOLDER}/g, generateAnexosHtmlForExport());
+
         // Assinaturas que podem ter imagem ou botão
         processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? `<img class="signature-image-embedded" src="${defesaSigData}" alt="Assinatura da Defesa">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? `<img class="signature-image-embedded" src="${reconSigData}" alt="Assinatura da Reconsideração">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
@@ -1091,57 +1198,216 @@ document.addEventListener('DOMContentLoaded', function() {
         return processedHtml;
     }
 
-    function renderDocument() {
-        const viewer = document.getElementById('documento-view');
-        if (!viewer) return;
-        signatureIndex = 0; // Reinicia o contador para a aba "Documento Completo"
-        let processedHtml = processPlaceholders(rawDocumentText);
-        viewer.innerHTML = processedHtml.replace(/\n/g, '<br>');
+    // --- LÓGICA DO VISUALIZADOR DE DOCUMENTO ---
+    const pageContainer = document.getElementById('document-preview-container');
+    const headerInput = document.getElementById('header-input');
+    const footerInput = document.getElementById('footer-input');
+    const fontFamilySelect = document.getElementById('font-family-select');
+    const fontSizeSelect = document.getElementById('font-size-select');
+    const alignButtons = document.querySelectorAll('.toolbar-button[data-command="textAlign"]');
+    const exportPdfBtn = document.getElementById('export-pdf-btn');
+    const exportDocxBtn = document.getElementById('export-docx-btn');
+    const saveVisualizadorBtn = document.getElementById('save-visualizador-btn');
+    let saveTimeout;
+
+    function scheduleSave() {
+        clearTimeout(saveTimeout);
+        saveVisualizadorBtn.textContent = 'Salvando...';
+        saveTimeout = setTimeout(() => {
+            saveDocumentChanges();
+        }, 1500);
+    }
+    
+    if (pageContainer) {
+        pageContainer.addEventListener('input', scheduleSave);
     }
 
-    function renderVisualizador() {
+    function applyToolbarStyles() {
+        const pages = pageContainer.querySelectorAll('.page-content');
+        pages.forEach(content => {
+            content.style.textAlign = document.querySelector('.toolbar-button[data-command="textAlign"].active')?.dataset.value || 'center';
+            content.style.fontFamily = fontFamilySelect.value;
+            content.style.fontSize = fontSizeSelect.value;
+        });
+        const headers = pageContainer.querySelectorAll('.page-header');
+        headers.forEach(h => h.textContent = headerInput.value);
+        const footers = pageContainer.querySelectorAll('.page-footer');
+        footers.forEach(f => f.textContent = footerInput.value);
+        scheduleSave();
+    }
+
+    alignButtons.forEach(button => {
+        button.addEventListener('click', () => {
+            alignButtons.forEach(btn => btn.classList.remove('active'));
+            button.classList.add('active');
+            applyToolbarStyles();
+        });
+    });
+
+    [fontFamilySelect, fontSizeSelect, headerInput, footerInput].forEach(el => {
+        if(el) {
+            el.addEventListener('change', applyToolbarStyles);
+            el.addEventListener('input', applyToolbarStyles);
+        }
+    });
+
+    function saveDocumentChanges() {
         if (!pageContainer) return;
-        pageContainer.innerHTML = '';
-        signatureIndex = 0; // Reinicia o contador para a aba "Visualizador"
+
+        const tempContainer = pageContainer.cloneNode(true);
+
+        // Reverte as imagens para placeholders
+        const signaturePlaceholders = {
+            'Assinatura da Defesa': '{Assinatura Alegacao Defesa}',
+            'Assinatura da Reconsideração': '{Assinatura Reconsideracao}',
+            'Assinatura da Testemunha 1': '{Assinatura_Imagem_Testemunha_1}',
+            'Assinatura da Testemunha 2': '{Assinatura_Imagem_Testemunha_2}',
+            'Assinatura do Oficial Apurador': '{Assinatura_Imagem_Oficial_Apurador}',
+            'Assinatura do Comandante': '{Assinatura_Imagem_Comandante_GSD}'
+        };
+
+        tempContainer.querySelectorAll('img.signature-image-embedded').forEach(img => {
+            let alt = img.getAttribute('alt');
+            let placeholder = signaturePlaceholders[alt] || '{Assinatura Militar Arrolado}';
+            if (alt && alt.startsWith('Assinatura ')) { // Lida com "Assinatura 1", "Assinatura 2", etc.
+                placeholder = '{Assinatura Militar Arrolado}';
+            }
+            img.replaceWith(document.createTextNode(placeholder));
+        });
+
+        // Reverte os botões para placeholders
+        tempContainer.querySelectorAll('button.open-signature-modal').forEach(btn => {
+            const type = btn.dataset.type;
+            let placeholder = '';
+            if (type === 'ciencia') placeholder = '{Assinatura Militar Arrolado}';
+            else if (type === 'defesa') placeholder = '{Assinatura Alegacao Defesa}';
+            else if (type === 'reconsideracao') placeholder = '{Assinatura Reconsideracao}';
+            else if (type === 'oficial') placeholder = '{Botao Assinar Oficial}';
+            else if (type === 'testemunha') placeholder = `{Botao Assinar Testemunha ${btn.dataset.testemunhaNum}}`;
+            btn.replaceWith(document.createTextNode(placeholder));
+        });
+        
+        tempContainer.querySelectorAll('button#add-defesa-btn-doc').forEach(btn => btn.replaceWith(document.createTextNode('{Botao Adicionar Alegacao}')));
+        tempContainer.querySelectorAll('button#add-reconsideracao-texto-btn-doc').forEach(btn => btn.replaceWith(document.createTextNode('{Botao Adicionar Reconsideracao}')));
+
+
+        // Extrai o texto limpo
         const pageDelimiter = 'PATD Nº {{ patd.numero_patd }}/BAGL-GSDGL/{{ patd.data_inicio|date:"dmy" }}';
-        const pageTexts = rawDocumentText.split(new RegExp(pageDelimiter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-
-        pageTexts.forEach((pageText, index) => {
-            if (pageText.trim() === '') return;
-            let fullPageText = (index > 0 ? pageDelimiter : '') + pageText;
-            const pageDiv = document.createElement('div');
-            pageDiv.className = 'page';
-            const headerDiv = document.createElement('div');
-            headerDiv.className = 'page-header';
-            headerDiv.textContent = headerInput.value;
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'page-content';
-            contentDiv.style.textAlign = document.querySelector('.toolbar-button[data-command="textAlign"].active')?.dataset.value || 'center';
-            contentDiv.style.fontFamily = fontFamilySelect.value;
-            contentDiv.style.fontSize = fontSizeSelect.value;
-            const footerDiv = document.createElement('div');
-            footerDiv.className = 'page-footer';
-            footerDiv.textContent = footerInput.value;
-            const paragraphs = fullPageText.split('\n');
-            paragraphs.forEach(pText => {
-                const p = document.createElement('p');
-                p.setAttribute('contenteditable', 'true');
+        let fullContent = [];
+        
+        tempContainer.querySelectorAll('.page .page-content').forEach(contentDiv => {
+            let pageContent = [];
+            contentDiv.querySelectorAll('p').forEach(p => {
+                // Converte <br> para nova linha e &nbsp; para espaço
+                let cleanText = p.innerHTML.replace(/<br\s*\/?>/gi, '\n');
+                cleanText = cleanText.replace(/&nbsp;/g, ' ');
+                // Converte ** para negrito
+                cleanText = cleanText.replace(/<strong>(.*?)<\/strong>/g, '**$1**');
                 
-                // Substitui múltiplos espaços por `&nbsp;` para manter o layout do DOCX
-                let textWithSpaces = pText.replace(/ {2,}/g, (match) => '&nbsp;'.repeat(match.length));
-
-                let processedPText = processPlaceholders(textWithSpaces);
-                p.innerHTML = processedPText.trim() === '' ? '<br>' : processedPText;
-                contentDiv.appendChild(p);
+                // Remove tags HTML restantes
+                const tempDiv = document.createElement('div');
+                tempDiv.innerHTML = cleanText;
+                pageContent.push(tempDiv.textContent || tempDiv.innerText || '');
             });
-            pageDiv.appendChild(headerDiv);
-            pageDiv.appendChild(contentDiv);
-            pageDiv.appendChild(footerDiv);
-            pageContainer.appendChild(pageDiv);
+            fullContent.push(pageContent.join('\n'));
+        });
+
+        const newDocumentText = fullContent.join(`\n${pageDelimiter}\n`);
+        rawDocumentText = newDocumentText;
+        
+        const url = `{% url 'Ouvidoria:salvar_documento_patd' patd.pk %}`;
+        fetch(url, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ 'texto_documento': newDocumentText })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success') {
+                saveVisualizadorBtn.textContent = 'Salvo!';
+                setTimeout(() => { saveVisualizadorBtn.textContent = 'Salvar Alterações'; }, 2000);
+            } else {
+               saveVisualizadorBtn.textContent = 'Erro ao Salvar';
+                alert('Erro: ' + data.message);
+            }
+        })
+        .catch(error => {
+            saveVisualizadorBtn.textContent = 'Erro ao Salvar';
+            console.error('Erro:', error)
         });
     }
 
-    renderDocument();
+    if (saveVisualizadorBtn) saveVisualizadorBtn.addEventListener('click', saveDocumentChanges);
+
+    if (exportPdfBtn) {
+        exportPdfBtn.addEventListener('click', async () => {
+            const { jsPDF } = window.jspdf;
+            const pdf = new jsPDF('p', 'cm', 'a4');
+            const pages = pageContainer.querySelectorAll('.page');
+            exportPdfBtn.textContent = 'Gerando...';
+
+            for (let i = 0; i < pages.length; i++) {
+                const pageElement = pages[i];
+                const canvas = await html2canvas(pageElement, { scale: 3, useCORS: true });
+                const imgData = canvas.toDataURL('image/png');
+                const pdfWidth = pdf.internal.pageSize.getWidth();
+                const pdfHeight = pdf.internal.pageSize.getHeight();
+                
+                if (i > 0) {
+                    pdf.addPage();
+                }
+                pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+            }
+
+            pdf.save(`PATD_{{ patd.numero_patd }}.pdf`);
+            exportPdfBtn.textContent = 'Exportar PDF';
+        });
+    }
+
+    if (exportDocxBtn) {
+        exportDocxBtn.addEventListener('click', async () => {
+            exportDocxBtn.textContent = 'Gerando...';
+            let combinedHtml = '';
+            const pages = pageContainer.querySelectorAll('.page');
+            
+            pages.forEach((page, index) => {
+                const pageClone = page.cloneNode(true);
+                pageClone.querySelectorAll('img').forEach(img => {
+                    const src = img.getAttribute('src');
+                    if (src) { // CORREÇÃO: Processa todas as imagens
+                        if (!src.startsWith('data:')) {
+                            try {
+                                img.src = new URL(src, window.location.href).href;
+                            } catch(e) { console.warn("Invalid URL for image src:", src); }
+                        }
+                    }
+                });
+                combinedHtml += pageClone.outerHTML;
+                 if (index < pages.length - 1) {
+                    combinedHtml += '<br style="page-break-before: always">';
+                }
+            });
+
+            const content = `
+                <!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${combinedHtml}</body></html>
+            `;
+
+            try {
+                const fileBuffer = await htmlDocx.asBlob(content);
+                const url = URL.createObjectURL(fileBuffer);
+                const a = document.createElement("a");
+                a.href = url;
+                a.download = `PATD_{{ patd.numero_patd }}.docx`;
+                a.click();
+                URL.revokeObjectURL(url);
+            } catch (err) {
+                console.error("Erro ao gerar DOCX:", err);
+                alert("Ocorreu um erro ao gerar o DOCX.");
+            } finally {
+                exportDocxBtn.textContent = 'Exportar DOCX';
+            }
+        });
+    }
 
     // --- LÓGICA PARA AVANÇAR PARA COMANDANTE ---
     const btnAvancar = document.getElementById('btn-avancar-comandante');
@@ -1347,6 +1613,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const cancelBtn = document.getElementById('cancel-reconsideracao-texto-btn');
         const submitBtn = document.getElementById('submit-reconsideracao-texto-btn');
         const textArea = document.getElementById('reconsideracao-texto-input');
+        const formReconsideracao = document.getElementById('form-reconsideracao');
 
         document.body.addEventListener('click', function(e) {
             if (e.target && e.target.id === 'add-reconsideracao-texto-btn-doc') {
@@ -1361,16 +1628,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
         if (submitBtn) {
             submitBtn.addEventListener('click', () => {
-                const texto = textArea.value;
-                if (texto.trim() === "") {
-                    alert("O campo de reconsideração não pode estar vazio.");
-                    return;
-                }
+                const formData = new FormData(formReconsideracao);
                 const url = `{% url 'Ouvidoria:salvar_reconsideracao' patd.pk %}`;
                 fetch(url, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                    body: JSON.stringify({ 'texto_reconsideracao': texto })
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -1432,215 +1695,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- LÓGICA DO VISUALIZADOR DE DOCUMENTO ---
-    const pageContainer = document.getElementById('document-preview-container');
-    const headerInput = document.getElementById('header-input');
-    const footerInput = document.getElementById('footer-input');
-    const fontFamilySelect = document.getElementById('font-family-select');
-    const fontSizeSelect = document.getElementById('font-size-select');
-    const alignButtons = document.querySelectorAll('.toolbar-button[data-command="textAlign"]');
-    const exportPdfBtn = document.getElementById('export-pdf-btn');
-    const exportDocxBtn = document.getElementById('export-docx-btn');
-    const saveVisualizadorBtn = document.getElementById('save-visualizador-btn');
-    let saveTimeout;
-
-    function scheduleSave() {
-        clearTimeout(saveTimeout);
-        saveVisualizadorBtn.textContent = 'Salvando...';
-        saveTimeout = setTimeout(() => {
-            saveDocumentChanges();
-        }, 1500);
-    }
-    
-    pageContainer.addEventListener('input', scheduleSave);
-
-
-    function applyToolbarStyles() {
-        const pages = pageContainer.querySelectorAll('.page-content');
-        pages.forEach(content => {
-            content.style.textAlign = document.querySelector('.toolbar-button[data-command="textAlign"].active')?.dataset.value || 'center';
-            content.style.fontFamily = fontFamilySelect.value;
-            content.style.fontSize = fontSizeSelect.value;
-        });
-        const headers = pageContainer.querySelectorAll('.page-header');
-        headers.forEach(h => h.textContent = headerInput.value);
-        const footers = pageContainer.querySelectorAll('.page-footer');
-        footers.forEach(f => f.textContent = footerInput.value);
-        scheduleSave();
-    }
-
-    alignButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            alignButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            applyToolbarStyles();
-        });
-    });
-
-    [fontFamilySelect, fontSizeSelect, headerInput, footerInput].forEach(el => {
-        el.addEventListener('change', applyToolbarStyles);
-        el.addEventListener('input', applyToolbarStyles);
-    });
-
-    function saveDocumentChanges() {
-        if (!pageContainer) return;
-
-        const tempContainer = pageContainer.cloneNode(true);
-
-        // Reverte as imagens para placeholders
-        const signaturePlaceholders = {
-            'Assinatura da Defesa': '{Assinatura Alegacao Defesa}',
-            'Assinatura da Reconsideração': '{Assinatura Reconsideracao}',
-            'Assinatura da Testemunha 1': '{Assinatura_Imagem_Testemunha_1}',
-            'Assinatura da Testemunha 2': '{Assinatura_Imagem_Testemunha_2}',
-            'Assinatura do Oficial Apurador': '{Assinatura_Imagem_Oficial_Apurador}',
-            'Assinatura do Comandante': '{Assinatura_Imagem_Comandante_GSD}'
-        };
-
-        tempContainer.querySelectorAll('img.signature-image-embedded').forEach(img => {
-            let alt = img.getAttribute('alt');
-            let placeholder = signaturePlaceholders[alt] || '{Assinatura Militar Arrolado}';
-            if (alt && alt.startsWith('Assinatura ')) { // Lida com "Assinatura 1", "Assinatura 2", etc.
-                placeholder = '{Assinatura Militar Arrolado}';
-            }
-            img.replaceWith(document.createTextNode(placeholder));
-        });
-
-        // Reverte os botões para placeholders
-        tempContainer.querySelectorAll('button.open-signature-modal').forEach(btn => {
-            const type = btn.dataset.type;
-            let placeholder = '';
-            if (type === 'ciencia') placeholder = '{Assinatura Militar Arrolado}';
-            else if (type === 'defesa') placeholder = '{Assinatura Alegacao Defesa}';
-            else if (type === 'reconsideracao') placeholder = '{Assinatura Reconsideracao}';
-            else if (type === 'oficial') placeholder = '{Botao Assinar Oficial}';
-            else if (type === 'testemunha') placeholder = `{Botao Assinar Testemunha ${btn.dataset.testemunhaNum}}`;
-            btn.replaceWith(document.createTextNode(placeholder));
-        });
-        
-        tempContainer.querySelectorAll('button#add-defesa-btn-doc').forEach(btn => btn.replaceWith(document.createTextNode('{Botao Adicionar Alegacao}')));
-        tempContainer.querySelectorAll('button#add-reconsideracao-texto-btn-doc').forEach(btn => btn.replaceWith(document.createTextNode('{Botao Adicionar Reconsideracao}')));
-
-
-        // Extrai o texto limpo
-        const pageDelimiter = 'PATD Nº {{ patd.numero_patd }}/BAGL-GSDGL/{{ patd.data_inicio|date:"dmy" }}';
-        let fullContent = [];
-        
-        tempContainer.querySelectorAll('.page .page-content').forEach(contentDiv => {
-            let pageContent = [];
-            contentDiv.querySelectorAll('p').forEach(p => {
-                // Converte <br> para nova linha e &nbsp; para espaço
-                let cleanText = p.innerHTML.replace(/<br\s*\/?>/gi, '\n');
-                cleanText = cleanText.replace(/&nbsp;/g, ' ');
-                // Converte ** para negrito
-                cleanText = cleanText.replace(/<strong>(.*?)<\/strong>/g, '**$1**');
-                
-                // Remove tags HTML restantes
-                const tempDiv = document.createElement('div');
-                tempDiv.innerHTML = cleanText;
-                pageContent.push(tempDiv.textContent || tempDiv.innerText || '');
-            });
-            fullContent.push(pageContent.join('\n'));
-        });
-
-        const newDocumentText = fullContent.join(`\n${pageDelimiter}\n`);
-        rawDocumentText = newDocumentText;
-        
-        const url = `{% url 'Ouvidoria:salvar_documento_patd' patd.pk %}`;
-        fetch(url, {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-            body: JSON.stringify({ 'texto_documento': newDocumentText })
-        })
-        .then(response => response.json())
-        .then(data => {
-            if (data.status === 'success') {
-                saveVisualizadorBtn.textContent = 'Salvo!';
-                setTimeout(() => { saveVisualizadorBtn.textContent = 'Salvar Alterações'; }, 2000);
-            } else {
-               saveVisualizadorBtn.textContent = 'Erro ao Salvar';
-                alert('Erro: ' + data.message);
-            }
-        })
-        .catch(error => {
-            saveVisualizadorBtn.textContent = 'Erro ao Salvar';
-            console.error('Erro:', error)
-        });
-    }
-
-    saveVisualizadorBtn.addEventListener('click', saveDocumentChanges);
-
-    exportPdfBtn.addEventListener('click', async () => {
-        const { jsPDF } = window.jspdf;
-        const pdf = new jsPDF('p', 'cm', 'a4');
-        const pages = pageContainer.querySelectorAll('.page');
-        exportPdfBtn.textContent = 'Gerando...';
-
-        for (let i = 0; i < pages.length; i++) {
-            const pageElement = pages[i];
-            const canvas = await html2canvas(pageElement, { scale: 3, useCORS: true });
-            const imgData = canvas.toDataURL('image/png');
-            const pdfWidth = pdf.internal.pageSize.getWidth();
-            const pdfHeight = pdf.internal.pageSize.getHeight();
-            
-            if (i > 0) {
-                pdf.addPage();
-            }
-            pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
-        }
-
-        pdf.save(`PATD_{{ patd.numero_patd }}.pdf`);
-        exportPdfBtn.textContent = 'Exportar PDF';
-    });
-
-    exportDocxBtn.addEventListener('click', async () => {
-        exportDocxBtn.textContent = 'Gerando...';
-        let combinedHtml = '';
-        const pages = pageContainer.querySelectorAll('.page');
-        
-        pages.forEach((page, index) => {
-            const pageClone = page.cloneNode(true);
-            pageClone.querySelectorAll('img').forEach(img => {
-                const src = img.getAttribute('src');
-                if (src) { // CORREÇÃO: Processa todas as imagens
-                    if (!src.startsWith('data:')) {
-                        try {
-                            img.src = new URL(src, window.location.href).href;
-                        } catch(e) { console.warn("Invalid URL for image src:", src); }
-                    }
-                }
-            });
-            combinedHtml += pageClone.outerHTML;
-             if (index < pages.length - 1) {
-                combinedHtml += '<br style="page-break-before: always">';
-            }
-        });
-
-        const content = `
-            <!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${combinedHtml}</body></html>
-        `;
-
-        try {
-            const fileBuffer = await htmlDocx.asBlob(content);
-            const url = URL.createObjectURL(fileBuffer);
-            const a = document.createElement("a");
-            a.href = url;
-            a.download = `PATD_{{ patd.numero_patd }}.docx`;
-            a.click();
-            URL.revokeObjectURL(url);
-        } catch (err) {
-            console.error("Erro ao gerar DOCX:", err);
-            alert("Ocorreu um erro ao gerar o DOCX.");
-        } finally {
-            exportDocxBtn.textContent = 'Exportar DOCX';
-        }
-    });
-
-    renderDocument();
-    if (document.getElementById('tab-visualizador').classList.contains('active')) {
-        renderVisualizador();
-    }
-    
     // --- LÓGICA DO MODAL DE RETORNO DO COMANDANTE NA PÁGINA DE DETALHES ---
     const retornarModal = document.getElementById('retornar-patd-modal');
     if (retornarModal) {
@@ -1673,6 +1727,192 @@ document.addEventListener('DOMContentLoaded', function() {
                 retornarModal.classList.remove('active');
             }
         });
+    }
+
+    function renderAnexosGeral() {
+        const anexosCard = document.getElementById('anexos-card-geral');
+        const defesaContainer = document.getElementById('anexos-defesa-container-geral');
+        const defesaList = document.getElementById('anexos-defesa-list-geral');
+        const reconsideracaoContainer = document.getElementById('anexos-reconsideracao-container-geral');
+        const reconsideracaoList = document.getElementById('anexos-reconsideracao-list-geral');
+
+        defesaList.innerHTML = '';
+        reconsideracaoList.innerHTML = '';
+
+        let hasAnexos = false;
+
+        if (anexosDefesa.length > 0) {
+            defesaContainer.style.display = 'block';
+            anexosDefesa.forEach(anexo => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <a href="${anexo.url}" target="_blank">${anexo.nome}</a>
+                    <button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>
+                `;
+                defesaList.appendChild(li);
+            });
+            hasAnexos = true;
+        } else {
+            defesaContainer.style.display = 'none';
+        }
+
+        if (anexosReconsideracao.length > 0) {
+            reconsideracaoContainer.style.display = 'block';
+            anexosReconsideracao.forEach(anexo => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <a href="${anexo.url}" target="_blank">${anexo.nome}</a>
+                    <button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>
+                `;
+                reconsideracaoList.appendChild(li);
+            });
+            hasAnexos = true;
+        } else {
+            reconsideracaoContainer.style.display = 'none';
+        }
+
+        anexosCard.style.display = hasAnexos ? 'block' : 'none';
+    }
+
+    function renderVisualizador() {
+        if (!pageContainer) return;
+        pageContainer.innerHTML = '';
+        
+        if (!rawDocumentText) {
+            pageContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">O conteúdo do documento está vazio ou não pôde ser carregado.</p>';
+            return;
+        }
+        
+        signatureIndex = 0; 
+        const pageDelimiter = 'PATD Nº {{ patd.numero_patd }}/BAGL-GSDGL/{{ patd.data_inicio|date:"dmy" }}';
+        const pageTexts = rawDocumentText.split(new RegExp(pageDelimiter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
+
+        pageTexts.forEach((pageText, index) => {
+            if (pageText.trim() === '') return;
+            let fullPageText = (index > 0 ? pageDelimiter : '') + pageText;
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'page';
+            const headerDiv = document.createElement('div');
+            headerDiv.className = 'page-header';
+            headerDiv.textContent = headerInput.value;
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'page-content';
+            contentDiv.style.textAlign = document.querySelector('.toolbar-button[data-command="textAlign"].active')?.dataset.value || 'center';
+            contentDiv.style.fontFamily = fontFamilySelect.value;
+            contentDiv.style.fontSize = fontSizeSelect.value;
+            const footerDiv = document.createElement('div');
+            footerDiv.className = 'page-footer';
+            footerDiv.textContent = footerInput.value;
+            const paragraphs = fullPageText.split('\n');
+            paragraphs.forEach(pText => {
+                const p = document.createElement('p');
+                p.setAttribute('contenteditable', 'true');
+                
+                let textWithSpaces = pText.replace(/ {2,}/g, (match) => '&nbsp;'.repeat(match.length));
+                let processedPText = processPlaceholders(textWithSpaces);
+                p.innerHTML = processedPText.trim() === '' ? '<br>' : processedPText;
+                contentDiv.appendChild(p);
+            });
+            pageDiv.appendChild(headerDiv);
+            pageDiv.appendChild(contentDiv);
+            pageDiv.appendChild(footerDiv);
+            pageContainer.appendChild(pageDiv);
+        });
+    }
+
+    // --- LÓGICA PARA EXCLUIR ANEXOS ---
+    document.body.addEventListener('click', function(e) {
+        const target = e.target.closest('.excluir-anexo-btn');
+        if (target) {
+            const anexoId = target.dataset.anexoId;
+            if (confirm('Tem a certeza de que deseja excluir este anexo?')) {
+                const url = `/Ouvidoria/anexo/${anexoId}/excluir/`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        // Remove o item da lista na interface
+                        target.closest('li').remove();
+                        // Recarrega os dados dos anexos para manter a consistência
+                        anexosDefesa = anexosDefesa.filter(a => a.id != anexoId);
+                        anexosReconsideracao = anexosReconsideracao.filter(a => a.id != anexoId);
+                        renderAnexosGeral(); // Re-renderiza a lista de anexos
+                        renderVisualizador(); // Re-renderiza o visualizador sem o anexo
+                    } else {
+                        alert('Erro ao excluir anexo: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('Erro:', error));
+            }
+        }
+    });
+
+    // --- LÓGICA PARA JUSTIFICAR PATD ---
+    const btnJustificarPatd = document.getElementById('btn-justificar-patd');
+    if (btnJustificarPatd) {
+        btnJustificarPatd.addEventListener('click', function() {
+            if (confirm('Tem a certeza de que deseja justificar esta transgressão? A PATD será movida para "Aguardando Publicação" e não poderá ser revertida.')) {
+                this.disabled = true;
+                this.textContent = 'A justificar...';
+
+                const url = `{% url 'Ouvidoria:justificar_patd' patd.pk %}`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        window.location.reload();
+                    } else {
+                        alert('Erro ao justificar: ' + data.message);
+                        this.disabled = false;
+                        this.textContent = 'Justificar Transgressão';
+                    }
+                })
+                .catch(error => {
+                    console.error('Erro:', error);
+                    alert('Erro de comunicação ao justificar a transgressão.');
+                    this.disabled = false;
+                    this.textContent = 'Justificar Transgressão';
+                });
+            }
+        });
+    }
+    
+    // --- LÓGICA DO MODAL DE FINALIZAR PUBLICAÇÃO ---
+    const finalizarModal = document.getElementById('finalizar-publicacao-modal');
+    if (finalizarModal) {
+        const openBtn = document.getElementById('btn-finalizar-modal');
+        const cancelBtn = document.getElementById('cancel-finalizar-btn');
+
+        if(openBtn) {
+            openBtn.addEventListener('click', () => finalizarModal.classList.add('active'));
+        }
+        if(cancelBtn) {
+            cancelBtn.addEventListener('click', () => finalizarModal.classList.remove('active'));
+        }
+        finalizarModal.addEventListener('click', e => {
+            if (e.target === finalizarModal) finalizarModal.classList.remove('active');
+        });
+    }
+
+    // CHAMADAS INICIAIS
+    renderAnexosGeral();
+
+    // Ativa a tab correta do localStorage e renderiza o visualizador se necessário
+    const activeTabId = localStorage.getItem('activePatdTab-{{ patd.pk }}') || 'tab-detalhes';
+    document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+    document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+    document.querySelector(`.tab-link[data-target="${activeTabId}"]`).classList.add('active');
+    document.getElementById(activeTabId).classList.add('active');
+
+    if (activeTabId === 'tab-visualizador') {
+        renderVisualizador();
     }
 });
 </script>
