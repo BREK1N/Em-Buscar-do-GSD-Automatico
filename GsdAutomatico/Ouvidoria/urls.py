@@ -1,3 +1,5 @@
+# GsdAutomatico/Ouvidoria/urls.py
+
 from django.urls import path, include
 from . import views
 
@@ -35,6 +37,7 @@ urlpatterns = [
     path('patd/<int:pk>/aceitar_atribuicao/', views.aceitar_atribuicao, name='aceitar_atribuicao'),
     path('patd/<int:pk>/justificar/', views.justificar_patd, name='justificar_patd'),
     path('patd/<int:pk>/finalizar/', views.finalizar_publicacao, name='finalizar_publicacao'),
+    path('patd/<int:pk>/anexar_parecer_reconsideracao/', views.anexar_parecer_reconsideracao, name='anexar_parecer_reconsideracao'),
 
 
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
@@ -65,4 +68,3 @@ urlpatterns = [
     path('api/search-militares/', views.search_militares_json, name='search_militares_json'),
     path('anexo/<int:pk>/excluir/', views.excluir_anexo, name='excluir_anexo'),
 ]
-

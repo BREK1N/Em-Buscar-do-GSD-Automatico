@@ -116,7 +116,7 @@ def get_next_patd_number():
     return (max_num or 0) + 1
 
 # =============================================================================
-# FUNÇÕES AUXILIARES MOVIMDAS PARA CIMA PARA CORRIGIR O ERRO
+# FUNÇÕES AUXILIARES DE LÓGICA DE PROCESSO
 # =============================================================================
 def format_militar_string(militar, with_spec=False):
     """
@@ -169,9 +169,6 @@ def format_militar_string(militar, with_spec=False):
     else:
         return f"{posto} {formatted_name}".strip()
 
-# =============================================================================
-# Otimização da Geração de Documentos
-# =============================================================================
 
 def get_anexo_content_as_html(anexo):
     """
@@ -390,30 +387,30 @@ def get_raw_document_text(patd):
         alegacao_context = doc_context.copy()
         alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa or "[Ver documentos anexos]"
         document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
+        document_content += "\n\n{ANEXOS_DEFESA_PLACEHOLDER}"
 
     if patd.justificado:
         # Se justificado, gera apenas o relatório DELTA (que conterá o texto de justificação)
         document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
     else:
         # Lógica original para gerar todos os documentos do fluxo normal
-        if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao']:
+        if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao', 'analise_comandante_base', 'aguardando_parecer_oficial']:
             document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
         
         if patd.punicao_sugerida:
             document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
 
-        if patd.status in ['aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao']:
+        if patd.status in ['aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao', 'analise_comandante_base', 'aguardando_parecer_oficial']:
             document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
         
-        if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado']:
+        if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado', 'analise_comandante_base', 'aguardando_parecer_oficial']:
             reconsideracao_context = doc_context.copy()
             if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
                 reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
             else:
                 reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
             document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
-
-    document_content += "\n\n{ANEXOS_PLACEHOLDER}"
+            document_content += "\n\n{ANEXOS_RECONSIDERACAO_PLACEHOLDER}"
 
     return document_content
 
@@ -488,6 +485,23 @@ def _try_advance_status_from_justificativa(patd):
     patd.status = 'em_apuracao'
     return True
 
+def _try_advance_status_from_reconsideracao(patd):
+    """
+    Verifica se uma PATD no status 'em_reconsideracao' pode avançar.
+    Isso ocorre se o texto da reconsideração E a assinatura estiverem presentes.
+    """
+    if patd.status != 'em_reconsideracao':
+        return False
+
+    has_text_or_anexo = bool(patd.texto_reconsideracao) or patd.anexos.filter(tipo='reconsideracao').exists()
+    has_signature = bool(patd.assinatura_reconsideracao)
+
+    if has_text_or_anexo and has_signature:
+        patd.status = 'aguardando_parecer_oficial'
+        return True # Indica que o status foi alterado
+    
+    return False
+
 
 # =============================================================================
 # Views e Lógica da Aplicação
@@ -514,7 +528,7 @@ def patd_atribuicoes_pendentes(request):
         return redirect('Ouvidoria:index')
     
     militar_logado = request.user.profile.militar
-    active_tab = request.GET.get('tab', 'aprovar') # 'aprovar' is the default tab
+    active_tab = request.GET.get('tab', 'aprovar')
 
     # Counts for badges
     count_aprovar = PATD.objects.filter(
@@ -528,16 +542,32 @@ def patd_atribuicoes_pendentes(request):
         status__in=status_list_apuracao
     ).count()
 
+    status_list_reconsideracao = [
+        'periodo_reconsideracao', 
+        'em_reconsideracao', 
+        'analise_comandante_base',
+        'aguardando_parecer_oficial'
+    ]
+    count_reconsideracao = PATD.objects.filter(
+        oficial_responsavel=militar_logado,
+        status__in=status_list_reconsideracao
+    ).count()
+
     if active_tab == 'apuracao':
         patds = PATD.objects.filter(
             oficial_responsavel=militar_logado,
             status__in=status_list_apuracao
         ).select_related('militar').order_by('-data_inicio')
+    elif active_tab == 'reconsideracao':
+        patds = PATD.objects.filter(
+            oficial_responsavel=militar_logado,
+            status__in=status_list_reconsideracao
+        ).select_related('militar').order_by('-data_inicio')
     elif active_tab == 'todas':
         patds = PATD.objects.filter(
             oficial_responsavel=militar_logado
         ).select_related('militar').order_by('-data_inicio')
-    else: # default is 'aprovar'
+    else: # aba padrão 'aprovar'
         patds = PATD.objects.filter(
             oficial_responsavel=militar_logado,
             status='aguardando_aprovacao_atribuicao'
@@ -547,7 +577,8 @@ def patd_atribuicoes_pendentes(request):
         'patds': patds,
         'active_tab': active_tab,
         'count_aprovar': count_aprovar,
-        'count_apuracao': count_apuracao
+        'count_apuracao': count_apuracao,
+        'count_reconsideracao': count_reconsideracao
     }
     
     return render(request, 'patd_atribuicoes_pendentes.html', context)
@@ -1177,12 +1208,39 @@ def salvar_assinatura_reconsideracao(request, pk):
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
 
         patd.assinatura_reconsideracao = signature_data
-        patd.save()
+        
+        # Tenta avançar o status
+        if _try_advance_status_from_reconsideracao(patd):
+            patd.save()
+        else:
+            patd.save(update_fields=['assinatura_reconsideracao'])
 
         return JsonResponse({'status': 'success', 'message': 'Assinatura da reconsideração salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da reconsideração da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@oficial_responsavel_required
+@require_POST
+def anexar_parecer_reconsideracao(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    if patd.status != 'aguardando_parecer_oficial':
+        messages.error(request, "Ação não permitida neste status do processo.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    arquivo = request.FILES.get('anexo_parecer_oficial')
+    if not arquivo:
+        messages.error(request, "Nenhum ficheiro foi enviado.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='reconsideracao')
+    
+    patd.status = 'analise_comandante_base'
+    patd.save()
+    
+    messages.success(request, 'Parecer anexado com sucesso. O processo seguiu para a próxima etapa.')
+    return redirect('Ouvidoria:patd_detail', pk=pk)
 # --- FIM DAS NOVAS VIEWS ---
 
 @login_required
@@ -1376,7 +1434,7 @@ def verificar_e_atualizar_prazos(request):
                     patd.save(update_fields=['status'])
                     prazos_atualizados += 1
         
-        # --- LÓGICA PARA RECONSIDERAÇÃO ---
+        # --- LÓGICA PARA PERÍODO DE RECONSIDERAÇÃO EXPIRAR ---
         patds_em_reconsideracao = PATD.objects.filter(status='periodo_reconsideracao')
         reconsideracoes_finalizadas = 0
         for patd in patds_em_reconsideracao:
@@ -1387,7 +1445,22 @@ def verificar_e_atualizar_prazos(request):
                     patd.save(update_fields=['status'])
                     reconsideracoes_finalizadas += 1
         
-        total_updated = prazos_atualizados + reconsideracoes_finalizadas
+        # --- NOVA LÓGICA PARA AVANÇAR RECONSIDERAÇÕES ASSINADAS ---
+        patds_assinadas = PATD.objects.filter(
+            status='em_reconsideracao'
+        ).exclude(
+            assinatura_reconsideracao__isnull=True
+        ).exclude(
+            assinatura_reconsideracao__exact=''
+        )
+        
+        reconsideracoes_avancadas = 0
+        for patd in patds_assinadas:
+            if _try_advance_status_from_reconsideracao(patd):
+                patd.save()
+                reconsideracoes_avancadas += 1
+        
+        total_updated = prazos_atualizados + reconsideracoes_finalizadas + reconsideracoes_avancadas
         return JsonResponse({'status': 'success', 'updated_count': total_updated})
         
     except Exception as e:
@@ -1679,6 +1752,10 @@ def salvar_reconsideracao(request, pk):
             
         patd.save(update_fields=['texto_reconsideracao', 'data_reconsideracao'])
         
+        # Tenta avançar o status
+        if _try_advance_status_from_reconsideracao(patd):
+            patd.save()
+
         return JsonResponse({'status': 'success', 'message': 'Pedido de reconsideração e anexos salvos com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar texto de reconsideração para PATD {pk}: {e}")
@@ -1770,4 +1847,3 @@ def justificar_patd(request, pk):
     except Exception as e:
         logger.error(f"Erro ao justificar a PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-

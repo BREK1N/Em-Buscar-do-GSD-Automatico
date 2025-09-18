@@ -294,22 +294,21 @@
     </div>
 </div>
 
-<!-- Barra de Status -->
 <ul class="status-timeline">
     {% with current_status=patd.status %}
-    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,analise_comandante_base,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado,aguardando_parecer_oficial' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Abertura</div>
     </li>
-    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,analise_comandante_base,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado,aguardando_parecer_oficial' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Defesa</div>
     </li>
-    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,analise_comandante_base,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado,aguardando_parecer_oficial' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Apuração</div>
     </li>
-    <li class="status-step {% if current_status in 'analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'analise_comandante,analise_comandante_base,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado,aguardando_parecer_oficial' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Decisão</div>
     </li>
@@ -332,7 +331,6 @@
 
 <div id="tab-detalhes" class="tab-panel active">
     
-    <!-- Card de Ações e Prazos -->
     <div class="card">
         <div class="card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -381,7 +379,29 @@
             </div>
         </div>
     </div>
-
+    
+    {% if patd.status == 'aguardando_parecer_oficial' and request.user.profile.militar == patd.oficial_responsavel %}
+    <div class="card">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3 3m3-3l3 3M6.75 18.75a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
+            <h2>Anexar Parecer de Reconsideração</h2>
+        </div>
+        <div class="card-body">
+            <p>Anexe seu parecer sobre o pedido de reconsideração. Após o anexo, o processo seguirá para o Comandante da Base.</p>
+            <form action="{% url 'Ouvidoria:anexar_parecer_reconsideracao' patd.pk %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-item" style="margin-top: 15px;">
+                    <label for="anexo_parecer_oficial">Anexar Ficheiro (Parecer):</label>
+                    <input type="file" name="anexo_parecer_oficial" id="anexo_parecer_oficial" required style="width: 100%; padding: 10px;">
+                </div>
+                <div class="form-actions" style="justify-content: flex-end; margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary">Anexar e Encaminhar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    {% endif %}
+    
     {% if patd.comentario_comandante and patd.status == 'aguardando_punicao_alterar' %}
     <div class="card" style="border-left: 4px solid var(--warning-color);">
         <div class="card-header">
@@ -395,7 +415,6 @@
     </div>
     {% endif %}
 
-    <!-- Card de Detalhes do Processo -->
     <div class="card">
         <div class="card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12.75h.008M8.25 15h.008M8.25 18h.008m3.75-12h.008m2.25-3h.008M12 6h.008m-2.25 6h.008m2.25 6h.008M12 18h.008m-3.75-6h.008m2.25-6h.008" /></svg>
@@ -443,7 +462,6 @@
         </div>
     </div>
     
-    <!-- Card de Envolvidos -->
     <div class="card">
          <div class="card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /></svg>
@@ -482,7 +500,6 @@
         </div>
     </div>
 
-    <!-- Card de Anexos -->
     <div class="card" id="anexos-card-geral" style="display: none;">
         <div class="card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.122 2.122l7.81-7.81-2.122-2.122z" /></svg>
@@ -516,7 +533,6 @@
              <form id="apuracao-form" class="model-form">
                 <h3>Resultado da Apuração (Editável)</h3>
                 
-                <!-- NOVO CAMPO DE HISTÓRICO -->
                 <div class="form-item form-item-full">
                     <label for="historico_disciplinar">Histórico Disciplinar do Militar</label>
                     <div id="historico_disciplinar" class="historico-list">
@@ -613,12 +629,10 @@
     </div>
     
     <div id="document-preview-container" class="document-preview-container">
-        <!-- As páginas serão inseridas aqui dinamicamente -->
-    </div>
+        </div>
 </div>
 
 
-<!-- Modals... -->
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
         <h3>Confirmar Exclusão</h3>
@@ -646,7 +660,6 @@
     </div>
 </div>
 
-<!-- Modal Genérico de Assinatura -->
 <div class="modal-overlay" id="signature-modal-generic">
     <div class="modal-content">
         <h3 id="signature-modal-title">Assinatura</h3>
@@ -1137,26 +1150,21 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    function generateAnexosHtmlForExport() {
-        if (anexosDefesa.length === 0 && anexosReconsideracao.length === 0) {
-            return '';
-        }
-        
-        let html = '<div style="page-break-before: always;"></div><h2>ANEXOS DO PROCESSO</h2>';
+    function generateAnexosDefesaHtmlForExport() {
+        if (anexosDefesa.length === 0) return '';
+        let html = '<div style="page-break-before: always;"></div><h3>Anexos da Alegação de Defesa</h3>';
+        anexosDefesa.forEach(anexo => {
+            html += anexo.content_html;
+        });
+        return html;
+    }
 
-        if (anexosDefesa.length > 0) {
-            html += '<h3>Anexos da Alegação de Defesa</h3>';
-            anexosDefesa.forEach(anexo => {
-                html += anexo.content_html;
-            });
-        }
-
-        if (anexosReconsideracao.length > 0) {
-            html += '<h3>Anexos da Reconsideração</h3>';
-            anexosReconsideracao.forEach(anexo => {
-                html += anexo.content_html;
-            });
-        }
+    function generateAnexosReconsideracaoHtmlForExport() {
+        if (anexosReconsideracao.length === 0) return '';
+        let html = '<div style="page-break-before: always;"></div><h3>Anexos da Reconsideração</h3>';
+        anexosReconsideracao.forEach(anexo => {
+            html += anexo.content_html;
+        });
         return html;
     }
 
@@ -1165,7 +1173,8 @@ document.addEventListener('DOMContentLoaded', function() {
         processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
         
-        processedHtml = processedHtml.replace(/{ANEXOS_PLACEHOLDER}/g, generateAnexosHtmlForExport());
+        processedHtml = processedHtml.replace(/{ANEXOS_DEFESA_PLACEHOLDER}/g, generateAnexosDefesaHtmlForExport());
+        processedHtml = processedHtml.replace(/{ANEXOS_RECONSIDERACAO_PLACEHOLDER}/g, generateAnexosReconsideracaoHtmlForExport());
 
         // Assinaturas que podem ter imagem ou botão
         processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? `<img class="signature-image-embedded" src="${defesaSigData}" alt="Assinatura da Defesa">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
@@ -1917,4 +1926,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-
