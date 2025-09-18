@@ -8,7 +8,7 @@ from django.urls import reverse_lazy, reverse
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
-from .models import Militar, PATD, Configuracao, Anexo
+from .models import Militar, PATD, Configuracao
 from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai import ChatOpenAI
@@ -35,7 +35,6 @@ from django.contrib.auth import authenticate
 from functools import wraps # Importado para criar o decorator
 import threading # Importado para tarefas em background
 from .permissions import has_comandante_access, has_ouvidoria_access
-import base64
 
 
 # --- Funções e Mixins de Permissão ---
@@ -168,59 +167,6 @@ def format_militar_string(militar, with_spec=False):
         return f"{posto} {especializacao} {formatted_name}".strip()
     else:
         return f"{posto} {formatted_name}".strip()
-
-
-def get_anexo_content_as_html(anexo):
-    """
-    Lê um ficheiro Anexo e retorna o seu conteúdo como uma string HTML.
-    Suporta imagens, PDFs, e ficheiros DOCX.
-    """
-    try:
-        file_path = anexo.arquivo.path
-        file_url = anexo.arquivo.url
-        file_name = os.path.basename(file_path)
-
-        if not os.path.exists(file_path):
-            return f"<p><strong>{file_name}</strong>: Erro - Ficheiro não encontrado no servidor.</p>"
-
-        ext = os.path.splitext(file_name)[1].lower()
-
-        if ext in ['.png', '.jpg', '.jpeg', '.gif']:
-            with open(file_path, 'rb') as f:
-                encoded_string = base64.b64encode(f.read()).decode('utf-8')
-                return f'<h4>Anexo: {file_name}</h4><img src="data:image/{ext[1:]};base64,{encoded_string}" style="max-width: 100%; height: auto;" alt="{file_name}"><hr>'
-        
-        elif ext == '.pdf':
-            try:
-                loader = PyPDFLoader(file_path)
-                pages = loader.load_and_split()
-                content = "\n".join([page.page_content for page in pages])
-                return f'<h4>Anexo: {file_name}</h4><pre style="white-space: pre-wrap; word-wrap: break-word;">{content}</pre><hr>'
-            except Exception as e:
-                logger.error(f"Erro ao ler PDF {file_name}: {e}")
-                return f'<p><strong>{file_name}</strong>: Não foi possível extrair o texto do PDF. <a href="{file_url}" target="_blank">Fazer download</a></p><hr>'
-
-        elif ext == '.docx':
-            try:
-                doc = docx.Document(file_path)
-                content = "\n".join([para.text for para in doc.paragraphs])
-                return f'<h4>Anexo: {file_name}</h4><pre style="white-space: pre-wrap; word-wrap: break-word;">{content}</pre><hr>'
-            except Exception as e:
-                logger.error(f"Erro ao ler DOCX {file_name}: {e}")
-                return f'<p><strong>{file_name}</strong>: Não foi possível ler o conteúdo do DOCX. <a href="{file_url}" target="_blank">Fazer download</a></p><hr>'
-        
-        elif ext == '.txt':
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-                return f'<h4>Anexo: {file_name}</h4><pre style="white-space: pre-wrap; word-wrap: break-word;">{content}</pre><hr>'
-
-        else:
-            # Para outros tipos de ficheiro, apenas fornece um link
-            return f'<p><strong>Anexo: {file_name}</strong> (Tipo de ficheiro não suportado para visualização) - <a href="{file_url}" target="_blank">Fazer download</a></p><hr>'
-
-    except Exception as e:
-        logger.error(f"Erro ao processar anexo {anexo.id}: {e}")
-        return f"<p>Erro ao carregar o anexo {os.path.basename(anexo.arquivo.name)}.</p>"
 
 
 def _get_document_context(patd):
@@ -382,11 +328,17 @@ def get_raw_document_text(patd):
     
     document_content = _render_document_from_template('PATD_Coringa.docx', doc_context)
 
-    # Adiciona alegação de defesa se existir
-    if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
+    # Lógica para incluir a parte da alegação de defesa
+    if patd.status in ['aguardando_justificativa', 'prazo_expirado', 'em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao']:
         alegacao_context = doc_context.copy()
-        alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa or "[Ver documentos anexos]"
+        if patd.alegacao_defesa:
+            alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa
+        else:
+            # Placeholder especial que o JS transformará em um botão
+            alegacao_context['{Alegação de defesa}'] = '{Botao Adicionar Alegacao}'
+        
         document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
+<<<<<<< HEAD
         document_content += "\n\n{ANEXOS_DEFESA_PLACEHOLDER}"
 
     if patd.justificado:
@@ -411,6 +363,24 @@ def get_raw_document_text(patd):
                 reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
             document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
             document_content += "\n\n{ANEXOS_RECONSIDERACAO_PLACEHOLDER}"
+=======
+    
+    if not patd.alegacao_defesa and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao']:
+        document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
+    
+    if patd.punicao_sugerida:
+        document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
+
+    if patd.status in ['aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 'em_reconsideracao']:
+        document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
+    
+    if patd.status == 'em_reconsideracao':
+        reconsideracao_context = doc_context.copy()
+        if not patd.texto_reconsideracao:
+            reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
+        document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+
+>>>>>>> parent of cd33755 (Justificativa e anexo de arquivos)
 
     return document_content
 
@@ -469,8 +439,8 @@ def _try_advance_status_from_justificativa(patd):
     if patd.status != 'aguardando_justificativa':
         return False
 
-    # 1. Verificar se a alegação de defesa foi preenchida ou se há anexos
-    if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists():
+    # 1. Verificar se a alegação de defesa foi preenchida.
+    if not patd.alegacao_defesa:
         return False
 
     # 2. Verificar se todas as assinaturas necessárias foram coletadas.
@@ -597,15 +567,9 @@ def aceitar_atribuicao(request, pk):
         senha = form.cleaned_data['senha']
         user = authenticate(username=request.user.username, password=senha)
         if user is not None:
-            if patd.status_anterior:
-                patd.status = patd.status_anterior
-                patd.status_anterior = None 
-            else:
-                patd.status = 'ciencia_militar'
-
+            patd.status = 'ciencia_militar'
             if patd.oficial_responsavel and patd.oficial_responsavel.assinatura:
                 patd.assinatura_oficial = patd.oficial_responsavel.assinatura
-            
             patd.save()
             messages.success(request, f'Atribuição da PATD Nº {patd.numero_patd} aceite com sucesso.')
             return redirect('Ouvidoria:patd_atribuicoes_pendentes')
@@ -966,13 +930,14 @@ class PATDDetailView(DetailView):
         # Otimiza a consulta para buscar dados relacionados de uma só vez
         return super().get_queryset().select_related(
             'militar', 'oficial_responsavel', 'testemunha1', 'testemunha2'
-        ).prefetch_related('anexos')
+        )
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         patd = self.get_object()
         config = Configuracao.load()
         
+        # Gera o documento "cru" para ser processado pelo JavaScript
         document_content = get_raw_document_text(patd)
         context['documento_texto_json'] = json.dumps(document_content)
         context['assinaturas_militar_json'] = json.dumps(patd.assinaturas_militar or [])
@@ -982,6 +947,7 @@ class PATDDetailView(DetailView):
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
         
+        # Passa os dados das assinaturas para o template
         doc_context = _get_document_context(patd)
         context['comandante_assinatura'] = doc_context.get('assinatura_comandante_data')
 
@@ -991,13 +957,16 @@ class PATDDetailView(DetailView):
             'punicao': patd.punicao_sugerida
         }) if patd.punicao_sugerida else 'null'
 
+        # --- NOVA LÓGICA PARA HISTÓRICO DE PUNIÇÕES ---
         militar_acusado = patd.militar
+        # Busca todas as PATDs anteriores, exceto a atual
         patds_anteriores = PATD.objects.filter(
             militar=militar_acusado
         ).exclude(pk=patd.pk).order_by('-data_inicio')
 
         historico_punicoes = []
         for p_antiga in patds_anteriores:
+            # Apenas inclui no histórico visível se já houver uma punição definida
             if p_antiga.punicao:
                 itens_str = ""
                 if p_antiga.itens_enquadrados and isinstance(p_antiga.itens_enquadrados, list):
@@ -1011,29 +980,7 @@ class PATDDetailView(DetailView):
                 })
                 
         context['historico_punicoes'] = historico_punicoes
-        
-        # Passa os anexos para o template
-        anexos_defesa = patd.anexos.filter(tipo='defesa')
-        anexos_defesa_data = []
-        for a in anexos_defesa:
-            anexos_defesa_data.append({
-                'id': a.id, 
-                'nome': os.path.basename(a.arquivo.name), 
-                'url': a.arquivo.url,
-                'content_html': get_anexo_content_as_html(a)
-            })
-        context['anexos_defesa_json'] = json.dumps(anexos_defesa_data)
-
-        anexos_reconsideracao = patd.anexos.filter(tipo='reconsideracao')
-        anexos_reconsideracao_data = []
-        for a in anexos_reconsideracao:
-            anexos_reconsideracao_data.append({
-                'id': a.id, 
-                'nome': os.path.basename(a.arquivo.name), 
-                'url': a.arquivo.url,
-                'content_html': get_anexo_content_as_html(a)
-            })
-        context['anexos_reconsideracao_json'] = json.dumps(anexos_reconsideracao_data)
+        # --- FIM DA NOVA LÓGICA ---
         
         return context
 
@@ -1143,18 +1090,14 @@ def salvar_assinatura_ciencia(request, pk):
 def salvar_alegacao_defesa(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        
-        alegacao_texto = request.POST.get('alegacao_defesa', '')
-        arquivos = request.FILES.getlist('anexos_defesa')
+        data = json.loads(request.body)
+        alegacao_texto = data.get('alegacao_defesa')
 
-        if not alegacao_texto and not arquivos:
-            return JsonResponse({'status': 'error', 'message': 'É necessário fornecer um texto ou anexar pelo menos um ficheiro.'}, status=400)
+        if alegacao_texto is None:
+             return JsonResponse({'status': 'error', 'message': 'Nenhum texto de alegação recebido.'}, status=400)
 
         patd.alegacao_defesa = alegacao_texto
         patd.data_alegacao = timezone.now()
-
-        for arquivo in arquivos:
-            Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='defesa')
 
         try:
             resumo_tecnico = analisar_e_resumir_defesa(patd.alegacao_defesa)
@@ -1166,10 +1109,12 @@ def salvar_alegacao_defesa(request, pk):
             patd.alegacao_defesa_resumo = "Erro ao gerar resumo."
             patd.ocorrencia_reescrita = patd.transgressao
 
+        # Tenta avançar o status após salvar a alegação
         _try_advance_status_from_justificativa(patd)
+
         patd.save()
 
-        return JsonResponse({'status': 'success', 'message': 'Alegação de defesa e anexos salvos com sucesso.'})
+        return JsonResponse({'status': 'success', 'message': 'Alegação de defesa salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar alegação de defesa da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -1441,8 +1386,9 @@ def verificar_e_atualizar_prazos(request):
             if patd.data_publicacao_punicao:
                 deadline = patd.data_publicacao_punicao + timedelta(days=15)
                 if timezone.now() > deadline:
-                    patd.status = 'aguardando_publicacao'
-                    patd.save(update_fields=['status'])
+                    patd.status = 'finalizado'
+                    patd.data_termino = timezone.now()
+                    patd.save(update_fields=['status', 'data_termino'])
                     reconsideracoes_finalizadas += 1
         
         # --- NOVA LÓGICA PARA AVANÇAR RECONSIDERAÇÕES ASSINADAS ---
@@ -1737,26 +1683,28 @@ def salvar_reconsideracao(request, pk):
         if patd.status != 'em_reconsideracao':
             return JsonResponse({'status': 'error', 'message': 'A PATD não está em fase de reconsideração.'}, status=400)
         
-        texto = request.POST.get('texto_reconsideracao', '')
-        arquivos = request.FILES.getlist('anexos_reconsideracao')
+        data = json.loads(request.body)
+        texto = data.get('texto_reconsideracao')
 
-        if not texto and not arquivos:
-            return JsonResponse({'status': 'error', 'message': 'É necessário fornecer um texto ou anexar pelo menos um ficheiro.'}, status=400)
+        if texto is None:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum texto recebido.'}, status=400)
 
         patd.texto_reconsideracao = texto
+        # Define a data da reconsideração se ainda não tiver sido definida
         if not patd.data_reconsideracao:
             patd.data_reconsideracao = timezone.now()
-        
-        for arquivo in arquivos:
-            Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='reconsideracao')
             
         patd.save(update_fields=['texto_reconsideracao', 'data_reconsideracao'])
         
+<<<<<<< HEAD
         # Tenta avançar o status
         if _try_advance_status_from_reconsideracao(patd):
             patd.save()
 
         return JsonResponse({'status': 'success', 'message': 'Pedido de reconsideração e anexos salvos com sucesso.'})
+=======
+        return JsonResponse({'status': 'success', 'message': 'Texto de reconsideração salvo com sucesso.'})
+>>>>>>> parent of cd33755 (Justificativa e anexo de arquivos)
     except Exception as e:
         logger.error(f"Erro ao salvar texto de reconsideração para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -1769,6 +1717,7 @@ def comandante_pendencias_json(request):
         return JsonResponse({'count': 0})
         
     count = PATD.objects.filter(status='analise_comandante').count()
+<<<<<<< HEAD
     return JsonResponse({'count': count})
 
 @login_required
@@ -1847,3 +1796,6 @@ def justificar_patd(request, pk):
     except Exception as e:
         logger.error(f"Erro ao justificar a PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+=======
+    return JsonResponse({'count': count})
+>>>>>>> parent of cd33755 (Justificativa e anexo de arquivos)

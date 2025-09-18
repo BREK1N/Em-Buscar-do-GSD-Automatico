@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Militar, PATD, Anexo
+from .models import Militar, PATD
 
 @admin.register(Militar)
 class MilitarAdmin(admin.ModelAdmin):
@@ -12,11 +12,6 @@ class MilitarAdmin(admin.ModelAdmin):
     list_filter = ('oficial', 'posto', 'quad', 'om', 'setor')
     ordering = ('posto', 'quad', 'nome_guerra')
 
-class AnexoInline(admin.TabularInline):
-    model = Anexo
-    extra = 1
-    readonly_fields = ('data_upload',)
-
 @admin.register(PATD)
 class PATDAdmin(admin.ModelAdmin):
     
@@ -28,8 +23,6 @@ class PATDAdmin(admin.ModelAdmin):
     ordering = ('-data_inicio',)
     # TORNA O CAMPO STATUS APENAS LEITURA NO ADMIN
     readonly_fields = ('status',)
-    inlines = [AnexoInline]
-
 
     def transgressao_resumida(self, obj):
         """

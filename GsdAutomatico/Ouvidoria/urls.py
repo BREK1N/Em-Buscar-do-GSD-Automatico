@@ -20,7 +20,6 @@ urlpatterns = [
     # Aba de PATDs
     path('patd/', views.PATDListView.as_view(), name='patd_list'),
     path('patd/finalizadas/', views.PatdFinalizadoListView.as_view(), name='patd_finalizado_list'),
-    path('minhas-atribuicoes/', views.patd_atribuicoes_pendentes, name='patd_atribuicoes_pendentes'),
     path('patd/<int:pk>/', views.PATDDetailView.as_view(), name='patd_detail'),
     path('patd/<int:pk>/editar/', views.PATDUpdateView.as_view(), name='patd_update'),
     path('patd/<int:pk>/excluir/', views.PATDDeleteView.as_view(), name='patd_delete'),
@@ -34,10 +33,14 @@ urlpatterns = [
     path('patd/<int:pk>/prosseguir_sem_alegacao/', views.prosseguir_sem_alegacao, name='prosseguir_sem_alegacao'), 
     path('patd/<int:pk>/salvar_assinatura_testemunha/<int:testemunha_num>/', views.salvar_assinatura_testemunha, name='salvar_assinatura_testemunha'),
     path('patd/<int:pk>/atribuir_oficial/', views.atribuir_oficial, name='atribuir_oficial'),
+    path('patd/atribuicoes-pendentes/', views.patd_atribuicoes_pendentes, name='patd_atribuicoes_pendentes'),
     path('patd/<int:pk>/aceitar_atribuicao/', views.aceitar_atribuicao, name='aceitar_atribuicao'),
+<<<<<<< HEAD
     path('patd/<int:pk>/justificar/', views.justificar_patd, name='justificar_patd'),
     path('patd/<int:pk>/finalizar/', views.finalizar_publicacao, name='finalizar_publicacao'),
     path('patd/<int:pk>/anexar_parecer_reconsideracao/', views.anexar_parecer_reconsideracao, name='anexar_parecer_reconsideracao'),
+=======
+>>>>>>> parent of cd33755 (Justificativa e anexo de arquivos)
 
 
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
@@ -65,6 +68,11 @@ urlpatterns = [
     path('notificacoes/verificar-prazos/', views.verificar_e_atualizar_prazos, name='verificar_e_atualizar_prazos'),
 
     # API
+<<<<<<< HEAD
     path('api/search-militares/', views.search_militares_json, name='search_militares_json'),
     path('anexo/<int:pk>/excluir/', views.excluir_anexo, name='excluir_anexo'),
 ]
+=======
+    path('api/search-militares/', views.search_militares_json, name='search_militares_json')
+]
+>>>>>>> parent of cd33755 (Justificativa e anexo de arquivos)
