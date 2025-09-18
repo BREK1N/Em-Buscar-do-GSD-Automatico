@@ -110,15 +110,12 @@ USE_TZ = True
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
 STATIC_URL = 'Static/'
-
-# Adicionado para indicar ao Django onde encontrar os ficheiros estáticos globais
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'Static'),
-]
-
-# --- CONFIGURAÇÃO ADICIONADA PARA CORRIGIR O ERRO ---
-# Define o diretório onde o comando collectstatic irá reunir todos os arquivos estáticos.
+STATICFILES_DIRS = [os.path.join(BASE_DIR, 'Static')]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
+
+# Media files (Uploads)
+MEDIA_URL = '/media/'
+MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
 
 # Default primary key field type
@@ -126,8 +123,7 @@ STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
 
-# A linha AUTH_USER_MODEL foi removida para usar o modelo de utilizador padrão do Django.
-
 LOGIN_URL = 'login:login'
 LOGIN_REDIRECT_URL = 'Ouvidoria:index'
 LOGOUT_REDIRECT_URL = 'login:login'
+

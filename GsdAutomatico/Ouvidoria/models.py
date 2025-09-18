@@ -1,5 +1,14 @@
 from django.db import models
 from django.utils import timezone
+import os
+from uuid import uuid4
+
+def patd_anexo_path(instance, filename):
+    patd_pk = instance.patd.pk
+    upload_dir = f'patd_{patd_pk}/anexos/'
+    # Gera um nome de ficheiro único para evitar sobreposições
+    unique_filename = f"{uuid4().hex}_{filename}"
+    return os.path.join(upload_dir, unique_filename)
 
 class Configuracao(models.Model):
     comandante_gsd = models.ForeignKey(
@@ -62,6 +71,14 @@ class Militar(models.Model):
     class Meta:
         db_table = 'Efetivo_Militar'
 
+class Anexo(models.Model):
+    patd = models.ForeignKey('PATD', on_delete=models.CASCADE, related_name='anexos')
+    arquivo = models.FileField(upload_to=patd_anexo_path, verbose_name="Ficheiro")
+    tipo = models.CharField(max_length=20, choices=[('defesa', 'Defesa'), ('reconsideracao', 'Reconsideração')])
+    data_upload = models.DateTimeField(auto_now_add=True)
+
+    def __str__(self):
+        return f"Anexo para PATD {self.patd.numero_patd} - {os.path.basename(self.arquivo.name)}"
 
 class PATD(models.Model):
     
@@ -85,11 +102,7 @@ class PATD(models.Model):
         # Fase Final
         ('periodo_reconsideracao', 'Período de Reconsideração'),
         ('em_reconsideracao', 'Em Reconsideração'),
-<<<<<<< HEAD
         ('aguardando_publicacao', 'Aguardando publicação'),
-        ('analise_comandante_base', 'Aguardando Comandante da Base'),
-=======
->>>>>>> parent of cd33755 (Justificativa e anexo de arquivos)
         ('finalizado', 'Finalizado'),
     ]
 
@@ -133,6 +146,12 @@ class PATD(models.Model):
         default='definicao_oficial',
         verbose_name="Status"
     )
+    status_anterior = models.CharField(
+        max_length=50, 
+        blank=True, 
+        null=True, 
+        verbose_name="Status Anterior"
+    )
     assinatura_oficial = models.TextField(blank=True, null=True, verbose_name="Assinatura do Oficial (Base64)")
     assinaturas_militar = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas do Militar Arrolado (Base64)")
     assinatura_testemunha1 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 1ª Testemunha (Base64)")
@@ -163,6 +182,8 @@ class PATD(models.Model):
     assinatura_alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Assinatura da Alegação de Defesa (Base64)")
     assinatura_reconsideracao = models.TextField(blank=True, null=True, verbose_name="Assinatura da Reconsideração (Base64)")
     comentario_comandante = models.TextField(blank=True, null=True, verbose_name="Comentário do Comandante para Retorno")
+    boletim_publicacao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Boletim de Publicação")
+    justificado = models.BooleanField(default=False, verbose_name="Transgressão Justificada")
 
 
     def __str__(self):
@@ -178,15 +199,17 @@ class PATD(models.Model):
             except PATD.DoesNotExist:
                 orig = None
 
-        if (orig is None and self.oficial_responsavel) or \
-           (orig and orig.oficial_responsavel != self.oficial_responsavel and self.oficial_responsavel):
+        if orig and orig.oficial_responsavel != self.oficial_responsavel and self.oficial_responsavel:
+            initial_statuses = ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
+            if orig.status not in initial_statuses:
+                self.status_anterior = orig.status
+            
             self.status = 'aguardando_aprovacao_atribuicao'
-        
+            self.assinatura_oficial = None 
+
         elif orig and orig.oficial_responsavel and not self.oficial_responsavel:
             self.status = 'definicao_oficial'
-
-        if not is_new and orig and orig.oficial_responsavel != self.oficial_responsavel:
-            self.assinatura_oficial = None
+            self.status_anterior = None
 
         super().save(*args, **kwargs)
 
