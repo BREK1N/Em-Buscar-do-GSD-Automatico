@@ -74,7 +74,7 @@ class Militar(models.Model):
 class Anexo(models.Model):
     patd = models.ForeignKey('PATD', on_delete=models.CASCADE, related_name='anexos')
     arquivo = models.FileField(upload_to=patd_anexo_path, verbose_name="Ficheiro")
-    tipo = models.CharField(max_length=20, choices=[('defesa', 'Defesa'), ('reconsideracao', 'Reconsideração')])
+    tipo = models.CharField(max_length=30, choices=[('defesa', 'Defesa'), ('reconsideracao', 'Reconsideração'), ('reconsideracao_oficial', 'Reconsideração Oficial')])
     data_upload = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -102,6 +102,7 @@ class PATD(models.Model):
         # Fase Final
         ('periodo_reconsideracao', 'Período de Reconsideração'),
         ('em_reconsideracao', 'Em Reconsideração'),
+        ('aguardando_comandante_base', 'Aguardando Comandante da Base'),
         ('aguardando_publicacao', 'Aguardando publicação'),
         ('finalizado', 'Finalizado'),
     ]
@@ -184,36 +185,24 @@ class PATD(models.Model):
     comentario_comandante = models.TextField(blank=True, null=True, verbose_name="Comentário do Comandante para Retorno")
     boletim_publicacao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Boletim de Publicação")
     justificado = models.BooleanField(default=False, verbose_name="Transgressão Justificada")
+    anexo_reconsideracao_oficial = models.FileField(upload_to=patd_anexo_path, null=True, blank=True, verbose_name="Anexo da Reconsideração do Oficial")
+    assinaturas_npd_reconsideracao = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas da NPD de Reconsideração (Base64)")
 
 
     def __str__(self):
         return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"
 
     def save(self, *args, **kwargs):
-        
-        is_new = self._state.adding
-        orig = None
+        is_new = self.pk is None
         if not is_new:
-            try:
-                orig = PATD.objects.get(pk=self.pk)
-            except PATD.DoesNotExist:
-                orig = None
+            orig = PATD.objects.get(pk=self.pk)
+            # Se o oficial responsável mudou E um novo oficial foi definido
+            if orig.oficial_responsavel != self.oficial_responsavel and self.oficial_responsavel:
+                self.status = 'aguardando_aprovacao_atribuicao'
+                # Não limpa mais a assinatura aqui para preservar a assinatura padrão que pode ser adicionada depois
+        super(PATD, self).save(*args, **kwargs)
 
-        if orig and orig.oficial_responsavel != self.oficial_responsavel and self.oficial_responsavel:
-            initial_statuses = ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
-            if orig.status not in initial_statuses:
-                self.status_anterior = orig.status
-            
-            self.status = 'aguardando_aprovacao_atribuicao'
-            self.assinatura_oficial = None 
-
-        elif orig and orig.oficial_responsavel and not self.oficial_responsavel:
-            self.status = 'definicao_oficial'
-            self.status_anterior = None
-
-        super().save(*args, **kwargs)
 
     class Meta:
         verbose_name = "PATD"
         verbose_name_plural = "PATDs"
-

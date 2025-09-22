@@ -405,13 +405,16 @@ def get_raw_document_text(patd):
         if patd.status in ['aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao']:
             document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
         
-        if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado']:
+        if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado', 'aguardando_comandante_base']:
             reconsideracao_context = doc_context.copy()
             if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
                 reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
             else:
                 reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
             document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+        
+        if patd.status in ['aguardando_comandante_base', 'aguardando_publicacao', 'finalizado']:
+             document_content += "\n\n" + _render_document_from_template('RELATORIO_NPD_RECONSIDERACAO.docx', doc_context)
 
     document_content += "\n\n{ANEXOS_PLACEHOLDER}"
 
@@ -1042,19 +1045,15 @@ class MilitarPATDListView(ListView):
 @require_POST
 def salvar_assinatura(request, pk):
     try:
-        patd = PATD.objects.get(pk=pk)
         data = json.loads(request.body)
         signature_data = data.get('signature_data')
 
         if not signature_data:
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
 
-        patd.assinatura_oficial = signature_data
-        patd.save()
+        PATD.objects.filter(pk=pk).update(assinatura_oficial=signature_data)
 
         return JsonResponse({'status': 'success', 'message': 'Assinatura salva com sucesso.'})
-    except PATD.DoesNotExist:
-        return JsonResponse({'status': 'error', 'message': 'PATD não encontrada.'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
@@ -1074,15 +1073,12 @@ def salvar_assinatura_ciencia(request, pk):
         if patd.assinaturas_militar is None:
             patd.assinaturas_militar = []
         
-        # Garante que a lista tem o tamanho necessário
         while len(patd.assinaturas_militar) <= assinatura_index:
             patd.assinaturas_militar.append(None)
 
         patd.assinaturas_militar[assinatura_index] = signature_data
         
-        # --- LÓGICA DE AVANÇO DE STATUS ---
-        
-        # Avança do status de ciência inicial
+        # Lógica de avanço de status
         if patd.status == 'ciencia_militar':
             coringa_doc_text = _render_document_from_template('PATD_Coringa.docx', _get_document_context(patd))
             required_initial_signatures = coringa_doc_text.count('{Assinatura Militar Arrolado}')
@@ -1092,12 +1088,8 @@ def salvar_assinatura_ciencia(request, pk):
                     patd.data_ciencia = timezone.now()
                 patd.status = 'aguardando_justificativa'
         
-        # Tenta avançar o status se estiver aguardando justificativa
         _try_advance_status_from_justificativa(patd)
-        
-        # Verifica se o PATD pode ser finalizado
-        if _check_and_finalize_patd(patd):
-            patd.save()
+        _check_and_finalize_patd(patd)
 
         patd.save()
 
@@ -1112,6 +1104,12 @@ def salvar_assinatura_ciencia(request, pk):
 def salvar_alegacao_defesa(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
+        
+        if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': 'A alegação de defesa já foi enviada e não pode ser alterada.'
+            }, status=403)
         
         alegacao_texto = request.POST.get('alegacao_defesa', '')
         arquivos = request.FILES.getlist('anexos_defesa')
@@ -1143,21 +1141,18 @@ def salvar_alegacao_defesa(request, pk):
         logger.error(f"Erro ao salvar alegação de defesa da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-# --- NOVAS VIEWS DE ASSINATURA ---
 @login_required
 @ouvidoria_required
 @require_POST
 def salvar_assinatura_defesa(request, pk):
     try:
-        patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
         signature_data = data.get('signature_data')
 
         if not signature_data:
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
-
-        patd.assinatura_alegacao_defesa = signature_data
-        patd.save()
+        
+        PATD.objects.filter(pk=pk).update(assinatura_alegacao_defesa=signature_data)
 
         return JsonResponse({'status': 'success', 'message': 'Assinatura da defesa salva com sucesso.'})
     except Exception as e:
@@ -1170,20 +1165,28 @@ def salvar_assinatura_defesa(request, pk):
 def salvar_assinatura_reconsideracao(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
+        
+        if patd.status != 'em_reconsideracao':
+            return JsonResponse({
+                'status': 'error',
+                'message': 'A PATD não está na fase correta para assinar a reconsideração.'
+            }, status=400)
+
         data = json.loads(request.body)
         signature_data = data.get('signature_data')
 
         if not signature_data:
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
+        
+        PATD.objects.filter(pk=pk).update(
+            assinatura_reconsideracao=signature_data,
+            status='aguardando_comandante_base'
+        )
 
-        patd.assinatura_reconsideracao = signature_data
-        patd.save()
-
-        return JsonResponse({'status': 'success', 'message': 'Assinatura da reconsideração salva com sucesso.'})
+        return JsonResponse({'status': 'success', 'message': 'Assinatura da reconsideração salva. Processo aguardando anexo do Oficial.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da reconsideração da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-# --- FIM DAS NOVAS VIEWS ---
 
 @login_required
 @ouvidoria_required
@@ -1414,23 +1417,26 @@ def prosseguir_sem_alegacao(request, pk):
 @require_POST
 def salvar_assinatura_testemunha(request, pk, testemunha_num):
     try:
-        patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
         signature_data = data.get('signature_data')
         if not signature_data:
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
+        
+        update_data = {}
         if testemunha_num == 1:
-            patd.assinatura_testemunha1 = signature_data
+            update_data['assinatura_testemunha1'] = signature_data
         elif testemunha_num == 2:
-            patd.assinatura_testemunha2 = signature_data
+            update_data['assinatura_testemunha2'] = signature_data
         else:
             return JsonResponse({'status': 'error', 'message': 'Número de testemunha inválido.'}, status=400)
         
-        # Verifica se o PATD pode ser finalizado
+        PATD.objects.filter(pk=pk).update(**update_data)
+        
+        # Após salvar, recarrega o objeto para verificar se pode finalizar
+        patd = get_object_or_404(PATD, pk=pk)
         if _check_and_finalize_patd(patd):
              patd.save()
         
-        patd.save()
         return JsonResponse({'status': 'success', 'message': f'Assinatura da {testemunha_num}ª testemunha salva.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da testemunha {testemunha_num} para PATD {pk}: {e}")
@@ -1664,6 +1670,12 @@ def salvar_reconsideracao(request, pk):
         if patd.status != 'em_reconsideracao':
             return JsonResponse({'status': 'error', 'message': 'A PATD não está em fase de reconsideração.'}, status=400)
         
+        if patd.texto_reconsideracao or patd.anexos.filter(tipo='reconsideracao').exists():
+            return JsonResponse({
+                'status': 'error',
+                'message': 'O pedido de reconsideração já foi enviado e não pode ser alterado.'
+            }, status=403)
+            
         texto = request.POST.get('texto_reconsideracao', '')
         arquivos = request.FILES.getlist('anexos_reconsideracao')
 
@@ -1684,7 +1696,6 @@ def salvar_reconsideracao(request, pk):
         logger.error(f"Erro ao salvar texto de reconsideração para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-# --- NOVA VIEW PARA NOTIFICAÇÃO DO COMANDANTE ---
 @login_required
 @require_GET
 def comandante_pendencias_json(request):
@@ -1704,15 +1715,12 @@ def excluir_anexo(request, pk):
         patd = anexo.patd
         user_militar = request.user.profile.militar if hasattr(request.user, 'profile') else None
         
-        # Apenas o oficial responsável ou superusuários podem excluir
         if not (request.user.is_superuser or user_militar == patd.oficial_responsavel):
              return JsonResponse({'status': 'error', 'message': 'Você não tem permissão para excluir este anexo.'}, status=403)
 
-        # Exclui o ficheiro do armazenamento
         if anexo.arquivo and os.path.isfile(anexo.arquivo.path):
             os.remove(anexo.arquivo.path)
         
-        # Exclui o registo do anexo do banco de dados
         anexo.delete()
         
         return JsonResponse({'status': 'success', 'message': 'Anexo excluído com sucesso.'})
@@ -1757,12 +1765,10 @@ def justificar_patd(request, pk):
         patd.justificado = True
         patd.status = 'aguardando_publicacao'
         
-        # Limpa punições se houver
         patd.punicao_sugerida = "Transgressão Justificada"
         patd.punicao = ""
         patd.dias_punicao = ""
 
-        # Gera o relatório de justificação
         patd.texto_relatorio = """Após análise dos fatos, alegações e circunstâncias, este Oficial Apurador conclui que a transgressão disciplinar imputada ao militar está JUSTIFICADA, nos termos do Art. 13, item 1 do RDAER."""
         
         patd.save()
@@ -1770,3 +1776,22 @@ def justificar_patd(request, pk):
     except Exception as e:
         logger.error(f"Erro ao justificar a PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@oficial_responsavel_required
+@require_POST
+def anexar_documento_reconsideracao(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    if patd.status != 'aguardando_comandante_base':
+        return JsonResponse({'status': 'error', 'message': 'Ação não permitida neste status.'}, status=400)
+
+    arquivo = request.FILES.get('anexo_reconsideracao_oficial')
+    if not arquivo:
+        return JsonResponse({'status': 'error', 'message': 'Nenhum ficheiro enviado.'}, status=400)
+
+    Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='reconsideracao_oficial')
+    
+    patd.status = 'aguardando_assinatura_npd_reconsideracao'
+    patd.save()
+
+    return JsonResponse({'status': 'success', 'message': 'Documento anexado. Aguardando assinaturas.'})
