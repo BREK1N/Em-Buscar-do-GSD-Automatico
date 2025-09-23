@@ -405,7 +405,7 @@ def get_raw_document_text(patd):
         if patd.status in ['aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao']:
             document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
         
-        if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado', 'aguardando_comandante_base']:
+        if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado']:
             reconsideracao_context = doc_context.copy()
             if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
                 reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
@@ -413,7 +413,7 @@ def get_raw_document_text(patd):
                 reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
             document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
         
-        if patd.status in ['aguardando_comandante_base', 'aguardando_publicacao', 'finalizado']:
+        if patd.status in ['aguardando_publicacao', 'finalizado']:
              document_content += "\n\n" + _render_document_from_template('RELATORIO_NPD_RECONSIDERACAO.docx', doc_context)
 
     document_content += "\n\n{ANEXOS_PLACEHOLDER}"
@@ -1180,10 +1180,10 @@ def salvar_assinatura_reconsideracao(request, pk):
         
         PATD.objects.filter(pk=pk).update(
             assinatura_reconsideracao=signature_data,
-            status='aguardando_comandante_base'
+            status='aguardando_publicacao'
         )
 
-        return JsonResponse({'status': 'success', 'message': 'Assinatura da reconsideração salva. Processo aguardando anexo do Oficial.'})
+        return JsonResponse({'status': 'success', 'message': 'Assinatura salva. Processo aguardando publicação.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da reconsideração da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -1776,22 +1776,3 @@ def justificar_patd(request, pk):
     except Exception as e:
         logger.error(f"Erro ao justificar a PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
-@login_required
-@oficial_responsavel_required
-@require_POST
-def anexar_documento_reconsideracao(request, pk):
-    patd = get_object_or_404(PATD, pk=pk)
-    if patd.status != 'aguardando_comandante_base':
-        return JsonResponse({'status': 'error', 'message': 'Ação não permitida neste status.'}, status=400)
-
-    arquivo = request.FILES.get('anexo_reconsideracao_oficial')
-    if not arquivo:
-        return JsonResponse({'status': 'error', 'message': 'Nenhum ficheiro enviado.'}, status=400)
-
-    Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='reconsideracao_oficial')
-    
-    patd.status = 'aguardando_assinatura_npd_reconsideracao'
-    patd.save()
-
-    return JsonResponse({'status': 'success', 'message': 'Documento anexado. Aguardando assinaturas.'})
