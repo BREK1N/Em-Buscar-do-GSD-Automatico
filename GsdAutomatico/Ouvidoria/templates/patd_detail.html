@@ -297,21 +297,25 @@
 
 <ul class="status-timeline">
     {% with current_status=patd.status %}
-    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Abertura</div>
     </li>
-    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Defesa</div>
     </li>
-    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Apuração</div>
     </li>
-    <li class="status-step {% if current_status in 'analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
         <div class="status-dot"></div>
-        <div class="status-label">Decisão</div>
+        <div class="status-label">Decisão GSD</div>
+    </li>
+    <li class="status-step {% if current_status in 'aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao' %}completed{% endif %}">
+        <div class="status-dot"></div>
+        <div class="status-label">Decisão Base</div>
     </li>
     <li class="status-step {% if current_status in 'aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status == 'finalizado' %}completed{% endif %}">
         <div class="status-dot"></div>
@@ -323,7 +327,6 @@
     </li>
     {% endwith %}
 </ul>
-
 
 <nav class="tabs-nav">
     <a class="tab-link active" data-target="tab-detalhes">Visão Geral</a>
@@ -1129,27 +1132,26 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    function generateAnexosHtmlForExport() {
-        if (anexosDefesa.length === 0 && anexosReconsideracao.length === 0) {
-            return '';
-        }
-        
-        let html = '<div style="page-break-before: always;"></div><h2>ANEXOS DO PROCESSO</h2>';
+    function generateAnexosDefesaHtmlForExport() {
+    if (anexosDefesa.length === 0) {
+        return '';
+    }
+    let html = '<h3>Anexos da Alegação de Defesa</h3>';
+    anexosDefesa.forEach(anexo => {
+        html += anexo.content_html;
+    });
+    return html;
+    }
 
-        if (anexosDefesa.length > 0) {
-            html += '<h3>Anexos da Alegação de Defesa</h3>';
-            anexosDefesa.forEach(anexo => {
-                html += anexo.content_html;
-            });
-        }
-
-        if (anexosReconsideracao.length > 0) {
-            html += '<h3>Anexos da Reconsideração</h3>';
-            anexosReconsideracao.forEach(anexo => {
-                html += anexo.content_html;
-            });
-        }
-        return html;
+    function generateAnexosReconsideracaoHtmlForExport() {
+    if (anexosReconsideracao.length === 0) {
+        return '';
+    }
+    let html = '<h3>Anexos da Reconsideração</h3>';
+    anexosReconsideracao.forEach(anexo => {
+        html += anexo.content_html;
+    });
+    return html;
     }
 
     function processPlaceholders(text) {
@@ -1157,10 +1159,11 @@ document.addEventListener('DOMContentLoaded', function() {
         processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
         
-        processedHtml = processedHtml.replace(/{ANEXOS_PLACEHOLDER}/g, generateAnexosHtmlForExport());
+        processedHtml = processedHtml.replace(/{ANEXOS_DEFESA_PLACEHOLDER}/g, generateAnexosDefesaHtmlForExport());
+        processedHtml = processedHtml.replace(/{ANEXOS_RECONSIDERACAO_PLACEHOLDER}/g, generateAnexosReconsideracaoHtmlForExport());
 
         // Assinaturas que podem ter imagem ou botão
-        processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? `<img class="signature-image-embedded" src="${defesaSigData}" alt="Assinatura da Defesa">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
+         processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? `<img class="signature-image-embedded" src="${defesaSigData}" alt="Assinatura da Defesa">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? `<img class="signature-image-embedded" src="${reconSigData}" alt="Assinatura da Reconsideração">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
         
         // Assinaturas que SEMPRE são imagens (se existirem)

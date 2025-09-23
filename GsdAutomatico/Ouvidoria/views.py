@@ -6,6 +6,7 @@ from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.urls import reverse_lazy, reverse
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
+from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
 from .models import Militar, PATD, Configuracao, Anexo
@@ -94,6 +95,33 @@ try:
     locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 except locale.Error:
     logger.warning("Locale pt_BR.UTF-8 não encontrado. A data pode não ser formatada corretamente.")
+
+def _check_and_advance_reconsideracao_status(patd_pk):
+    """
+    Função centralizada que verifica, dentro de uma transação para garantir a consistência dos dados,
+    se a reconsideração tem conteúdo e assinatura. Se ambas as condições forem verdadeiras,
+    o status é avançado.
+    """
+    try:
+        with transaction.atomic():
+            # Bloqueia a linha da PATD para evitar condições de corrida
+            patd = PATD.objects.select_for_update().get(pk=patd_pk)
+
+            has_content = bool(patd.texto_reconsideracao or patd.anexos.filter(tipo='reconsideracao').exists())
+            has_signature = bool(patd.assinatura_reconsideracao)
+
+            logger.info(f"PATD {patd.pk}: Current status: {patd.status}, Has Content? {has_content}, Has Signature? {has_signature}")
+
+            if patd.status == 'em_reconsideracao' and has_content:
+                patd.status = 'aguardando_comandante_base'
+                patd.save(update_fields=['status'])
+                logger.info(f"PATD {patd.pk} status advanced to 'aguardando_comandante_base'.")
+            else:
+                logger.info(f"PATD {patd.pk}: Conditions not met to advance status.")
+    except PATD.DoesNotExist:
+        logger.error(f"PATD {patd_pk} not found during status check.")
+    except Exception as e:
+        logger.error(f"Error in _check_and_advance_reconsideracao_status for PATD {patd_pk}: {e}")
 
 
 # --- Classe para Estruturação da Análise de PDF ---
@@ -389,7 +417,10 @@ def get_raw_document_text(patd):
     if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
         alegacao_context = doc_context.copy()
         alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa or "[Ver documentos anexos]"
+        # MODIFICAÇÃO AQUI: Adiciona o placeholder de anexo de defesa logo após o documento de alegação
         document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
+        document_content += "\n\n{ANEXOS_DEFESA_PLACEHOLDER}"
+
 
     if patd.justificado:
         # Se justificado, gera apenas o relatório DELTA (que conterá o texto de justificação)
@@ -406,17 +437,20 @@ def get_raw_document_text(patd):
             document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
         
         if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado']:
-            reconsideracao_context = doc_context.copy()
-            if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
-                reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
-            else:
-                reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
-            document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+             reconsideracao_context = doc_context.copy()
+             if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
+                 reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
+             else:
+                 reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
+             # MODIFICAÇÃO AQUI: Adiciona o placeholder de anexo de reconsideração logo após o documento de reconsideração
+             document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+             document_content += "\n\n{ANEXOS_RECONSIDERACAO_PLACEHOLDER}"
         
         if patd.status in ['aguardando_publicacao', 'finalizado']:
              document_content += "\n\n" + _render_document_from_template('RELATORIO_NPD_RECONSIDERACAO.docx', doc_context)
 
-    document_content += "\n\n{ANEXOS_PLACEHOLDER}"
+    # REMOVIDO: O placeholder genérico no final foi removido
+    # document_content += "\n\n{ANEXOS_PLACEHOLDER}"
 
     return document_content
 
@@ -948,6 +982,7 @@ class PATDDetailView(DetailView):
         document_content = get_raw_document_text(patd)
         context['documento_texto_json'] = json.dumps(document_content)
         context['assinaturas_militar_json'] = json.dumps(patd.assinaturas_militar or [])
+        
 
 
         context['now_iso'] = timezone.now().isoformat()
@@ -1167,23 +1202,34 @@ def salvar_assinatura_reconsideracao(request, pk):
         patd = get_object_or_404(PATD, pk=pk)
         
         if patd.status != 'em_reconsideracao':
-            return JsonResponse({
-                'status': 'error',
-                'message': 'A PATD não está na fase correta para assinar a reconsideração.'
-            }, status=400)
+            return JsonResponse({'status': 'error', 'message': 'A PATD não está na fase correta para assinar a reconsideração.'}, status=400)
 
         data = json.loads(request.body)
-        signature_data = data.get('signature_data')
+        signature_data_base64 = data.get('signature_data')
 
-        if not signature_data:
+        if not signature_data_base64:
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
-        
-        PATD.objects.filter(pk=pk).update(
-            assinatura_reconsideracao=signature_data,
-            status='aguardando_publicacao'
-        )
 
-        return JsonResponse({'status': 'success', 'message': 'Assinatura salva. Processo aguardando publicação.'})
+        # MODIFICAÇÃO: Lógica para descodificar e salvar a imagem como ficheiro
+        try:
+            format, imgstr = signature_data_base64.split(';base64,') 
+            ext = format.split('/')[-1] 
+            file_content = ContentFile(base64.b64decode(imgstr), name=f'sig_reconsideracao_{pk}.{ext}')
+            
+            # Remove a assinatura antiga, se existir
+            if patd.assinatura_reconsideracao:
+                patd.assinatura_reconsideracao.delete(save=False)
+
+            patd.assinatura_reconsideracao.save(file_content.name, file_content, save=True)
+            logger.info(f"Assinatura de reconsideração para PATD {pk} salva em {patd.assinatura_reconsideracao.path}")
+
+        except Exception as e:
+            logger.error(f"Erro ao converter Base64 para ficheiro para PATD {pk}: {e}")
+            return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
+
+        _check_and_advance_reconsideracao_status(pk)
+
+        return JsonResponse({'status': 'success', 'message': 'Assinatura salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da reconsideração da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -1666,30 +1712,28 @@ def solicitar_reconsideracao(request, pk):
 @require_POST
 def salvar_reconsideracao(request, pk):
     try:
+        # Validação inicial
         patd = get_object_or_404(PATD, pk=pk)
         if patd.status != 'em_reconsideracao':
             return JsonResponse({'status': 'error', 'message': 'A PATD não está em fase de reconsideração.'}, status=400)
         
-        if patd.texto_reconsideracao or patd.anexos.filter(tipo='reconsideracao').exists():
-            return JsonResponse({
-                'status': 'error',
-                'message': 'O pedido de reconsideração já foi enviado e não pode ser alterado.'
-            }, status=403)
-            
         texto = request.POST.get('texto_reconsideracao', '')
         arquivos = request.FILES.getlist('anexos_reconsideracao')
 
         if not texto and not arquivos:
             return JsonResponse({'status': 'error', 'message': 'É necessário fornecer um texto ou anexar pelo menos um ficheiro.'}, status=400)
 
+        # Salva o conteúdo
         patd.texto_reconsideracao = texto
         if not patd.data_reconsideracao:
             patd.data_reconsideracao = timezone.now()
+        patd.save(update_fields=['texto_reconsideracao', 'data_reconsideracao'])
         
         for arquivo in arquivos:
             Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='reconsideracao')
-            
-        patd.save(update_fields=['texto_reconsideracao', 'data_reconsideracao'])
+        
+        # Chama a função de verificação
+        _check_and_advance_reconsideracao_status(pk)
         
         return JsonResponse({'status': 'success', 'message': 'Pedido de reconsideração e anexos salvos com sucesso.'})
     except Exception as e:

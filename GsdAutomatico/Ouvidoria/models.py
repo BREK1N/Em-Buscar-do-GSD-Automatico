@@ -10,6 +10,12 @@ def patd_anexo_path(instance, filename):
     unique_filename = f"{uuid4().hex}_{filename}"
     return os.path.join(upload_dir, unique_filename)
 
+def patd_signature_path(instance, filename):
+    patd_pk = instance.pk if isinstance(instance, PATD) else instance.patd.pk
+    upload_dir = f'patd_{patd_pk}/assinaturas/'
+    unique_filename = f"{uuid4().hex}_{filename}"
+    return os.path.join(upload_dir, unique_filename)
+
 class Configuracao(models.Model):
     comandante_gsd = models.ForeignKey(
         'Militar',
@@ -102,6 +108,7 @@ class PATD(models.Model):
         # Fase Final
         ('periodo_reconsideracao', 'Período de Reconsideração'),
         ('em_reconsideracao', 'Em Reconsideração'),
+        ('aguardando_comandante_base', 'Aguardando Comandante da Base'),
         ('aguardando_publicacao', 'Aguardando publicação'),
         ('finalizado', 'Finalizado'),
     ]
@@ -152,10 +159,11 @@ class PATD(models.Model):
         null=True, 
         verbose_name="Status Anterior"
     )
-    assinatura_oficial = models.TextField(blank=True, null=True, verbose_name="Assinatura do Oficial (Base64)")
-    assinaturas_militar = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas do Militar Arrolado (Base64)")
-    assinatura_testemunha1 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 1ª Testemunha (Base64)")
-    assinatura_testemunha2 = models.TextField(blank=True, null=True, verbose_name="Assinatura da 2ª Testemunha (Base64)")
+    
+    assinatura_oficial = models.FileField(upload_to=patd_signature_path, blank=True, null=True, verbose_name="Assinatura do Oficial")
+    assinaturas_militar = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas do Militar Arrolado (Caminhos)")
+    assinatura_testemunha1 = models.FileField(upload_to=patd_signature_path, blank=True, null=True, verbose_name="Assinatura da 1ª Testemunha")
+    assinatura_testemunha2 = models.FileField(upload_to=patd_signature_path, blank=True, null=True, verbose_name="Assinatura da 2ª Testemunha")
     alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Alegação de Defesa")
     documento_texto = models.TextField(blank=True, null=True, verbose_name="Texto do Documento")
     itens_enquadrados = models.JSONField(null=True, blank=True, verbose_name="Itens Enquadrados na Análise")
@@ -179,8 +187,8 @@ class PATD(models.Model):
     texto_relatorio = models.TextField(blank=True, null=True, verbose_name="Texto do Relatório de Apuração")
 
     # NOVOS CAMPOS PARA ASSINATURAS ESPECÍFICAS
-    assinatura_alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Assinatura da Alegação de Defesa (Base64)")
-    assinatura_reconsideracao = models.TextField(blank=True, null=True, verbose_name="Assinatura da Reconsideração (Base64)")
+    assinatura_alegacao_defesa = models.FileField(upload_to=patd_signature_path, blank=True, null=True, verbose_name="Assinatura da Alegação de Defesa")
+    assinatura_reconsideracao = models.FileField(upload_to=patd_signature_path, blank=True, null=True, verbose_name="Assinatura da Reconsideração")
     comentario_comandante = models.TextField(blank=True, null=True, verbose_name="Comentário do Comandante para Retorno")
     boletim_publicacao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Boletim de Publicação")
     justificado = models.BooleanField(default=False, verbose_name="Transgressão Justificada")
