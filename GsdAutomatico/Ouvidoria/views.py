@@ -417,40 +417,34 @@ def get_raw_document_text(patd):
     if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
         alegacao_context = doc_context.copy()
         alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa or "[Ver documentos anexos]"
-        # MODIFICAÇÃO AQUI: Adiciona o placeholder de anexo de defesa logo após o documento de alegação
         document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
         document_content += "\n\n{ANEXOS_DEFESA_PLACEHOLDER}"
 
 
     if patd.justificado:
-        # Se justificado, gera apenas o relatório DELTA (que conterá o texto de justificação)
         document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
     else:
-        # Lógica original para gerar todos os documentos do fluxo normal
-        if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao']:
+        if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao']:
             document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
         
         if patd.punicao_sugerida:
             document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
 
-        if patd.status in ['aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao']:
+        if patd.status in ['aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao']:
             document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
         
-        if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado']:
+        if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado', 'aguardando_preenchimento_npd_reconsideracao']:
              reconsideracao_context = doc_context.copy()
              if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
                  reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
              else:
                  reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
-             # MODIFICAÇÃO AQUI: Adiciona o placeholder de anexo de reconsideração logo após o documento de reconsideração
              document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
              document_content += "\n\n{ANEXOS_RECONSIDERACAO_PLACEHOLDER}"
         
-        if patd.status in ['aguardando_publicacao', 'finalizado']:
-             document_content += "\n\n" + _render_document_from_template('RELATORIO_NPD_RECONSIDERACAO.docx', doc_context)
-
-    # REMOVIDO: O placeholder genérico no final foi removido
-    # document_content += "\n\n{ANEXOS_PLACEHOLDER}"
+        if patd.status in ['aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado']:
+             document_content += "\n\n{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}"
+             document_content += "\n\n" + _render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', doc_context)
 
     return document_content
 
@@ -461,14 +455,11 @@ def _check_preclusao_signatures(patd):
     foram coletadas, APENAS se as testemunhas tiverem sido designadas.
     Retorna True se as assinaturas estiverem completas, False caso contrário.
     """
-    # Se a testemunha 1 foi designada, sua assinatura é necessária.
     if patd.testemunha1 and not patd.assinatura_testemunha1:
         return False
-    # Se a testemunha 2 foi designada, sua assinatura é necessária.
     if patd.testemunha2 and not patd.assinatura_testemunha2:
         return False
     
-    # Se passou por todas as verificações, as assinaturas estão completas.
     return True
 
 def _check_and_finalize_patd(patd):
@@ -481,21 +472,17 @@ def _check_and_finalize_patd(patd):
 
     raw_document_text = get_raw_document_text(patd)
     
-    # 1. Verifica a assinatura do militar arrolado
     required_mil_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
     provided_mil_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s)
     if provided_mil_signatures < required_mil_signatures:
         return False
 
-    # 2. Verifica assinatura da testemunha 1, se ELA FOI DESIGNADA
     if patd.testemunha1 and not patd.assinatura_testemunha1:
         return False
         
-    # 3. Verifica assinatura da testemunha 2, se ELA FOI DESIGNADA
     if patd.testemunha2 and not patd.assinatura_testemunha2:
         return False
 
-    # Se todas as assinaturas necessárias estiverem presentes, avança para reconsideração
     patd.status = 'periodo_reconsideracao'
     patd.data_publicacao_punicao = timezone.now()
     return True
@@ -509,11 +496,9 @@ def _try_advance_status_from_justificativa(patd):
     if patd.status != 'aguardando_justificativa':
         return False
 
-    # 1. Verificar se a alegação de defesa foi preenchida ou se há anexos
     if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists():
         return False
 
-    # 2. Verificar se todas as assinaturas necessárias foram coletadas.
     raw_document_text = get_raw_document_text(patd)
     required_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
     provided_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s)
@@ -521,7 +506,6 @@ def _try_advance_status_from_justificativa(patd):
     if provided_signatures < required_signatures:
         return False
 
-    # Se ambas as condições forem atendidas, avança o status.
     patd.status = 'em_apuracao'
     return True
 
@@ -553,7 +537,6 @@ def patd_atribuicoes_pendentes(request):
     militar_logado = request.user.profile.militar
     active_tab = request.GET.get('tab', 'aprovar') # 'aprovar' is the default tab
 
-    # Counts for badges
     count_aprovar = PATD.objects.filter(
         oficial_responsavel=militar_logado,
         status='aguardando_aprovacao_atribuicao'
@@ -969,7 +952,6 @@ class PATDDetailView(DetailView):
     context_object_name = 'patd'
 
     def get_queryset(self):
-        # Otimiza a consulta para buscar dados relacionados de uma só vez
         return super().get_queryset().select_related(
             'militar', 'oficial_responsavel', 'testemunha1', 'testemunha2'
         ).prefetch_related('anexos')
@@ -1019,7 +1001,6 @@ class PATDDetailView(DetailView):
                 
         context['historico_punicoes'] = historico_punicoes
         
-        # Passa os anexos para o template
         anexos_defesa = patd.anexos.filter(tipo='defesa')
         anexos_defesa_data = []
         for a in anexos_defesa:
@@ -1042,6 +1023,18 @@ class PATDDetailView(DetailView):
             })
         context['anexos_reconsideracao_json'] = json.dumps(anexos_reconsideracao_data)
         
+        # Adiciona a lógica para buscar os anexos de reconsideração do oficial
+        anexos_reconsideracao_oficial = patd.anexos.filter(tipo='reconsideracao_oficial')
+        anexos_reconsideracao_oficial_data = []
+        for a in anexos_reconsideracao_oficial:
+            anexos_reconsideracao_oficial_data.append({
+                'id': a.id,
+                'nome': os.path.basename(a.arquivo.name),
+                'url': a.arquivo.url,
+                'content_html': get_anexo_content_as_html(a)
+            })
+        context['anexos_reconsideracao_oficial_json'] = json.dumps(anexos_reconsideracao_oficial_data)
+
         return context
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
@@ -1113,7 +1106,6 @@ def salvar_assinatura_ciencia(request, pk):
 
         patd.assinaturas_militar[assinatura_index] = signature_data
         
-        # Lógica de avanço de status
         if patd.status == 'ciencia_militar':
             coringa_doc_text = _render_document_from_template('PATD_Coringa.docx', _get_document_context(patd))
             required_initial_signatures = coringa_doc_text.count('{Assinatura Militar Arrolado}')
@@ -1210,13 +1202,11 @@ def salvar_assinatura_reconsideracao(request, pk):
         if not signature_data_base64:
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
 
-        # MODIFICAÇÃO: Lógica para descodificar e salvar a imagem como ficheiro
         try:
             format, imgstr = signature_data_base64.split(';base64,') 
             ext = format.split('/')[-1] 
             file_content = ContentFile(base64.b64decode(imgstr), name=f'sig_reconsideracao_{pk}.{ext}')
             
-            # Remove a assinatura antiga, se existir
             if patd.assinatura_reconsideracao:
                 patd.assinatura_reconsideracao.delete(save=False)
 
@@ -1425,7 +1415,6 @@ def verificar_e_atualizar_prazos(request):
                     patd.save(update_fields=['status'])
                     prazos_atualizados += 1
         
-        # --- LÓGICA PARA RECONSIDERAÇÃO ---
         patds_em_reconsideracao = PATD.objects.filter(status='periodo_reconsideracao')
         reconsideracoes_finalizadas = 0
         for patd in patds_em_reconsideracao:
@@ -1478,7 +1467,6 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
         
         PATD.objects.filter(pk=pk).update(**update_data)
         
-        # Após salvar, recarrega o objeto para verificar se pode finalizar
         patd = get_object_or_404(PATD, pk=pk)
         if _check_and_finalize_patd(patd):
              patd.save()
@@ -1513,12 +1501,10 @@ def analisar_punicao(request, pk):
         })
     
     try:
-        # 1. Enquadrar os itens
         itens_obj = enquadra_item(patd.transgressao)
         itens_list = [item for item in itens_obj.item]
         patd.itens_enquadrados = itens_list
         
-        # 2. Verificar agravantes e atenuantes
         militar_acusado = patd.militar
         patds_anteriores = PATD.objects.filter(
             militar=militar_acusado
@@ -1543,7 +1529,6 @@ def analisar_punicao(request, pk):
             'agravantes': circunstancias_dict.get('agravantes', [])
         }
         
-        # 3. Sugerir Punição
         punicao_obj = sugere_punicao(
             transgressao=patd.transgressao,
             agravantes=patd.circunstancias.get('agravantes', []),
@@ -1589,18 +1574,15 @@ def salvar_apuracao(request, pk):
                     'message': 'A apuração não pode ser concluída. Faltam assinaturas das testemunhas no termo de preclusão.'
                 }, status=400)
 
-        # Atualiza os campos da PATD com os dados recebidos
         patd.itens_enquadrados = data.get('itens_enquadrados')
         patd.circunstancias = data.get('circunstancias')
         punicao_sugerida_str = data.get('punicao_sugerida', '')
         patd.punicao_sugerida = punicao_sugerida_str
 
-        # Processa a string da punição para extrair dias e tipo
         match = re.search(r'(\d+)\s+dias\s+de\s+(.+)', punicao_sugerida_str, re.IGNORECASE)
         if match:
             dias_num = int(match.group(1))
             punicao_tipo = match.group(2).strip()
-            # Converte o número para extenso
             dias_texto = num2words(dias_num, lang='pt_BR')
             patd.dias_punicao = f"{dias_texto} ({dias_num:02d}) dias"
             patd.punicao = punicao_tipo
@@ -1608,14 +1590,11 @@ def salvar_apuracao(request, pk):
             patd.dias_punicao = ""
             patd.punicao = punicao_sugerida_str
 
-        # Define valores placeholder para outros campos
         patd.natureza_transgressao = "Média"
         patd.transgressao_afirmativa = f"foi verificado que o militar realmente cometeu a transgressão de '{patd.transgressao}'."
         
-        # Atualiza o status
         patd.status = 'aguardando_punicao'
         
-        # Salva o objeto
         patd.save()
 
         return JsonResponse({'status': 'success', 'message': 'Apuração salva com sucesso!'})
@@ -1712,7 +1691,6 @@ def solicitar_reconsideracao(request, pk):
 @require_POST
 def salvar_reconsideracao(request, pk):
     try:
-        # Validação inicial
         patd = get_object_or_404(PATD, pk=pk)
         if patd.status != 'em_reconsideracao':
             return JsonResponse({'status': 'error', 'message': 'A PATD não está em fase de reconsideração.'}, status=400)
@@ -1723,7 +1701,6 @@ def salvar_reconsideracao(request, pk):
         if not texto and not arquivos:
             return JsonResponse({'status': 'error', 'message': 'É necessário fornecer um texto ou anexar pelo menos um ficheiro.'}, status=400)
 
-        # Salva o conteúdo
         patd.texto_reconsideracao = texto
         if not patd.data_reconsideracao:
             patd.data_reconsideracao = timezone.now()
@@ -1732,7 +1709,6 @@ def salvar_reconsideracao(request, pk):
         for arquivo in arquivos:
             Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='reconsideracao')
         
-        # Chama a função de verificação
         _check_and_advance_reconsideracao_status(pk)
         
         return JsonResponse({'status': 'success', 'message': 'Pedido de reconsideração e anexos salvos com sucesso.'})
@@ -1820,3 +1796,25 @@ def justificar_patd(request, pk):
     except Exception as e:
         logger.error(f"Erro ao justificar a PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@oficial_responsavel_required
+@require_POST
+def anexar_documento_reconsideracao_oficial(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    if patd.status != 'aguardando_comandante_base':
+        messages.error(request, "Ação não permitida no status atual.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    anexo_file = request.FILES.get('anexo_oficial')
+    if not anexo_file:
+        messages.error(request, "Nenhum ficheiro foi enviado.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    Anexo.objects.create(patd=patd, arquivo=anexo_file, tipo='reconsideracao_oficial')
+    
+    patd.status = 'aguardando_preenchimento_npd_reconsideracao'
+    patd.save()
+
+    messages.success(request, "Documento anexado com sucesso. O processo aguarda o preenchimento da NPD de Reconsideração.")
+    return redirect('Ouvidoria:patd_detail', pk=pk)

@@ -48,6 +48,7 @@ urlpatterns = [
     path('patd/<int:pk>/retornar/', views.patd_retornar, name='patd_retornar'),
     path('patd/<int:pk>/solicitar_reconsideracao/', views.solicitar_reconsideracao, name='solicitar_reconsideracao'),
     path('patd/<int:pk>/salvar_reconsideracao/', views.salvar_reconsideracao, name='salvar_reconsideracao'),
+    path('patd/<int:pk>/anexar_reconsideracao_oficial/', views.anexar_documento_reconsideracao_oficial, name='anexar_reconsideracao_oficial'),
 
 
     # CONFIGURAÇÃO DE ASSINATURAS

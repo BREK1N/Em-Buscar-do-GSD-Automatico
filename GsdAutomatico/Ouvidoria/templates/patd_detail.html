@@ -297,23 +297,23 @@
 
 <ul class="status-timeline">
     {% with current_status=patd.status %}
-    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Abertura</div>
     </li>
-    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Defesa</div>
     </li>
-    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Apuração</div>
     </li>
-    <li class="status-step {% if current_status in 'analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Decisão GSD</div>
     </li>
-    <li class="status-step {% if current_status in 'aguardando_comandante_base,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Decisão Base</div>
     </li>
@@ -351,6 +351,22 @@
             <div id="reconsideracao-prazo-box" class="prazo-defesa">
                 <strong>Prazo para Reconsideração:</strong>
                 <span id="reconsideracao-countdown-timer">A calcular...</span>
+            </div>
+            {% endif %}
+
+            {% if patd.status == 'aguardando_comandante_base' and user.profile.militar == patd.oficial_responsavel %}
+            <div class="card-body" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px;">
+                <h4>Anexar Documento de Reconsideração</h4>
+                <p>Anexe o documento (Word ou imagem) referente à sua análise do pedido de reconsideração para prosseguir.</p>
+                <form action="{% url 'Ouvidoria:anexar_reconsideracao_oficial' patd.pk %}" method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="form-item">
+                        <input type="file" name="anexo_oficial" accept=".doc,.docx,.png,.jpg,.jpeg" required style="width: 100%; padding: 10px;">
+                    </div>
+                    <div class="form-actions" style="justify-content: flex-start; margin-top: 15px;">
+                        <button type="submit" class="btn btn-primary">Anexar e Avançar</button>
+                    </div>
+                </form>
             </div>
             {% endif %}
 
@@ -495,6 +511,10 @@
             <div id="anexos-reconsideracao-container-geral" style="display: none;">
                 <h4>Anexos da Reconsideração</h4>
                 <ul id="anexos-reconsideracao-list-geral"></ul>
+            </div>
+             <div id="anexos-reconsideracao-oficial-container-geral" style="display: none;">
+                <h4>Anexo do Oficial (Reconsideração)</h4>
+                <ul id="anexos-reconsideracao-oficial-list-geral"></ul>
             </div>
         </div>
     </div>
@@ -801,21 +821,23 @@
 
 <script>
 // Dados da análise pré-carregados pelo Django
-const analiseData = {{ analise_data_json|safe }};
-const assinaturasMilitar = {{ assinaturas_militar_json|safe }};
-let rawDocumentText = {{ documento_texto_json|safe }};
+const analiseData = {{ analise_data_json|default:'null'|safe }};
+const assinaturasMilitar = {{ assinaturas_militar_json|default:'[]'|safe }};
+let rawDocumentText = {{ documento_texto_json|default:'""'|safe }};
 
 // Dados das assinaturas específicas
 const hasDefesaSig = '{{ patd.assinatura_alegacao_defesa|yesno:"true,false" }}' === 'true';
-const defesaSigData = '{{ patd.assinatura_alegacao_defesa|default:"" }}';
+const defesaSigData = '{% if patd.assinatura_alegacao_defesa.name %}{{ patd.assinatura_alegacao_defesa.url }}{% endif %}';
 const hasReconSig = '{{ patd.assinatura_reconsideracao|yesno:"true,false" }}' === 'true';
-const reconSigData = '{{ patd.assinatura_reconsideracao|default:"" }}';
-const testemunha1SigData = '{{ patd.assinatura_testemunha1|default:"" }}';
-const testemunha2SigData = '{{ patd.assinatura_testemunha2|default:"" }}';
-const oficialSigData = '{{ patd.assinatura_oficial|default:"" }}';
+const reconSigData = '{% if patd.assinatura_reconsideracao.name %}{{ patd.assinatura_reconsideracao.url }}{% endif %}';
+const testemunha1SigData = '{% if patd.assinatura_testemunha1.name %}{{ patd.assinatura_testemunha1.url }}{% endif %}';
+const testemunha2SigData = '{% if patd.assinatura_testemunha2.name %}{{ patd.assinatura_testemunha2.url }}{% endif %}';
+const oficialSigData = '{% if patd.assinatura_oficial.name %}{{ patd.assinatura_oficial.url }}{% endif %}';
 const comandanteSigData = '{{ comandante_assinatura|default:"" }}';
-let anexosDefesa = {{ anexos_defesa_json|safe }};
-let anexosReconsideracao = {{ anexos_reconsideracao_json|safe }};
+let anexosDefesa = {{ anexos_defesa_json|default:'[]'|safe }};
+let anexosReconsideracao = {{ anexos_reconsideracao_json|default:'[]'|safe }};
+let anexosReconsideracaoOficial = {{ anexos_reconsideracao_oficial_json|default:'[]'|safe }};
+
 
 let signatureIndex = 0; // Contador de assinaturas movido para o escopo externo
 
@@ -1153,6 +1175,18 @@ document.addEventListener('DOMContentLoaded', function() {
     });
     return html;
     }
+    
+    function generateAnexosReconsideracaoOficialHtmlForExport() {
+        if (anexosReconsideracaoOficial.length === 0) {
+            return '';
+        }
+        let html = '<h3>Anexo do Oficial (Reconsideração)</h3>';
+        anexosReconsideracaoOficial.forEach(anexo => {
+            html += anexo.content_html;
+        });
+        return html;
+    }
+
 
     function processPlaceholders(text) {
         let processedHtml = text;
@@ -1161,6 +1195,7 @@ document.addEventListener('DOMContentLoaded', function() {
         
         processedHtml = processedHtml.replace(/{ANEXOS_DEFESA_PLACEHOLDER}/g, generateAnexosDefesaHtmlForExport());
         processedHtml = processedHtml.replace(/{ANEXOS_RECONSIDERACAO_PLACEHOLDER}/g, generateAnexosReconsideracaoHtmlForExport());
+        processedHtml = processedHtml.replace(/{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}/g, generateAnexosReconsideracaoOficialHtmlForExport());
 
         // Assinaturas que podem ter imagem ou botão
          processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? `<img class="signature-image-embedded" src="${defesaSigData}" alt="Assinatura da Defesa">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
@@ -1251,7 +1286,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
         const tempContainer = pageContainer.cloneNode(true);
 
-        // Reverte as imagens para placeholders
         const signaturePlaceholders = {
             'Assinatura da Defesa': '{Assinatura Alegacao Defesa}',
             'Assinatura da Reconsideração': '{Assinatura Reconsideracao}',
@@ -1264,13 +1298,12 @@ document.addEventListener('DOMContentLoaded', function() {
         tempContainer.querySelectorAll('img.signature-image-embedded').forEach(img => {
             let alt = img.getAttribute('alt');
             let placeholder = signaturePlaceholders[alt] || '{Assinatura Militar Arrolado}';
-            if (alt && alt.startsWith('Assinatura ')) { // Lida com "Assinatura 1", "Assinatura 2", etc.
+            if (alt && alt.startsWith('Assinatura ')) { 
                 placeholder = '{Assinatura Militar Arrolado}';
             }
             img.replaceWith(document.createTextNode(placeholder));
         });
 
-        // Reverte os botões para placeholders
         tempContainer.querySelectorAll('button.open-signature-modal').forEach(btn => {
             const type = btn.dataset.type;
             let placeholder = '';
@@ -1286,20 +1319,16 @@ document.addEventListener('DOMContentLoaded', function() {
         tempContainer.querySelectorAll('button#add-reconsideracao-texto-btn-doc').forEach(btn => btn.replaceWith(document.createTextNode('{Botao Adicionar Reconsideracao}')));
 
 
-        // Extrai o texto limpo
         const pageDelimiter = 'PATD Nº {{ patd.numero_patd }}/BAGL-GSDGL/{{ patd.data_inicio|date:"dmy" }}';
         let fullContent = [];
         
         tempContainer.querySelectorAll('.page .page-content').forEach(contentDiv => {
             let pageContent = [];
             contentDiv.querySelectorAll('p').forEach(p => {
-                // Converte <br> para nova linha e &nbsp; para espaço
                 let cleanText = p.innerHTML.replace(/<br\s*\/?>/gi, '\n');
                 cleanText = cleanText.replace(/&nbsp;/g, ' ');
-                // Converte ** para negrito
                 cleanText = cleanText.replace(/<strong>(.*?)<\/strong>/g, '**$1**');
                 
-                // Remove tags HTML restantes
                 const tempDiv = document.createElement('div');
                 tempDiv.innerHTML = cleanText;
                 pageContent.push(tempDiv.textContent || tempDiv.innerText || '');
@@ -1369,7 +1398,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 const pageClone = page.cloneNode(true);
                 pageClone.querySelectorAll('img').forEach(img => {
                     const src = img.getAttribute('src');
-                    if (src) { // CORREÇÃO: Processa todas as imagens
+                    if (src) { 
                         if (!src.startsWith('data:')) {
                             try {
                                 img.src = new URL(src, window.location.href).href;
@@ -1730,9 +1759,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const defesaList = document.getElementById('anexos-defesa-list-geral');
         const reconsideracaoContainer = document.getElementById('anexos-reconsideracao-container-geral');
         const reconsideracaoList = document.getElementById('anexos-reconsideracao-list-geral');
+        const reconsideracaoOficialContainer = document.getElementById('anexos-reconsideracao-oficial-container-geral');
+        const reconsideracaoOficialList = document.getElementById('anexos-reconsideracao-oficial-list-geral');
 
         defesaList.innerHTML = '';
         reconsideracaoList.innerHTML = '';
+        reconsideracaoOficialList.innerHTML = '';
+
 
         let hasAnexos = false;
 
@@ -1764,6 +1797,21 @@ document.addEventListener('DOMContentLoaded', function() {
             hasAnexos = true;
         } else {
             reconsideracaoContainer.style.display = 'none';
+        }
+
+        if (anexosReconsideracaoOficial.length > 0) {
+            reconsideracaoOficialContainer.style.display = 'block';
+            anexosReconsideracaoOficial.forEach(anexo => {
+                const li = document.createElement('li');
+                li.innerHTML = `
+                    <a href="${anexo.url}" target="_blank">${anexo.nome}</a>
+                    <button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>
+                `;
+                reconsideracaoOficialList.appendChild(li);
+            });
+            hasAnexos = true;
+        } else {
+            reconsideracaoOficialContainer.style.display = 'none';
         }
 
         anexosCard.style.display = hasAnexos ? 'block' : 'none';
@@ -1829,13 +1877,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        // Remove o item da lista na interface
                         target.closest('li').remove();
-                        // Recarrega os dados dos anexos para manter a consistência
                         anexosDefesa = anexosDefesa.filter(a => a.id != anexoId);
                         anexosReconsideracao = anexosReconsideracao.filter(a => a.id != anexoId);
-                        renderAnexosGeral(); // Re-renderiza a lista de anexos
-                        renderVisualizador(); // Re-renderiza o visualizador sem o anexo
+                        anexosReconsideracaoOficial = anexosReconsideracaoOficial.filter(a => a.id != anexoId);
+                        renderAnexosGeral(); 
+                        renderVisualizador(); 
                     } else {
                         alert('Erro ao excluir anexo: ' + data.message);
                     }
@@ -1899,7 +1946,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // CHAMADAS INICIAIS
     renderAnexosGeral();
 
-    // Ativa a tab correta do localStorage e renderiza o visualizador se necessário
     const activeTabId = localStorage.getItem('activePatdTab-{{ patd.pk }}') || 'tab-detalhes';
     document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
@@ -1912,3 +1958,4 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
