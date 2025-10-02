@@ -37,6 +37,8 @@ from functools import wraps # Importado para criar o decorator
 import threading # Importado para tarefas em background
 from .permissions import has_comandante_access, has_ouvidoria_access
 import base64
+from django.core.files.base import ContentFile
+from uuid import uuid4
 
 
 # --- Funções e Mixins de Permissão ---
@@ -416,7 +418,10 @@ def get_raw_document_text(patd):
     # Adiciona alegação de defesa se existir
     if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
         alegacao_context = doc_context.copy()
-        alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa or "[Ver documentos anexos]"
+        # --- INÍCIO DA CORREÇÃO ---
+        # Garante que o texto da alegação seja incluído corretamente
+        alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa if patd.alegacao_defesa else "[Ver documentos anexos]"
+        # --- FIM DA CORREÇÃO ---
         document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
         document_content += "\n\n{ANEXOS_DEFESA_PLACEHOLDER}"
 
@@ -593,7 +598,27 @@ def aceitar_atribuicao(request, pk):
                 patd.status = 'ciencia_militar'
 
             if patd.oficial_responsavel and patd.oficial_responsavel.assinatura:
-                patd.assinatura_oficial = patd.oficial_responsavel.assinatura
+                # --- INÍCIO DA CORREÇÃO ---
+                # A assinatura do oficial é um Base64. Precisamos convertê-la para um ficheiro.
+                signature_data_base64 = patd.oficial_responsavel.assinatura
+                try:
+                    # Divide a string Base64 para obter o formato e os dados
+                    format, imgstr = signature_data_base64.split(';base64,') 
+                    ext = format.split('/')[-1] 
+                    # Cria um ficheiro em memória a partir dos dados Base64
+                    file_content = ContentFile(base64.b64decode(imgstr), name=f'sig_oficial_{patd.pk}.{ext}')
+                    
+                    # Apaga a assinatura antiga se existir para evitar lixo
+                    if patd.assinatura_oficial:
+                        patd.assinatura_oficial.delete(save=False)
+
+                    # Guarda o novo ficheiro no campo FileField. O `save=False` é para evitar uma query extra.
+                    patd.assinatura_oficial.save(file_content.name, file_content, save=False)
+                except Exception as e:
+                    logger.error(f"Erro ao converter assinatura padrão do oficial para a PATD {pk}: {e}")
+                    messages.error(request, "Erro ao processar a assinatura padrão do oficial.")
+                    return redirect('Ouvidoria:patd_atribuicoes_pendentes')
+                # --- FIM DA CORREÇÃO ---
             
             patd.save()
             messages.success(request, f'Atribuição da PATD Nº {patd.numero_patd} aceite com sucesso.')
@@ -1072,31 +1097,66 @@ class MilitarPATDListView(ListView):
 @oficial_responsavel_required
 @require_POST
 def salvar_assinatura(request, pk):
+    # CORRIGIDO: Esta função agora converte a assinatura Base64 em um ficheiro e guarda-o.
     try:
+        patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
-        signature_data = data.get('signature_data')
+        signature_data_base64 = data.get('signature_data')
 
-        if not signature_data:
+        if not signature_data_base64:
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
+        
+        # Converte a string base64 num ficheiro que o Django pode guardar
+        try:
+            format, imgstr = signature_data_base64.split(';base64,') 
+            ext = format.split('/')[-1] 
+            file_content = ContentFile(base64.b64decode(imgstr), name=f'sig_oficial_{pk}.{ext}')
+            
+            # Apaga a assinatura antiga se existir, para não acumular lixo
+            if patd.assinatura_oficial:
+                patd.assinatura_oficial.delete(save=False)
 
-        PATD.objects.filter(pk=pk).update(assinatura_oficial=signature_data)
+            patd.assinatura_oficial.save(file_content.name, file_content, save=True)
+        except Exception as e:
+            logger.error(f"Erro ao converter Base64 para ficheiro para PATD {pk}: {e}")
+            return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
 
         return JsonResponse({'status': 'success', 'message': 'Assinatura salva com sucesso.'})
     except Exception as e:
+        logger.error(f"Erro ao salvar assinatura do oficial para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
 @ouvidoria_required
 @require_POST
 def salvar_assinatura_ciencia(request, pk):
+    # CORRIGIDO: Esta função agora converte a assinatura Base64 em um ficheiro e guarda a URL.
     try:
         patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
-        signature_data = data.get('signature_data')
+        signature_data_base64 = data.get('signature_data')
         assinatura_index = int(data.get('assinatura_index', -1))
 
-        if not signature_data or assinatura_index < 0:
+        if not signature_data_base64 or assinatura_index < 0:
             return JsonResponse({'status': 'error', 'message': 'Dados de assinatura inválidos.'}, status=400)
+
+        # --- INÍCIO DA CORREÇÃO ---
+        # Converte a assinatura em ficheiro e obtém a URL
+        try:
+            format, imgstr = signature_data_base64.split(';base64,')
+            ext = format.split('/')[-1]
+            file_name = f'sig_ciencia_{assinatura_index}_{pk}_{uuid4().hex[:6]}.{ext}'
+            file_content = ContentFile(base64.b64decode(imgstr))
+
+            # Cria um Anexo para guardar a assinatura
+            anexo = Anexo.objects.create(patd=patd, tipo='assinatura_ciencia')
+            anexo.arquivo.save(file_name, file_content, save=True)
+            signature_url = anexo.arquivo.url
+
+        except Exception as e:
+            logger.error(f"Erro ao converter Base64 da assinatura de ciência para ficheiro (PATD {pk}): {e}")
+            return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
+        # --- FIM DA CORREÇÃO ---
 
         if patd.assinaturas_militar is None:
             patd.assinaturas_militar = []
@@ -1104,7 +1164,8 @@ def salvar_assinatura_ciencia(request, pk):
         while len(patd.assinaturas_militar) <= assinatura_index:
             patd.assinaturas_militar.append(None)
 
-        patd.assinaturas_militar[assinatura_index] = signature_data
+        # Guarda a URL do ficheiro em vez do Base64
+        patd.assinaturas_militar[assinatura_index] = signature_url
         
         if patd.status == 'ciencia_militar':
             coringa_doc_text = _render_document_from_template('PATD_Coringa.docx', _get_document_context(patd))
@@ -1172,14 +1233,27 @@ def salvar_alegacao_defesa(request, pk):
 @ouvidoria_required
 @require_POST
 def salvar_assinatura_defesa(request, pk):
+    # CORRIGIDO: Esta função agora converte a assinatura Base64 em um ficheiro e guarda-o.
     try:
+        patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
-        signature_data = data.get('signature_data')
+        signature_data_base64 = data.get('signature_data')
 
-        if not signature_data:
+        if not signature_data_base64:
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
         
-        PATD.objects.filter(pk=pk).update(assinatura_alegacao_defesa=signature_data)
+        try:
+            format, imgstr = signature_data_base64.split(';base64,') 
+            ext = format.split('/')[-1] 
+            file_content = ContentFile(base64.b64decode(imgstr), name=f'sig_defesa_{pk}.{ext}')
+            
+            if patd.assinatura_alegacao_defesa:
+                patd.assinatura_alegacao_defesa.delete(save=False)
+
+            patd.assinatura_alegacao_defesa.save(file_content.name, file_content, save=True)
+        except Exception as e:
+            logger.error(f"Erro ao converter Base64 para ficheiro para PATD {pk}: {e}")
+            return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
 
         return JsonResponse({'status': 'success', 'message': 'Assinatura da defesa salva com sucesso.'})
     except Exception as e:
@@ -1451,23 +1525,37 @@ def prosseguir_sem_alegacao(request, pk):
 @ouvidoria_required
 @require_POST
 def salvar_assinatura_testemunha(request, pk, testemunha_num):
+    # CORRIGIDO: Esta função agora converte a assinatura Base64 em um ficheiro e guarda-o.
     try:
+        patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
-        signature_data = data.get('signature_data')
-        if not signature_data:
+        signature_data_base64 = data.get('signature_data')
+
+        if not signature_data_base64:
             return JsonResponse({'status': 'error', 'message': 'Nenhum dado de assinatura recebido.'}, status=400)
         
-        update_data = {}
-        if testemunha_num == 1:
-            update_data['assinatura_testemunha1'] = signature_data
-        elif testemunha_num == 2:
-            update_data['assinatura_testemunha2'] = signature_data
-        else:
-            return JsonResponse({'status': 'error', 'message': 'Número de testemunha inválido.'}, status=400)
+        try:
+            format, imgstr = signature_data_base64.split(';base64,') 
+            ext = format.split('/')[-1] 
+            file_content = ContentFile(base64.b64decode(imgstr), name=f'sig_testemunha_{testemunha_num}_{pk}.{ext}')
+            
+            if testemunha_num == 1:
+                if patd.assinatura_testemunha1:
+                    patd.assinatura_testemunha1.delete(save=False)
+                patd.assinatura_testemunha1.save(file_content.name, file_content, save=False)
+            elif testemunha_num == 2:
+                if patd.assinatura_testemunha2:
+                    patd.assinatura_testemunha2.delete(save=False)
+                patd.assinatura_testemunha2.save(file_content.name, file_content, save=False)
+            else:
+                return JsonResponse({'status': 'error', 'message': 'Número de testemunha inválido.'}, status=400)
+            
+            patd.save()
+
+        except Exception as e:
+            logger.error(f"Erro ao converter Base64 para ficheiro para PATD {pk}: {e}")
+            return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
         
-        PATD.objects.filter(pk=pk).update(**update_data)
-        
-        patd = get_object_or_404(PATD, pk=pk)
         if _check_and_finalize_patd(patd):
              patd.save()
         
@@ -1818,3 +1906,4 @@ def anexar_documento_reconsideracao_oficial(request, pk):
 
     messages.success(request, "Documento anexado com sucesso. O processo aguarda o preenchimento da NPD de Reconsideração.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
+

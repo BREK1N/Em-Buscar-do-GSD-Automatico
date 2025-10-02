@@ -80,7 +80,7 @@ class Militar(models.Model):
 class Anexo(models.Model):
     patd = models.ForeignKey('PATD', on_delete=models.CASCADE, related_name='anexos')
     arquivo = models.FileField(upload_to=patd_anexo_path, verbose_name="Ficheiro")
-    tipo = models.CharField(max_length=30, choices=[('defesa', 'Defesa'), ('reconsideracao', 'Reconsideração'), ('reconsideracao_oficial', 'Reconsideração Oficial')])
+    tipo = models.CharField(max_length=30, choices=[('defesa', 'Defesa'), ('reconsideracao', 'Reconsideração'), ('reconsideracao_oficial', 'Reconsideração Oficial'), ('assinatura_ciencia', 'Assinatura de Ciência')])
     data_upload = models.DateTimeField(auto_now_add=True)
 
     def __str__(self):
@@ -183,7 +183,7 @@ class PATD(models.Model):
     transgressao_afirmativa = models.TextField(blank=True, null=True, verbose_name="Transgressão Afirmativa")
     ocorrencia_reescrita = models.TextField(blank=True, null=True, verbose_name="Ocorrência Reescrita")
     natureza_transgressao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Natureza da Transgressão")
-    comportamento = models.CharField(max_length=100, blank=True, null=True, default="Permanece no \"Bom comportamento\"", verbose_name="Comportamento")
+    comportamento = models.CharField(max_length=100, blank=True, default="Permanece no \"Bom comportamento\"", verbose_name="Comportamento")
     texto_reconsideracao = models.TextField(blank=True, null=True, verbose_name="Texto da Reconsideração")
     data_reconsideracao = models.DateTimeField(null=True, blank=True, verbose_name="Data da Reconsideração")
     texto_relatorio = models.TextField(blank=True, null=True, verbose_name="Texto do Relatório de Apuração")
@@ -215,3 +215,4 @@ class PATD(models.Model):
     class Meta:
         verbose_name = "PATD"
         verbose_name_plural = "PATDs"
+
