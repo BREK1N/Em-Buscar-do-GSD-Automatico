@@ -35,6 +35,7 @@ urlpatterns = [
     path('patd/<int:pk>/aceitar_atribuicao/', views.aceitar_atribuicao, name='aceitar_atribuicao'),
     path('patd/<int:pk>/justificar/', views.justificar_patd, name='justificar_patd'),
     path('patd/<int:pk>/finalizar/', views.finalizar_publicacao, name='finalizar_publicacao'),
+    path('patd/<int:pk>/salvar_nova_punicao/', views.salvar_nova_punicao, name='salvar_nova_punicao'),
 
 
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---

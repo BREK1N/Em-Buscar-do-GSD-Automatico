@@ -371,7 +371,7 @@
             {% endif %}
 
              <div class="form-actions" id="form-actions-container">
-                {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa and not patd.anexos.exists %}
+                {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa %}
                 <button type="button" class="btn btn-primary" id="add-defesa-btn">Adicionar Alegação de Defesa</button>
                 {% endif %}
                 {% if patd.status == 'prazo_expirado' %}
@@ -811,6 +811,33 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="nova-punicao-modal">
+    <div class="modal-content">
+        <h3>Definir Nova Punição Pós-Reconsideração</h3>
+        <p>Insira os detalhes da nova punição que será aplicada.</p>
+        <form id="form-nova-punicao" class="model-form">
+            <div class="form-grid" style="grid-template-columns: 1fr 1fr; gap: 15px;">
+                <p>
+                    <label for="nova-punicao-dias-input">Dias de Punição:</label>
+                    <input type="number" id="nova-punicao-dias-input" min="0" required>
+                </p>
+                <p>
+                    <label for="nova-punicao-tipo-input">Tipo de Punição:</label>
+                    <select id="nova-punicao-tipo-input" required>
+                        <option value="detenção">Detenção</option>
+                        <option value="prisão">Prisão</option>
+                        <option value="repreensão">Repreensão</option>
+                    </select>
+                </p>
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-nova-punicao-btn">Cancelar</button>
+                <button type="submit" class="btn btn-primary">Salvar Nova Punição</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1221,6 +1248,7 @@ document.addEventListener('DOMContentLoaded', function() {
         processedHtml = processedHtml.replace(/{Botao Assinar Oficial}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="oficial">Assinar</button>`);
         processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 1}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
         processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 2}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
+        processedHtml = processedHtml.replace(/{Botao Definir Nova Punicao}/g, `<button class="btn btn-sm btn-warning" id="definir-nova-punicao-btn">Definir Nova Punição</button>`);
 
         // Formatação final
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
@@ -1943,6 +1971,55 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- LÓGICA PARA O MODAL DE NOVA PUNIÇÃO ---
+    const novaPunicaoModal = document.getElementById('nova-punicao-modal');
+    if (novaPunicaoModal) {
+        const formNovaPunicao = document.getElementById('form-nova-punicao');
+        const cancelBtn = document.getElementById('cancel-nova-punicao-btn');
+
+        // Abre o modal ao clicar no botão dentro do documento
+        document.body.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'definir-nova-punicao-btn') {
+                e.preventDefault();
+                novaPunicaoModal.classList.add('active');
+            }
+        });
+
+        // Fecha o modal
+        if (cancelBtn) {
+            cancelBtn.addEventListener('click', () => novaPunicaoModal.classList.remove('active'));
+        }
+        novaPunicaoModal.addEventListener('click', e => {
+            if (e.target === novaPunicaoModal) novaPunicaoModal.classList.remove('active');
+        });
+
+        // Envia o formulário
+        formNovaPunicao.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const dias = document.getElementById('nova-punicao-dias-input').value;
+            const tipo = document.getElementById('nova-punicao-tipo-input').value;
+            const url = `{% url 'Ouvidoria:salvar_nova_punicao' patd.pk %}`;
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify({ dias: dias, tipo: tipo })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload(); // Recarrega a página para atualizar o documento
+                } else {
+                    alert('Erro: ' + data.message);
+                }
+            })
+            .catch(error => console.error('Erro:', error));
+        });
+    }
+
     // CHAMADAS INICIAIS
     renderAnexosGeral();
 
@@ -1958,4 +2035,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

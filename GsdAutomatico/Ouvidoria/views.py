@@ -263,6 +263,7 @@ def _get_document_context(patd):
     """
     config = Configuracao.load()
     comandante_gsd = config.comandante_gsd
+    comandante_bagl = config.comandante_bagl
     now = timezone.now()
 
     # Formatações de Data
@@ -327,6 +328,7 @@ def _get_document_context(patd):
 
         # Dados do Comandante
         '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
+        '{Comandante_bagl_botao}': format_militar_string(comandante_bagl, with_spec=True) if comandante_bagl else "[Comandante BAGL não definido]",
     
         
         # Dados da Transgressão
@@ -352,6 +354,7 @@ def _get_document_context(patd):
         # Placeholders de Punição
         '{punicao_completa}': punicao_final_str,
         '{punicao}': punicao_final_str,
+        '{punição_botao}': f"{patd.nova_punicao_dias} de {patd.nova_punicao_tipo}" if patd.nova_punicao_dias else '{Botao Definir Nova Punicao}',
         '{dias_punicao}': "", 
         '{comportamento}': patd.comportamento or "[Não avaliado]",
         '{data_publicacao_punicao}': data_publicacao_fmt,
@@ -413,43 +416,63 @@ def get_raw_document_text(patd):
     """
     doc_context = _get_document_context(patd)
     
+    # 1. Conteúdo inicial (Capa, Despacho, etc.)
     document_content = _render_document_from_template('PATD_Coringa.docx', doc_context)
 
-    # Adiciona alegação de defesa se existir
+    # 2. Adiciona a alegação de defesa, se existir
     if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
         alegacao_context = doc_context.copy()
-        # --- INÍCIO DA CORREÇÃO ---
-        # Garante que o texto da alegação seja incluído corretamente
         alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa if patd.alegacao_defesa else "[Ver documentos anexos]"
-        # --- FIM DA CORREÇÃO ---
         document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
         document_content += "\n\n{ANEXOS_DEFESA_PLACEHOLDER}"
+    
+    # 3. Adiciona Termo de Preclusão, se aplicável (sem defesa e em status avançado)
+    status_preclusao_e_posteriores = [
+        'preclusao', 'apuracao_preclusao', 'aguardando_punicao', 
+        'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 
+        'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao', 
+        'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao', 
+        'aguardando_comandante_base'
+    ]
+    if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in status_preclusao_e_posteriores:
+        document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
 
-
+    # 4. Adiciona Relatório de Apuração (Justificado ou Punição Sugerida)
     if patd.justificado:
+        document_content += "\n\n" + _render_document_from_template('RELATORIO_JUSTIFICADO.docx', doc_context)
+    elif patd.punicao_sugerida:
         document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
-    else:
-        if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in ['preclusao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao']:
-            document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
-        
-        if patd.punicao_sugerida:
-            document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
 
-        if patd.status in ['aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao']:
-            document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
-        
-        if patd.status in ['em_reconsideracao', 'aguardando_publicacao', 'finalizado', 'aguardando_preenchimento_npd_reconsideracao']:
-             reconsideracao_context = doc_context.copy()
-             if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
-                 reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
-             else:
-                 reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
-             document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
-             document_content += "\n\n{ANEXOS_RECONSIDERACAO_PLACEHOLDER}"
-        
-        if patd.status in ['aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado']:
-             document_content += "\n\n{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}"
-             document_content += "\n\n" + _render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', doc_context)
+    # 5. Adiciona a Nota de Punição Disciplinar (NPD)
+    status_npd_e_posteriores = [
+        'aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 
+        'em_reconsideracao', 'aguardando_publicacao', 
+        'aguardando_preenchimento_npd_reconsideracao', 'aguardando_comandante_base'
+    ]
+    if patd.status in status_npd_e_posteriores:
+        document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
+    
+    # 6. Adiciona a Reconsideração
+    status_reconsideracao_e_posteriores = [
+        'em_reconsideracao', 'aguardando_publicacao', 'finalizado', 
+        'aguardando_preenchimento_npd_reconsideracao', 'aguardando_comandante_base'
+    ]
+    if patd.status in status_reconsideracao_e_posteriores:
+         reconsideracao_context = doc_context.copy()
+         if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
+             reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
+         else:
+             reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
+         document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+         document_content += "\n\n{ANEXOS_RECONSIDERACAO_PLACEHOLDER}"
+    
+    # 7. Adiciona anexos e NPD da reconsideração
+    status_npd_reconsideracao_e_posteriores = [
+        'aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado'
+    ]
+    if patd.status in status_npd_reconsideracao_e_posteriores:
+         document_content += "\n\n{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}"
+         document_content += "\n\n" + _render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', doc_context)
 
     return document_content
 
@@ -482,14 +505,15 @@ def _check_and_finalize_patd(patd):
     if provided_mil_signatures < required_mil_signatures:
         return False
 
-    if patd.testemunha1 and not patd.assinatura_testemunha1:
+    if not patd.testemunha1 or not patd.assinatura_testemunha1:
         return False
         
-    if patd.testemunha2 and not patd.assinatura_testemunha2:
+    if not patd.testemunha2 or not patd.assinatura_testemunha2:
         return False
 
     patd.status = 'periodo_reconsideracao'
     patd.data_publicacao_punicao = timezone.now()
+    patd.save()
     return True
 
 def _try_advance_status_from_justificativa(patd):
@@ -1216,10 +1240,12 @@ def salvar_alegacao_defesa(request, pk):
             ocorrencia_formatada = reescrever_ocorrencia(patd.transgressao)
             patd.alegacao_defesa_resumo = resumo_tecnico
             patd.ocorrencia_reescrita = ocorrencia_formatada
+            patd.comprovante = ocorrencia_formatada
         except Exception as e:
             logger.error(f"Erro ao chamar a IA para processar textos da PATD {pk}: {e}")
             patd.alegacao_defesa_resumo = "Erro ao gerar resumo."
             patd.ocorrencia_reescrita = patd.transgressao
+            patd.comprovante = patd.transgressao
 
         _try_advance_status_from_justificativa(patd)
         patd.save()
@@ -1397,18 +1423,28 @@ def gerenciar_configuracoes_padrao(request):
             return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem alterar as configurações.'}, status=403)
         try:
             data = json.loads(request.body)
-            comandante_id = data.get('comandante_gsd_id')
+            comandante_gsd_id = data.get('comandante_gsd_id')
+            comandante_bagl_id = data.get('comandante_bagl_id')
             prazo_dias = data.get('prazo_defesa_dias')
             prazo_minutos = data.get('prazo_defesa_minutos')
-            if comandante_id:
-                comandante = get_object_or_404(Militar, pk=comandante_id, oficial=True)
+            
+            if comandante_gsd_id:
+                comandante = get_object_or_404(Militar, pk=comandante_gsd_id, oficial=True)
                 config.comandante_gsd = comandante
             else:
                 config.comandante_gsd = None
+
+            if comandante_bagl_id:
+                comandante_bagl = get_object_or_404(Militar, pk=comandante_bagl_id, oficial=True)
+                config.comandante_bagl = comandante_bagl
+            else:
+                config.comandante_bagl = None
+
             if prazo_dias is not None:
                 config.prazo_defesa_dias = int(prazo_dias)
             if prazo_minutos is not None:
                 config.prazo_defesa_minutos = int(prazo_minutos)
+            
             config.save()
             return JsonResponse({'status': 'success', 'message': 'Configurações salvas com sucesso.'})
         except (ValueError, TypeError):
@@ -1420,6 +1456,7 @@ def gerenciar_configuracoes_padrao(request):
     oficiais_data = [{'id': o.id, 'texto': f"{o.posto} {o.nome_guerra}"} for o in oficiais]
     data = {
         'comandante_gsd_id': config.comandante_gsd.id if config.comandante_gsd else None,
+        'comandante_bagl_id': config.comandante_bagl.id if config.comandante_bagl else None,
         'oficiais': oficiais_data,
         'prazo_defesa_dias': config.prazo_defesa_dias,
         'prazo_defesa_minutos': config.prazo_defesa_minutos
@@ -1680,6 +1717,7 @@ def salvar_apuracao(request, pk):
 
         patd.natureza_transgressao = "Média"
         patd.transgressao_afirmativa = f"foi verificado que o militar realmente cometeu a transgressão de '{patd.transgressao}'."
+        patd.texto_relatorio = texto_relatorio(patd.transgressao, patd.alegacao_defesa)
         
         patd.status = 'aguardando_punicao'
         
@@ -1724,6 +1762,18 @@ class ComandanteDashboardView(ListView):
 @require_POST
 def patd_aprovar(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+    
+    # Verificação 1: Garante que as duas testemunhas foram definidas.
+    if not patd.testemunha1 or not patd.testemunha2:
+        messages.error(request, "Não é possível aprovar a PATD. É necessário definir as duas testemunhas no processo antes de prosseguir.")
+        # Redireciona de volta para a página de detalhes para que o usuário possa corrigir.
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    # Verificação 2: Garante que as testemunhas definidas tenham assinado.
+    if not patd.assinatura_testemunha1 or not patd.assinatura_testemunha2:
+        messages.error(request, "Não é possível aprovar a PATD. Faltam as assinaturas das testemunhas.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+        
     patd.status = 'aguardando_assinatura_npd'
     patd.save()
     messages.success(request, f"PATD Nº {patd.numero_patd} aprovada. Aguardando assinatura da NPD.")
@@ -1907,3 +1957,25 @@ def anexar_documento_reconsideracao_oficial(request, pk):
     messages.success(request, "Documento anexado com sucesso. O processo aguarda o preenchimento da NPD de Reconsideração.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
 
+@login_required
+@oficial_responsavel_required
+@require_POST
+def salvar_nova_punicao(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+        dias = int(data.get('dias'))
+        tipo = data.get('tipo')
+
+        if dias < 0 or not tipo:
+            return JsonResponse({'status': 'error', 'message': 'Dados inválidos.'}, status=400)
+
+        dias_texto = num2words(dias, lang='pt_BR')
+        patd.nova_punicao_dias = f"{dias_texto} ({dias:02d}) dias"
+        patd.nova_punicao_tipo = tipo
+        patd.save()
+
+        return JsonResponse({'status': 'success', 'message': 'Nova punição salva com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao salvar nova punição para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)

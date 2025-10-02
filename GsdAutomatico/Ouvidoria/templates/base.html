@@ -211,6 +211,13 @@
                                <small>Este oficial será pré-selecionado ao criar novas PATDs.</small>
                            </div>
                            <div class="form-group">
+                               <label for="select-comandante-bagl">Comandante da Base (BAGL)</label>
+                               <select id="select-comandante-bagl" name="comandante_bagl_id">
+                                   <option value="">A carregar...</option>
+                               </select>
+                               <small>Este oficial será usado nos documentos de reconsideração.</small>
+                           </div>
+                           <div class="form-group">
                                 <label for="input-prazo-defesa-dias">Prazo para Defesa (dias úteis)</label>
                                 <input type="number" id="input-prazo-defesa-dias" name="prazo_defesa_dias" min="0" value="5">
                                 <small>Número de dias úteis que o militar tem para apresentar a sua defesa.</small>
@@ -515,7 +522,8 @@
             // --- LÓGICA PARA ABA DE PADRÕES ---
             const formConfigPadroes = document.getElementById('form-config-padroes');
             if (formConfigPadroes) {
-                const selectComandante = document.getElementById('select-comandante-gsd');
+                const selectComandanteGsd = document.getElementById('select-comandante-gsd');
+                const selectComandanteBagl = document.getElementById('select-comandante-bagl');
                 const inputPrazoDefesaDias = document.getElementById('input-prazo-defesa-dias');
                 const inputPrazoDefesaMinutos = document.getElementById('input-prazo-defesa-minutos');
                 const padroesFeedback = document.getElementById('padroes-feedback');
@@ -525,14 +533,21 @@
                     fetch(url)
                         .then(response => response.json())
                         .then(data => {
-                            selectComandante.innerHTML = '<option value="">-- Nenhum --</option>';
+                            selectComandanteGsd.innerHTML = '<option value="">-- Nenhum --</option>';
+                            selectComandanteBagl.innerHTML = '<option value="">-- Nenhum --</option>';
+                            
                             data.oficiais.forEach(oficial => {
-                                const option = new Option(oficial.texto, oficial.id);
-                                selectComandante.add(option);
+                                const optionGsd = new Option(oficial.texto, oficial.id);
+                                const optionBagl = new Option(oficial.texto, oficial.id);
+                                selectComandanteGsd.add(optionGsd);
+                                selectComandanteBagl.add(optionBagl);
                             });
 
                             if (data.comandante_gsd_id) {
-                                selectComandante.value = data.comandante_gsd_id;
+                                selectComandanteGsd.value = data.comandante_gsd_id;
+                            }
+                            if (data.comandante_bagl_id) {
+                                selectComandanteBagl.value = data.comandante_bagl_id;
                             }
                             inputPrazoDefesaDias.value = data.prazo_defesa_dias;
                             if (inputPrazoDefesaMinutos) {
@@ -540,14 +555,16 @@
                             }
                         })
                         .catch(error => {
-                            selectComandante.innerHTML = '<option value="">Erro ao carregar</option>';
+                            selectComandanteGsd.innerHTML = '<option value="">Erro ao carregar</option>';
+                            selectComandanteBagl.innerHTML = '<option value="">Erro ao carregar</option>';
                             console.error("Erro ao carregar configurações padrão:", error);
                         });
                 }
 
                 formConfigPadroes.addEventListener('submit', function(e) {
                     e.preventDefault();
-                    const comandanteId = selectComandante.value;
+                    const comandanteGsdId = selectComandanteGsd.value;
+                    const comandanteBaglId = selectComandanteBagl.value;
                     const prazoDias = inputPrazoDefesaDias.value;
                     const prazoMinutos = inputPrazoDefesaMinutos ? inputPrazoDefesaMinutos.value : 0;
                     const url = "{% url 'Ouvidoria:gerenciar_configuracoes_padrao' %}";
@@ -556,7 +573,8 @@
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
                         body: JSON.stringify({ 
-                            'comandante_gsd_id': comandanteId,
+                            'comandante_gsd_id': comandanteGsdId,
+                            'comandante_bagl_id': comandanteBaglId,
                             'prazo_defesa_dias': prazoDias,
                             'prazo_defesa_minutos': prazoMinutos
                         })
@@ -812,4 +830,3 @@
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-

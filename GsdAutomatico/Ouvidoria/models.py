@@ -26,6 +26,15 @@ class Configuracao(models.Model):
         limit_choices_to={'oficial': True},
         verbose_name="Comandante do GSD Padrão"
     )
+    comandante_bagl = models.ForeignKey(
+        'Militar',
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name='+',
+        limit_choices_to={'oficial': True},
+        verbose_name="Comandante da Base (BAGL)"
+    )
     prazo_defesa_dias = models.IntegerField(
         default=5,
         verbose_name="Prazo para Defesa (dias úteis)"
@@ -180,6 +189,8 @@ class PATD(models.Model):
     comprovante = models.TextField(blank=True, null=True, verbose_name="Comprovante da Transgressão")
     dias_punicao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Dias de Punição")
     punicao = models.CharField(max_length=255, blank=True, null=True, verbose_name="Punição")
+    nova_punicao_dias = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nova Punição (Dias)")
+    nova_punicao_tipo = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nova Punição (Tipo)")
     transgressao_afirmativa = models.TextField(blank=True, null=True, verbose_name="Transgressão Afirmativa")
     ocorrencia_reescrita = models.TextField(blank=True, null=True, verbose_name="Ocorrência Reescrita")
     natureza_transgressao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Natureza da Transgressão")
@@ -215,4 +226,3 @@ class PATD(models.Model):
     class Meta:
         verbose_name = "PATD"
         verbose_name_plural = "PATDs"
-
