@@ -290,7 +290,9 @@
 <div class="patd-header">
     <h1>PATD Nº {{ patd.numero_patd }}</h1>
     <div class="patd-actions">
+        {% if not user|has_comandante_access %}
         <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
+        {% endif %}
         <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
     </div>
 </div>
@@ -358,7 +360,7 @@
             <div class="card-body" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px;">
                 <h4>Anexar Documento de Reconsideração</h4>
                 <p>Anexe o documento (Word ou imagem) referente à sua análise do pedido de reconsideração para prosseguir.</p>
-                <form action="{% url 'Ouvidoria:anexar_reconsideracao_oficial' patd.pk %}" method="post" enctype="multipart/form-data">
+                <form action="{% url 'Ouvidoria:anexar_documento_reconsideracao_oficial' patd.pk %}" method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     <div class="form-item">
                         <input type="file" name="anexo_oficial" accept=".doc,.docx,.png,.jpg,.jpeg" required style="width: 100%; padding: 10px;">
@@ -522,7 +524,7 @@
      {% if request.user.profile.militar == patd.oficial_responsavel and patd.status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}
     <div class="card">
         <div class="card-header">
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
+             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-1.5 5.25H12" /></svg>
              <h2>Análise Disciplinar</h2>
         </div>
         <div class="card-body">
@@ -2035,3 +2037,15 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
+
+}
+
+{
+type: uploaded file
+fileName: brek1n/em-buscar-do-gsd-automatico/Em-Buscar-do-GSD-Automatico-bafa4b7203970a4b7aa2c16926218f1c6bce4e6a/GsdAutomatico/Ouvidoria/tests.py
+fullContent:
+from django.test import TestCase
+
+# Create your tests here.
+
+}

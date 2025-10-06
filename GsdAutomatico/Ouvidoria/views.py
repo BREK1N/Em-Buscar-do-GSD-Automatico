@@ -98,6 +98,68 @@ try:
 except locale.Error:
     logger.warning("Locale pt_BR.UTF-8 não encontrado. A data pode não ser formatada corretamente.")
 
+@login_required
+@oficial_responsavel_required
+@require_POST
+def regenerar_ocorrencia(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    try:
+        nova_ocorrencia = reescrever_ocorrencia(patd.transgressao)
+        patd.ocorrencia_reescrita = nova_ocorrencia
+        patd.comprovante = nova_ocorrencia  # Atualiza o comprovante também
+        patd.save(update_fields=['ocorrencia_reescrita', 'comprovante'])
+        return JsonResponse({'status': 'success', 'novo_texto': nova_ocorrencia})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@oficial_responsavel_required
+@require_POST
+def regenerar_resumo_defesa(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    if not patd.alegacao_defesa:
+        return JsonResponse({'status': 'error', 'message': 'Não há texto de defesa para resumir.'}, status=400)
+    try:
+        novo_resumo = analisar_e_resumir_defesa(patd.alegacao_defesa)
+        patd.alegacao_defesa_resumo = novo_resumo
+        patd.save(update_fields=['alegacao_defesa_resumo'])
+        return JsonResponse({'status': 'success', 'novo_texto': novo_resumo})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@oficial_responsavel_required
+@require_POST
+def regenerar_texto_relatorio(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    try:
+        novo_relatorio = texto_relatorio(patd.transgressao, patd.alegacao_defesa)
+        patd.texto_relatorio = novo_relatorio
+        patd.save(update_fields=['texto_relatorio'])
+        return JsonResponse({'status': 'success', 'novo_texto': novo_relatorio})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@oficial_responsavel_required
+@require_POST
+def regenerar_punicao(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    try:
+        punicao_obj = sugere_punicao(
+            transgressao=patd.transgressao,
+            agravantes=patd.circunstancias.get('agravantes', []),
+            atenuantes=patd.circunstancias.get('atenuantes', []),
+            itens=patd.itens_enquadrados,
+            observacao="Regeneração de punição"
+        )
+        nova_punicao_sugerida = punicao_obj.punicao.get('punicao', 'Erro na sugestão.')
+        patd.punicao_sugerida = nova_punicao_sugerida
+        patd.save(update_fields=['punicao_sugerida'])
+        return JsonResponse({'status': 'success', 'novo_texto': nova_punicao_sugerida})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
 def _check_and_advance_reconsideracao_status(patd_pk):
     """
     Função centralizada que verifica, dentro de uma transação para garantir a consistência dos dados,
@@ -337,19 +399,19 @@ def _get_document_context(patd):
         '{protocolo comaer}': patd.protocolo_comaer,
         '{Oficio Transgressao}': patd.oficio_transgressao,
         '{data_oficio}': data_oficio_fmt,
-        '{comprovante}': patd.comprovante or "[Não informado]",
+        '{comprovante}': patd.comprovante or '',
 
         # Dados da Apuração
         '{Itens enquadrados}': itens_enquadrados_str,
         '{Atenuante}': atenuantes_str,
         '{agravantes}': agravantes_str,
-        '{transgressao_afirmativa}': patd.transgressao_afirmativa or "[Análise não realizada]",
-        '{natureza_transgressao}': patd.natureza_transgressao or "[Análise não realizada]",
+        '{transgressao_afirmativa}': patd.transgressao_afirmativa or '',
+        '{natureza_transgressao}': patd.natureza_transgressao or '',
         
         # Dados da Defesa
         '{data ciência}': data_ciencia_fmt,
         '{Data da alegação}': data_alegacao_fmt,
-        '{Alegação_defesa_resumo}': patd.alegacao_defesa_resumo or "[Resumo não gerado]",
+        '{Alegação_defesa_resumo}': patd.alegacao_defesa_resumo or '',
         
         # Placeholders de Punição
         '{punicao_completa}': punicao_final_str,
@@ -372,7 +434,7 @@ def _get_document_context(patd):
 
         # Específicos
         '{Data Final Prazo}': deadline_str,
-        '{texto_relatorio}': patd.texto_relatorio or "[Relatório não gerado]",
+        '{texto_relatorio}': patd.texto_relatorio or '',
         '{Texto_reconsideracao}': patd.texto_reconsideracao or '',
         '{Data_reconsideracao}': data_reconsideracao_fmt,
     }
@@ -620,6 +682,7 @@ def aceitar_atribuicao(request, pk):
                 patd.status_anterior = None 
             else:
                 patd.status = 'ciencia_militar'
+            
 
             if patd.oficial_responsavel and patd.oficial_responsavel.assinatura:
                 # --- INÍCIO DA CORREÇÃO ---
@@ -1087,10 +1150,21 @@ class PATDDetailView(DetailView):
         return context
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
-class PATDUpdateView(UpdateView):
+class PATDUpdateView(UserPassesTestMixin, UpdateView):
     model = PATD
     form_class = PATDForm
     template_name = 'patd_form.html'
+
+    def test_func(self):
+        # Nega o acesso se o usuário for do grupo 'comandante'
+        return not has_comandante_access(self.request.user)
+
+    def handle_no_permission(self):
+        messages.error(self.request, "Acesso negado. Comandantes não podem editar o processo.")
+        patd_pk = self.kwargs.get('pk')
+        if patd_pk:
+            return redirect('Ouvidoria:patd_detail', pk=patd_pk)
+        return redirect('Ouvidoria:index')
     
     def get_success_url(self):
         return reverse_lazy('Ouvidoria:patd_detail', kwargs={'pk': self.object.pk})
@@ -1236,17 +1310,24 @@ def salvar_alegacao_defesa(request, pk):
             Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='defesa')
 
         try:
-            resumo_tecnico = analisar_e_resumir_defesa(patd.alegacao_defesa)
-            ocorrencia_formatada = reescrever_ocorrencia(patd.transgressao)
-            patd.alegacao_defesa_resumo = resumo_tecnico
-            patd.ocorrencia_reescrita = ocorrencia_formatada
-            patd.comprovante = ocorrencia_formatada
+            # Check if fields are empty before calling AI
+            if not patd.alegacao_defesa_resumo:
+                patd.alegacao_defesa_resumo = analisar_e_resumir_defesa(patd.alegacao_defesa)
+            if not patd.ocorrencia_reescrita:
+                ocorrencia_formatada = reescrever_ocorrencia(patd.transgressao)
+                patd.ocorrencia_reescrita = ocorrencia_formatada
+                patd.comprovante = ocorrencia_formatada
         except Exception as e:
             logger.error(f"Erro ao chamar a IA para processar textos da PATD {pk}: {e}")
-            patd.alegacao_defesa_resumo = "Erro ao gerar resumo."
-            patd.ocorrencia_reescrita = patd.transgressao
-            patd.comprovante = patd.transgressao
+            # Set default error messages only if fields are still empty
+            if not patd.alegacao_defesa_resumo:
+                patd.alegacao_defesa_resumo = "Erro ao gerar resumo."
+            if not patd.ocorrencia_reescrita:
+                patd.ocorrencia_reescrita = patd.transgressao
+                patd.comprovante = patd.transgressao
 
+        # Save immediately after generation
+        patd.save() 
         _try_advance_status_from_justificativa(patd)
         patd.save()
 
@@ -1717,7 +1798,10 @@ def salvar_apuracao(request, pk):
 
         patd.natureza_transgressao = "Média"
         patd.transgressao_afirmativa = f"foi verificado que o militar realmente cometeu a transgressão de '{patd.transgressao}'."
-        patd.texto_relatorio = texto_relatorio(patd.transgressao, patd.alegacao_defesa)
+        
+        # Only generate if the field is empty
+        if not patd.texto_relatorio:
+            patd.texto_relatorio = texto_relatorio(patd.transgressao, patd.alegacao_defesa)
         
         patd.status = 'aguardando_punicao'
         
@@ -1763,16 +1847,19 @@ class ComandanteDashboardView(ListView):
 def patd_aprovar(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
     
+    errors = []
     # Verificação 1: Garante que as duas testemunhas foram definidas.
     if not patd.testemunha1 or not patd.testemunha2:
-        messages.error(request, "Não é possível aprovar a PATD. É necessário definir as duas testemunhas no processo antes de prosseguir.")
-        # Redireciona de volta para a página de detalhes para que o usuário possa corrigir.
-        return redirect('Ouvidoria:patd_detail', pk=pk)
+        errors.append("É necessário definir as duas testemunhas no processo.")
+    
+    # As verificações de assinatura foram movidas para _check_and_finalize_patd.
+    # Esta função agora foca apenas na aprovação do comandante.
 
-    # Verificação 2: Garante que as testemunhas definidas tenham assinado.
-    if not patd.assinatura_testemunha1 or not patd.assinatura_testemunha2:
-        messages.error(request, "Não é possível aprovar a PATD. Faltam as assinaturas das testemunhas.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
+    if errors:
+        error_message = f"PATD Nº {patd.numero_patd}: Não foi possível aprovar. " + " ".join(errors)
+        messages.error(request, error_message)
+        # Redireciona de volta para a página de onde o usuário veio.
+        return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
         
     patd.status = 'aguardando_assinatura_npd'
     patd.save()
@@ -1802,6 +1889,12 @@ def patd_retornar(request, pk):
 @require_POST
 def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+
+    # NEW: Check for witnesses before advancing
+    if not patd.testemunha1 or not patd.testemunha2:
+        messages.error(request, "Não é possível avançar a PATD. É necessário definir as duas testemunhas no processo antes de enviar para o comandante.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
     patd.status = 'analise_comandante'
     patd.save()
     messages.success(request, f"PATD Nº {patd.numero_patd} enviada para análise do Comandante.")
@@ -1971,8 +2064,16 @@ def salvar_nova_punicao(request, pk):
             return JsonResponse({'status': 'error', 'message': 'Dados inválidos.'}, status=400)
 
         dias_texto = num2words(dias, lang='pt_BR')
+        
+        # Salva nos campos de nova punição
         patd.nova_punicao_dias = f"{dias_texto} ({dias:02d}) dias"
         patd.nova_punicao_tipo = tipo
+        
+        # Atualiza os campos da punição principal também
+        patd.dias_punicao = f"{dias_texto} ({dias:02d}) dias"
+        patd.punicao = tipo
+        
+        patd.status = 'aguardando_publicacao'
         patd.save()
 
         return JsonResponse({'status': 'success', 'message': 'Nova punição salva com sucesso.'})

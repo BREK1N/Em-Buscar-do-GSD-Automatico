@@ -37,6 +37,11 @@ urlpatterns = [
     path('patd/<int:pk>/finalizar/', views.finalizar_publicacao, name='finalizar_publicacao'),
     path('patd/<int:pk>/salvar_nova_punicao/', views.salvar_nova_punicao, name='salvar_nova_punicao'),
 
+    path('patds/<int:pk>/regenerar-ocorrencia/', views.regenerar_ocorrencia, name='regenerar_ocorrencia'),
+    path('patds/<int:pk>/regenerar-resumo-defesa/', views.regenerar_resumo_defesa, name='regenerar_resumo_defesa'),
+    path('patds/<int:pk>/regenerar-texto-relatorio/', views.regenerar_texto_relatorio, name='regenerar_texto_relatorio'),
+    path('patds/<int:pk>/regenerar-punicao/', views.regenerar_punicao, name='regenerar_punicao'),
+
 
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
     path('patd/<int:pk>/analisar_punicao/', views.analisar_punicao, name='analisar_punicao'),
@@ -68,3 +73,4 @@ urlpatterns = [
     path('api/search-militares/', views.search_militares_json, name='search_militares_json'),
     path('anexo/<int:pk>/excluir/', views.excluir_anexo, name='excluir_anexo'),
 ]
+

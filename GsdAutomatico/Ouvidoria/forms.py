@@ -1,6 +1,8 @@
 from django import forms
 from .models import Militar, PATD
 import json
+import re
+from num2words import num2words
 
 class AtribuirOficialForm(forms.ModelForm):
     class Meta:
@@ -70,7 +72,7 @@ class PATDForm(forms.ModelForm):
             'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2', 
             'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'punicao_sugerida',
             'comprovante', 'dias_punicao', 'punicao', 'transgressao_afirmativa', 'natureza_transgressao', 'comportamento',
-            'alegacao_defesa_resumo'
+            'alegacao_defesa_resumo', 'ocorrencia_reescrita', 'texto_relatorio'
         ]
         
         widgets = {
@@ -83,6 +85,8 @@ class PATDForm(forms.ModelForm):
             'comprovante': forms.Textarea(attrs={'rows': 3}),
             'transgressao_afirmativa': forms.Textarea(attrs={'rows': 3}),
             'alegacao_defesa_resumo': forms.Textarea(attrs={'rows': 3}),
+            'ocorrencia_reescrita': forms.Textarea(attrs={'rows': 3}),
+            'texto_relatorio': forms.Textarea(attrs={'rows': 5}),
         }
         labels = {
             'transgressao': "Descrição da Transgressão",
@@ -98,6 +102,8 @@ class PATDForm(forms.ModelForm):
             'natureza_transgressao': "Natureza da Transgressão",
             'comportamento': "Comportamento",
             'alegacao_defesa_resumo': "Resumo da Alegação de Defesa",
+            'ocorrencia_reescrita': "Ocorrência Reescrita (IA)",
+            'texto_relatorio': "Texto do Relatório (IA)",
         }
 
     def __init__(self, *args, **kwargs):
@@ -116,6 +122,7 @@ class PATDForm(forms.ModelForm):
             if self.instance.circunstancias:
                 self.fields['atenuantes'].initial = ", ".join(self.instance.circunstancias.get('atenuantes', []))
                 self.fields['agravantes'].initial = ", ".join(self.instance.circunstancias.get('agravantes', []))
+
 
     def save(self, commit=True):
         # Converte os campos de texto de volta para a estrutura JSON antes de salvar
@@ -140,6 +147,18 @@ class PATDForm(forms.ModelForm):
             'atenuantes': atenuantes,
             'agravantes': agravantes
         }
+        
+        # Punição
+        punicao_sugerida_str = self.cleaned_data.get('punicao_sugerida', '')
+        match = re.search(r'(\d+)\s+dias\s+de\s+(.+)', punicao_sugerida_str, re.IGNORECASE)
+        if match:
+            dias_num = int(match.group(1))
+            punicao_tipo = match.group(2).strip()
+            dias_texto = num2words(dias_num, lang='pt_BR')
+            self.instance.dias_punicao = f"{dias_texto} ({dias_num:02d}) dias"
+            self.instance.punicao = punicao_tipo
+        else:
+            self.instance.dias_punicao = ""
+            self.instance.punicao = punicao_sugerida_str
             
         return super().save(commit=commit)
-
