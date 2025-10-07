@@ -6,9 +6,26 @@
 <div class="table-header">
     <h1>Processos Administrativos (PATD)</h1>
     <div class="actions">
-        <form method="get" class="search-form">
-            <input type="text" name="q" placeholder="Pesquisar por Nº ou Militar..." value="{{ request.GET.q|default:'' }}">
-            <button type="submit">Pesquisar</button>
+        <form method="get" class="filter-bar">
+            <div class="search-group">
+                <input type="text" name="q" placeholder="Pesquisar por Nº ou Militar..." value="{{ request.GET.q|default:'' }}">
+                <button type="submit" class="search-btn" title="Pesquisar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                </button>
+            </div>
+            <div class="select-group">
+                <select name="status" onchange="this.form.submit()" class="filter-select">
+                    <option value="">Filtrar por Status</option>
+                    {% for group_name, statuses in status_groups.items %}
+                        <optgroup label="{{ group_name }}">
+                            <option value="{{ group_name }}" {% if group_name == current_status %}selected{% endif %}>-- {{ group_name }} (Todos) --</option>
+                            {% for status_key, status_display in statuses.items %}
+                                <option value="{{ status_key }}" {% if status_key == current_status %}selected{% endif %}>{{ status_display }}</option>
+                            {% endfor %}
+                        </optgroup>
+                    {% endfor %}
+                </select>
+            </div>
         </form>
     </div>
 </div>
@@ -57,15 +74,15 @@
 <div class="pagination">
     <span class="step-links">
         {% if page_obj.has_previous %}
-            <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&laquo; primeira</a>
-            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">anterior</a>
+            <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">&laquo; primeira</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">anterior</a>
         {% endif %}
         <span class="current">
             Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
         </span>
         {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">próxima</a>
-            <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">última &raquo;</a>
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">próxima</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">última &raquo;</a>
         {% endif %}
     </span>
 </div>

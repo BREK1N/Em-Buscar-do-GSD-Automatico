@@ -1023,28 +1023,76 @@ class MilitarDeleteView(DeleteView):
     template_name = 'militar_confirm_delete.html'
     success_url = reverse_lazy('Ouvidoria:militar_list')
 
+# Dicionário com os grupos de status
+STATUS_GROUPS = {
+    "Aguardando Oficial": {
+        'definicao_oficial': 'Aguardando definição do Oficial',
+        'aguardando_aprovacao_atribuicao': 'Aguardando aprovação de atribuição de oficial',
+    },
+    "Fase de Defesa": {
+        'ciencia_militar': 'Aguardando ciência do militar',
+        'aguardando_justificativa': 'Aguardando Justificativa',
+        'prazo_expirado': 'Prazo expirado',
+        'preclusao': 'Preclusão - Sem Defesa',
+    },
+    "Fase de Apuração": {
+        'em_apuracao': 'Em Apuração',
+        'apuracao_preclusao': 'Em Apuração (Preclusão)',
+        'aguardando_punicao': 'Aguardando Aplicação da Punição',
+        'aguardando_punicao_alterar': 'Aguardando Punição (alterar)',
+    },
+    "Decisão do Comandante": {
+        'analise_comandante': 'Em Análise pelo Comandante',
+        'aguardando_assinatura_npd': 'Aguardando Assinatura NPD',
+    },
+    "Fase de Reconsideração": {
+        'periodo_reconsideracao': 'Período de Reconsideração',
+        'em_reconsideracao': 'Em Reconsideração',
+        'aguardando_comandante_base': 'Aguardando Comandante da Base',
+        'aguardando_preenchimento_npd_reconsideracao': 'Aguardando preenchimento NPD Reconsideração',
+    },
+    "Aguardando Publicação": {
+        'aguardando_publicacao': 'Aguardando publicação',
+    }
+}
+
 @method_decorator([login_required, comandante_redirect, ouvidoria_required], name='dispatch')
 class PATDListView(ListView):
     model = PATD
     template_name = 'patd_list.html'
     context_object_name = 'patds'
     paginate_by = 15
+
     def get_queryset(self):
         query = self.request.GET.get('q')
+        status_filter = self.request.GET.get('status')
+
         qs = super().get_queryset().exclude(status='finalizado').select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
+
         if query:
             qs = qs.filter(
-                Q(numero_patd__icontains=query) | 
-                Q(militar__nome_completo__icontains=query) | 
+                Q(numero_patd__icontains=query) |
+                Q(militar__nome_completo__icontains=query) |
                 Q(militar__nome_guerra__icontains=query)
             )
+
+        if status_filter:
+            # Verifica se o filtro é um nome de grupo
+            if status_filter in STATUS_GROUPS:
+                statuses_in_group = list(STATUS_GROUPS[status_filter].keys())
+                qs = qs.filter(status__in=statuses_in_group)
+            else: # É um status individual
+                qs = qs.filter(status=status_filter)
+
         return qs
-    
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         config = Configuracao.load()
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
+        context['status_groups'] = STATUS_GROUPS  # Passa os grupos para o template
+        context['current_status'] = self.request.GET.get('status', '')  # Passa o filtro atual para o template
         return context
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
@@ -1764,7 +1812,6 @@ def analisar_punicao(request, pk):
             'message': f'Ocorreu um erro durante a análise da IA: {e}'
         }, status=500)
 
-
 @login_required
 @oficial_responsavel_required
 @require_POST
@@ -1796,12 +1843,14 @@ def salvar_apuracao(request, pk):
             patd.dias_punicao = ""
             patd.punicao = punicao_sugerida_str
 
-        patd.natureza_transgressao = "Média"
         patd.transgressao_afirmativa = f"foi verificado que o militar realmente cometeu a transgressão de '{patd.transgressao}'."
         
-        # Only generate if the field is empty
         if not patd.texto_relatorio:
             patd.texto_relatorio = texto_relatorio(patd.transgressao, patd.alegacao_defesa)
+        
+        # --- LÓGICA ATUALIZADA ---
+        patd.definir_natureza_transgressao()
+        patd.calcular_e_atualizar_comportamento()
         
         patd.status = 'aguardando_punicao'
         
@@ -2072,6 +2121,10 @@ def salvar_nova_punicao(request, pk):
         # Atualiza os campos da punição principal também
         patd.dias_punicao = f"{dias_texto} ({dias:02d}) dias"
         patd.punicao = tipo
+        
+        # Recalcula o comportamento com a nova punição
+        patd.definir_natureza_transgressao()
+        patd.calcular_e_atualizar_comportamento()
         
         patd.status = 'aguardando_publicacao'
         patd.save()

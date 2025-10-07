@@ -125,6 +125,9 @@ class PATDForm(forms.ModelForm):
 
 
     def save(self, commit=True):
+        # Pega a instância do modelo, mas não salva no banco ainda
+        instance = super().save(commit=False)
+        
         # Converte os campos de texto de volta para a estrutura JSON antes de salvar
         
         # Itens Enquadrados
@@ -138,12 +141,12 @@ class PATDForm(forms.ModelForm):
                 except ValueError:
                     # Ignora linhas mal formatadas
                     pass
-        self.instance.itens_enquadrados = itens_list
+        instance.itens_enquadrados = itens_list
 
         # Circunstâncias
         atenuantes = [item.strip() for item in self.cleaned_data.get('atenuantes', '').split(',') if item.strip()]
         agravantes = [item.strip() for item in self.cleaned_data.get('agravantes', '').split(',') if item.strip()]
-        self.instance.circunstancias = {
+        instance.circunstancias = {
             'atenuantes': atenuantes,
             'agravantes': agravantes
         }
@@ -155,10 +158,17 @@ class PATDForm(forms.ModelForm):
             dias_num = int(match.group(1))
             punicao_tipo = match.group(2).strip()
             dias_texto = num2words(dias_num, lang='pt_BR')
-            self.instance.dias_punicao = f"{dias_texto} ({dias_num:02d}) dias"
-            self.instance.punicao = punicao_tipo
+            instance.dias_punicao = f"{dias_texto} ({dias_num:02d}) dias"
+            instance.punicao = punicao_tipo
         else:
-            self.instance.dias_punicao = ""
-            self.instance.punicao = punicao_sugerida_str
+            instance.dias_punicao = ""
+            instance.punicao = punicao_sugerida_str
+
+        # --- NOVA LÓGICA ---
+        # Chama os métodos do modelo para recalcular tudo antes de salvar
+        instance.definir_natureza_transgressao()
+        instance.calcular_e_atualizar_comportamento()
             
-        return super().save(commit=commit)
+        if commit:
+            instance.save()
+        return instance

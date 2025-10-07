@@ -2,6 +2,8 @@ from django.db import models
 from django.utils import timezone
 import os
 from uuid import uuid4
+import re
+from num2words import num2words
 
 def patd_anexo_path(instance, filename):
     patd_pk = instance.patd.pk
@@ -208,6 +210,74 @@ class PATD(models.Model):
     anexo_reconsideracao_oficial = models.FileField(upload_to=patd_anexo_path, null=True, blank=True, verbose_name="Anexo da Reconsideração do Oficial")
     assinaturas_npd_reconsideracao = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas da NPD de Reconsideração (Base64)")
     relatorio_final = models.TextField(blank=True, null=True, verbose_name="Relatório Final")
+
+    def calcular_e_atualizar_comportamento(self):
+        """
+        Calcula o total de punições de um militar e atualiza o campo comportamento.
+        2 dias de Detenção equivalem a 1 dia de Prisão.
+        Acima de 21 dias de Prisão, o comportamento é classificado como "Mau".
+        """
+        militar = self.militar
+        outras_patds = PATD.objects.filter(militar=militar).exclude(pk=self.pk)
+        
+        total_dias_prisao = 0.0
+
+        # 1. Calcula a punição das PATDs antigas (do banco de dados)
+        for p in outras_patds:
+            dias_str = p.dias_punicao or ""
+            tipo_punicao = p.punicao or ""
+            match = re.search(r'\((\d+)\)', dias_str)
+            if match:
+                dias = int(match.group(1))
+                if "detenção" in tipo_punicao.lower():
+                    total_dias_prisao += dias / 2
+                elif "prisão" in tipo_punicao.lower():
+                    total_dias_prisao += dias
+
+        # 2. Adiciona a punição da PATD atual (self)
+        dias_str_atual = self.dias_punicao or ""
+        tipo_punicao_atual = self.punicao or ""
+        match_atual = re.search(r'\((\d+)\)', dias_str_atual)
+        if match_atual:
+            dias_atual = int(match_atual.group(1))
+            if "detenção" in tipo_punicao_atual.lower():
+                total_dias_prisao += dias_atual / 2
+            elif "prisão" in tipo_punicao_atual.lower():
+                total_dias_prisao += dias_atual
+
+        # 3. Atualiza o comportamento no objeto atual
+        if total_dias_prisao > 21:
+            self.comportamento = "Mau comportamento"
+        else:
+            self.comportamento = "Permanece no \"Bom comportamento\""
+
+    def definir_natureza_transgressao(self):
+        """
+        Define a natureza da transgressão com base na punição aplicada.
+        """
+        tipo_punicao = (self.punicao or "").lower()
+        dias_str = self.dias_punicao or ""
+        dias = 0
+        
+        match = re.search(r'\((\d+)\)', dias_str)
+        if match:
+            dias = int(match.group(1))
+
+        if "repreensão" in tipo_punicao:
+            self.natureza_transgressao = "Leve"
+        elif "detenção" in tipo_punicao:
+            if dias <= 8:
+                self.natureza_transgressao = "Leve"
+            else:
+                self.natureza_transgressao = "Média"
+        elif "prisão" in tipo_punicao:
+            if dias <= 4:
+                self.natureza_transgressao = "Média"
+            else:
+                self.natureza_transgressao = "Grave"
+        else:
+            # Se não houver punição definida, não altera a natureza
+            pass
 
 
     def __str__(self):
