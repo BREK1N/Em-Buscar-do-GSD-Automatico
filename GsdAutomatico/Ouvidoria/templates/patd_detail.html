@@ -594,35 +594,6 @@
 <div id="tab-visualizador" class="tab-panel">
     <div class="document-toolbar">
         <div class="toolbar-section">
-            <label>Formatação</label>
-            <div class="toolbar-group">
-                <button class="toolbar-button" data-command="textAlign" data-value="left" title="Alinhar à Esquerda"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M2 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m0-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"/></svg></button>
-                <button class="toolbar-button active" data-command="textAlign" data-value="center" title="Centralizar"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M4 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m2-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-2-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"/></svg></button>
-                <button class="toolbar-button" data-command="textAlign" data-value="right" title="Alinhar à Direita"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M6 12.5a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-4-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5m4-3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5m-4-3a.5.5 0 0 1 .5-.5h11a.5.5 0 0 1 0 1h-11a.5.5 0 0 1-.5-.5"/></svg></button>
-            </div>
-            <div class="toolbar-group">
-                <select id="font-family-select" class="toolbar-select">
-                    <option value="'Times New Roman', Times, serif">Times New Roman</option>
-                    <option value="Arial, sans-serif">Arial</option>
-                    <option value="'Courier New', Courier, monospace">Courier New</option>
-                </select>
-                <select id="font-size-select" class="toolbar-select">
-                    <option value="10pt">10</option>
-                    <option value="12pt" selected>12</option>
-                    <option value="14pt">14</option>
-                    <option value="16pt">16</option>
-                </select>
-            </div>
-        </div>
-        <div class="toolbar-section">
-             <label for="header-input">Cabeçalho</label>
-             <input type="text" id="header-input" class="toolbar-input" placeholder="Texto do cabeçalho...">
-        </div>
-        <div class="toolbar-section">
-             <label for="footer-input">Rodapé</label>
-             <input type="text" id="footer-input" class="toolbar-input" placeholder="Texto do rodapé...">
-        </div>
-        <div class="toolbar-section">
             <label>Ações</label>
             <div class="toolbar-group">
                 <button class="btn btn-success" id="save-visualizador-btn">Salvar Alterações</button>
@@ -852,7 +823,7 @@
 // Dados da análise pré-carregados pelo Django
 const analiseData = {{ analise_data_json|default:'null'|safe }};
 const assinaturasMilitar = {{ assinaturas_militar_json|default:'[]'|safe }};
-let rawDocumentText = {{ documento_texto_json|default:'""'|safe }};
+let documentPages = {{ documento_texto_json|default:'[]'|safe }};
 
 // Dados das assinaturas específicas
 const hasDefesaSig = '{{ patd.assinatura_alegacao_defesa|yesno:"true,false" }}' === 'true';
@@ -1260,11 +1231,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- LÓGICA DO VISUALIZADOR DE DOCUMENTO ---
     const pageContainer = document.getElementById('document-preview-container');
-    const headerInput = document.getElementById('header-input');
-    const footerInput = document.getElementById('footer-input');
-    const fontFamilySelect = document.getElementById('font-family-select');
-    const fontSizeSelect = document.getElementById('font-size-select');
-    const alignButtons = document.querySelectorAll('.toolbar-button[data-command="textAlign"]');
     const exportPdfBtn = document.getElementById('export-pdf-btn');
     const exportDocxBtn = document.getElementById('export-docx-btn');
     const saveVisualizadorBtn = document.getElementById('save-visualizador-btn');
@@ -1281,35 +1247,6 @@ document.addEventListener('DOMContentLoaded', function() {
     if (pageContainer) {
         pageContainer.addEventListener('input', scheduleSave);
     }
-
-    function applyToolbarStyles() {
-        const pages = pageContainer.querySelectorAll('.page-content');
-        pages.forEach(content => {
-            content.style.textAlign = document.querySelector('.toolbar-button[data-command="textAlign"].active')?.dataset.value || 'center';
-            content.style.fontFamily = fontFamilySelect.value;
-            content.style.fontSize = fontSizeSelect.value;
-        });
-        const headers = pageContainer.querySelectorAll('.page-header');
-        headers.forEach(h => h.textContent = headerInput.value);
-        const footers = pageContainer.querySelectorAll('.page-footer');
-        footers.forEach(f => f.textContent = footerInput.value);
-        scheduleSave();
-    }
-
-    alignButtons.forEach(button => {
-        button.addEventListener('click', () => {
-            alignButtons.forEach(btn => btn.classList.remove('active'));
-            button.classList.add('active');
-            applyToolbarStyles();
-        });
-    });
-
-    [fontFamilySelect, fontSizeSelect, headerInput, footerInput].forEach(el => {
-        if(el) {
-            el.addEventListener('change', applyToolbarStyles);
-            el.addEventListener('input', applyToolbarStyles);
-        }
-    });
 
     function saveDocumentChanges() {
         if (!pageContainer) return;
@@ -1851,44 +1788,26 @@ document.addEventListener('DOMContentLoaded', function() {
         if (!pageContainer) return;
         pageContainer.innerHTML = '';
         
-        if (!rawDocumentText) {
+        if (!documentPages || documentPages.length === 0) {
             pageContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">O conteúdo do documento está vazio ou não pôde ser carregado.</p>';
             return;
         }
         
         signatureIndex = 0; 
-        const pageDelimiter = 'PATD Nº {{ patd.numero_patd }}/BAGL-GSDGL/{{ patd.data_inicio|date:"dmy" }}';
-        const pageTexts = rawDocumentText.split(new RegExp(pageDelimiter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')));
-
-        pageTexts.forEach((pageText, index) => {
-            if (pageText.trim() === '') return;
-            let fullPageText = (index > 0 ? pageDelimiter : '') + pageText;
+        
+        documentPages.forEach((pageHtml, index) => {
             const pageDiv = document.createElement('div');
             pageDiv.className = 'page';
-            const headerDiv = document.createElement('div');
-            headerDiv.className = 'page-header';
-            headerDiv.textContent = headerInput.value;
+            
             const contentDiv = document.createElement('div');
             contentDiv.className = 'page-content';
-            contentDiv.style.textAlign = document.querySelector('.toolbar-button[data-command="textAlign"].active')?.dataset.value || 'center';
-            contentDiv.style.fontFamily = fontFamilySelect.value;
-            contentDiv.style.fontSize = fontSizeSelect.value;
-            const footerDiv = document.createElement('div');
-            footerDiv.className = 'page-footer';
-            footerDiv.textContent = footerInput.value;
-            const paragraphs = fullPageText.split('\n');
-            paragraphs.forEach(pText => {
-                const p = document.createElement('p');
-                p.setAttribute('contenteditable', 'true');
-                
-                let textWithSpaces = pText.replace(/ {2,}/g, (match) => '&nbsp;'.repeat(match.length));
-                let processedPText = processPlaceholders(textWithSpaces);
-                p.innerHTML = processedPText.trim() === '' ? '<br>' : processedPText;
-                contentDiv.appendChild(p);
-            });
-            pageDiv.appendChild(headerDiv);
+            contentDiv.setAttribute('contenteditable', 'true');
+
+            // Processa os placeholders de assinatura e insere o HTML
+            let processedHtml = processPlaceholders(pageHtml);
+            contentDiv.innerHTML = processedHtml;
+            
             pageDiv.appendChild(contentDiv);
-            pageDiv.appendChild(footerDiv);
             pageContainer.appendChild(pageDiv);
         });
     }
@@ -2037,4 +1956,3 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 </script>
 {% endblock %}
-

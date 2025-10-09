@@ -450,45 +450,73 @@ def _get_document_context(patd):
 
 def _render_document_from_template(template_name, context):
     """
-    Função genérica para renderizar um documento .docx a partir de um template e um contexto.
+    Função genérica para renderizar um documento .docx a partir de um template,
+    preservando o alinhamento e convertendo para HTML.
     """
     try:
         doc_path = os.path.join(settings.BASE_DIR, 'pdf', template_name)
         document = docx.Document(doc_path)
-        template_content = '\n'.join([p.text for p in document.paragraphs])
-
-        for placeholder, value in context.items():
-            template_content = template_content.replace(str(placeholder), str(value))
         
-        return template_content
+        alignment_map = {
+            None: 'left',
+            0: 'left',
+            1: 'center',
+            2: 'right',
+            3: 'justify'
+        }
+
+        html_content = []
+        
+        for p in document.paragraphs:
+            inline_text = p.text
+            for placeholder, value in context.items():
+                if placeholder in inline_text:
+                    inline_text = inline_text.replace(str(placeholder), str(value))
+            
+            # **INÍCIO DA CORREÇÃO**
+            # Tenta obter o alinhamento direto do parágrafo
+            effective_alignment = p.paragraph_format.alignment
+            # Se não houver alinhamento direto, herda do estilo
+            if effective_alignment is None and p.style and p.style.paragraph_format:
+                effective_alignment = p.style.paragraph_format.alignment
+            # **FIM DA CORREÇÃO**
+
+            alignment = alignment_map.get(effective_alignment, 'left')
+            
+            html_content.append(f'<p style="text-align: {alignment};">{inline_text}</p>')
+
+        return ''.join(html_content)
+
     except FileNotFoundError:
-        error_msg = f"\n\n--- ERRO: Template '{template_name}' não encontrado. ---"
+        error_msg = f'<p style="color: red;">ERRO: Template "{template_name}" não encontrado.</p>'
         logger.error(error_msg)
         return error_msg
     except Exception as e:
-        error_msg = f"\n\n--- ERRO ao processar o template '{template_name}': {e} ---"
+        error_msg = f'<p style="color: red;">ERRO ao processar o template "{template_name}": {e}</p>'
         logger.error(error_msg)
         return error_msg
 
 
-def get_raw_document_text(patd):
+def get_document_pages(patd):
     """
-    Gera o texto completo do documento a partir dos templates,
-    preservando os placeholders que serão substituídos no frontend.
+    Gera uma LISTA de páginas de documento em HTML a partir dos templates.
+    Cada item na lista representa um documento/seção separada.
     """
     doc_context = _get_document_context(patd)
-    
-    # 1. Conteúdo inicial (Capa, Despacho, etc.)
-    document_content = _render_document_from_template('PATD_Coringa.docx', doc_context)
+    document_pages = []
 
-    # 2. Adiciona a alegação de defesa, se existir
+    # 1. Documento Principal
+    document_pages.append(_render_document_from_template('PATD_Coringa.docx', doc_context))
+
+    # 2. Alegação de Defesa
     if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
         alegacao_context = doc_context.copy()
         alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa if patd.alegacao_defesa else "[Ver documentos anexos]"
-        document_content += "\n\n" + _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
-        document_content += "\n\n{ANEXOS_DEFESA_PLACEHOLDER}"
+        html_content = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
+        html_content += "{ANEXOS_DEFESA_PLACEHOLDER}"
+        document_pages.append(html_content)
     
-    # 3. Adiciona Termo de Preclusão, se aplicável (sem defesa e em status avançado)
+    # 3. Termo de Preclusão
     status_preclusao_e_posteriores = [
         'preclusao', 'apuracao_preclusao', 'aguardando_punicao', 
         'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', 
@@ -497,24 +525,24 @@ def get_raw_document_text(patd):
         'aguardando_comandante_base'
     ]
     if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in status_preclusao_e_posteriores:
-        document_content += "\n\n" + _render_document_from_template('PRECLUSAO.docx', doc_context)
+        document_pages.append(_render_document_from_template('PRECLUSAO.docx', doc_context))
 
-    # 4. Adiciona Relatório de Apuração (Justificado ou Punição Sugerida)
+    # 4. Relatório de Apuração
     if patd.justificado:
-        document_content += "\n\n" + _render_document_from_template('RELATORIO_JUSTIFICADO.docx', doc_context)
+        document_pages.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', doc_context))
     elif patd.punicao_sugerida:
-        document_content += "\n\n" + _render_document_from_template('RELATORIO_DELTA.docx', doc_context)
+        document_pages.append(_render_document_from_template('RELATORIO_DELTA.docx', doc_context))
 
-    # 5. Adiciona a Nota de Punição Disciplinar (NPD)
+    # 5. Nota de Punição Disciplinar (NPD)
     status_npd_e_posteriores = [
         'aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao', 
         'em_reconsideracao', 'aguardando_publicacao', 
         'aguardando_preenchimento_npd_reconsideracao', 'aguardando_comandante_base'
     ]
     if patd.status in status_npd_e_posteriores:
-        document_content += "\n\n" + _render_document_from_template('MODELO_NPD.docx', doc_context)
+        document_pages.append(_render_document_from_template('MODELO_NPD.docx', doc_context))
     
-    # 6. Adiciona a Reconsideração
+    # 6. Reconsideração
     status_reconsideracao_e_posteriores = [
         'em_reconsideracao', 'aguardando_publicacao', 'finalizado', 
         'aguardando_preenchimento_npd_reconsideracao', 'aguardando_comandante_base'
@@ -525,18 +553,20 @@ def get_raw_document_text(patd):
              reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
          else:
              reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
-         document_content += "\n\n" + _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
-         document_content += "\n\n{ANEXOS_RECONSIDERACAO_PLACEHOLDER}"
+         html_content = _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+         html_content += "{ANEXOS_RECONSIDERACAO_PLACEHOLDER}"
+         document_pages.append(html_content)
     
-    # 7. Adiciona anexos e NPD da reconsideração
+    # 7. Anexos e NPD da reconsideração
     status_npd_reconsideracao_e_posteriores = [
         'aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado'
     ]
     if patd.status in status_npd_reconsideracao_e_posteriores:
-         document_content += "\n\n{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}"
-         document_content += "\n\n" + _render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', doc_context)
+        html_content = "{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}"
+        html_content += _render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', doc_context)
+        document_pages.append(html_content)
 
-    return document_content
+    return document_pages
 
 
 def _check_preclusao_signatures(patd):
@@ -560,7 +590,8 @@ def _check_and_finalize_patd(patd):
     if patd.status != 'aguardando_assinatura_npd':
         return False
 
-    raw_document_text = get_raw_document_text(patd)
+    document_pages = get_document_pages(patd)
+    raw_document_text = "".join(document_pages)
     
     required_mil_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
     provided_mil_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s)
@@ -590,7 +621,8 @@ def _try_advance_status_from_justificativa(patd):
     if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists():
         return False
 
-    raw_document_text = get_raw_document_text(patd)
+    document_pages = get_document_pages(patd)
+    raw_document_text = "".join(document_pages)
     required_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
     provided_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s)
     
@@ -1121,8 +1153,9 @@ class PATDDetailView(DetailView):
         patd = self.get_object()
         config = Configuracao.load()
         
-        document_content = get_raw_document_text(patd)
-        context['documento_texto_json'] = json.dumps(document_content)
+        document_pages = get_document_pages(patd)
+        context['documento_texto_json'] = json.dumps(document_pages)
+        
         context['assinaturas_militar_json'] = json.dumps(patd.assinaturas_militar or [])
         
 
@@ -1314,7 +1347,8 @@ def salvar_assinatura_ciencia(request, pk):
         patd.assinaturas_militar[assinatura_index] = signature_url
         
         if patd.status == 'ciencia_militar':
-            coringa_doc_text = _render_document_from_template('PATD_Coringa.docx', _get_document_context(patd))
+            document_pages = get_document_pages(patd)
+            coringa_doc_text = document_pages[0] if document_pages else ""
             required_initial_signatures = coringa_doc_text.count('{Assinatura Militar Arrolado}')
             provided_signatures = sum(1 for s in patd.assinaturas_militar if s is not None)
             if provided_signatures >= required_initial_signatures:
