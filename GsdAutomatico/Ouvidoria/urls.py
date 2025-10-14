@@ -42,6 +42,8 @@ urlpatterns = [
     path('patds/<int:pk>/regenerar-texto-relatorio/', views.regenerar_texto_relatorio, name='regenerar_texto_relatorio'),
     path('patds/<int:pk>/regenerar-punicao/', views.regenerar_punicao, name='regenerar_punicao'),
 
+    path('patd/<int:pk>/exportar-docx/', views.exportar_patd_docx, name='exportar_patd_docx'),
+
 
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
     path('patd/<int:pk>/analisar_punicao/', views.analisar_punicao, name='analisar_punicao'),

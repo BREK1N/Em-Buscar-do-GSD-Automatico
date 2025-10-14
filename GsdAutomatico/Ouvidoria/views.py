@@ -39,6 +39,10 @@ from .permissions import has_comandante_access, has_ouvidoria_access
 import base64
 from django.core.files.base import ContentFile
 from uuid import uuid4
+from docx import Document
+from docx.shared import Cm, Pt, Inches
+from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from bs4 import BeautifulSoup, NavigableString
 
 
 # --- Funções e Mixins de Permissão ---
@@ -1053,7 +1057,7 @@ class MilitarUpdateView(UpdateView):
 class MilitarDeleteView(DeleteView):
     model = Militar
     template_name = 'militar_confirm_delete.html'
-    success_url = reverse_lazy('Ouvidoria:militar_list')
+    success_url = reverse_lazy('Ouvidoria:patd_list')
 
 # Dicionário com os grupos de status
 STATUS_GROUPS = {
@@ -2167,3 +2171,132 @@ def salvar_nova_punicao(request, pk):
     except Exception as e:
         logger.error(f"Erro ao salvar nova punição para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@ouvidoria_required
+def exportar_patd_docx(request, pk):
+    """
+    Gera e serve um ficheiro DOCX a partir do conteúdo HTML da PATD,
+    incluindo imagens e formatação correta.
+    """
+    patd = get_object_or_404(PATD, pk=pk)
+    context = _get_document_context(patd)
+    config = Configuracao.load()
+    comandante_gsd = config.comandante_gsd
+    
+    document = Document()
+    
+    # Define o estilo padrão do documento
+    style = document.styles['Normal']
+    font = style.font
+    font.name = 'Times New Roman'
+    font.size = Pt(12)
+    
+    # Configura as margens do documento conforme solicitado
+    section = document.sections[0]
+    section.top_margin = Cm(1.5)
+    section.bottom_margin = Cm(2.54)
+    section.left_margin = Cm(2.15)
+    section.right_margin = Cm(2.5)
+    section.gutter = Cm(0)
+
+    # Converte todo o HTML do documento
+    full_html_content = "".join(get_document_pages(patd))
+    soup = BeautifulSoup(full_html_content, 'html.parser')
+    
+    # Contador para as assinaturas do militar arrolado
+    militar_sig_counter = 0
+
+    placeholder_regex = re.compile(r'({[^}]+})')
+
+    for element in soup.find_all(['p', 'img']):
+        if element.name == 'p':
+            p = document.add_paragraph()
+            
+            # Define a formatação do parágrafo
+            p_format = p.paragraph_format
+            p_format.left_indent = Inches(0)
+            p_format.first_line_indent = Inches(0)
+            p_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+            p_format.space_before = Pt(0)
+            p_format.space_after = Pt(0)
+            
+            # Mantém o alinhamento do parágrafo
+            if element.has_attr('style'):
+                if 'text-align: center' in element['style']:
+                    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                elif 'text-align: right' in element['style']:
+                    p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+                elif 'text-align: justify' in element['style']:
+                    p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
+
+            # Processa o conteúdo misto (texto, strong, etc.)
+            for content in element.contents:
+                if isinstance(content, NavigableString):
+                    text_content = str(content)
+                    
+                    # Divide o texto em partes normais e placeholders
+                    parts = placeholder_regex.split(text_content)
+                    
+                    for part in parts:
+                        if not part: continue
+
+                        is_image_placeholder = False
+                        if placeholder_regex.match(part):
+                            placeholder = part.strip()
+                            try:
+                                if placeholder == '{Assinatura_Imagem_Comandante_GSD}' and comandante_gsd and comandante_gsd.assinatura:
+                                    _, img_str = comandante_gsd.assinatura.split(';base64,')
+                                    p.add_run().add_picture(io.BytesIO(base64.b64decode(img_str)), height=Cm(1.5))
+                                    is_image_placeholder = True
+                                
+                                elif placeholder == '{Assinatura_Imagem_Oficial_Apurador}' and patd.assinatura_oficial and patd.assinatura_oficial.path and os.path.exists(patd.assinatura_oficial.path):
+                                    p.add_run().add_picture(patd.assinatura_oficial.path, height=Cm(1.5))
+                                    is_image_placeholder = True
+                                
+                                elif placeholder == '{Assinatura_Imagem_Testemunha_1}' and patd.assinatura_testemunha1 and patd.assinatura_testemunha1.path and os.path.exists(patd.assinatura_testemunha1.path):
+                                    p.add_run().add_picture(patd.assinatura_testemunha1.path, height=Cm(1.5))
+                                    is_image_placeholder = True
+
+                                elif placeholder == '{Assinatura_Imagem_Testemunha_2}' and patd.assinatura_testemunha2 and patd.assinatura_testemunha2.path and os.path.exists(patd.assinatura_testemunha2.path):
+                                    p.add_run().add_picture(patd.assinatura_testemunha2.path, height=Cm(1.5))
+                                    is_image_placeholder = True
+                                
+                                elif placeholder == '{Assinatura Militar Arrolado}':
+                                    assinaturas_arrolado = patd.assinaturas_militar or []
+                                    if militar_sig_counter < len(assinaturas_arrolado):
+                                        anexo_url = assinaturas_arrolado[militar_sig_counter]
+                                        anexo_path = os.path.join(settings.MEDIA_ROOT, anexo_url.replace('/media/', '', 1))
+                                        if os.path.exists(anexo_path):
+                                            p.add_run().add_picture(anexo_path, height=Cm(1.5))
+                                        militar_sig_counter += 1
+                                        is_image_placeholder = True
+                                    
+                                elif placeholder == '{Brasao da Republica}':
+                                    img_path = os.path.join(settings.BASE_DIR, 'Static', 'img', 'brasao.png')
+                                    if os.path.exists(img_path):
+                                        p.add_run().add_picture(img_path, width=Cm(3))
+                                        is_image_placeholder = True
+
+                            except Exception as e:
+                                logger.error(f"Error processing image placeholder {placeholder}: {e}")
+                                is_image_placeholder = False
+
+                        if not is_image_placeholder:
+                            # Processa texto e negrito (formato **)
+                            sub_parts = re.split(r'(\*\*.*?\*\*)', part)
+                            for sub_part in sub_parts:
+                                if sub_part.startswith('**') and sub_part.endswith('**'):
+                                    p.add_run(sub_part.strip('*')).bold = True
+                                else:
+                                    p.add_run(sub_part)
+                
+                elif content.name == 'strong':
+                    p.add_run(content.get_text()).bold = True
+
+    # Prepara a resposta HTTP para o download
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    response['Content-Disposition'] = f'attachment; filename=PATD_{patd.numero_patd}.docx'
+    document.save(response)
+    
+    return response

@@ -598,7 +598,7 @@
             <div class="toolbar-group">
                 <button class="btn btn-success" id="save-visualizador-btn">Salvar Alterações</button>
                 <button class="btn btn-secondary" id="export-pdf-btn">Exportar PDF</button>
-                <button class="btn btn-primary" id="export-docx-btn">Exportar DOCX</button>
+                <a href="{% url 'Ouvidoria:exportar_patd_docx' patd.pk %}" class="btn btn-primary" id="export-docx-btn">Exportar DOCX</a>
             </div>
         </div>
     </div>
@@ -817,7 +817,6 @@
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
-<script src="https://unpkg.com/html-docx-js/dist/html-docx.js"></script>
 
 <script>
 // Dados da análise pré-carregados pelo Django
@@ -1232,7 +1231,6 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- LÓGICA DO VISUALIZADOR DE DOCUMENTO ---
     const pageContainer = document.getElementById('document-preview-container');
     const exportPdfBtn = document.getElementById('export-pdf-btn');
-    const exportDocxBtn = document.getElementById('export-docx-btn');
     const saveVisualizadorBtn = document.getElementById('save-visualizador-btn');
     let saveTimeout;
 
@@ -1339,7 +1337,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             for (let i = 0; i < pages.length; i++) {
                 const pageElement = pages[i];
-                const canvas = await html2canvas(pageElement, { scale: 3, useCORS: true });
+                const canvas = await html2canvas(pageElement, { scale: 2, useCORS: true });
                 const imgData = canvas.toDataURL('image/png');
                 const pdfWidth = pdf.internal.pageSize.getWidth();
                 const pdfHeight = pdf.internal.pageSize.getHeight();
@@ -1352,51 +1350,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
             pdf.save(`PATD_{{ patd.numero_patd }}.pdf`);
             exportPdfBtn.textContent = 'Exportar PDF';
-        });
-    }
-
-    if (exportDocxBtn) {
-        exportDocxBtn.addEventListener('click', async () => {
-            exportDocxBtn.textContent = 'Gerando...';
-            let combinedHtml = '';
-            const pages = pageContainer.querySelectorAll('.page');
-            
-            pages.forEach((page, index) => {
-                const pageClone = page.cloneNode(true);
-                pageClone.querySelectorAll('img').forEach(img => {
-                    const src = img.getAttribute('src');
-                    if (src) { 
-                        if (!src.startsWith('data:')) {
-                            try {
-                                img.src = new URL(src, window.location.href).href;
-                            } catch(e) { console.warn("Invalid URL for image src:", src); }
-                        }
-                    }
-                });
-                combinedHtml += pageClone.outerHTML;
-                 if (index < pages.length - 1) {
-                    combinedHtml += '<br style="page-break-before: always">';
-                }
-            });
-
-            const content = `
-                <!DOCTYPE html><html><head><meta charset="UTF-8"></head><body>${combinedHtml}</body></html>
-            `;
-
-            try {
-                const fileBuffer = await htmlDocx.asBlob(content);
-                const url = URL.createObjectURL(fileBuffer);
-                const a = document.createElement("a");
-                a.href = url;
-                a.download = `PATD_{{ patd.numero_patd }}.docx`;
-                a.click();
-                URL.revokeObjectURL(url);
-            } catch (err) {
-                console.error("Erro ao gerar DOCX:", err);
-                alert("Ocorreu um erro ao gerar o DOCX.");
-            } finally {
-                exportDocxBtn.textContent = 'Exportar DOCX';
-            }
         });
     }
 
