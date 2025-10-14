@@ -2293,6 +2293,18 @@ def exportar_patd_docx(request, pk):
                 
                 elif content.name == 'strong':
                     p.add_run(content.get_text()).bold = True
+        
+        elif element.name == 'img':
+            # Verifica se esta imagem é o brasão
+            if 'brasao.png' in element.get('src', ''):
+                # Cria um novo parágrafo para a imagem e a centraliza
+                p = document.add_paragraph()
+                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                run = p.add_run()
+                
+                img_path = os.path.join(settings.BASE_DIR, 'Static', 'img', 'brasao.png')
+                if os.path.exists(img_path):
+                    run.add_picture(img_path, width=Cm(3))
 
     # Prepara a resposta HTTP para o download
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
