@@ -11,7 +11,17 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 """
 
 from pathlib import Path
-import os # Adicionado para a configuração de ficheiros estáticos
+from dotenv import load_dotenv
+import os
+
+load_dotenv(override=True)
+
+SECRET_KEY1 = os.getenv('SECRET_KEY')
+NAME = os.getenv('NAME')
+USER = os.getenv('USER')
+PASSWORD = os.getenv('PASSWORD')
+PORT = os.getenv('PORT')
+
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -21,10 +31,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.2/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = 'django-insecure-w#_+gs!e^t(7+xgg*1yz1d%*)mdt1m^i=p-%g8rw+8qb2a27$&'
+SECRET_KEY = SECRET_KEY1
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = False
 
 ALLOWED_HOSTS = ['*']
 
@@ -127,3 +137,11 @@ LOGIN_URL = 'login:login'
 LOGIN_REDIRECT_URL = 'Ouvidoria:index'
 LOGOUT_REDIRECT_URL = 'login:login'
 
+# Security Settings
+SECURE_SSL_REDIRECT = True
+SECURE_HSTS_SECONDS = 3600
+SESSION_COOKIE_SECURE = True
+CSRF_COOKIE_SECURE = True
+
+SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+SECURE_HSTS_PRELOAD = True
