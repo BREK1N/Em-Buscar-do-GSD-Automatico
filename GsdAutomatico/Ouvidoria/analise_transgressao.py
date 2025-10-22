@@ -4,6 +4,7 @@ from langchain.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
 import os
+from typing import List, Dict # Importar List e Dict
 
 load_dotenv()
 
@@ -16,6 +17,56 @@ model = ChatOpenAI(
     temperature=0,
     api_key=openai_api_key
 )
+
+# --- INÍCIO DA MODIFICAÇÃO ---
+
+# Modelo para representar um único militar acusado
+class MilitarAcusado(BaseModel):
+    nome_militar: str = Field(description="O nome completo do militar acusado, sem o posto ou graduação.")
+    posto_graduacao: str = Field(description="O posto ou graduação (ex: Sargento, Capitão), se mencionado. Se não, retorne uma string vazia.")
+
+# Modelo principal para a análise, agora com uma lista de acusados
+class AnaliseTransgressao(BaseModel):
+    acusados: List[MilitarAcusado] = Field(description="Uma lista contendo os detalhes de cada militar formalmente acusado no documento. Diferencie acusados de testemunhas ou superiores apenas mencionados.")
+    transgressao: str = Field(description="A descrição detalhada da transgressão disciplinar cometida, aplicável a todos os acusados listados.")
+    local: str = Field(description="O local onde a transgressão ocorreu.")
+    data_ocorrencia: str = Field(description="A data em que a transgressão ocorreu, no formato AAAA-MM-DD. Se não for mencionada, retorne uma string vazia.")
+    protocolo_comaer: str = Field(description="O número de protocolo COMAER. Ex: 67112.004914/2025-10. Se não for mencionado, retorne uma string vazia.")
+    oficio_transgressao: str = Field(description="O número do Ofício de Transgressão. Ex: 189/DSEG/5127. Se não for mencionado, retorne uma string vazia.")
+    data_oficio: str = Field(description="A data de emissão do ofício. Ex: Rio de Janeiro, 8 de julho de 2025. Se não for mencionada, retorne uma string vazia.")
+
+# Função placeholder para a análise principal (você precisará adaptar onde chama a IA)
+def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
+    """
+    Função que invoca a IA para analisar o conteúdo do PDF e extrair os dados estruturados,
+    incluindo a lista de militares acusados.
+    """
+    structured_llm = model.with_structured_output(AnaliseTransgressao)
+
+    # Prompt ajustado para pedir a lista de acusados
+    sys_prompt = """
+    Você é um assistente especialista em analisar documentos disciplinares militares. Sua tarefa é extrair as seguintes informações:
+    1.  **Lista de Acusados:** Identifique TODOS os militares que estão sendo FORMALMENTE ACUSADOS da transgressão descrita. Para cada acusado, extraia o nome completo (sem posto/graduação) e o posto/graduação (se mencionado). **IMPORTANTE:** Diferencie claramente os acusados de outras pessoas mencionadas (superiores, testemunhas, etc.). Retorne uma lista, mesmo que haja apenas um acusado.
+    2.  **Transgressão:** A descrição detalhada da transgressão disciplinar cometida.
+    3.  **Local:** O local onde a transgressão ocorreu.
+    4.  **Data da Ocorrência:** A data em que a transgressão ocorreu, no formato AAAA-MM-DD. Ignore a data de emissão do documento. Se não for mencionada, retorne uma string vazia.
+    5.  **Protocolo COMAER:** O número de protocolo COMAER (Ex: 67112.004914/2025-10). Se não for mencionado, retorne uma string vazia.
+    6.  **Ofício de Transgressão:** O número do Ofício de Transgressão (Ex: 189/DSEG/5127). Se não for mencionado, retorne uma string vazia.
+    7.  **Data do Ofício:** A data de emissão do ofício (Ex: Rio de Janeiro, 8 de julho de 2025). Se não for mencionada, retorne uma string vazia.
+    """
+    human_prompt = "Analise o seguinte documento e extraia os dados estruturados:\n\n{documento}"
+
+    prompt = ChatPromptTemplate.from_messages([
+        ("system", sys_prompt),
+        ("human", human_prompt)
+    ])
+
+    chain = prompt | structured_llm
+    resultado = chain.invoke({"documento": conteudo_pdf})
+    return resultado
+
+# --- FIM DA MODIFICAÇÃO ---
+
 
 def enquadra_item(transgressao):
     class Item(BaseModel):
@@ -173,6 +224,7 @@ def enquadra_item(transgressao):
     98 - andar a praça armada, sem ser em serviço ou ser ter para isso ordem escrita, a qual deverá ser
     exibida quando solicitada;
     99 - usar traje civil, quando as disposições em vigor não o permitirem;
+    100 - concorrer, de qualquer modo, para a prática de transgressão disciplinar.
     # Formatação #
     Você deve retornar no seguinte formato:
     <formato>
@@ -371,14 +423,14 @@ def texto_relatorio(transgressao, justificativa):
 
     sys_prompt = """
     # Contexto #
-    Você é um Oficial militar encarregado de fazer um relatório de apuração de transgressão disciplinar. 
-    
+    Você é um Oficial militar encarregado de fazer um relatório de apuração de transgressão disciplinar.
+
     # Tarefa #
     Sua tarefa é ler a alegação de defesa, identificar os argumentos centrais, confrontar os argumentos da defesa com os dados da transgressão e produzir um relatório final.
 
     # Instruções #
     1.  **Culpabilidade:** Considere que, se chegou a esta fase de produção do relatório, o militar já foi considerado culpado.
-    2.  **Argumentação:** Cada ponto levantado pela alegação de defesa deve ser respondido informando o porque ele não procede. Leve em consideração as informações da transgressão. 
+    2.  **Argumentação:** Cada ponto levantado pela alegação de defesa deve ser respondido informando o porque ele não procede. Leve em consideração as informações da transgressão.
     3.  **Linguagem Formal:** Redija o resumo em linguagem formal e impessoal, adequada para um documento oficial militar.
     4.  **Limite de Palavras:** O resumo final não deve exceder 75 palavras.
 

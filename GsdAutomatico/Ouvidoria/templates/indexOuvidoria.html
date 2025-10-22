@@ -1,9 +1,11 @@
 {% extends 'base.html' %}
+{% load static %} {# Certifique-se que load static está presente #}
 
 {% block title %}Analisador de Documentos{% endblock %}
 
 {% block content %}
 <style>
+    /* Estilos (permanecem os mesmos da sua versão) */
     .analisador-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 30px; align-items: start; }
     @media (max-width: 992px) { .analisador-grid { grid-template-columns: 1fr; } }
     .upload-form .file-label { display: flex; flex-direction: column; align-items: center; justify-content: center; width: 100%; min-height: 200px; padding: 20px; border-radius: 8px; border: 2px dashed var(--border-color); box-sizing: border-box; margin-bottom: 15px; text-align: center; cursor: pointer; color: var(--text-secondary); transition: border-color 0.3s, background-color 0.3s; }
@@ -21,6 +23,16 @@
     .loading-state { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; flex-grow: 1; text-align: center; color: var(--text-secondary); }
     .loading-state .big-spinner { width: 40px; height: 40px; border: 4px solid var(--sidebar-active-bg); border-top-color: var(--accent-color); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 20px; }
     .prompt-actions { margin-top: 20px; display: flex; gap: 10px; }
+    /* Adicionado para mensagens múltiplas */
+    .resultado-item { margin-bottom: 15px; padding-bottom: 10px; border-bottom: 1px dashed var(--border-color); }
+    .resultado-item:last-child { border-bottom: none; margin-bottom: 0; padding-bottom: 0; }
+    .alert { padding: 10px 15px; margin-bottom: 10px; border-radius: 6px; border: 1px solid transparent;}
+    .alert-success { background-color: #d4edda; color: #155724; border-color: #c3e6cb; }
+    .alert-warning { background-color: #fff3cd; color: #856404; border-color: #ffeeba; }
+    .alert-info { background-color: #d1ecf1; color: #0c5460; border-color: #bee5eb; }
+    .alert-error { background-color: #f8d7da; color: #721c24; border-color: #f5c6cb; } /* Estilo para erros no form dinâmico */
+    .militar-nao-encontrado .form-grid { grid-template-columns: 1fr 1fr; gap: 15px; margin-top: 15px; } /* Ajuste grid form dinâmico */
+    .militar-nao-encontrado .form-actions { margin-top: 15px; justify-content: flex-start;}
 </style>
 
 <h1>Analisador de Documentos</h1>
@@ -60,21 +72,32 @@ document.addEventListener('DOMContentLoaded', function() {
     const analiseBox = document.getElementById('analise-box');
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
 
-    // --- CORREÇÃO ADICIONADA AQUI ---
-    // Adiciona um event listener para o input de ficheiro
     if (fileInput) {
         fileInput.addEventListener('change', function() {
             if (this.files && this.files.length > 0) {
-                // Se um ficheiro for selecionado, mostra o nome dele no label
-                fileLabelText.textContent = this.files[0].name;
+                 // Verifica se é um PDF ao selecionar
+                if (this.files[0].type === "application/pdf") {
+                    fileLabelText.textContent = this.files[0].name;
+                    fileLabel.style.borderColor = 'var(--border-color)'; // Volta a borda normal
+                } else {
+                    fileLabelText.textContent = 'Apenas ficheiros PDF são permitidos!';
+                    fileLabel.style.borderColor = 'var(--danger-color)';
+                    this.value = ''; // Limpa a seleção inválida
+                    // Restaura a borda após um tempo
+                    setTimeout(() => {
+                        fileLabel.style.borderColor = 'var(--border-color)';
+                        if (!this.files || this.files.length === 0) { // Se ainda não houver ficheiro
+                             fileLabelText.textContent = 'Clique ou arraste o ficheiro PDF';
+                        }
+                    }, 2000);
+                }
             } else {
-                // Se a seleção for cancelada, volta ao texto original
                 fileLabelText.textContent = 'Clique ou arraste o ficheiro PDF';
+                fileLabel.style.borderColor = 'var(--border-color)';
             }
         });
     }
 
-    // --- CÓDIGO PARA FUNCIONALIDADE DE ARRASTAR E SOLTAR ---
     ['dragover', 'dragleave', 'drop'].forEach(eventName => {
         fileLabel.addEventListener(eventName, preventDefaults, false);
     });
@@ -84,12 +107,14 @@ document.addEventListener('DOMContentLoaded', function() {
         e.stopPropagation();
     }
 
-    fileLabel.addEventListener('dragover', () => {
+    fileLabel.addEventListener('dragover', (e) => {
+        preventDefaults(e);
         fileLabel.style.borderColor = 'var(--accent-color)';
         fileLabel.style.backgroundColor = 'var(--sidebar-active-bg)';
     });
 
-    fileLabel.addEventListener('dragleave', () => {
+    fileLabel.addEventListener('dragleave', (e) => {
+        preventDefaults(e);
         fileLabel.style.borderColor = 'var(--border-color)';
         fileLabel.style.backgroundColor = 'transparent';
     });
@@ -102,86 +127,157 @@ document.addEventListener('DOMContentLoaded', function() {
         const files = dt.files;
 
         if (files.length) {
-            fileInput.files = files;
-            fileLabelText.textContent = files[0].name;
+            if (files[0].type === "application/pdf") {
+                fileInput.files = files; // Associa o ficheiro ao input
+                fileLabelText.textContent = files[0].name;
+                fileLabel.style.borderColor = 'var(--success-color)';
+            } else {
+                fileLabelText.textContent = 'Apenas ficheiros PDF são permitidos!';
+                fileLabel.style.borderColor = 'var(--danger-color)';
+                fileInput.value = ''; // Limpa se for inválido
+            }
         }
 
-        // Restaura o estilo
-        fileLabel.style.borderColor = 'var(--border-color)';
-        fileLabel.style.backgroundColor = 'transparent';
+        setTimeout(() => {
+             fileLabel.style.borderColor = 'var(--border-color)';
+             fileLabel.style.backgroundColor = 'transparent';
+             // Mantém o nome do ficheiro se for válido, ou volta ao texto padrão se inválido/vazio
+             if (!fileInput.files || fileInput.files.length === 0) {
+                 fileLabelText.textContent = 'Clique ou arraste o ficheiro PDF';
+             }
+        }, 1500);
     }
-    // --- FIM DO CÓDIGO ADICIONADO ---
 
-    // --- FUNÇÃO PARA TRATAR PATD EXISTENTE ---
-    function handlePatdExists(data) {
-        displayResult(`
-            <h3>PATD Duplicada</h3>
-            <div class="patd-existente">
-                <p>${data.message}</p>
-                <p>Deseja visualizar o processo já existente?</p>
+    function handlePatdExists(duplicataData) {
+        return `
+            <div class="resultado-item alert alert-warning"> {# Usa classe alert #}
+                <h4>PATD Duplicada</h4>
+                <p>Já existe uma PATD similar (Nº ${duplicataData.numero_patd}) para o militar <strong>${escapeHtml(duplicataData.nome_militar)}</strong>.</p>
                 <div class="prompt-actions">
-                    <a href="${data.url}" class="btn btn-primary">Ver PATD Existente</a>
+                    <a href="${duplicataData.url}" class="btn btn-sm btn-secondary">Ver PATD Existente</a>
                 </div>
             </div>
-        `);
+        `;
     }
-    
-    // --- FUNÇÃO PARA LIDAR COM MILITAR NÃO ENCONTRADO ---
-    function handleMilitarNotFound(resultado) {
-        const formHtml = `
-            <div class="militar-nao-encontrado">
-                <h3>Militar Não Encontrado</h3>
-                <p>O militar <strong>${resultado.nome_completo}</strong> não foi encontrado. Preencha os dados abaixo para cadastrá-lo e criar a PATD.</p>
-                <form id="create-militar-form" class="model-form">
+
+    function handleMilitarNotFound(militarData, index) {
+        const formId = `create-militar-form-${index}`;
+        const nameId = `id_nome_completo-${index}`;
+        const warNameId = `id_nome_guerra-${index}`;
+        const saramId = `id_saram-${index}`;
+        const postId = `id_posto-${index}`;
+        const createBtnId = `create-militar-btn-${index}`;
+
+        // Assegura que os valores são strings vazias se forem null ou undefined
+        const transgressao = militarData.transgressao || '';
+        const dataOcorrencia = militarData.data_ocorrencia || '';
+        const protocoloComaer = militarData.protocolo_comaer || '';
+        const oficioTransgressao = militarData.oficio_transgressao || '';
+        const dataOficio = militarData.data_oficio || '';
+        const nomeSugerido = militarData.nome_completo_sugerido || '';
+
+
+        return `
+            <div class="militar-nao-encontrado resultado-item">
+                <h4>Militar Não Encontrado</h4>
+                <p>O militar <strong>${escapeHtml(nomeSugerido)}</strong> não foi encontrado. Preencha os dados abaixo para cadastrá-lo e criar a PATD.</p>
+                <form id="${formId}" class="model-form create-militar-dynamic-form" data-index="${index}">
+                    {# Campos ocultos para passar os dados da transgressão #}
+                    <input type="hidden" name="transgressao" value="${escapeHtml(transgressao)}">
+                    <input type="hidden" name="data_ocorrencia" value="${escapeHtml(dataOcorrencia)}">
+                    <input type="hidden" name="protocolo_comaer" value="${escapeHtml(protocoloComaer)}">
+                    <input type="hidden" name="oficio_transgressao" value="${escapeHtml(oficioTransgressao)}">
+                    <input type="hidden" name="data_oficio" value="${escapeHtml(dataOficio)}">
+                    {# Campos visíveis para o cadastro do militar #}
                     <div class="form-grid">
-                        <p><label for="id_nome_completo">Nome Completo:</label><input type="text" name="nome_completo" value="${resultado.nome_completo}" required id="id_nome_completo"></p>
-                        <p><label for="id_nome_guerra">Nome de Guerra:</label><input type="text" name="nome_guerra" required id="id_nome_guerra"></p>
-                        <p><label for="id_saram">SARAM:</label><input type="number" name="saram" id="id_saram"></p>
-                        <p><label for="id_posto">Posto/Grad.:</label><input type="text" name="posto" id="id_posto"></p>
+                        <p><label for="${nameId}">Nome Completo:</label><input type="text" name="nome_completo" value="${escapeHtml(nomeSugerido)}" required id="${nameId}"></p>
+                        <p><label for="${warNameId}">Nome de Guerra:</label><input type="text" name="nome_guerra" required id="${warNameId}"></p>
+                        <p><label for="${saramId}">SARAM:</label><input type="number" name="saram" id="${saramId}"></p>
+                        <p><label for="${postId}">Posto/Grad.:</label><input type="text" name="posto" id="${postId}"></p>
                     </div>
                     <div class="form-actions">
-                        <button type="submit" id="create-militar-btn" class="btn btn-primary">Cadastrar e Criar PATD</button>
+                        <button type="submit" id="${createBtnId}" class="btn btn-primary btn-sm">Cadastrar e Criar PATD</button>
                     </div>
+                     {# Container para feedback do form dinâmico #}
+                    <div class="dynamic-form-feedback" style="margin-top: 10px;"></div>
                 </form>
             </div>
         `;
-        displayResult(formHtml);
+    }
 
-        // Adiciona o listener para o novo formulário
-        const createMilitarForm = document.getElementById('create-militar-form');
-        if (createMilitarForm) {
-            createMilitarForm.addEventListener('submit', (e) => {
-                e.preventDefault();
-                
-                const createBtn = document.getElementById('create-militar-btn');
-                createBtn.textContent = 'Aguarde...';
-                createBtn.disabled = true;
+    function escapeHtml(unsafe) {
+        if (typeof unsafe !== 'string') {
+            return ''; // Retorna string vazia se não for string
+        }
+        return unsafe
+             .replace(/&/g, "&amp;")
+             .replace(/</g, "&lt;")
+             .replace(/>/g, "&gt;")
+             .replace(/"/g, "&quot;")
+             .replace(/'/g, "&#039;");
+    }
 
-                const militarFormData = new FormData(createMilitarForm);
-                militarFormData.append('action', 'create_militar_and_patd');
-                militarFormData.append('transgressao', resultado.transgressao);
-                militarFormData.append('data_ocorrencia', resultado.data_ocorrencia);
 
-                fetch("{% url 'Ouvidoria:index' %}", {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken },
-                    body: new URLSearchParams(militarFormData)
-                })
-                .then(response => response.json())
-                .then(data => {
-                    if (data.status === 'success') {
-                        displayResult(`<h3>Sucesso</h3><p>${data.message}</p>`);
-                    } else {
-                        displayResult(`<h3 style="color: #d8000c;">Erro</h3><p>Não foi possível cadastrar o militar.</p>`);
+    analiseBox.addEventListener('submit', function(e) {
+        if (e.target && e.target.classList.contains('create-militar-dynamic-form')) {
+            e.preventDefault();
+            const form = e.target;
+            const index = form.dataset.index;
+            const createBtn = form.querySelector('button[type="submit"]');
+            const feedbackContainer = form.querySelector('.dynamic-form-feedback'); // Seleciona o container de feedback
+
+            createBtn.textContent = 'Aguarde...';
+            createBtn.disabled = true;
+            feedbackContainer.innerHTML = ''; // Limpa feedback anterior
+
+            const militarFormData = new FormData(form);
+            militarFormData.append('action', 'create_militar_and_patd');
+
+            fetch("{% url 'Ouvidoria:index' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: new URLSearchParams(militarFormData)
+            })
+            .then(response => response.json())
+            .then(data => {
+                const formContainer = form.parentElement;
+                if (data.status === 'success') {
+                    // Substitui o formulário pela mensagem de sucesso
+                    formContainer.innerHTML = `<div class="alert alert-success">✅ ${escapeHtml(data.message)}</div>`;
+                } else {
+                    let errorMsg = "Não foi possível cadastrar o militar.";
+                    if (data.errors) {
+                         try {
+                             const errors = JSON.parse(data.errors);
+                             const firstFieldName = Object.keys(errors)[0];
+                             // Verifica se a estrutura de erro é a esperada pelo Django
+                             if(errors[firstFieldName] && errors[firstFieldName][0] && (errors[firstFieldName][0].message || errors[firstFieldName][0])){
+                                 errorMsg += ` (${escapeHtml(errors[firstFieldName][0].message || errors[firstFieldName][0])})`;
+                             } else {
+                                 errorMsg += ` (Erro de validação desconhecido)`;
+                             }
+
+                         } catch (parseError) {
+                             console.error("Erro ao parsear JSON de erros:", parseError, data.errors);
+                              errorMsg += ` (Detalhe: ${escapeHtml(data.errors)})`;
+                         }
+                    } else if (data.message) {
+                        errorMsg = data.message; // Usa a mensagem de erro geral se não houver 'errors'
                     }
-                })
-                .catch(error => {
-                    console.error('Error:', error);
-                    displayResult(`<h3 style="color: #d8000c;">Erro</h3><p>Ocorreu um erro de comunicação.</p>`);
-                });
+                     // Mostra o erro DENTRO do container de feedback, sem remover o formulário
+                    feedbackContainer.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(errorMsg)}</div>`;
+                    createBtn.textContent = 'Cadastrar e Criar PATD'; // Restaura o botão
+                    createBtn.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                feedbackContainer.innerHTML = `<div class="alert alert-error">❌ Ocorreu um erro de comunicação. Tente novamente.</div>`;
+                createBtn.textContent = 'Cadastrar e Criar PATD'; // Restaura o botão
+                createBtn.disabled = false;
             });
         }
-    }
+    });
 
 
     submitButton.addEventListener('click', () => {
@@ -189,6 +285,11 @@ document.addEventListener('DOMContentLoaded', function() {
             alert('Por favor, selecione um ficheiro PDF antes de analisar.');
             return;
         }
+        if (fileInput.files[0].type !== "application/pdf") {
+            alert('Apenas ficheiros PDF são permitidos!');
+            return;
+        }
+
 
         const formData = new FormData();
         formData.append('pdf_file', fileInput.files[0]);
@@ -201,28 +302,75 @@ document.addEventListener('DOMContentLoaded', function() {
             headers: { 'X-CSRFToken': csrfToken },
             body: formData,
         })
-        .then(response => response.json())
+        .then(response => {
+            if (!response.ok) {
+                // Tenta ler o corpo como JSON primeiro, caso o backend retorne um erro JSON
+                 return response.json().catch(() => {
+                    // Se falhar ao parsear JSON, lê como texto (erro HTML do Django, por exemplo)
+                    return response.text().then(text => {
+                        throw new Error(`Erro ${response.status}: ${response.statusText} - ${text.substring(0, 500)}`); // Limita o tamanho do texto
+                    });
+                }).then(errorData => {
+                     // Se conseguiu parsear JSON, lança erro com a mensagem do JSON
+                     throw new Error(errorData.message || errorData.detail || `Erro ${response.status}`);
+                 });
+            }
+            return response.json();
+        })
         .then(data => {
-            if (data.status === 'success') {
-                displayResult(`<h3>Sucesso</h3><p>${data.message}</p>`);
-            } else if (data.status === 'militar_not_found') {
-                handleMilitarNotFound(data.resultado);
-            } else if (data.status === 'patd_exists') {
-                handlePatdExists(data);
-            } else {
-                displayResult(`<h3 style="color: #d8000c;">Erro na Análise</h3><p>${data.message || data.error}</p>`);
+            let htmlResult = '';
+
+            if (data.status === 'processed') {
+                htmlResult += '<h3>Resultado da Análise</h3>';
+                let hasContent = false;
+
+                if (data.patds_criadas && data.patds_criadas.length > 0) {
+                    data.patds_criadas.forEach(patd => {
+                        htmlResult += `<div class="resultado-item alert alert-success">✅ PATD Nº ${patd.numero_patd} criada com sucesso para <strong>${escapeHtml(patd.nome_militar)}</strong>.</div>`;
+                    });
+                    hasContent = true;
+                }
+
+                if (data.militares_nao_encontrados && data.militares_nao_encontrados.length > 0) {
+                    data.militares_nao_encontrados.forEach((militar, index) => {
+                        htmlResult += handleMilitarNotFound(militar, index);
+                    });
+                    hasContent = true;
+                }
+
+                if (data.duplicatas_encontradas && data.duplicatas_encontradas.length > 0) {
+                    data.duplicatas_encontradas.forEach(dup => {
+                        htmlResult += handlePatdExists(dup);
+                    });
+                    hasContent = true;
+                }
+
+                if (!hasContent && data.status === 'processed') { // Verifica o status novamente
+                     htmlResult += '<p class="alert alert-info">A análise foi concluída, mas nenhuma ação foi identificada (nenhuma PATD criada, nenhum militar não encontrado, nenhuma duplicata).</p>';
+                } else if (!hasContent){
+                     // Se não houve conteúdo mas o status não é 'processed', pode ser um erro não capturado antes
+                     console.warn("Status 'processed' mas sem conteúdo relevante:", data);
+                     htmlResult += '<p class="alert alert-warning">A análise foi concluída, mas nenhuma informação relevante foi extraída ou processada.</p>';
+                }
+
+                displayResult(htmlResult);
+
+            } else if (data.status === 'error') {
+                 displayResult(`<h3 style="color: var(--danger-color);">Erro na Análise</h3><p>${escapeHtml(data.message || 'Erro desconhecido.')}</p>${data.detail ? `<small>Detalhe: ${escapeHtml(data.detail)}</small>` : ''}`);
+            }
+             else {
+                 console.error("Resposta inesperada do servidor:", data);
+                 displayResult(`<h3 style="color: var(--danger-color);">Erro Inesperado</h3><p>O servidor retornou uma resposta inesperada. Verifique os logs.</p>`);
             }
         })
         .catch(error => {
-            console.error('Error:', error);
-            displayResult(`<h3 style="color: #d8000c;">Erro na Análise</h3><p>${error.message || 'Não foi possível comunicar com o servidor.'}</p>`);
+            console.error('Erro no fetch:', error);
+            // Garante que error.message exista e seja uma string
+            const errorMessage = (error && error.message) ? String(error.message) : 'Não foi possível comunicar com o servidor ou ocorreu um erro inesperado.';
+            displayResult(`<h3 style="color: var(--danger-color);">Erro na Análise</h3><p>${escapeHtml(errorMessage)}</p>`);
         })
         .finally(() => {
-            const buttonText = submitButton.querySelector('.button-text');
-            const spinner = submitButton.querySelector('.spinner');
-            buttonText.textContent = 'Analisar e Criar PATD';
-            spinner.style.display = 'none';
-            submitButton.disabled = false;
+            setUIState(false);
         });
     });
 
@@ -231,7 +379,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const buttonText = submitButton.querySelector('.button-text');
         if (isSubmitting) {
             buttonText.textContent = 'A analisar...';
-            spinner.style.display = 'block';
+            spinner.style.display = 'inline-block';
             submitButton.disabled = true;
             analiseBox.innerHTML = `<div class="loading-state"><div class="big-spinner"></div><p>A processar o documento...<br>Isto pode levar alguns segundos.</p></div>`;
         } else {
