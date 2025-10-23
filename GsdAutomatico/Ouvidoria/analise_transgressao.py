@@ -1,3 +1,4 @@
+# GsdAutomatico/Ouvidoria/analise_transgressao.py
 from langchain_openai import ChatOpenAI
 from dotenv import load_dotenv
 from langchain.prompts import ChatPromptTemplate
@@ -33,7 +34,10 @@ class AnaliseTransgressao(BaseModel):
     data_ocorrencia: str = Field(description="A data em que a transgressão ocorreu, no formato AAAA-MM-DD. Se não for mencionada, retorne uma string vazia.")
     protocolo_comaer: str = Field(description="O número de protocolo COMAER. Ex: 67112.004914/2025-10. Se não for mencionado, retorne uma string vazia.")
     oficio_transgressao: str = Field(description="O número do Ofício de Transgressão. Ex: 189/DSEG/5127. Se não for mencionado, retorne uma string vazia.")
-    data_oficio: str = Field(description="A data de emissão do ofício. Ex: Rio de Janeiro, 8 de julho de 2025. Se não for mencionada, retorne uma string vazia.")
+    # --- MODIFICAÇÃO ---
+    data_oficio: str = Field(description="A data de emissão do ofício, preferencialmente no formato AAAA-MM-DD ou DD/MM/AAAA. Se não for mencionada, retorne uma string vazia.")
+    # --- FIM DA MODIFICAÇÃO ---
+
 
 # Função placeholder para a análise principal (você precisará adaptar onde chama a IA)
 def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
@@ -52,7 +56,9 @@ def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
     4.  **Data da Ocorrência:** A data em que a transgressão ocorreu, no formato AAAA-MM-DD. Ignore a data de emissão do documento. Se não for mencionada, retorne uma string vazia.
     5.  **Protocolo COMAER:** O número de protocolo COMAER (Ex: 67112.004914/2025-10). Se não for mencionado, retorne uma string vazia.
     6.  **Ofício de Transgressão:** O número do Ofício de Transgressão (Ex: 189/DSEG/5127). Se não for mencionado, retorne uma string vazia.
-    7.  **Data do Ofício:** A data de emissão do ofício (Ex: Rio de Janeiro, 8 de julho de 2025). Se não for mencionada, retorne uma string vazia.
+    # --- MODIFICAÇÃO ---
+    7.  **Data do Ofício:** A data de emissão do ofício, preferencialmente no formato AAAA-MM-DD ou DD/MM/AAAA. Ignore qualquer nome de cidade ou texto adicional. Se não for mencionada, retorne uma string vazia.
+    # --- FIM DA MODIFICAÇÃO ---
     """
     human_prompt = "Analise o seguinte documento e extraia os dados estruturados:\n\n{documento}"
 

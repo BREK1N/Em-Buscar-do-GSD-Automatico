@@ -26,10 +26,9 @@
                 <td>{{ patd.get_status_display }}</td>
                 <td class="actions-cell">
                     <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver Detalhes</a>
-                    <form action="{% url 'Ouvidoria:patd_aprovar' patd.pk %}" method="post" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-success">Aprovar e Finalizar</button>
-                    </form>
+                    <button type="button" class="btn btn-sm btn-success open-aprovar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
+                        Aprovar e Finalizar
+                    </button>
                     <button type="button" class="btn btn-sm btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
                 </td>
             </tr>
@@ -42,7 +41,6 @@
     </table>
 </div>
 
-<!-- Modal para Retornar com Comentário -->
 <div class="modal-overlay" id="retornar-patd-modal">
     <div class="modal-content">
         <h3 id="retornar-modal-title">Retornar PATD</h3>
@@ -60,25 +58,42 @@
         </form>
     </div>
 </div>
+
+<div class="modal-overlay" id="aprovar-patd-modal">
+    <div class="modal-content">
+        <h3 id="aprovar-modal-title">Aprovar PATD</h3>
+        <p>Para confirmar a aprovação desta PATD e aplicar sua assinatura digital, por favor, insira sua senha.</p>
+        <form id="aprovar-patd-form" method="post" action="" class="model-form">
+            {% csrf_token %}
+            <div class="form-item">
+                <label for="id_senha_comandante">Sua Senha:</label>
+                <input type="password" name="senha_comandante" required id="id_senha_comandante" autocomplete="current-password">
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-aprovar-btn">Cancelar</button>
+                <button type="submit" class="btn btn-success">Confirmar Aprovação</button>
+            </div>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function() {
+    // --- Lógica do Modal de Retorno (existente) ---
     const retornarModal = document.getElementById('retornar-patd-modal');
     const retornarForm = document.getElementById('retornar-patd-form');
     const retornarModalTitle = document.getElementById('retornar-modal-title');
     const cancelRetornarBtn = document.getElementById('cancel-retornar-btn');
-    
+
     document.body.addEventListener('click', function(e) {
         if (e.target.classList.contains('open-retornar-modal-btn')) {
             const patdPk = e.target.dataset.patdPk;
             const patdNumero = e.target.dataset.patdNumero;
-            
             const url = `/Ouvidoria/patd/${patdPk}/retornar/`;
             retornarForm.action = url;
             retornarModalTitle.textContent = `Retornar PATD Nº ${patdNumero}`;
-            
             retornarModal.classList.add('active');
         }
     });
@@ -96,7 +111,38 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // --- NOVA Lógica do Modal de Aprovação ---
+    const aprovarModal = document.getElementById('aprovar-patd-modal');
+    const aprovarForm = document.getElementById('aprovar-patd-form');
+    const aprovarModalTitle = document.getElementById('aprovar-modal-title');
+    const cancelAprovarBtn = document.getElementById('cancel-aprovar-btn');
+
+    document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('open-aprovar-modal-btn')) {
+            const patdPk = e.target.dataset.patdPk;
+            const patdNumero = e.target.dataset.patdNumero;
+            // A action do form agora aponta para a URL de aprovação correta
+            const url = `/Ouvidoria/patd/${patdPk}/aprovar/`;
+            aprovarForm.action = url;
+            aprovarModalTitle.textContent = `Aprovar PATD Nº ${patdNumero}`;
+            aprovarModal.classList.add('active');
+        }
+    });
+
+    if (cancelAprovarBtn) {
+        cancelAprovarBtn.addEventListener('click', () => {
+            aprovarModal.classList.remove('active');
+        });
+    }
+
+    if (aprovarModal) {
+        aprovarModal.addEventListener('click', (e) => {
+            if (e.target === aprovarModal) {
+                aprovarModal.classList.remove('active');
+            }
+        });
+    }
 });
 </script>
 {% endblock %}
-

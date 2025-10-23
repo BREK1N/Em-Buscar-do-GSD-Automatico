@@ -1,8 +1,10 @@
+# GsdAutomatico/Ouvidoria/forms.py
 from django import forms
 from .models import Militar, PATD
 import json
 import re
 from num2words import num2words
+from django.forms import PasswordInput # CORREÇÃO: Importar PasswordInput de django.forms
 
 class AtribuirOficialForm(forms.ModelForm):
     class Meta:
@@ -11,7 +13,7 @@ class AtribuirOficialForm(forms.ModelForm):
         labels = {
             'oficial_responsavel': 'Selecione o Oficial para Atribuir'
         }
-    
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         self.fields['oficial_responsavel'].queryset = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
@@ -20,12 +22,16 @@ class AtribuirOficialForm(forms.ModelForm):
 class AceitarAtribuicaoForm(forms.Form):
     senha = forms.CharField(widget=forms.PasswordInput, label="Sua Senha de Acesso")
 
+class ComandanteAprovarForm(forms.Form):
+    """Formulário simples para pedir a senha do comandante na aprovação."""
+    senha_comandante = forms.CharField(widget=PasswordInput, label="Senha do Comandante")
+
 class MilitarForm(forms.ModelForm):
     # Formulário para criar e atualizar registros de Militares.
     class Meta:
         model = Militar
         fields = [
-            'posto', 'quad', 'especializacao', 'saram', 'nome_completo', 
+            'posto', 'quad', 'especializacao', 'saram', 'nome_completo',
             'nome_guerra', 'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial',
             'assinatura' # Campo adicionado para futuras implementações
         ]
@@ -69,12 +75,12 @@ class PATDForm(forms.ModelForm):
     class Meta:
         model = PATD
         fields = [
-            'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2', 
+            'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2',
             'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'punicao_sugerida',
             'comprovante', 'dias_punicao', 'punicao', 'transgressao_afirmativa', 'natureza_transgressao', 'comportamento',
             'alegacao_defesa_resumo', 'ocorrencia_reescrita', 'texto_relatorio'
         ]
-        
+
         widgets = {
             'transgressao': forms.Textarea(attrs={'rows': 4}),
             'data_ocorrencia': forms.DateInput(
@@ -118,7 +124,7 @@ class PATDForm(forms.ModelForm):
             if self.instance.itens_enquadrados:
                 itens_str = "\n".join([f"{item.get('numero', '')}: {item.get('descricao', '')}" for item in self.instance.itens_enquadrados])
                 self.fields['itens_enquadrados_text'].initial = itens_str
-            
+
             if self.instance.circunstancias:
                 self.fields['atenuantes'].initial = ", ".join(self.instance.circunstancias.get('atenuantes', []))
                 self.fields['agravantes'].initial = ", ".join(self.instance.circunstancias.get('agravantes', []))
@@ -127,9 +133,9 @@ class PATDForm(forms.ModelForm):
     def save(self, commit=True):
         # Pega a instância do modelo, mas não salva no banco ainda
         instance = super().save(commit=False)
-        
+
         # Converte os campos de texto de volta para a estrutura JSON antes de salvar
-        
+
         # Itens Enquadrados
         itens_text = self.cleaned_data.get('itens_enquadrados_text', '')
         itens_list = []
@@ -150,7 +156,7 @@ class PATDForm(forms.ModelForm):
             'atenuantes': atenuantes,
             'agravantes': agravantes
         }
-        
+
         # Punição
         punicao_sugerida_str = self.cleaned_data.get('punicao_sugerida', '')
         match = re.search(r'(\d+)\s+dias\s+de\s+(.+)', punicao_sugerida_str, re.IGNORECASE)
@@ -168,7 +174,7 @@ class PATDForm(forms.ModelForm):
         # Chama os métodos do modelo para recalcular tudo antes de salvar
         instance.definir_natureza_transgressao()
         instance.calcular_e_atualizar_comportamento()
-            
+
         if commit:
             instance.save()
         return instance

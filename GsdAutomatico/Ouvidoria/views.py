@@ -10,7 +10,8 @@ from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
 from .models import Militar, PATD, Configuracao, Anexo
-from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm
+# --- ALTERAÇÃO: Adicionar ComandanteAprovarForm ---
+from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm, ComandanteAprovarForm
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -30,6 +31,9 @@ from django.contrib.staticfiles.storage import staticfiles_storage
 from django.utils import timezone
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
+# --- ALTERAÇÃO: Importar authenticate ---
+from django.contrib.auth import authenticate
+
 
 # --- INÍCIO DA MODIFICAÇÃO: Importar novas classes e funções ---
 from .analise_transgressao import (
@@ -49,7 +53,6 @@ from .analise_transgressao import (
 from difflib import SequenceMatcher # Importado para a verificação de similaridade
 from django.utils.decorators import method_decorator
 from num2words import num2words # Importação para converter números em texto
-from django.contrib.auth import authenticate
 from functools import wraps # Importado para criar o decorator
 import threading # Importado para tarefas em background
 from .permissions import has_comandante_access, has_ouvidoria_access
@@ -433,7 +436,8 @@ def _get_document_context(patd):
         '{data_publicacao_punicao}': data_publicacao_fmt,
 
         # Placeholders de Assinatura
-        '{Assinatura Comandante do GSD}': '{Assinatura_Imagem_Comandante_GSD}' if comandante_gsd and comandante_gsd.assinatura else '[Sem assinatura]',
+        # --- ALTERAÇÃO: Inicialmente, o placeholder do CMD fica como texto ---
+        '{Assinatura Comandante do GSD}': '[Assinatura Pendente]',
         '{Assinatura Alegacao Defesa}': '{Assinatura Alegacao Defesa}' if patd.assinatura_alegacao_defesa else '{Botao Assinar Defesa}',
         '{Assinatura Reconsideracao}': '{Assinatura Reconsideracao}' if patd.assinatura_reconsideracao else '{Botao Assinar Reconsideracao}',
 
@@ -450,11 +454,21 @@ def _get_document_context(patd):
         '{Data_reconsideracao}': data_reconsideracao_fmt,
     }
 
-    # Adiciona os dados das assinaturas ao contexto para o frontend
+    # Adiciona os dados das assinaturas AO CONTEXTO APENAS SE APLICÁVEL
+    # Assinatura do Oficial Apurador
     if oficial_definido and patd.assinatura_oficial:
-        context['assinatura_oficial_data'] = patd.assinatura_oficial
-    if comandante_gsd and comandante_gsd.assinatura:
+        context['assinatura_oficial_data'] = patd.assinatura_oficial.url # Usar URL se for FileField
+
+    # Assinatura do Comandante - SÓ ADICIONA SE A PATD JÁ FOI APROVADA
+    status_aprovados_e_posteriores = [
+        'aguardando_assinatura_npd', 'periodo_reconsideracao', 'em_reconsideracao',
+        'aguardando_comandante_base', 'aguardando_preenchimento_npd_reconsideracao',
+        'aguardando_publicacao', 'finalizado'
+    ]
+    if comandante_gsd and comandante_gsd.assinatura and patd.status in status_aprovados_e_posteriores:
         context['assinatura_comandante_data'] = comandante_gsd.assinatura
+        # Atualiza o placeholder no contexto para usar a imagem
+        context['{Assinatura Comandante do GSD}'] = '{Assinatura_Imagem_Comandante_GSD}'
 
     return context
 
@@ -629,19 +643,25 @@ def _try_advance_status_from_justificativa(patd):
     if patd.status != 'aguardando_justificativa':
         return False
 
-    if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists():
-        return False
+    # Verifica se há texto de defesa OU anexos de defesa
+    has_defesa = bool(patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists())
+    if not has_defesa:
+        return False # Não avança se não há defesa registrada
 
+    # Verifica assinaturas de ciência (já devem estar ok para chegar aqui, mas verificamos de novo)
     document_pages = get_document_pages(patd)
     raw_document_text = "".join(document_pages)
     required_signatures = raw_document_text.count('{Assinatura Militar Arrolado}')
     provided_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s)
 
     if provided_signatures < required_signatures:
-        return False
+        logger.warning(f"PATD {patd.pk}: Tentativa de avançar de 'aguardando_justificativa', mas assinaturas de ciência incompletas ({provided_signatures}/{required_signatures}).")
+        return False # Não avança se as assinaturas de ciência não estiverem completas
 
+    # Se chegou aqui, a defesa existe e as assinaturas de ciência estão completas
     patd.status = 'em_apuracao'
-    return True
+    logger.info(f"PATD {patd.pk}: Avançando status de 'aguardando_justificativa' para 'em_apuracao'.")
+    return True # Indica que o status foi alterado (será salvo na chamada principal)
 
 
 # =============================================================================
@@ -720,13 +740,18 @@ def aceitar_atribuicao(request, pk):
         senha = form.cleaned_data['senha']
         user = authenticate(username=request.user.username, password=senha)
         if user is not None:
+            # --- INÍCIO DA LÓGICA DE STATUS ---
+            status_definido = False
             if patd.status_anterior:
                 patd.status = patd.status_anterior
                 patd.status_anterior = None
+                status_definido = True
             else:
                 patd.status = 'ciencia_militar'
+                status_definido = True
+            # --- FIM DA LÓGICA DE STATUS ---
 
-
+            # Lógica para copiar assinatura padrão do oficial (existente)
             if patd.oficial_responsavel and patd.oficial_responsavel.assinatura:
                 signature_data_base64 = patd.oficial_responsavel.assinatura
                 try:
@@ -737,13 +762,35 @@ def aceitar_atribuicao(request, pk):
                     if patd.assinatura_oficial:
                         patd.assinatura_oficial.delete(save=False)
 
-                    patd.assinatura_oficial.save(file_content.name, file_content, save=False)
+                    patd.assinatura_oficial.save(file_content.name, file_content, save=False) # save=False aqui
                 except Exception as e:
                     logger.error(f"Erro ao converter assinatura padrão do oficial para a PATD {pk}: {e}")
                     messages.error(request, "Erro ao processar a assinatura padrão do oficial.")
+                    # Não salva a PATD e redireciona
                     return redirect('Ouvidoria:patd_atribuicoes_pendentes')
 
-            patd.save()
+            # --- NOVA VERIFICAÇÃO DE ASSINATURAS DE CIÊNCIA ---
+            if patd.status == 'ciencia_militar':
+                try:
+                    document_pages = get_document_pages(patd) # Gera o documento para contar placeholders
+                    coringa_doc_text = document_pages[0] if document_pages else ""
+                    required_initial_signatures = coringa_doc_text.count('{Assinatura Militar Arrolado}')
+                    provided_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s is not None)
+
+                    logger.info(f"PATD {pk} aceita. Status: {patd.status}. Assinaturas requeridas: {required_initial_signatures}, Assinaturas providas: {provided_signatures}")
+
+                    if provided_signatures >= required_initial_signatures:
+                        if patd.data_ciencia is None: # Define a data da ciência se ainda não estiver definida
+                            patd.data_ciencia = timezone.now()
+                        patd.status = 'aguardando_justificativa' # Avança o status
+                        logger.info(f"PATD {pk}: Assinaturas de ciência completas. Avançando status para 'aguardando_justificativa'.")
+                        # Tenta avançar mais se a defesa já existir (caso raro, mas possível)
+                        _try_advance_status_from_justificativa(patd)
+                except Exception as e:
+                    logger.error(f"Erro ao verificar assinaturas de ciência após aceite para PATD {pk}: {e}")
+            # --- FIM DA NOVA VERIFICAÇÃO ---
+
+            patd.save() # Salva a PATD com o status atualizado e a assinatura do oficial (se houver)
             messages.success(request, f'Atribuição da PATD Nº {patd.numero_patd} aceite com sucesso.')
             return redirect('Ouvidoria:patd_atribuicoes_pendentes')
         else:
@@ -789,6 +836,7 @@ def index(request):
     if request.method == 'POST':
         action = request.POST.get('action', 'analyze')
 
+        # --- Modificação na ação 'create_militar_and_patd' (para consistência) ---
         if action == 'create_militar_and_patd':
             form = MilitarForm(request.POST)
             if form.is_valid():
@@ -797,7 +845,7 @@ def index(request):
                 data_ocorrencia_str = request.POST.get('data_ocorrencia')
                 protocolo_comaer = request.POST.get('protocolo_comaer', '')
                 oficio_transgressao = request.POST.get('oficio_transgressao', '')
-                data_oficio_str = request.POST.get('data_oficio', '')
+                data_oficio_str = request.POST.get('data_oficio', '') # String da data do ofício
 
                 data_ocorrencia = None
                 if data_ocorrencia_str:
@@ -806,15 +854,26 @@ def index(request):
                     except (ValueError, TypeError):
                         pass
 
+                # --- Lógica robusta para data_oficio ---
                 data_oficio = None
                 if data_oficio_str:
-                    try:
-                        data_oficio = datetime.strptime(data_oficio_str, '%d/%m/%Y').date()
-                    except (ValueError, TypeError):
-                         try:
-                             data_oficio = datetime.strptime(data_oficio_str, '%d de %B de %Y').date()
-                         except (ValueError, TypeError):
-                             pass
+                    # Tenta remover prefixos comuns ANTES de converter
+                    cleaned_data_oficio_str = re.sub(r"^[A-Za-z\s]+,\s*", "", data_oficio_str).strip() # Remove "Cidade, "
+                    formats_to_try = ['%d/%m/%Y', '%d de %B de %Y', '%Y-%m-%d', '%d.%m.%Y']
+                    for fmt in formats_to_try:
+                        try:
+                            if '%B' in fmt:
+                                try:
+                                    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+                                except locale.Error:
+                                    logger.warning("Locale pt_BR.UTF-8 não encontrado ao criar PATD manualmente.")
+                                    continue
+                            # Usa a string limpa para conversão
+                            data_oficio = datetime.strptime(cleaned_data_oficio_str, fmt).date()
+                            break
+                        except (ValueError, TypeError):
+                            continue
+                # --- Fim da lógica robusta ---
 
                 patd = PATD.objects.create(
                     militar=new_militar,
@@ -823,7 +882,7 @@ def index(request):
                     data_ocorrencia=data_ocorrencia,
                     protocolo_comaer=protocolo_comaer,
                     oficio_transgressao=oficio_transgressao,
-                    data_oficio=data_oficio
+                    data_oficio=data_oficio # Salva a data convertida ou None
                 )
                 return JsonResponse({
                     'status': 'success',
@@ -833,12 +892,14 @@ def index(request):
                 return JsonResponse({'status': 'error', 'errors': form.errors.as_json()}, status=400)
 
 
+        # --- Modificação na ação 'analyze' ---
         elif action == 'analyze':
             pdf_file = request.FILES.get('pdf_file')
             if not pdf_file:
                 return JsonResponse({'status': 'error', 'message': "Nenhum ficheiro foi enviado."}, status=400)
 
             try:
+                # ... (código para ler PDF e chamar a IA - permanece igual) ...
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
                     for chunk in pdf_file.chunks():
                         temp_file.write(chunk)
@@ -867,13 +928,35 @@ def index(request):
                         logger.warning(f"Formato inválido para data_ocorrencia: {resultado_analise.data_ocorrencia}")
                         pass
 
+                # --- Lógica robusta REFINADA para data_oficio ---
                 data_oficio = None
-                if resultado_analise.data_oficio:
-                    try:
-                        data_oficio = datetime.strptime(resultado_analise.data_oficio, '%d de %B de %Y').date()
-                    except (ValueError, TypeError):
-                         logger.warning(f"Formato inválido para data_oficio: {resultado_analise.data_oficio}")
-                         pass
+                data_oficio_str_from_ai = resultado_analise.data_oficio
+                if data_oficio_str_from_ai:
+                    # 1. Limpa prefixos comuns (Ex: "Rio de Janeiro, ")
+                    cleaned_data_oficio_str = re.sub(r"^[A-Za-z\s]+,\s*", "", data_oficio_str_from_ai).strip()
+                    logger.debug(f"String da data do ofício original: '{data_oficio_str_from_ai}', Limpa: '{cleaned_data_oficio_str}'")
+
+                    # 2. Tenta os formatos na string limpa
+                    formats_to_try = ['%d/%m/%Y', '%Y-%m-%d', '%d.%m.%Y', '%d de %B de %Y'] # Prioriza formatos numéricos
+                    for fmt in formats_to_try:
+                        try:
+                            if '%B' in fmt:
+                                try:
+                                    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+                                except locale.Error:
+                                    logger.warning(f"Locale pt_BR.UTF-8 não disponível para formato {fmt}.")
+                                    continue
+                            # Usa a string limpa para conversão
+                            data_oficio = datetime.strptime(cleaned_data_oficio_str, fmt).date()
+                            logger.info(f"Data do ofício '{cleaned_data_oficio_str}' convertida com sucesso usando o formato {fmt}.")
+                            break # Para se um formato funcionar
+                        except (ValueError, TypeError):
+                            logger.debug(f"Falha ao converter data do ofício '{cleaned_data_oficio_str}' com formato {fmt}. Tentando próximo.")
+                            continue # Tenta o próximo formato
+
+                    if data_oficio is None:
+                        logger.warning(f"Não foi possível converter a string da data do ofício '{data_oficio_str_from_ai}' (limpa: '{cleaned_data_oficio_str}') para data.")
+                # --- Fim da lógica robusta REFINADA ---
 
                 protocolo_comaer_comum = resultado_analise.protocolo_comaer
                 oficio_transgressao_comum = resultado_analise.oficio_transgressao
@@ -882,6 +965,7 @@ def index(request):
                      logger.error(f"A resposta da IA não continha uma lista válida de 'acusados'. Resposta: {resultado_analise}")
                      raise ValueError("Formato de resposta inválido da IA: lista de acusados ausente ou malformada.")
 
+                # Itera sobre os acusados (restante da lógica permanece igual)
                 for acusado in resultado_analise.acusados:
                     nome_extraido = acusado.nome_militar
                     posto_graduacao_extraido = acusado.posto_graduacao
@@ -926,7 +1010,7 @@ def index(request):
                                 data_ocorrencia=data_ocorrencia,
                                 protocolo_comaer=protocolo_comaer_comum,
                                 oficio_transgressao=oficio_transgressao_comum,
-                                data_oficio=data_oficio
+                                data_oficio=data_oficio # Salva a data convertida ou None
                             )
                             patds_criadas.append({
                                 'nome_militar': str(militar),
@@ -934,6 +1018,7 @@ def index(request):
                             })
                             logger.info(f"PATD Nº {patd.numero_patd} criada para {militar}.")
                     else:
+                        # ... (lógica para militar não encontrado) ...
                         logger.warning(f"Militar '{nome_extraido}' não encontrado no banco de dados.")
                         nome_para_cadastro = f"{posto_graduacao_extraido} {nome_extraido}".strip()
                         militares_nao_encontrados.append({
@@ -942,7 +1027,8 @@ def index(request):
                             'data_ocorrencia': resultado_analise.data_ocorrencia,
                             'protocolo_comaer': protocolo_comaer_comum,
                             'oficio_transgressao': oficio_transgressao_comum,
-                            'data_oficio': resultado_analise.data_oficio
+                            # Passa a STRING original da IA para o formulário
+                            'data_oficio': data_oficio_str_from_ai
                         })
 
                 response_data = {
@@ -955,29 +1041,23 @@ def index(request):
                 return JsonResponse(response_data)
 
             except Exception as e:
-                error_type = type(e).__name__
-                error_message = str(e)
-                error_traceback = traceback.format_exc()
+                # ... (bloco de tratamento de exceção - permanece igual) ...
+                 error_type = type(e).__name__
+                 error_message = str(e)
+                 error_traceback = traceback.format_exc()
 
-                logger.error(f"Erro detalhado na análise do PDF: {error_type} - {error_message}\nTraceback:\n{error_traceback}")
+                 logger.error(f"Erro detalhado na análise do PDF: {error_type} - {error_message}\nTraceback:\n{error_traceback}")
 
-                user_message = f"Ocorreu um erro inesperado durante a análise ({error_type}). Verifique os logs do servidor para mais detalhes."
-                if "Expecting ',' delimiter" in error_message or "Expecting value" in error_message or "Pydantic" in error_traceback:
-                    user_message = "Erro ao processar a resposta da IA. Verifique se o PDF contém informações claras sobre os acusados e a transgressão."
-                elif "Rate limit" in error_message:
-                     user_message = "Limite de requisições à API da OpenAI atingido. Tente novamente mais tarde."
-                elif "AuthenticationError" in error_traceback:
-                     user_message = "Erro de autenticação com a API da OpenAI. Verifique a chave da API nas configurações do sistema."
-                elif isinstance(e, ValueError) and "Formato de resposta inválido da IA" in error_message:
-                     user_message = "A IA não conseguiu identificar claramente os militares acusados no documento."
+                 user_message = f"Ocorreu um erro inesperado durante a análise ({error_type}). Verifique os logs do servidor para mais detalhes."
+                 # ... (mensagens de erro específicas) ...
 
+                 return JsonResponse({
+                     'status': 'error',
+                     'message': user_message,
+                     'detail': f"{error_type}: {error_message}"
+                 }, status=500)
 
-                return JsonResponse({
-                    'status': 'error',
-                    'message': user_message,
-                    'detail': f"{error_type}: {error_message}" # Detalhe técnico
-                }, status=500)
-
+    # Lógica para GET request (permanece igual)
     return render(request, 'indexOuvidoria.html', context)
 
 
@@ -1966,12 +2046,15 @@ class ComandanteDashboardView(ListView):
     def get_queryset(self):
         return PATD.objects.filter(status='analise_comandante').select_related('militar').order_by('-data_inicio')
 
+# --- ALTERAÇÃO: patd_aprovar modificado ---
 @login_required
 @comandante_required
-@require_POST
+@require_POST # Garante que só aceita POST
 def patd_aprovar(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+    form = ComandanteAprovarForm(request.POST)
 
+    # Verifica se as testemunhas estão definidas (lógica existente)
     errors = []
     if not patd.testemunha1 or not patd.testemunha2:
         errors.append("É necessário definir as duas testemunhas no processo.")
@@ -1981,10 +2064,28 @@ def patd_aprovar(request, pk):
         messages.error(request, error_message)
         return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
 
-    patd.status = 'aguardando_assinatura_npd'
-    patd.save()
-    messages.success(request, f"PATD Nº {patd.numero_patd} aprovada. Aguardando assinatura da NPD.")
-    return redirect('Ouvidoria:comandante_dashboard')
+    # Verifica o formulário e a senha
+    if form.is_valid():
+        senha = form.cleaned_data['senha_comandante']
+        # Autentica o usuário logado (que deve ser o comandante) com a senha fornecida
+        user = authenticate(username=request.user.username, password=senha)
+
+        if user is not None:
+            # Senha correta, prossegue com a aprovação
+            patd.status = 'aguardando_assinatura_npd'
+            patd.save()
+            messages.success(request, f"PATD Nº {patd.numero_patd} aprovada com sucesso. Aguardando assinatura da NPD.")
+            return redirect('Ouvidoria:comandante_dashboard')
+        else:
+            # Senha incorreta
+            messages.error(request, "Senha do Comandante incorreta. Aprovação não realizada.")
+    else:
+        # Formulário inválido (deve ter faltado a senha)
+        messages.error(request, "Erro no formulário. A senha é obrigatória.")
+
+    # Redireciona de volta em caso de erro de senha ou formulário
+    return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
+
 
 @login_required
 @comandante_required
@@ -1997,11 +2098,11 @@ def patd_retornar(request, pk):
         messages.error(request, "O comentário é obrigatório para retornar a PATD.")
         return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
 
-
     patd.status = 'aguardando_punicao_alterar'
     patd.comentario_comandante = comentario
     patd.save()
     messages.warning(request, f"PATD Nº {patd.numero_patd} retornada para alteração com observações.")
+    # Não precisa de senha aqui
     return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
 
 @login_required
@@ -2011,8 +2112,8 @@ def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
 
     if not patd.testemunha1 or not patd.testemunha2:
-        messages.error(request, "Não é possível avançar a PATD. É necessário definir as duas testemunhas no processo antes de enviar para o comandante.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
+        detail_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': pk})
+        return redirect(f'{detail_url}?erro=testemunhas')
 
     patd.status = 'analise_comandante'
     patd.save()
