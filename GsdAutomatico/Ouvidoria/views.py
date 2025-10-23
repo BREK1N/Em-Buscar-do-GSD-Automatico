@@ -11,7 +11,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
 from .models import Militar, PATD, Configuracao, Anexo
 # --- ALTERAÇÃO: Adicionar ComandanteAprovarForm ---
-from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm, ComandanteAprovarForm
+from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate

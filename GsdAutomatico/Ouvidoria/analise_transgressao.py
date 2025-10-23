@@ -248,7 +248,8 @@ def enquadra_item(transgressao):
     resposta = chain.invoke({"transgressao": transgressao})
     return resposta
 
-def verifica_agravante_atenuante(historico, transgressao, justificativa, itens):
+# --- MODIFICAÇÃO INICIA AQUI ---
+def verifica_agravante_atenuante(historico, transgressao, justificativa, itens, comportamento_anterior: str): # Adicionado parametro comportamento_anterior
 
     class Item(BaseModel):
         item: list = Field(description="""Defina uma lista contendo um único dicionário python. O dicionário deve ter a chave 'agravantes' com uma lista das letras correspondentes, e a chave 'atenuantes' com uma lista das letras correspondentes.""")
@@ -281,7 +282,7 @@ def verifica_agravante_atenuante(historico, transgressao, justificativa, itens):
 
     # Regras de Análise Obrigatórias #
     1.  **Atenuante 'a' (Bom Comportamento):** O militar SEMPRE começa com o atenuante 'a', a menos que a Regra 2 se aplique.
-    2.  **Agravante 'a' (Mau Comportamento):** Se o histórico do militar mencionar punições anteriores por transgressões consideradas 'graves', remova o atenuante 'a' e adicione o agravante 'a'.
+    2.  **Agravante 'a' (Mau Comportamento):** Se o 'Comportamento Anterior' fornecido for "Mau comportamento", remova o atenuante 'a' e adicione o agravante 'a'. # MODIFICADO para usar comportamento_anterior
     3.  **Agravante 'c' (Conexão de Transgressões):** Se a transgressão atual foi enquadrada em mais de um item do RDAER (a lista de 'Itens da Transgressão Atual' terá mais de um elemento), adicione o agravante 'c'.
     4.  **Agravante 'i' (Ocorrência em Serviço):** Leia a descrição da 'Transgressão Atual'. Se o texto indicar que o fato ocorreu "durante o serviço", "em escala de serviço", "de serviço", "em missão", ou qualquer expressão sinônima, adicione OBRIGATORIAMENTE o agravante 'i'.
     5.  **Agravante 'b' (Reincidência):** ESTA É A VERIFICAÇÃO MAIS CRÍTICA. Compare os NÚMEROS dos itens da 'Itens da Transgressão Atual' com os NÚMEROS dos itens mencionados no 'Histórico do Militar'. Se houver QUALQUER número de item em comum, adicione OBRIGATORIAMENTE o agravante 'b'.
@@ -291,6 +292,7 @@ def verifica_agravante_atenuante(historico, transgressao, justificativa, itens):
     - **Itens da Transgressão Atual:** {itens}
     - **Histórico do Militar:** {historico}
     - **Justificativa do Militar:** {justificativa}
+    - **Comportamento Anterior:** {comportamento_anterior} # Adicionado input
 
     # Formato da Resposta #
     Você deve retornar no seguinte formato JSON, sem nenhum texto adicional.
@@ -302,8 +304,17 @@ def verifica_agravante_atenuante(historico, transgressao, justificativa, itens):
     ).partial(format_instructions=parser.get_format_instructions())
 
     chain = prompt_template | model | parser
-    resposta = chain.invoke({"transgressao": transgressao, "justificativa": justificativa, "historico": historico, "itens": itens})
+    # Adicionada a passagem do novo parâmetro para a IA
+    resposta = chain.invoke({
+        "transgressao": transgressao,
+        "justificativa": justificativa,
+        "historico": historico,
+        "itens": itens,
+        "comportamento_anterior": comportamento_anterior # Passando o novo parâmetro
+    })
     return resposta
+# --- MODIFICAÇÃO TERMINA AQUI ---
+
 
 def sugere_punicao(transgressao, agravantes, atenuantes, itens, observacao):
 

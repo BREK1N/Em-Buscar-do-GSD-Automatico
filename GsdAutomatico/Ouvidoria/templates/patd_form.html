@@ -5,7 +5,7 @@
 
 {% block content %}
 <style>
-    /* Estilos para o novo layout do formulário */
+    /* Estilos (mantêm-se os mesmos) */
     .form-card {
         background-color: var(--bg-content);
         border: 1px solid var(--border-color);
@@ -83,6 +83,11 @@
         cursor: pointer;
         font-size: 0.8rem;
     }
+    .alert-error { /* Adicionado para erros */
+        color: var(--danger-color);
+        font-size: 0.8rem;
+        margin-top: 5px;
+    }
 </style>
 
 <div class="patd-header">
@@ -92,7 +97,8 @@
 
 <form method="post" class="model-form">
     {% csrf_token %}
-    
+    {{ form.non_field_errors }} {# Exibe erros gerais do formulário #}
+
     <div class="form-card">
         <div class="form-card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12.75h.008M8.25 15h.008M8.25 18h.008m3.75-12h.008m2.25-3h.008M12 6h.008m-2.25 6h.008m2.25 6h.008M12 18h.008m-3.75-6h.008m2.25-6h.008" /></svg>
@@ -103,15 +109,17 @@
                 <div class="form-item full-width">
                     <label for="{{ form.transgressao.id_for_label }}">{{ form.transgressao.label }}:</label>
                     {{ form.transgressao }}
+                    {% for error in form.transgressao.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="form-item">
                     <label for="{{ form.data_ocorrencia.id_for_label }}">{{ form.data_ocorrencia.label }}:</label>
                     {{ form.data_ocorrencia }}
+                    {% for error in form.data_ocorrencia.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
             </div>
         </div>
     </div>
-    
+
     <div class="form-card">
         <div class="form-card-header">
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /></svg>
@@ -122,20 +130,24 @@
                 <div class="form-item">
                     <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}:</label>
                     {{ form.oficial_responsavel }}
+                    {% for error in form.oficial_responsavel.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="form-item">
                     <label for="{{ form.testemunha1.id_for_label }}">{{ form.testemunha1.label }}:</label>
                     {{ form.testemunha1 }}
+                    {% for error in form.testemunha1.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="form-item">
                     <label for="{{ form.testemunha2.id_for_label }}">{{ form.testemunha2.label }}:</label>
                     {{ form.testemunha2 }}
+                    {% for error in form.testemunha2.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
             </div>
         </div>
     </div>
 
-    {% if form.instance.punicao_sugerida %}
+    {# --- Bloco de Apuração (Visível/Editável apenas para o Oficial Responsável) --- #}
+    {% if form.instance.punicao_sugerida and request.user.profile.militar == form.instance.oficial_responsavel %}
     <div class="form-card">
         <div class="form-card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
@@ -149,6 +161,7 @@
                         <button type="button" class="regenerate-btn" id="regenerate-ocorrencia">Gerar com IA</button>
                     </div>
                     {{ form.ocorrencia_reescrita }}
+                    {% for error in form.ocorrencia_reescrita.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="form-item full-width">
                     <div class="form-item-header">
@@ -156,6 +169,7 @@
                         <button type="button" class="regenerate-btn" id="regenerate-resumo">Gerar com IA</button>
                     </div>
                     {{ form.alegacao_defesa_resumo }}
+                    {% for error in form.alegacao_defesa_resumo.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="form-item full-width">
                     <div class="form-item-header">
@@ -163,31 +177,83 @@
                         <button type="button" class="regenerate-btn" id="regenerate-relatorio">Gerar com IA</button>
                     </div>
                     {{ form.texto_relatorio }}
+                    {% for error in form.texto_relatorio.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="form-item full-width">
                     <label for="{{ form.itens_enquadrados_text.id_for_label }}">{{ form.itens_enquadrados_text.label }}:</label>
                     {{ form.itens_enquadrados_text }}
                     <small>{{ form.itens_enquadrados_text.help_text }}</small>
+                    {% for error in form.itens_enquadrados_text.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="form-item">
                     <label for="{{ form.atenuantes.id_for_label }}">{{ form.atenuantes.label }}:</label>
                     {{ form.atenuantes }}
                     <small>{{ form.atenuantes.help_text }}</small>
+                    {% for error in form.atenuantes.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="form-item">
                     <label for="{{ form.agravantes.id_for_label }}">{{ form.agravantes.label }}:</label>
                     {{ form.agravantes }}
                     <small>{{ form.agravantes.help_text }}</small>
+                    {% for error in form.agravantes.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
                 <div class="form-item full-width">
                     <label for="{{ form.punicao_sugerida.id_for_label }}">{{ form.punicao_sugerida.label }}:</label>
                     {{ form.punicao_sugerida }}
+                    {% for error in form.punicao_sugerida.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                </div>
+                 {# --- Adicionado campo Transgressao Afirmativa aqui dentro --- #}
+                 <div class="form-item full-width">
+                    <label for="{{ form.transgressao_afirmativa.id_for_label }}">{{ form.transgressao_afirmativa.label }}:</label>
+                    {{ form.transgressao_afirmativa }}
+                    {% for error in form.transgressao_afirmativa.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                </div>
+                 {# --- Adicionado campo Comprovante aqui dentro --- #}
+                 <div class="form-item full-width">
+                    <label for="{{ form.comprovante.id_for_label }}">{{ form.comprovante.label }}:</label>
+                    {{ form.comprovante }}
+                    {% for error in form.comprovante.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
             </div>
         </div>
     </div>
-    {% endif %}
-    
+
+        {# --- Seção: Punição Pós-Reconsideração (Só aparece se já foi definida) --- #}
+        {% if form.instance.nova_punicao_dias or form.instance.nova_punicao_tipo %}
+        <div class="form-card">
+            <div class="form-card-header">
+                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                <h2>Punição Pós-Reconsideração</h2>
+            </div>
+            <div class="form-card-body">
+                <div class="form-grid">
+                     <div class="form-item">
+                        <label for="{{ form.nova_punicao_dias_num.id_for_label }}">{{ form.nova_punicao_dias_num.label }}:</label>
+                        {{ form.nova_punicao_dias_num }}
+                        <small>{{ form.nova_punicao_dias_num.help_text }}</small>
+                         {% for error in form.nova_punicao_dias_num.errors %}<div class="alert-error" style="margin-top: 5px;">{{ error }}</div>{% endfor %}
+                    </div>
+                    <div class="form-item">
+                        <label for="{{ form.nova_punicao_tipo.id_for_label }}">{{ form.nova_punicao_tipo.label }}:</label>
+                        {{ form.nova_punicao_tipo }}
+                         {% for error in form.nova_punicao_tipo.errors %}<div class="alert-error" style="margin-top: 5px;">{{ error }}</div>{% endfor %}
+                    </div>
+                </div>
+            </div>
+        </div>
+        {% endif %}
+
+    {% endif %} {# Fim do if para oficial responsável #}
+
+    {# --- INÍCIO DA CORREÇÃO: Renderiza campos ocultos aqui --- #}
+    {{ form.dias_punicao }}
+    {{ form.punicao }}
+    {# Estes são calculados, então podemos deixá-los ocultos ou removê-los do fields se não forem editáveis #}
+    {# {{ form.natureza_transgressao }} #}
+    {# {{ form.comportamento }} #}
+    {# --- FIM DA CORREÇÃO --- #}
+
+
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar Alterações</button>
         <a href="{% url 'Ouvidoria:patd_detail' form.instance.pk %}" class="btn btn-secondary">Cancelar</a>
@@ -195,6 +261,7 @@
 </form>
 
 <script>
+// JavaScript existente para os botões "Gerar com IA"
 document.addEventListener('DOMContentLoaded', function() {
     function getCookie(name) {
         let cookieValue = null;

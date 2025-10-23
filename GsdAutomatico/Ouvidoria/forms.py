@@ -1,10 +1,8 @@
-# GsdAutomatico/Ouvidoria/forms.py
 from django import forms
 from .models import Militar, PATD
 import json
 import re
 from num2words import num2words
-from django.forms import PasswordInput # CORREÇÃO: Importar PasswordInput de django.forms
 
 class AtribuirOficialForm(forms.ModelForm):
     class Meta:
@@ -21,10 +19,6 @@ class AtribuirOficialForm(forms.ModelForm):
 
 class AceitarAtribuicaoForm(forms.Form):
     senha = forms.CharField(widget=forms.PasswordInput, label="Sua Senha de Acesso")
-
-class ComandanteAprovarForm(forms.Form):
-    """Formulário simples para pedir a senha do comandante na aprovação."""
-    senha_comandante = forms.CharField(widget=PasswordInput, label="Senha do Comandante")
 
 class MilitarForm(forms.ModelForm):
     # Formulário para criar e atualizar registros de Militares.
@@ -71,15 +65,26 @@ class PATDForm(forms.ModelForm):
         label="Agravantes",
         help_text="Circunstâncias agravantes, separadas por vírgula (ex: a, b, c)."
     )
+    # --- NOVO CAMPO NUMÉRICO PARA DIAS DA NOVA PUNIÇÃO ---
+    nova_punicao_dias_num = forms.IntegerField(
+        required=False,
+        min_value=0,
+        label="Nova Punição (Dias - Numérico)",
+        help_text="Digite o número de dias para a punição pós-reconsideração.",
+        widget=forms.NumberInput(attrs={'placeholder': 'Ex: 2'})
+    )
 
     class Meta:
         model = PATD
+        # --- CAMPOS ADICIONADOS AQUI ---
         fields = [
             'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2',
             'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'punicao_sugerida',
             'comprovante', 'dias_punicao', 'punicao', 'transgressao_afirmativa', 'natureza_transgressao', 'comportamento',
-            'alegacao_defesa_resumo', 'ocorrencia_reescrita', 'texto_relatorio'
+            'alegacao_defesa_resumo', 'ocorrencia_reescrita', 'texto_relatorio',
+            'nova_punicao_dias_num', 'nova_punicao_tipo' # Adicionados aqui
         ]
+        # --- FIM DA ADIÇÃO DE CAMPOS ---
 
         widgets = {
             'transgressao': forms.Textarea(attrs={'rows': 4}),
@@ -93,6 +98,16 @@ class PATDForm(forms.ModelForm):
             'alegacao_defesa_resumo': forms.Textarea(attrs={'rows': 3}),
             'ocorrencia_reescrita': forms.Textarea(attrs={'rows': 3}),
             'texto_relatorio': forms.Textarea(attrs={'rows': 5}),
+            # --- WIDGET ADICIONADO ---
+            'nova_punicao_tipo': forms.Select(choices=[ # Define as opções diretamente
+                ('', '---------'), # Opção vazia
+                ('detenção', 'Detenção'),
+                ('prisão', 'Prisão'),
+                ('repreensão', 'Repreensão'),
+            ]),
+            # Os campos dias_punicao e punicao (originais) não precisam de widget se forem calculados no save
+            'dias_punicao': forms.HiddenInput(),
+            'punicao': forms.HiddenInput(),
         }
         labels = {
             'transgressao': "Descrição da Transgressão",
@@ -102,14 +117,17 @@ class PATDForm(forms.ModelForm):
             'data_ocorrencia': "Data da Ocorrência",
             'punicao_sugerida': "Punição Sugerida pela IA",
             'comprovante': "Comprovante da Transgressão",
-            'dias_punicao': "Dias de Punição",
-            'punicao': "Punição",
+            # 'dias_punicao': "Dias de Punição", # Ocultado
+            # 'punicao': "Punição", # Ocultado
             'transgressao_afirmativa': "Transgressão Afirmativa",
             'natureza_transgressao': "Natureza da Transgressão",
             'comportamento': "Comportamento",
             'alegacao_defesa_resumo': "Resumo da Alegação de Defesa",
             'ocorrencia_reescrita': "Ocorrência Reescrita (IA)",
             'texto_relatorio': "Texto do Relatório (IA)",
+            # --- LABELS ADICIONADOS ---
+            # 'nova_punicao_dias_num' já tem label no campo
+            'nova_punicao_tipo': "Nova Punição (Tipo)"
         }
 
     def __init__(self, *args, **kwargs):
@@ -129,6 +147,15 @@ class PATDForm(forms.ModelForm):
                 self.fields['atenuantes'].initial = ", ".join(self.instance.circunstancias.get('atenuantes', []))
                 self.fields['agravantes'].initial = ", ".join(self.instance.circunstancias.get('agravantes', []))
 
+            # --- INICIALIZAÇÃO DO CAMPO NUMÉRICO ---
+            if self.instance.nova_punicao_dias:
+                match = re.search(r'\((\d+)\)', self.instance.nova_punicao_dias)
+                if match:
+                    try:
+                        self.fields['nova_punicao_dias_num'].initial = int(match.group(1))
+                    except (ValueError, TypeError):
+                        pass # Deixa vazio se não conseguir converter
+
 
     def save(self, commit=True):
         # Pega a instância do modelo, mas não salva no banco ainda
@@ -141,13 +168,18 @@ class PATDForm(forms.ModelForm):
         itens_list = []
         for line in itens_text.splitlines():
             if ':' in line:
-                numero, descricao = line.split(':', 1)
+                parts = line.split(':', 1)
+                numero_str = parts[0].strip()
+                descricao = parts[1].strip()
                 try:
-                    itens_list.append({'numero': int(numero.strip()), 'descricao': descricao.strip()})
+                    # Tenta converter para int, mas permite continuar se falhar
+                    numero = int(numero_str) if numero_str.isdigit() else numero_str
+                    itens_list.append({'numero': numero, 'descricao': descricao})
                 except ValueError:
-                    # Ignora linhas mal formatadas
-                    pass
+                    # Adiciona mesmo se não for número, mas mantém a string
+                    itens_list.append({'numero': numero_str, 'descricao': descricao})
         instance.itens_enquadrados = itens_list
+
 
         # Circunstâncias
         atenuantes = [item.strip() for item in self.cleaned_data.get('atenuantes', '').split(',') if item.strip()]
@@ -157,23 +189,45 @@ class PATDForm(forms.ModelForm):
             'agravantes': agravantes
         }
 
-        # Punição
-        punicao_sugerida_str = self.cleaned_data.get('punicao_sugerida', '')
-        match = re.search(r'(\d+)\s+dias\s+de\s+(.+)', punicao_sugerida_str, re.IGNORECASE)
-        if match:
-            dias_num = int(match.group(1))
-            punicao_tipo = match.group(2).strip()
-            dias_texto = num2words(dias_num, lang='pt_BR')
-            instance.dias_punicao = f"{dias_texto} ({dias_num:02d}) dias"
-            instance.punicao = punicao_tipo
-        else:
-            instance.dias_punicao = ""
-            instance.punicao = punicao_sugerida_str
+        # --- LÓGICA ATUALIZADA PARA PUNIÇÃO ---
+        # Prioriza a Nova Punição se ela for preenchida
+        nova_punicao_dias_num = self.cleaned_data.get('nova_punicao_dias_num')
+        nova_punicao_tipo = self.cleaned_data.get('nova_punicao_tipo')
 
-        # --- NOVA LÓGICA ---
+        if nova_punicao_dias_num is not None and nova_punicao_tipo:
+            dias_texto = num2words(nova_punicao_dias_num, lang='pt_BR')
+            instance.nova_punicao_dias = f"{dias_texto} ({nova_punicao_dias_num:02d}) dias"
+            instance.nova_punicao_tipo = nova_punicao_tipo
+            # Atualiza também a punição principal para refletir a nova decisão
+            instance.dias_punicao = instance.nova_punicao_dias
+            instance.punicao = instance.nova_punicao_tipo
+            instance.justificado = False # Garante que não está justificado se definir punição
+        elif nova_punicao_tipo == 'repreensão': # Caso específico de repreensão (sem dias)
+             instance.nova_punicao_dias = ""
+             instance.nova_punicao_tipo = nova_punicao_tipo
+             instance.dias_punicao = ""
+             instance.punicao = nova_punicao_tipo
+             instance.justificado = False
+        # Se a nova punição não foi preenchida, tenta usar a punição sugerida (IA)
+        elif not instance.dias_punicao and not instance.punicao: # Só atualiza se a principal estiver vazia
+            punicao_sugerida_str = self.cleaned_data.get('punicao_sugerida', '')
+            match = re.search(r'(\d+)\s+dias\s+de\s+(.+)', punicao_sugerida_str, re.IGNORECASE)
+            if match:
+                dias_num = int(match.group(1))
+                punicao_tipo = match.group(2).strip()
+                dias_texto = num2words(dias_num, lang='pt_BR')
+                instance.dias_punicao = f"{dias_texto} ({dias_num:02d}) dias"
+                instance.punicao = punicao_tipo
+            else:
+                instance.dias_punicao = ""
+                instance.punicao = punicao_sugerida_str # Assume que é repreensão ou justificado
+            # Não mexe em nova_punicao_dias/tipo aqui
+
+        # --- FIM DA LÓGICA ATUALIZADA ---
+
         # Chama os métodos do modelo para recalcular tudo antes de salvar
-        instance.definir_natureza_transgressao()
-        instance.calcular_e_atualizar_comportamento()
+        instance.definir_natureza_transgressao() # Baseado em instance.punicao agora
+        instance.calcular_e_atualizar_comportamento() # Baseado em instance.punicao agora
 
         if commit:
             instance.save()
