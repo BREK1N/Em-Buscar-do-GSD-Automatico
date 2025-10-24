@@ -5,7 +5,7 @@
 
 {% block content %}
 <style>
-    /* Estilos CSS (permanecem inalterados) */
+    /* Estilos CSS */
     .status-timeline {
         display: flex;
         justify-content: space-between;
@@ -181,97 +181,65 @@
         display: block;
     }
 
-    /* ESTILOS PARA O VISUALIZADOR E ANEXOS */
-    .document-editor-container {
-        display: flex;
-        gap: 20px;
-    }
-    .document-toolbar {
-        display: flex;
-        flex-direction: column;
-        gap: 15px;
-        background-color: var(--bg-main);
-        padding: 15px;
-        border-radius: 8px;
-        border: 1px solid var(--border-color);
-        margin-bottom: 20px;
-    }
-     .toolbar-section {
-        display: flex;
-        flex-direction: column;
-        gap: 10px;
-    }
-    .toolbar-section label {
-        font-weight: bold;
-        font-size: 0.9rem;
-        color: var(--text-secondary);
-    }
-    .toolbar-group {
-        display: flex;
-        gap: 5px;
-    }
-    .toolbar-button, .toolbar-select {
-        padding: 8px;
-        border-radius: 4px;
-        border: 1px solid var(--border-color);
-        background-color: var(--bg-content);
-        cursor: pointer;
-    }
-     .toolbar-button.active {
-        background-color: var(--accent-color);
-        color: white;
-    }
-    .toolbar-input {
-         width: 100%;
-         padding: 8px;
-         border-radius: 4px;
-         border: 1px solid var(--border-color);
-         background-color: var(--bg-content);
-    }
-
-    .document-preview-container {
+    /* ESTILOS REFINADOS PARA VISUALIZADOR */
+     .document-preview-container {
         flex-grow: 1;
-        background-color: var(--bg-main);
-        padding: 20px;
+        background-color: var(--bg-main); /* Fundo cinza claro para contraste */
+        padding: 30px; /* Aumenta o padding externo */
         border-radius: 8px;
-        overflow: auto;
+        overflow-y: auto; /* Scroll vertical para o container todo */
+        overflow-x: hidden;
     }
     .page {
         background: white;
-        color: black; /* LETRAS PRETAS */
+        color: black;
         width: 21cm;
-        min-height: 29.7cm;
-        margin: 0 auto 20px auto;
-        padding: 2.5cm; /* Ajustado para ABNT */
-        box-shadow: 0 0 10px rgba(0,0,0,0.1);
+        min-height: 29.7cm; /* Altura mínima A4 */
+        margin: 0 auto 40px auto; /* Centraliza e aumenta MUITO espaço inferior entre páginas */
+        padding: 2.5cm; /* Margens ABNT */
+        box-shadow: 0 5px 15px rgba(0,0,0,0.2); /* Sombra mais visível */
         box-sizing: border-box;
         font-family: 'Times New Roman', Times, serif;
         font-size: 12pt;
         position: relative;
+        overflow: hidden; /* Evita que conteúdo interno vaze visualmente */
     }
-    .page .page-header, .page .page-footer {
-        position: absolute;
-        width: calc(100% - 5cm); /* Ajustado para padding */
-        font-size: 9pt;
-        color: #666;
+    /* Zera margens e paddings de TODOS os elementos diretos dentro de page-content */
+    .page-content > * {
+        margin-top: 0 !important;
+        margin-bottom: 0 !important;
+        padding-top: 0 !important;
+        padding-bottom: 0 !important;
     }
-    .page .page-header {
-        top: 1.5cm;
-        text-align: center;
+
+    /* Aplica espaçamento padrão APENAS a parágrafos com conteúdo */
+    .page-content p:not(:empty) {
+       margin-bottom: 0.8em !important; /* Espaçamento entre parágrafos com texto */
+       line-height: 1.5;
     }
-    .page .page-footer {
-        bottom: 1.5cm;
-        text-align: center;
+
+     /* Trata especificamente a imagem do brasão */
+    .page-content img[alt*="Brasão da República"] {
+        display: block;
+        width: 3cm !important; /* Define uma largura fixa */
+        height: auto;
+        margin: 0.5em auto 0.5em auto !important; /* Reduz margens verticais e centraliza */
     }
-    .page-content {
-        line-height: 1.5;
+
+    /* Outras imagens genéricas */
+    .page-content img {
+        max-width: 100%;
+        height: auto;
+        display: block; /* Para evitar espaço extra abaixo da imagem */
+        margin: 1em auto; /* Centraliza imagens */
     }
-    .page-content p {
-        min-height: 1em; /* Garante que parágrafos vazios sejam clicáveis */
-    }
+
+
+    /* Garante negrito */
     .page-content strong {
-        font-weight: bold; /* Garante o negrito */
+        font-weight: bold;
     }
+
 
     .signature-image-embedded {
         max-height: 45px; /* Define uma altura máxima para as imagens de assinatura */
@@ -651,17 +619,6 @@
 </div>
 
 <div id="tab-visualizador" class="tab-panel">
-    <div class="document-toolbar">
-        <div class="toolbar-section">
-            <label>Ações</label>
-            <div class="toolbar-group">
-                <a href="{% url 'Ouvidoria:exportar_patd_docx' patd.pk %}" class="btn btn-primary" id="export-docx-btn">Exportar DOCX</a>
-                 {# Botão Salvar removido ou comentado, pois o salvamento agora é automático #}
-                 {# <button type="button" class="btn btn-secondary" id="save-visualizador-btn">Salvar Alterações</button> #}
-            </div>
-        </div>
-    </div>
-
     <div id="document-preview-container" class="document-preview-container">
         </div>
 </div>
@@ -1314,7 +1271,7 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- LÓGICA DO VISUALIZADOR DE DOCUMENTO ---
     const pageContainer = document.getElementById('document-preview-container');
     const exportPdfBtn = document.getElementById('export-pdf-btn');
-    const saveVisualizadorBtn = document.getElementById('save-visualizador-btn');
+    const saveVisualizadorBtn = document.getElementById('save-visualizador-btn'); // Embora removido do HTML, pode existir em outras partes
     let saveTimeout;
 
     function scheduleSave() {
@@ -1325,9 +1282,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1500);
     }
 
-    if (pageContainer) {
-        pageContainer.addEventListener('input', scheduleSave);
-    }
+    // if (pageContainer) { // REMOVIDO: Listener será adicionado DENTRO de renderVisualizador
+    //     pageContainer.addEventListener('input', scheduleSave);
+    // }
 
     function saveDocumentChanges() {
         if (!pageContainer) return;
@@ -1393,7 +1350,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         const newDocumentText = fullContent.join(`\n${pageDelimiter}\n`);
-        rawDocumentText = newDocumentText;
+        rawDocumentText = newDocumentText; // Atualiza a variável global se necessário
 
         const url = `{% url 'Ouvidoria:salvar_documento_patd' patd.pk %}`;
         fetch(url, {
@@ -1417,6 +1374,7 @@ document.addEventListener('DOMContentLoaded', function() {
             console.error('Erro:', error)
         });
     }
+
 
     // if (saveVisualizadorBtn) saveVisualizadorBtn.addEventListener('click', saveDocumentChanges); // Comentado ou removido
 
@@ -1837,31 +1795,49 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function renderVisualizador() {
         if (!pageContainer) return;
-        pageContainer.innerHTML = '';
+        pageContainer.innerHTML = ''; // Limpa o container
 
         if (!documentPages || documentPages.length === 0) {
             pageContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">O conteúdo do documento está vazio ou não pôde ser carregado.</p>';
             return;
         }
 
-        signatureIndex = 0;
+        signatureIndex = 0; // Reseta o contador de assinaturas do militar
 
+        // Itera sobre cada 'documento' (página lógica) vindo do backend
         documentPages.forEach((pageHtml, index) => {
             const pageDiv = document.createElement('div');
-            pageDiv.className = 'page';
+            pageDiv.className = 'page'; // Aplica a classe CSS de página
 
+            // O conteúdo interno da página
             const contentDiv = document.createElement('div');
             contentDiv.className = 'page-content';
-            contentDiv.setAttribute('contenteditable', 'true');
+            // REMOVIDO: contentDiv.setAttribute('contenteditable', 'true');
 
-            // Processa os placeholders de assinatura e insere o HTML
+            // Processa os placeholders (assinaturas, botões, etc.)
+            // e remove <br> extras no início/fim de parágrafos que podem causar espaços
             let processedHtml = processPlaceholders(pageHtml);
-            contentDiv.innerHTML = processedHtml;
+            // Tentativa adicional de limpar <br> no início/fim e espaços múltiplos
+            processedHtml = processedHtml.replace(/<p>(<br\s*\/?>|\s|&nbsp;)*<\/p>/gi, ''); // Remove parágrafos totalmente vazios ou só com <br>/espaços
+            processedHtml = processedHtml.replace(/<p>(<br\s*\/?>\s*)+/gi, '<p>'); // Remove <br> no início de <p>
+            processedHtml = processedHtml.replace(/(<br\s*\/?>\s*)+<\/p>/gi, '</p>'); // Remove <br> no fim de <p>
+            processedHtml = processedHtml.replace(/\s{2,}/g, ' '); // Substitui múltiplos espaços por um único
+            processedHtml = processedHtml.replace(/(&nbsp;){2,}/g, '&nbsp;'); // Substitui múltiplos &nbsp; por um único
 
+
+            contentDiv.innerHTML = processedHtml; // Insere o HTML processado
+
+            // Adiciona o conteúdo à div da página
             pageDiv.appendChild(contentDiv);
+            // Adiciona a página completa ao container principal
             pageContainer.appendChild(pageDiv);
         });
+
+         // REMOVIDO: Listener de 'input' não é mais necessário
+         // pageContainer.removeEventListener('input', scheduleSave);
+         // pageContainer.addEventListener('input', scheduleSave);
     }
+
 
     // --- LÓGICA PARA EXCLUIR ANEXOS ---
     document.body.addEventListener('click', function(e) {
