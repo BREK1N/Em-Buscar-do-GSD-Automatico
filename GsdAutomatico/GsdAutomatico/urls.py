@@ -23,6 +23,7 @@ urlpatterns = [
     path('admin/', admin.site.urls),
     path('Ouvidoria/', include('Ouvidoria.urls')),   
     path('', include('login.urls')),
+    path('informatica/', include('informatica.urls')),
 ]
 
 handler404 = 'login.views.custom_404_view'

@@ -1,0 +1,93 @@
+{% extends 'informatica/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+{# Adapte os estilos do militar_form.html da Ouvidoria se necessário #}
+<style>
+    .form-card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: var(--box-shadow); }
+    .form-card-header { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+    .form-card-header svg { width: 24px; height: 24px; color: var(--accent-color); }
+    .form-card-header h2 { margin: 0; font-size: 1.2rem; }
+    .form-card-body .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+    .form-card-body .form-item { display: flex; flex-direction: column; }
+    .form-card-body .form-item.full-width { grid-column: 1 / -1; }
+    .form-card-body .form-item label { margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
+    .form-card-body .form-item input,
+    .form-card-body .form-item select,
+    .form-card-body .form-item textarea { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); box-sizing: border-box; }
+    .form-item-checkbox { display: flex; flex-direction: row; align-items: center; gap: 10px; }
+    .form-item-checkbox input { width: auto; }
+    .alert-error { color: var(--danger-color); font-size: 0.8rem; margin-top: 5px; }
+</style>
+
+<h1>{{ page_title }}</h1>
+
+<form method="post" class="model-form">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    {# Organizar campos em cards como no form original da Ouvidoria #}
+    <div class="form-card">
+        <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <h2>Dados Pessoais</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="form-grid">
+                <div class="form-item full-width">
+                    <label for="{{ form.nome_completo.id_for_label }}">{{ form.nome_completo.label }}:</label>
+                    {{ form.nome_completo }}
+                    {% for error in form.nome_completo.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.nome_guerra.id_for_label }}">{{ form.nome_guerra.label }}:</label>
+                    {{ form.nome_guerra }}
+                    {% for error in form.nome_guerra.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.saram.id_for_label }}">{{ form.saram.label }}:</label>
+                    {{ form.saram }}
+                    {% for error in form.saram.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-card">
+         <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
+            <h2>Informações Militares</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="form-grid">
+                 <div class="form-item"> <label for="{{ form.posto.id_for_label }}">{{ form.posto.label }}:</label> {{ form.posto }} {% for error in form.posto.errors %}<div class="alert-error">{{ error }}</div>{% endfor %} </div>
+                 <div class="form-item"> <label for="{{ form.quad.id_for_label }}">{{ form.quad.label }}:</label> {{ form.quad }} {% for error in form.quad.errors %}<div class="alert-error">{{ error }}</div>{% endfor %} </div>
+                 <div class="form-item"> <label for="{{ form.especializacao.id_for_label }}">{{ form.especializacao.label }}:</label> {{ form.especializacao }} {% for error in form.especializacao.errors %}<div class="alert-error">{{ error }}</div>{% endfor %} </div>
+                 <div class="form-item"> <label for="{{ form.turma.id_for_label }}">{{ form.turma.label }}:</label> {{ form.turma }} {% for error in form.turma.errors %}<div class="alert-error">{{ error }}</div>{% endfor %} </div>
+                 <div class="form-item"> <label for="{{ form.situacao.id_for_label }}">{{ form.situacao.label }}:</label> {{ form.situacao }} {% for error in form.situacao.errors %}<div class="alert-error">{{ error }}</div>{% endfor %} </div>
+                <div class="form-item form-item-checkbox"> {{ form.oficial }} <label for="{{ form.oficial.id_for_label }}">{{ form.oficial.label }}</label> {% for error in form.oficial.errors %}<div class="alert-error">{{ error }}</div>{% endfor %} </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-card">
+        <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
+            <h2>Localização</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="form-grid">
+                <div class="form-item"> <label for="{{ form.om.id_for_label }}">{{ form.om.label }}:</label> {{ form.om }} {% for error in form.om.errors %}<div class="alert-error">{{ error }}</div>{% endfor %} </div>
+                <div class="form-item"> <label for="{{ form.setor.id_for_label }}">{{ form.setor.label }}:</label> {{ form.setor }} {% for error in form.setor.errors %}<div class="alert-error">{{ error }}</div>{% endfor %} </div>
+                <div class="form-item"> <label for="{{ form.subsetor.id_for_label }}">{{ form.subsetor.label }}:</label> {{ form.subsetor }} {% for error in form.subsetor.errors %}<div class="alert-error">{{ error }}</div>{% endfor %} </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a href="{% url 'informatica:militar_list' %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

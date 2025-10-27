@@ -1,0 +1,166 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Selecionar Aplicação - GSD Automatico</title>
+    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <style>
+        body {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh; /* Use min-height para garantir que ocupe a tela toda */
+            background-color: var(--bg-main);
+            padding: 20px; /* Adiciona um padding geral */
+            box-sizing: border-box;
+        }
+        .selection-container {
+            width: 100%;
+            max-width: 450px; /* Um pouco mais estreito */
+            padding: 40px 30px; /* Ajusta padding */
+            background-color: var(--bg-content);
+            border-radius: 16px; /* Mais arredondado */
+            box-shadow: var(--box-shadow);
+            text-align: center;
+            border: 1px solid var(--border-color); /* Adiciona uma borda sutil */
+            transform: translateY(-20px); /* Leve ajuste para cima */
+            opacity: 0; /* Inicia invisível para animação */
+            animation: fadeInSlideUp 0.5s ease-out forwards; /* Animação de entrada */
+        }
+
+        @keyframes fadeInSlideUp {
+            to {
+                transform: translateY(0);
+                opacity: 1;
+            }
+        }
+
+        .selection-container img {
+            width: 70px; /* Ajusta tamanho do brasão */
+            height: auto;
+            margin-bottom: 20px;
+        }
+
+        .selection-container h1 {
+            margin-bottom: 10px; /* Menos espaço abaixo do H1 */
+            color: var(--text-primary);
+            border-bottom: none;
+            font-size: 1.6rem; /* Aumenta um pouco o H1 */
+            font-weight: 600;
+        }
+        .selection-container p {
+            margin-bottom: 35px; /* Mais espaço abaixo do parágrafo */
+            color: var(--text-secondary);
+            font-size: 1rem; /* Tamanho padrão */
+        }
+        .app-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            gap: 15px; /* Espaço entre botões */
+        }
+        .app-list li a {
+            display: flex; /* Para alinhar ícone e texto */
+            align-items: center;
+            justify-content: center; /* Centraliza conteúdo */
+            gap: 10px; /* Espaço entre ícone e texto */
+            padding: 16px 20px; /* Botões um pouco maiores */
+            background: linear-gradient(45deg, var(--accent-color), #4fa4ff); /* Gradiente */
+            color: #fff;
+            text-decoration: none;
+            border-radius: 10px; /* Bordas mais suaves */
+            font-size: 1rem;
+            font-weight: 500; /* Peso médio */
+            transition: all 0.3s ease; /* Transição suave */
+            box-shadow: 0 4px 10px rgba(0, 123, 255, 0.2); /* Sombra sutil azulada */
+        }
+        .app-list li a:hover {
+            background: linear-gradient(45deg, var(--accent-hover), #3a8dff); /* Gradiente no hover */
+            transform: translateY(-3px); /* Efeito de levantar */
+            box-shadow: 0 6px 15px rgba(0, 123, 255, 0.3);
+        }
+
+        /* Estilo específico para o botão Admin */
+        .app-list li a.admin-link {
+             background: var(--bg-sidebar); /* Fundo diferente */
+             color: var(--text-primary);
+             border: 1px solid var(--border-color);
+             box-shadow: none; /* Sem sombra */
+        }
+         .app-list li a.admin-link:hover {
+             background: var(--sidebar-active-bg);
+             border-color: var(--accent-color);
+             transform: translateY(-2px); /* Efeito menor */
+             box-shadow: 0 2px 5px rgba(0,0,0,0.1); /* Sombra genérica */
+        }
+
+        .logout-link {
+            margin-top: 35px; /* Mais espaço acima do Sair */
+            display: inline-block;
+            color: var(--text-secondary);
+            text-decoration: none;
+            font-size: 0.9rem; /* Levemente menor */
+            transition: color 0.3s ease;
+        }
+        .logout-link:hover {
+            text-decoration: underline;
+            color: var(--text-primary);
+        }
+
+        /* Ícones SVG (Exemplos - substitua pelos seus se tiver) */
+        .app-icon {
+            width: 20px;
+            height: 20px;
+        }
+
+    </style>
+</head>
+<body class="light-theme"> {# Pode iniciar com light ou dark #}
+    <div class="selection-container">
+        {# Adiciona o Brasão #}
+        <img src="{% static 'img/brasaoGsd.png' %}" alt="Brasão GSD-GL">
+
+        <h1>Selecionar Aplicação</h1>
+        <p>Você tem acesso a múltiplas áreas. Por favor, escolha para onde deseja ir:</p>
+
+        <ul class="app-list">
+            {% for app in available_apps %}
+            <li>
+                <a href="{% url app.url_name %}">
+                    {# Adicionar Ícone (Exemplo) - Adapte conforme necessário #}
+                    {% if app.url_name == 'Ouvidoria:index' %}
+                    <svg class="app-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
+                    {% elif app.url_name == 'informatica:dashboard' %}
+                     <svg class="app-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z" /></svg>
+                    {% endif %}
+                    <span>{{ app.display_name }}</span>
+                </a>
+            </li>
+            {% empty %}
+            <li>Nenhuma aplicação disponível.</li>
+            {% endfor %}
+            {# Adiciona link para Admin se for staff/superuser #}
+            {% if user.is_staff or user.is_superuser %}
+             <li>
+                 <a href="/admin/" class="admin-link"> {# Adiciona classe para estilo diferente #}
+                    <svg class="app-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" /> </svg>
+                    <span>Admin Django</span>
+                </a>
+             </li>
+            {% endif %}
+        </ul>
+
+        <a href="{% url 'login:logout' %}" class="logout-link">Sair</a>
+    </div>
+
+    {# Script para carregar o tema do localStorage (opcional, mas bom ter) #}
+    <script>
+        const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
+        document.body.className = savedTheme; // Aplica o tema diretamente no body
+    </script>
+</body>
+</html>

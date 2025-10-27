@@ -1,0 +1,253 @@
+{% extends 'informatica/base.html' %}
+{% load static %}
+
+{% block title %}{{ page_title|default:"Dashboard Admin" }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .dashboard-grid {
+        display: grid;
+        /* Aumenta o número mínimo de colunas para telas maiores */
+        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+        gap: 25px; /* Espaço entre os cards */
+    }
+
+    /* Estilo básico do card (pode refinar) */
+    .dashboard-card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 25px; /* Aumenta o padding interno */
+        box-shadow: var(--box-shadow);
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
+    }
+    .dashboard-card:hover {
+        /* Leve efeito ao passar o mouse */
+        transform: translateY(-3px);
+        box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+    }
+    /* Estilo diferente para card de stats */
+     .stats-card {
+         background-color: var(--bg-main); /* Fundo ligeiramente diferente */
+     }
+     .stats-card:hover {
+        transform: none; /* Sem efeito de levantar para stats */
+        box-shadow: var(--box-shadow);
+     }
+
+
+    .dashboard-card h3 {
+        margin-top: 0;
+        margin-bottom: 20px; /* Mais espaço abaixo do título */
+        padding-bottom: 15px; /* Mais padding abaixo */
+        border-bottom: 1px solid var(--border-color);
+        font-size: 1.2rem; /* Título um pouco maior */
+        font-weight: 600; /* Mais peso */
+        display: flex;
+        align-items: center;
+        gap: 10px; /* Mais espaço para o ícone */
+        color: var(--text-primary);
+    }
+    .dashboard-card h3 svg {
+        width: 22px; /* Ícone um pouco maior */
+        height: 22px;
+        color: var(--accent-color);
+    }
+    .dashboard-card .card-content { flex-grow: 1; }
+
+    /* Lista de Modelos */
+    .model-list { list-style: none; padding: 0; margin: 0; }
+    .model-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 12px 5px; /* Ajusta padding vertical e horizontal */
+        border-bottom: 1px solid var(--border-color);
+        transition: background-color 0.2s ease;
+        /* Adiciona gap para espaçamento geral */
+        gap: 15px;
+    }
+    .model-list li:hover {
+        background-color: var(--bg-main); /* Fundo sutil no hover */
+    }
+    .model-list li:last-child { border-bottom: none; }
+
+    .model-list .model-name-link { /* Link do nome principal */
+        color: var(--text-primary); /* Cor primária para o nome */
+        text-decoration: none;
+        font-weight: 500;
+        transition: color 0.2s;
+        display: flex; /* Para alinhar nome e contagem */
+        align-items: center;
+        /* Permite que o nome cresça, mas também encolha se necessário */
+        flex-grow: 1;
+        flex-shrink: 1;
+        /* Evita que o nome quebre muito cedo */
+        min-width: 0; /* Necessário para flex-shrink funcionar corretamente */
+        margin-right: 10px; /* Adiciona espaço antes das ações */
+    }
+     .model-list .model-name-link:hover {
+        color: var(--accent-color);
+    }
+
+    .model-list .model-actions {
+        display: flex;
+        align-items: center;
+        /* Impede que a área de ações encolha */
+        flex-shrink: 0;
+        /* Garante que os links não quebrem a linha */
+        white-space: nowrap;
+    }
+
+    .model-list .model-actions a {
+        color: var(--accent-color); /* Ações sempre em cor de destaque */
+        text-decoration: none;
+        margin-left: 10px; /* Reduz um pouco a margem entre os links */
+        font-size: 0.85rem; /* Ações um pouco menores */
+        transition: color 0.2s;
+    }
+     /* Remove margem do primeiro link de ação */
+    .model-list .model-actions a:first-child {
+        margin-left: 0;
+    }
+
+    .model-list .model-actions a:hover {
+        color: var(--accent-hover);
+        text-decoration: underline;
+    }
+     .model-list .model-count {
+        font-size: 0.8rem; /* Contagem menor */
+        color: var(--text-secondary);
+        background-color: var(--bg-main);
+        padding: 2px 7px;
+        border-radius: 4px;
+        margin-left: 10px; /* Espaço antes da contagem */
+        font-weight: normal; /* Contagem não negrito */
+        /* Impede que a contagem encolha */
+        flex-shrink: 0;
+    }
+
+    /* Stats */
+    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; } /* Mais gap */
+    .stat-item { background-color: var(--bg-content); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid var(--border-color); }
+    .stat-item .stat-value { font-size: 2rem; font-weight: 700; color: var(--accent-color); display: block; margin-bottom: 5px; line-height: 1.2;}
+    .stat-item .stat-label { font-size: 0.85rem; color: var(--text-secondary); }
+
+    /* Links desabilitados */
+    .model-actions a[href="#"] {
+        color: var(--text-secondary);
+        pointer-events: none;
+        text-decoration: line-through;
+        opacity: 0.6; /* Fica mais apagado */
+    }
+    /* Esconde "Adicionar" para Configuração */
+    .model-list li[data-model="configuracao"] .model-actions a:first-child {
+         display: none;
+    }
+    /* Altera texto de "Editar" para Configuração */
+    .model-list li[data-model="configuracao"] .model-actions a:last-child {
+         margin-left: 0; /* Remove margem extra */
+         /* Se quiser mudar o texto para 'Gerenciar' via CSS (alternativa ao template)
+         content: 'Gerenciar';
+         font-size: 0; /* Esconde texto original
+         ::after { font-size: 0.85rem; content: 'Gerenciar'; } */
+    }
+     /* Esconde "Adicionar" para PATD */
+    .model-list li[data-model="patd"] .model-actions a:first-child {
+         display: none;
+    }
+     /* Ajusta margem para "Ver Lista" de PATD */
+    .model-list li[data-model="patd"] .model-actions a:last-child {
+         margin-left: 0;
+    }
+
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>{{ page_title|default:"Dashboard da Informática" }}</h1>
+<p>Visão geral e acesso rápido às funcionalidades administrativas.</p>
+
+<div class="dashboard-grid" style="margin-top: 25px;">
+
+    {# Card 1: Estatísticas Rápidas #}
+    <div class="dashboard-card stats-card"> {# Adiciona classe stats-card #}
+        <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A2.625 2.625 0 011.5 18.375v-2.25zM16.5 13.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25a2.625 2.625 0 01-2.625-2.625v-2.25zM16.5 13.125V18.75m0-5.625v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c-1.99 0-3.898.39-5.71.989A4.482 4.482 0 005.25 9.75v1.5m6-1.5V18.75m0-5.625c0-1.496.764-2.812 1.99-3.611A48.248 48.248 0 0012 5.25c1.99 0 3.898.39 5.71.989A4.482 4.482 0 0118.75 9.75v1.5m-6-1.5v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c-1.99 0-3.898.39-5.71.989A4.482 4.482 0 005.25 9.75v1.5m6-1.5V9.75m0 9V9.75m0 9H12m0 0H9.75m0 0v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c1.99 0 3.898.39 5.71.989A4.482 4.482 0 0118.75 9.75v1.5" /></svg>
+            Estatísticas Rápidas
+        </h3>
+        <div class="card-content stats-grid">
+             <div class="stat-item"> <span class="stat-value">{{ quick_stats.total_users|default:"0" }}</span> <span class="stat-label">Utilizadores</span> </div>
+            <div class="stat-item"> <span class="stat-value">{{ quick_stats.militares_count|default:"0" }}</span> <span class="stat-label">Militares</span> </div>
+            <div class="stat-item"> <span class="stat-value">{{ quick_stats.total_patds|default:"0" }}</span> <span class="stat-label">Total PATDs</span> </div>
+            <div class="stat-item"> <span class="stat-value">{{ quick_stats.active_patds|default:"0" }}</span> <span class="stat-label">PATDs Ativas</span> </div>
+        </div>
+    </div>
+
+    {# Card 2: Gerenciamento Geral #}
+    <div class="dashboard-card">
+         <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" /></svg>
+            Gerenciar Sistema
+        </h3>
+        <div class="card-content">
+            <ul class="model-list">
+                {% for app in general_admin_apps %}
+                <li data-model="{{ app.model_name|lower }}">
+                    <a href="{{ app.list_url }}" class="model-name-link"> {# Link principal no nome #}
+                        {{ app.name }}
+                        <span class="model-count">{{ app.count }}</span>
+                    </a>
+                    <span class="model-actions">
+                        <a href="{{ app.add_url }}">Adicionar</a>
+                        <a href="{{ app.list_url }}">Ver Lista</a>
+                    </span>
+                </li>
+                {% empty %}
+                <li>Nenhum modelo de sistema configurado.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+    {# Card 3: Gerenciamento Ouvidoria #}
+    <div class="dashboard-card">
+         <h3>
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
+            Gerenciar Ouvidoria
+        </h3>
+        <div class="card-content">
+            <ul class="model-list">
+                {% for app in ouvidoria_apps %}
+                 {# Adiciona data-model para CSS específico #}
+                 <li data-model="{{ app.model_name|lower }}">
+                    {% if app.singular == 'Configuração' %}
+                        <a href="{{ app.edit_config_url }}" class="model-name-link">{{ app.name }}</a>
+                        <span class="model-actions">
+                            <a href="{{ app.edit_config_url }}">Gerenciar</a> {# Link único para editar config #}
+                        </span>
+                    {% else %}
+                        <a href="{{ app.list_url }}" class="model-name-link">
+                            {{ app.name }}
+                            <span class="model-count">{{ app.count }}</span>
+                        </a>
+                        <span class="model-actions">
+                            {# Link "Adicionar" removido para PATD via CSS #}
+                            {% if app.model_name != 'patd' %}
+                                <a href="{{ app.add_url }}">Adicionar</a>
+                            {% endif %}
+                            <a href="{{ app.list_url }}">Ver Lista</a>
+                        </span>
+                    {% endif %}
+                </li>
+                {% empty %}
+                 <li>Nenhum modelo da Ouvidoria configurado.</li>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+
+</div>
+{% endblock %}
