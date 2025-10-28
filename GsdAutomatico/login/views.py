@@ -160,23 +160,6 @@ def logout_view(request):
     logout(request)
     return redirect('login:login')
 
-@login_required
-@user_passes_test(is_admin)
-def register_view(request):
-    if request.method == 'POST':
-        form = CustomUserCreationForm(request.POST)
-        if form.is_valid():
-            user = form.save()
-            messages.success(request, f"Utilizador '{user.username}' criado com sucesso!")
-            # Redireciona para um local apropriado após registo, talvez o dashboard de informática ou admin
-            return redirect('informatica:dashboard') # Ou '/admin/'
-        else:
-            # ADICIONE ESTA LINHA PARA DEPURAR OS ERROS
-            print("ERROS DE VALIDAÇÃO DO FORMULÁRIO:", form.errors.as_json())
-    else:
-        form = CustomUserCreationForm()
-    return render(request, 'login/register.html', {'form': form})
-
 def custom_404_view(request, exception):
     """
     Redireciona o utilizador quando uma página não é encontrada.

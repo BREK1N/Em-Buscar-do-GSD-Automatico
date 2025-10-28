@@ -39,19 +39,68 @@ class MilitarForm(forms.ModelForm):
 
 # --- Novos Formulários ---
 
-class InformaticaUserCreationForm(UserCreationForm):
+class InformaticaUserCreationForm(forms.ModelForm): # Alterado para ModelForm
     """ Formulário para criar novos utilizadores na área de informática """
-    class Meta(UserCreationForm.Meta):
+    # --- Alterações ---
+    # Remover campos de senha
+    # Adicionar campos militar e groups
+
+    militar = forms.ModelChoiceField(
+        queryset=Militar.objects.all(),
+        required=False, # Associação é opcional
+        label="Militar Associado (Opcional)",
+        help_text="Associe este utilizador a um militar existente no efetivo.",
+        widget=forms.HiddenInput() # Oculto, será preenchido via modal
+    )
+
+    groups = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Grupos de Permissão",
+        help_text="Os grupos que este utilizador pertence."
+    )
+    # --- Fim Alterações ---
+
+    class Meta:
         model = User
-        fields = ("username",) # Apenas username inicialmente, senha é tratada pelo form base
+        fields = ("username", "militar", "groups") # Campos a serem mostrados
+
+    # Sobrescreve o save para definir senha padrão e associar perfil/grupos
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        user.set_password('12345678') # Define a senha padrão
+        if commit:
+            user.save()
+            # Salva a relação ManyToMany dos grupos APÓS o user ser salvo
+            self.save_m2m() # Importante para salvar os grupos selecionados
+
+            # Associa o militar ao UserProfile
+            militar_selecionado = self.cleaned_data.get('militar')
+            # Garante que o perfil existe ou cria um novo
+            profile, created = UserProfile.objects.get_or_create(user=user)
+            if militar_selecionado:
+                profile.militar = militar_selecionado
+                profile.save()
+        return user
+
 
 class InformaticaUserChangeForm(UserChangeForm):
     """ Formulário para editar utilizadores existentes """
-    # Remove o campo de senha para evitar alterações acidentais aqui
-    password = None
+    password = None # Remove o campo de senha da edição
+
+    groups = forms.ModelMultipleChoiceField(
+        queryset=Group.objects.all(),
+        widget=forms.CheckboxSelectMultiple,
+        required=False,
+        label="Grupos de Permissão",
+        help_text="Os grupos que este utilizador pertence."
+    )
+
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name', 'email', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
+        fields = ('username', 'first_name', 'last_name', 'email', 'is_active', 'is_staff', 'is_superuser', 'groups')
+
 
 class GroupForm(forms.ModelForm):
     """ Formulário para Grupos de Permissão """
@@ -67,10 +116,7 @@ class UserProfileForm(forms.ModelForm):
     class Meta:
         model = UserProfile
         fields = ('militar',)
-        # Pode adicionar um widget de select2 ou similar se tiver muitos militares
-        # widgets = {
-        #     'militar': forms.Select(attrs={'class': 'select2'}),
-        # }
+
 
 class ConfiguracaoForm(forms.ModelForm):
     """ Formulário para gerenciar as Configurações Gerais """
@@ -85,3 +131,4 @@ class ConfiguracaoForm(forms.ModelForm):
         self.fields['comandante_gsd'].empty_label = "--- Selecione ---"
         self.fields['comandante_bagl'].queryset = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
         self.fields['comandante_bagl'].empty_label = "--- Selecione ---"
+

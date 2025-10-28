@@ -1,6 +1,6 @@
 # GsdAutomatico/informatica/views.py
 
-from django.shortcuts import render, redirect # Adicionar redirect
+from django.shortcuts import render, redirect, get_object_or_404 # Adicionar redirect e get_object_or_404
 from django.contrib.admin.views.decorators import staff_member_required
 from django.apps import apps
 from django.urls import reverse, NoReverseMatch, reverse_lazy
@@ -17,6 +17,12 @@ from .forms import (
 # --- Fim Alteração ---
 from django.db.models import Q
 import logging
+# --- Adicionar imports para reset de senha ---
+from django.http import JsonResponse
+from django.views.decorators.http import require_POST
+from django.contrib import messages
+# --- Fim Adicionar imports ---
+
 
 logger = logging.getLogger(__name__)
 
@@ -32,14 +38,16 @@ class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     def handle_no_permission(self):
         return super().handle_no_permission()
 
-# --- View do Dashboard (Mantém o código anterior, ajustando URLs) ---
+# --- View do Dashboard ---
 @staff_member_required
 def dashboard(request):
+    # --- Remoção: Removida a linha de 'userprofile' ---
     general_models_info = [
         ('auth', 'user', 'Utilizadores', 'Utilizador'),
         ('auth', 'group', 'Grupos de Permissão', 'Grupo'),
-        ('login', 'userprofile', 'Perfis de Utilizador', 'Perfil'),
+        # ('login', 'userprofile', 'Perfis de Utilizador', 'Perfil'), # Linha removida
     ]
+    # --- Fim da Remoção ---
     ouvidoria_models_info = [
         ('Ouvidoria', 'militar', 'Efetivo (Militares)', 'Militar'),
         ('Ouvidoria', 'patd', 'Processos (PATD)', 'PATD'),
@@ -140,7 +148,7 @@ class MilitarDeleteView(StaffRequiredMixin, DeleteView):
         context['page_title'] = f"Confirmar Exclusão de {self.object}"
         return context
 
-# --- NOVAS VIEWS CRUD PARA User ---
+# --- VIEWS CRUD PARA User ---
 class UserListView(StaffRequiredMixin, ListView):
     model = User
     template_name = 'informatica/user_list.html' # Criar este template
@@ -167,16 +175,13 @@ class UserCreateView(StaffRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context['page_title'] = "Adicionar Utilizador"
         return context
-    # --- Adicional: Lidar com a senha após criação (opcional, pode ser manual) ---
-    # def form_valid(self, form):
-    #     user = form.save(commit=False)
-    #     user.set_password('12345678') # Define uma senha padrão
-    #     user.save()
-    #     form.save_m2m() # Salva relações many-to-many (grupos, permissões)
-    #     # Associa perfil (se necessário)
-    #     UserProfile.objects.get_or_create(user=user)
-    #     messages.success(self.request, f"Utilizador '{user.username}' criado com senha padrão '12345678'.")
-    #     return redirect(self.success_url)
+
+    def form_valid(self, form):
+        # A lógica de salvar senha, grupos e perfil está no form.save()
+        user = form.save()
+        messages.success(self.request, f"Utilizador '{user.username}' criado com senha padrão '12345678'.")
+        return redirect(self.success_url)
+
 
 class UserUpdateView(StaffRequiredMixin, UpdateView):
     model = User
@@ -197,7 +202,22 @@ class UserDeleteView(StaffRequiredMixin, DeleteView):
         context['page_title'] = f"Confirmar Exclusão de {self.object.username}"
         return context
 
-# --- NOVAS VIEWS CRUD PARA Group ---
+# --- VIEW PARA RESETAR SENHA ---
+@staff_member_required
+@require_POST
+def reset_user_password(request, pk):
+    user_to_reset = get_object_or_404(User, pk=pk)
+    try:
+        user_to_reset.set_password('12345678')
+        user_to_reset.save()
+        # messages.success(request, f"Senha do utilizador '{user_to_reset.username}' redefinida para '12345678'.") # Removido
+        return JsonResponse({'status': 'success', 'message': f"Senha do utilizador '{user_to_reset.username}' redefinida."})
+    except Exception as e:
+        logger.error(f"Erro ao redefinir senha para user {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': 'Não foi possível redefinir a senha.'}, status=500)
+
+
+# --- VIEWS CRUD PARA Group ---
 class GroupListView(StaffRequiredMixin, ListView):
     model = Group
     template_name = 'informatica/group_list.html' # Criar este template
@@ -307,3 +327,4 @@ class ConfiguracaoUpdateView(StaffRequiredMixin, UpdateView):
         context = super().get_context_data(**kwargs)
         context['page_title'] = "Gerenciar Configurações Gerais"
         return context
+

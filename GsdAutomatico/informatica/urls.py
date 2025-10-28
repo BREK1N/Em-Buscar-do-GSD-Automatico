@@ -18,6 +18,9 @@ urlpatterns = [
     path('users/add/', views.UserCreateView.as_view(), name='user_add'),
     path('users/<int:pk>/edit/', views.UserUpdateView.as_view(), name='user_edit'),
     path('users/<int:pk>/delete/', views.UserDeleteView.as_view(), name='user_delete'),
+    # --- Nova URL para redefinir senha ---
+    path('users/<int:pk>/reset-password/', views.reset_user_password, name='user_reset_password'),
+    # --- Fim da Nova URL ---
 
     # URLs para Group
     path('groups/', views.GroupListView.as_view(), name='group_list'),
@@ -37,3 +40,4 @@ urlpatterns = [
     path('configuracao/', views.ConfiguracaoUpdateView.as_view(), name='configuracao_edit'),
 
 ]
+

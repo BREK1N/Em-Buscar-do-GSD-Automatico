@@ -1,0 +1,94 @@
+{% extends 'informatica/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_head %}
+{# Adiciona estilos para a seleção de permissões #}
+<style>
+    /* Estilos básicos (mantidos) */
+    .form-card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: var(--box-shadow); }
+    .form-card-header { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+    .form-card-header svg { width: 24px; height: 24px; color: var(--accent-color); }
+    .form-card-header h2 { margin: 0; font-size: 1.2rem; }
+    .form-card-body .form-grid { display: grid; grid-template-columns: 1fr; gap: 20px; } /* Simplificado para 1 coluna */
+    .form-card-body .form-item { display: flex; flex-direction: column; }
+    .form-card-body .form-item label { margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
+    .form-card-body .form-item input, .form-card-body .form-item select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); box-sizing: border-box; }
+    .alert-error { color: var(--danger-color); font-size: 0.8rem; margin-top: 5px; }
+    .form-help-text { font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;}
+
+    /* Estilos para a lista de permissões */
+    .permissions-list-container {
+        max-height: 400px; /* Altura máxima para a lista */
+        overflow-y: auto; /* Scroll vertical */
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        padding: 15px;
+        background-color: var(--bg-main);
+        margin-top: 8px; /* Espaço acima da lista */
+    }
+    .permissions-list-container ul {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .permissions-list-container li {
+        margin-bottom: 10px;
+    }
+    .permissions-list-container label {
+        display: flex;
+        align-items: center;
+        cursor: pointer;
+        font-weight: normal; /* Texto normal */
+        color: var(--text-primary); /* Cor primária */
+        margin: 0;
+    }
+     .permissions-list-container input[type="checkbox"] {
+        margin-right: 10px;
+        width: auto; /* Tamanho padrão do checkbox */
+        accent-color: var(--accent-color); /* Cor do check */
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<h1>{{ page_title }}</h1>
+
+<form method="post" class="model-form">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="form-card">
+        <div class="form-card-header">
+            {# Ícone de Grupo #}
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24"> <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /> </svg>
+            <h2>Dados do Grupo</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="form-grid">
+                <div class="form-item">
+                    <label for="{{ form.name.id_for_label }}">{{ form.name.label }}:</label>
+                    {{ form.name }}
+                    {% if form.name.help_text %}<div class="form-help-text">{{ form.name.help_text|safe }}</div>{% endif %}
+                    {% for error in form.name.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                </div>
+
+                <div class="form-item">
+                    <label for="{{ form.permissions.id_for_label }}">{{ form.permissions.label }}:</label>
+                    <div class="permissions-list-container">
+                        {# Renderiza o campo de permissões (CheckboxSelectMultiple) #}
+                        {{ form.permissions }}
+                    </div>
+                    {% if form.permissions.help_text %}<div class="form-help-text">{{ form.permissions.help_text|safe }}</div>{% endif %}
+                    {% for error in form.permissions.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                </div>
+            </div> {# Fim form-grid #}
+        </div> {# Fim form-card-body #}
+    </div> {# Fim form-card #}
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a href="{% url 'informatica:group_list' %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}
