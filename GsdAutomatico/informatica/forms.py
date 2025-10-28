@@ -1,20 +1,22 @@
 # GsdAutomatico/informatica/forms.py
 
 from django import forms
-# Importa o modelo Militar do app Ouvidoria
-from Ouvidoria.models import Militar
+from django.contrib.auth.forms import UserCreationForm, UserChangeForm
+from django.contrib.auth.models import User, Group
+# Importa os modelos de outros apps
+from Ouvidoria.models import Militar, Configuracao
+from login.models import UserProfile # Modelo do Login
 
 class MilitarForm(forms.ModelForm):
     """
     Formulário para criar e atualizar Militares dentro do app Informatica.
+    (Mantém o que já existia)
     """
     class Meta:
         model = Militar
-        # Inclui os campos relevantes para administração
         fields = [
             'posto', 'quad', 'especializacao', 'saram', 'nome_completo',
             'nome_guerra', 'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial',
-            # 'assinatura' e 'senha_unica' podem ser omitidos aqui ou gerenciados separadamente
         ]
         widgets = {
             'posto': forms.TextInput(attrs={'placeholder': 'Ex: Capitão'}),
@@ -28,11 +30,58 @@ class MilitarForm(forms.ModelForm):
             'om': forms.TextInput(attrs={'placeholder': 'Ex: CINDACTA IV'}),
             'setor': forms.TextInput(attrs={'placeholder': 'Ex: Divisão de Operações'}),
             'subsetor': forms.TextInput(attrs={'placeholder': 'Ex: Seção de Busca e Salvamento'}),
-            # 'assinatura': forms.HiddenInput(), # Se não for gerenciar aqui
         }
-        # Adicionar labels se necessário (opcional, Django usa os verbose_name do modelo)
         labels = {
             'saram': 'SARAM',
             'om': 'OM',
             'quad': 'Quadro',
         }
+
+# --- Novos Formulários ---
+
+class InformaticaUserCreationForm(UserCreationForm):
+    """ Formulário para criar novos utilizadores na área de informática """
+    class Meta(UserCreationForm.Meta):
+        model = User
+        fields = ("username",) # Apenas username inicialmente, senha é tratada pelo form base
+
+class InformaticaUserChangeForm(UserChangeForm):
+    """ Formulário para editar utilizadores existentes """
+    # Remove o campo de senha para evitar alterações acidentais aqui
+    password = None
+    class Meta:
+        model = User
+        fields = ('username', 'first_name', 'last_name', 'email', 'is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
+
+class GroupForm(forms.ModelForm):
+    """ Formulário para Grupos de Permissão """
+    class Meta:
+        model = Group
+        fields = ('name', 'permissions')
+        widgets = {
+            'permissions': forms.CheckboxSelectMultiple,
+        }
+
+class UserProfileForm(forms.ModelForm):
+    """ Formulário para editar UserProfile (associar militar) """
+    class Meta:
+        model = UserProfile
+        fields = ('militar',)
+        # Pode adicionar um widget de select2 ou similar se tiver muitos militares
+        # widgets = {
+        #     'militar': forms.Select(attrs={'class': 'select2'}),
+        # }
+
+class ConfiguracaoForm(forms.ModelForm):
+    """ Formulário para gerenciar as Configurações Gerais """
+    class Meta:
+        model = Configuracao
+        fields = ('comandante_gsd', 'comandante_bagl', 'prazo_defesa_dias', 'prazo_defesa_minutos')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        # Filtra os selects para mostrar apenas oficiais
+        self.fields['comandante_gsd'].queryset = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
+        self.fields['comandante_gsd'].empty_label = "--- Selecione ---"
+        self.fields['comandante_bagl'].queryset = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
+        self.fields['comandante_bagl'].empty_label = "--- Selecione ---"

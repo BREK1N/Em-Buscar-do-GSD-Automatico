@@ -1,0 +1,63 @@
+{% extends 'informatica/base.html' %}
+
+{% block title %}{{ page_title }}{% endblock %}
+
+{% block content %}
+<style>
+    /* Estilos básicos para formulário (pode copiar/adaptar de militar_form.html) */
+    .form-card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: var(--box-shadow); }
+    .form-card-header { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
+    .form-card-header svg { width: 24px; height: 24px; color: var(--accent-color); }
+    .form-card-header h2 { margin: 0; font-size: 1.2rem; }
+    .form-card-body .form-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+    .form-card-body .form-item { display: flex; flex-direction: column; }
+    .form-card-body .form-item label { margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
+    .form-card-body .form-item input, .form-card-body .form-item select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); box-sizing: border-box; }
+    .form-item-checkbox { display: flex; flex-direction: row; align-items: center; gap: 10px; }
+    .form-item-checkbox input { width: auto; }
+    .alert-error { color: var(--danger-color); font-size: 0.8rem; margin-top: 5px; }
+    .form-help-text { font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;}
+    /* Estilo para campos ManyToMany (permissions) */
+    .permissions-grid { max-height: 300px; overflow-y: auto; border: 1px solid var(--border-color); border-radius: 6px; padding: 10px; background-color: var(--bg-main); margin-top: 5px; }
+    .permissions-grid label { display: block; margin-bottom: 5px; }
+</style>
+
+<h1>{{ page_title }}</h1>
+
+<form method="post" class="model-form">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+
+    <div class="form-card">
+         <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+            <h2>Dados do Utilizador</h2>
+        </div>
+         <div class="form-card-body">
+            <div class="form-grid">
+                {% for field in form %}
+                    <div class="form-item {% if field.name == 'permissions' or field.name == 'user_permissions' %}full-width{% endif %}">
+                         <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+                         {% if field.field.widget.input_type == 'checkbox' %}
+                            <div class="form-item-checkbox">
+                                {{ field }}
+                            </div>
+                        {% elif field.name == 'permissions' or field.name == 'user_permissions' %}
+                            <div class="permissions-grid">{{ field }}</div>
+                         {% else %}
+                            {{ field }}
+                         {% endif %}
+                         {% if field.help_text %}<div class="form-help-text">{{ field.help_text|safe }}</div>{% endif %}
+                         {% for error in field.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                    </div>
+                {% endfor %}
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a href="{% url 'informatica:user_list' %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}
