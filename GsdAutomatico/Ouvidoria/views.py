@@ -472,11 +472,11 @@ def _get_document_context(patd):
 
     return context
 
-
 def _render_document_from_template(template_name, context):
     """
     Função genérica para renderizar um documento .docx a partir de um template,
     preservando o alinhamento e convertendo para HTML.
+    AGORA SUPORTA O PLACEHOLDER {nova_pagina}
     """
     try:
         doc_path = os.path.join(settings.BASE_DIR, 'pdf', template_name)
@@ -493,6 +493,12 @@ def _render_document_from_template(template_name, context):
         html_content = []
 
         for p in document.paragraphs:
+            # --- NOVA VERIFICAÇÃO DE QUEBRA DE PÁGINA ---
+            if '{nova_pagina}' in p.text:
+                html_content.append('<div class="manual-page-break"></div>')
+                continue # Pula para o próximo parágrafo
+            # --- FIM DA VERIFICAÇÃO ---
+
             inline_text = p.text
             for placeholder, value in context.items():
                 if placeholder in inline_text:

@@ -1804,33 +1804,38 @@ document.addEventListener('DOMContentLoaded', function() {
 
         signatureIndex = 0; // Reseta o contador de assinaturas do militar
 
-        // Itera sobre cada 'documento' (página lógica) vindo do backend
-        documentPages.forEach((pageHtml, index) => {
-            const pageDiv = document.createElement('div');
-            pageDiv.className = 'page'; // Aplica a classe CSS de página
+        // Loop 1: Itera sobre cada DOCUMENTO separado (Coringa, Defesa, etc.)
+        documentPages.forEach((pageHtml, docIndex) => {
+            
+            // Processa placeholders (assinaturas, botões, etc.) para o documento inteiro
+            let processedDocumentHtml = processPlaceholders(pageHtml);
 
-            // O conteúdo interno da página
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'page-content';
-            // REMOVIDO: contentDiv.setAttribute('contenteditable', 'true');
+            // --- INÍCIO DA NOVA LÓGICA DE QUEBRA DE PÁGINA ---
+            
+            // Divide o HTML do documento atual usando o marcador que criamos no views.py
+            const subPagesHtml = processedDocumentHtml.split('<div class="manual-page-break"></div>');
 
-            // Processa os placeholders (assinaturas, botões, etc.)
-            // e remove <br> extras no início/fim de parágrafos que podem causar espaços
-            let processedHtml = processPlaceholders(pageHtml);
-            // Tentativa adicional de limpar <br> no início/fim e espaços múltiplos
-            processedHtml = processedHtml.replace(/<p>(<br\s*\/?>|\s|&nbsp;)*<\/p>/gi, ''); // Remove parágrafos totalmente vazios ou só com <br>/espaços
-            processedHtml = processedHtml.replace(/<p>(<br\s*\/?>\s*)+/gi, '<p>'); // Remove <br> no início de <p>
-            processedHtml = processedHtml.replace(/(<br\s*\/?>\s*)+<\/p>/gi, '</p>'); // Remove <br> no fim de <p>
-            processedHtml = processedHtml.replace(/\s{2,}/g, ' '); // Substitui múltiplos espaços por um único
-            processedHtml = processedHtml.replace(/(&nbsp;){2,}/g, '&nbsp;'); // Substitui múltiplos &nbsp; por um único
+            // Loop 2: Itera sobre as "sub-páginas" criadas pela divisão
+            subPagesHtml.forEach((subPageHtml, subPageIndex) => {
+                // Não cria páginas em branco se a divisão resultar em strings vazias
+                if (subPageHtml.trim() === "") {
+                    return; 
+                }
 
+                // Cria a estrutura <div class="page">...</div> para CADA sub-página
+                const pageDiv = document.createElement('div');
+                pageDiv.className = 'page'; 
 
-            contentDiv.innerHTML = processedHtml; // Insere o HTML processado
+                const contentDiv = document.createElement('div');
+                contentDiv.className = 'page-content';
+                
+                // Insere o HTML da sub-página
+                contentDiv.innerHTML = subPageHtml; 
 
-            // Adiciona o conteúdo à div da página
-            pageDiv.appendChild(contentDiv);
-            // Adiciona a página completa ao container principal
-            pageContainer.appendChild(pageDiv);
+                pageDiv.appendChild(contentDiv);
+                pageContainer.appendChild(pageDiv);
+            });
+            // --- FIM DA NOVA LÓGICA ---
         });
 
          // REMOVIDO: Listener de 'input' não é mais necessário
