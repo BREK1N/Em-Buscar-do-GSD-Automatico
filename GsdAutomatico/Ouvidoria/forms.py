@@ -20,6 +20,13 @@ class AtribuirOficialForm(forms.ModelForm):
 class AceitarAtribuicaoForm(forms.Form):
     senha = forms.CharField(widget=forms.PasswordInput, label="Sua Senha de Acesso")
 
+class ComandanteAprovarForm(forms.Form):
+    """
+    Formulário para o comandante confirmar uma ação (ex: aprovar PATD)
+    inserindo a própria senha.
+    """
+    senha_comandante = forms.CharField(widget=forms.PasswordInput, label="Sua Senha")
+
 class MilitarForm(forms.ModelForm):
     # Formulário para criar e atualizar registros de Militares.
     class Meta:

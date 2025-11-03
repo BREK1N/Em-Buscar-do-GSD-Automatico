@@ -336,7 +336,7 @@
             <div class="card-body" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px;">
                 <h4>Anexar Documento de Reconsideração</h4>
                 <p>Anexe o documento (Word ou imagem) referente à sua análise do pedido de reconsideração para prosseguir.</p>
-                <form action="{% url 'Ouvidoria:anexar_documento_reconsideracao_oficial' patd.pk %}" method="post" enctype="multipart/form-data">
+                <form action="{% url 'Ouvidoria:anexar_reconsideracao_oficial' patd.pk %}" method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     <div class="form-item">
                         <input type="file" name="anexo_oficial" accept=".doc,.docx,.png,.jpg,.jpeg" required style="width: 100%; padding: 10px;">

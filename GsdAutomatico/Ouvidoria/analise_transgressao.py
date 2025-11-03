@@ -310,10 +310,10 @@ def verifica_agravante_atenuante(historico, transgressao, justificativa, itens, 
         "justificativa": justificativa,
         "historico": historico,
         "itens": itens,
-        "comportamento_anterior": comportamento_anterior # Passando o novo parâmetro
+        "comportamento_anterior": comportamento_anterior 
     })
     return resposta
-# --- MODIFICAÇÃO TERMINA AQUI ---
+
 
 
 def sugere_punicao(transgressao, agravantes, atenuantes, itens, observacao):
@@ -393,6 +393,7 @@ def analisar_e_resumir_defesa(alegacao_defesa: str):
     2.  **Sintetize:** Crie um resumo conciso que capture a essência da defesa.
     3.  **Linguagem Formal:** Redija o resumo em linguagem formal e impessoal, adequada para um documento oficial militar.
     4.  **Limite de Palavras:** O resumo final não deve exceder 50 palavras.
+    5. O resumo final deve vir em terceira pessoa e em formato que possa ser inserido logo após o texto: "aduzindo, em síntese, que "
 
     **Alegação de Defesa Original:**
     {alegacao_defesa}

@@ -11,7 +11,7 @@ from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
 from .models import Militar, PATD, Configuracao, Anexo
 # --- ALTERAÇÃO: Adicionar ComandanteAprovarForm ---
-from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm
+from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm, ComandanteAprovarForm
 from langchain_community.document_loaders import PyPDFLoader
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
@@ -1919,9 +1919,19 @@ def analisar_punicao(request, pk):
         militar_acusado = patd.militar
         patds_anteriores = PATD.objects.filter(
             militar=militar_acusado
-        ).exclude(pk=patd.pk)
+        ).exclude(pk=patd.pk).order_by('-data_inicio') # Adiciona order_by para pegar o mais recente
 
         historico_list = []
+        
+        # --- INÍCIO DA CORREÇÃO ---
+        # Busca o comportamento anterior baseado na última PATD finalizada do militar
+        patd_mais_recente = patds_anteriores.first()
+        comportamento_anterior = "Permanece no \"Bom comportamento\"" # Valor padrão
+        
+        if patd_mais_recente and patd_mais_recente.comportamento:
+            comportamento_anterior = patd_mais_recente.comportamento
+        # --- FIM DA CORREÇÃO ---
+
         if patds_anteriores.exists():
             for p_antiga in patds_anteriores:
                 if p_antiga.itens_enquadrados and isinstance(p_antiga.itens_enquadrados, list):
@@ -1932,7 +1942,15 @@ def analisar_punicao(request, pk):
         historico_militar = "\n".join(historico_list) if historico_list else "Nenhuma punição anterior registrada."
         justificativa = patd.alegacao_defesa or "Nenhuma alegação de defesa foi apresentada."
 
-        circunstancias_obj = verifica_agravante_atenuante(historico_militar, patd.transgressao, justificativa, patd.itens_enquadrados)
+        # --- CORREÇÃO NA CHAMADA DA FUNÇÃO ---
+        circunstancias_obj = verifica_agravante_atenuante(
+            historico_militar, 
+            patd.transgressao, 
+            justificativa, 
+            patd.itens_enquadrados,
+            comportamento_anterior # Argumento adicionado
+        )
+        # --- FIM DA CORREÇÃO NA CHAMADA ---
 
         circunstancias_dict = circunstancias_obj.item[0]
         patd.circunstancias = {
