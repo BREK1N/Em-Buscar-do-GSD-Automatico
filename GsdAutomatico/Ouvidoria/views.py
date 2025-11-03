@@ -396,11 +396,11 @@ def _get_document_context(patd):
         '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]'),
 
         # Dados do Oficial Apurador
-        '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if oficial_definido else '[Aguardando Oficial confirmar]',
-        '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if oficial_definido else "[Aguardando Oficial confirmar]",
-        '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', 'N/A')) if oficial_definido else "[Aguardando Oficial confirmar]",
-        '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', 'N/A') if oficial_definido else "[Aguardando Oficial confirmar]",
-        '{Assinatura Oficial Apurador}': '{Assinatura_Imagem_Oficial_Apurador}' if oficial_definido and patd.assinatura_oficial else ('[Aguardando Oficial confirmar]' if not oficial_definido else '{Botao Assinar Oficial}'),
+        '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if oficial_definido else ' ',
+        '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if oficial_definido else " ",
+        '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', 'N/A')) if oficial_definido else " ",
+        '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', 'N/A') if oficial_definido else " ",
+        '{Assinatura Oficial Apurador}': '{Assinatura_Imagem_Oficial_Apurador}' if oficial_definido and patd.assinatura_oficial else (' ' if not oficial_definido else '{Botao Assinar Oficial}'),
 
         # Dados do Comandante
         '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
@@ -426,6 +426,9 @@ def _get_document_context(patd):
         '{data ciência}': data_ciencia_fmt,
         '{Data da alegação}': data_alegacao_fmt,
         '{Alegação_defesa_resumo}': patd.alegacao_defesa_resumo or '',
+        
+        # --- NOVO PLACEHOLDER ADICIONADO ---
+        '{pagina_alegacao}': '[Pág. N/D]', # Placeholder temporário
 
         # Placeholders de Punição
         '{punicao_completa}': punicao_final_str,
@@ -437,7 +440,7 @@ def _get_document_context(patd):
 
         # Placeholders de Assinatura
         # --- ALTERAÇÃO: Inicialmente, o placeholder do CMD fica como texto ---
-        '{Assinatura Comandante do GSD}': '[Assinatura Pendente]',
+        '{Assinatura Comandante do GSD}': ' ',
         '{Assinatura Alegacao Defesa}': '{Assinatura Alegacao Defesa}' if patd.assinatura_alegacao_defesa else '{Botao Assinar Defesa}',
         '{Assinatura Reconsideracao}': '{Assinatura Reconsideracao}' if patd.assinatura_reconsideracao else '{Botao Assinar Reconsideracao}',
 
@@ -472,6 +475,7 @@ def _get_document_context(patd):
 
     return context
 
+
 def _render_document_from_template(template_name, context):
     """
     Função genérica para renderizar um documento .docx a partir de um template,
@@ -500,6 +504,14 @@ def _render_document_from_template(template_name, context):
             # --- FIM DA VERIFICAÇÃO ---
 
             inline_text = p.text
+
+            # --- INÍCIO DA NOVA LÓGICA ---
+            # Substitui o "à fl. 08" hardcoded pelo nosso placeholder dinâmico
+            if 'RELATORIO_DELTA' in template_name or 'RELATORIO_JUSTIFICADO' in template_name:
+                # Este regex procura por "à fl." seguido de espaço(s), número(s), e depois vírgula, ponto ou espaço.
+                inline_text = re.sub(r'(à fl\.)(\s*\d+\s*)([,\.\s])', r'\1 {pagina_alegacao}\3', inline_text)
+            # --- FIM DA NOVA LÓGICA ---
+
             for placeholder, value in context.items():
                 if placeholder in inline_text:
                     inline_text = inline_text.replace(str(placeholder), str(value))
@@ -527,7 +539,6 @@ def _render_document_from_template(template_name, context):
         logger.error(error_msg)
         return error_msg
 
-
 def get_document_pages(patd):
     """
     Gera uma LISTA de páginas de documento em HTML a partir dos templates.
@@ -544,8 +555,16 @@ def get_document_pages(patd):
         alegacao_context = doc_context.copy()
         alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa if patd.alegacao_defesa else "[Ver documentos anexos]"
         html_content = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
-        html_content += "{ANEXOS_DEFESA_PLACEHOLDER}"
-        document_pages.append(html_content)
+        
+        # --- INÍCIO DA MODIFICAÇÃO (Adiciona marcador) ---
+        # Adiciona um wrapper com ID para o JS encontrar esta página
+        html_content = f'<div data-document-id="alegacao_defesa">{html_content}</div>'
+        document_pages.append(html_content) # Adiciona a página do documento
+        # --- FIM DA MODIFICAÇÃO ---
+        
+        # SÓ adiciona a página de anexo se houver anexos de defesa
+        if patd.anexos.filter(tipo='defesa').exists():
+            document_pages.append("{ANEXOS_DEFESA_PLACEHOLDER}")
 
     # 3. Termo de Preclusão
     status_preclusao_e_posteriores = [
@@ -585,21 +604,26 @@ def get_document_pages(patd):
          else:
              reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
          html_content = _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
-         html_content += "{ANEXOS_RECONSIDERACAO_PLACEHOLDER}"
-         document_pages.append(html_content)
+         document_pages.append(html_content) # Adiciona a página do documento
+         
+         # SÓ adiciona a página de anexo se houver anexos de reconsideração
+         if patd.anexos.filter(tipo='reconsideracao').exists():
+             document_pages.append("{ANEXOS_RECONSIDERACAO_PLACEHOLDER}")
 
     # 7. Anexos e NPD da reconsideração
     status_npd_reconsideracao_e_posteriores = [
         'aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado'
     ]
     if patd.status in status_npd_reconsideracao_e_posteriores:
-        html_content = "{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}"
-        html_content += _render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', doc_context)
-        document_pages.append(html_content)
+        
+        # SÓ adiciona a página de anexo se houver anexos de reconsideração oficial
+        if patd.anexos.filter(tipo='reconsideracao_oficial').exists():
+            document_pages.append("{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}")
+        
+        # Adiciona a NPD de reconsideração como *outra* "página"
+        document_pages.append(_render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', doc_context))
 
     return document_pages
-
-
 def _check_preclusao_signatures(patd):
     """
     Verifica se as assinaturas das testemunhas para o documento de preclusão
