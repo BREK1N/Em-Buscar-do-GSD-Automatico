@@ -143,7 +143,7 @@
     .feedback-message.error { background-color: #f8d7da; border-left: 4px solid var(--danger-color); color: #721c24; }
     #apuracao-form { display: none; margin-top: 15px; }
     #apuracao-form .form-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
-    #apuracao-form textarea, #apuracao-form input { width: 100%; box-sizing: border-box; }
+    #apuracao-form textarea, #apuracao-form input, #apuracao-form select { width: 100%; box-sizing: border-box; } /* Adicionado select */
     #apuracao-form .form-item-full { grid-column: 1 / -1; }
 
     /* Animação do Spinner */
@@ -625,11 +625,25 @@
                         <label for="agravantes">Agravantes:</label>
                         <input type="text" id="agravantes" name="agravantes">
                     </div>
-                    <div class="form-item-full">
-                        <label for="punicao_sugerida">Punição Sugerida:</label>
-                        <textarea id="punicao_sugerida" name="punicao_sugerida" rows="3"></textarea>
+                    
+                    <div class="form-item-full" style="display: grid; grid-template-columns: 120px 1fr; gap: 20px; align-items: flex-end;">
+                         <div class"form-item">
+                            <label for="id_punicao_dias">Dias:</label>
+                            <input type="number" id="id_punicao_dias" name="punicao_dias" min="0" value="0">
+                        </div>
+                        <div class"form-item">
+                            <label for="id_punicao_tipo">Tipo de Punição:</label>
+                            <select id="id_punicao_tipo" name="punicao_tipo">
+                                <option value="">Selecione...</option>
+                                <option value="detenção">Detenção</option>
+                                <option value="prisão">Prisão</option>
+                                <option value="repreensão por escrito">Repreensão por escrito</option>
+                                <option value="repreensão verbal">Repreensão verbal</option>
+                            </select>
+                        </div>
                     </div>
-                </div>
+                    <textarea id="punicao_sugerida_original_llm" style="display: none;"></textarea>
+                    </div>
                 <div class="form-actions">
                     <button type="button" id="btn-salvar-apuracao" class="btn btn-primary">
                         <span class="spinner" style="display: none;"></span>
@@ -681,7 +695,11 @@
                         {% if patd.justificado %}
                             Transgressão Justificada
                         {% elif patd.punicao %}
-                            {{ patd.dias_punicao }} de {{ patd.punicao }}
+                            {% if patd.dias_punicao %}
+                                {{ patd.dias_punicao }} de {{ patd.punicao }}
+                            {% else %}
+                                {{ patd.punicao }}
+                            {% endif %}
                         {% else %}
                             {{ patd.punicao_sugerida|default:"Ainda não definida" }}
                         {% endif %}
@@ -944,6 +962,10 @@ let anexosReconsideracaoOficial = {{ anexos_reconsideracao_oficial_json|default:
 
 let signatureIndex = 0; // Contador de assinaturas movido para o escopo externo
 
+// *** INÍCIO DA MODIFICAÇÃO (1/3) ***
+let alegacaoDefesaPageNumber = null; // Variável para armazenar o nº da página
+// *** FIM DA MODIFICAÇÃO (1/3) ***
+
 
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -1070,6 +1092,142 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target === aceitarAtribuicaoModal) aceitarAtribuicaoModal.classList.remove('active');
         });
     }
+
+    // *******************************************************************
+    // *** INÍCIO DO CÓDIGO ADICIONADO PARA CORREÇÃO ***
+    // *******************************************************************
+
+    // --- LÓGICA DO MODAL DE AVANÇAR PARA COMANDANTE ---
+    const avancarModal = document.getElementById('avancar-modal');
+    if (avancarModal) {
+        const openBtn = document.getElementById('btn-avancar-comandante');
+        const cancelBtn = document.getElementById('cancel-avancar-btn');
+        if(openBtn) {
+            openBtn.addEventListener('click', () => avancarModal.classList.add('active'));
+        }
+        if(cancelBtn) {
+            cancelBtn.addEventListener('click', () => avancarModal.classList.remove('active'));
+        }
+        avancarModal.addEventListener('click', e => {
+            if (e.target === avancarModal) avancarModal.classList.remove('active');
+        });
+        
+        // Tratar alerta de erro vindo da view (query param)
+        const urlParams = new URLSearchParams(window.location.search);
+        if (urlParams.has('erro') && urlParams.get('erro') === 'testemunhas') {
+            alert('Erro: Não é possível avançar. As duas testemunhas devem ser definidas na aba "Editar".');
+            // Limpa o parâmetro da URL para não mostrar o alerta ao recarregar
+            window.history.replaceState({}, document.title, window.location.pathname);
+        }
+    }
+
+    // --- LÓGICA DO MODAL DE RETORNAR PATD (COMANDANTE) ---
+    const retornarModal = document.getElementById('retornar-patd-modal');
+    if (retornarModal) {
+        const cancelBtn = document.getElementById('cancel-retornar-btn');
+        if(cancelBtn) {
+            cancelBtn.addEventListener('click', () => retornarModal.classList.remove('active'));
+        }
+        retornarModal.addEventListener('click', e => {
+            if (e.target === retornarModal) retornarModal.classList.remove('active');
+        });
+        
+        document.body.addEventListener('click', function(e) {
+            const target = e.target.closest('.open-retornar-modal-btn');
+            if (target) {
+                const patdPk = target.dataset.patdPk;
+                const patdNumero = target.dataset.patdNumero;
+                const form = document.getElementById('retornar-patd-form');
+                const title = document.getElementById('retornar-modal-title');
+                
+                if (form && title) {
+                    form.action = `/Ouvidoria/patd/${patdPk}/retornar/`;
+                    title.textContent = `Retornar PATD Nº ${patdNumero}`;
+                    retornarModal.classList.add('active');
+                }
+            }
+        });
+    }
+
+    // --- LÓGICA DOS MODAIS DE RECONSIDERAÇÃO ---
+    const reconsideracaoModal = document.getElementById('reconsideracao-modal');
+    const reconsideracaoTextoModal = document.getElementById('reconsideracao-texto-modal');
+
+    if (reconsideracaoModal && reconsideracaoTextoModal) {
+        const openBtn = document.getElementById('btn-reconsideracao-modal');
+        const cancelBtn = document.getElementById('cancel-reconsideracao-btn');
+        const confirmBtn = document.getElementById('confirm-reconsideracao-btn');
+        
+        const cancelTextoBtn = document.getElementById('cancel-reconsideracao-texto-btn');
+        const submitTextoBtn = document.getElementById('submit-reconsideracao-texto-btn');
+
+        // Modal 1: Confirmação
+        if(openBtn) {
+            openBtn.addEventListener('click', () => reconsideracaoModal.classList.add('active'));
+        }
+        if(cancelBtn) {
+            cancelBtn.addEventListener('click', () => reconsideracaoModal.classList.remove('active'));
+        }
+        if(confirmBtn) {
+            confirmBtn.addEventListener('click', () => {
+                const url = `{% url 'Ouvidoria:solicitar_reconsideracao' patd.pk %}`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken }
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        reconsideracaoModal.classList.remove('active');
+                        reconsideracaoTextoModal.classList.add('active');
+                    } else {
+                        alert('Erro: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('Erro:', error));
+            });
+        }
+
+        // Modal 2: Texto e Anexos
+        if(cancelTextoBtn) {
+            cancelTextoBtn.addEventListener('click', () => reconsideracaoTextoModal.classList.remove('active'));
+        }
+
+        // Listener para o botão de dentro do documento
+        document.body.addEventListener('click', e => {
+            if (e.target && e.target.id === 'add-reconsideracao-texto-btn-doc') {
+                reconsideracaoTextoModal.classList.add('active');
+            }
+        });
+        
+        if(submitTextoBtn) {
+            submitTextoBtn.addEventListener('click', () => {
+                const form = document.getElementById('form-reconsideracao');
+                const formData = new FormData(form);
+                const url = `{% url 'Ouvidoria:salvar_reconsideracao' patd.pk %}`;
+                
+                fetch(url, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        window.location.reload();
+                    } else {
+                        alert('Erro: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('Erro:', error));
+            });
+        }
+    }
+
+    // *******************************************************************
+    // *** FIM DO CÓDIGO ADICIONADO PARA CORREÇÃO ***
+    // *******************************************************************
+
 
     const defesaModal = document.getElementById('defesa-modal');
     if (defesaModal) {
@@ -1300,6 +1458,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function processPlaceholders(text) {
         let processedHtml = text;
+        
+        // *** INÍCIO DA MODIFICAÇÃO (2/3) ***
+        // Substitui o placeholder da página da alegação
+        const pageNumStr = alegacaoDefesaPageNumber ? String(alegacaoDefesaPageNumber).padStart(2, '0') : "N/D";
+        processedHtml = processedHtml.replace(/{pagina_alegacao}/g, pageNumStr);
+        // *** FIM DA MODIFICAÇÃO (2/3) ***
+
         processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
 
@@ -1487,14 +1652,16 @@ document.addEventListener('DOMContentLoaded', function() {
     //     });
     // }
 
-    // ... (Lógica para avançar comandante, apurar, etc., permanece a mesma) ...
-
-    // --- MODIFICADO: renderVisualizador ---
+    // --- LÓGICA DE RENDERIZAR VISUALIZADOR (MODIFICADA) ---
     function renderVisualizador() {
         if (!pageContainer) return;
         pageContainer.innerHTML = ''; // Limpa o container
         signatureIndex = 0; // Reseta o contador de assinaturas do militar
         let pageCounter = 1; // Zera o contador de página
+        
+        // *** INÍCIO DA MODIFICAÇÃO (3/3) ***
+        alegacaoDefesaPageNumber = null; // Reseta o número da página
+        // *** FIM DA MODIFICAÇÃO (3/3) ***
 
         if (!documentPages || documentPages.length === 0) {
             pageContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">O conteúdo do documento está vazio ou não pôde ser carregado.</p>';
@@ -1504,8 +1671,6 @@ document.addEventListener('DOMContentLoaded', function() {
         // Itera sobre cada 'documento' (ex: PATD_Coringa, PRECLUSAO, etc.)
         documentPages.forEach((docHtml, docIndex) => {
             
-            // --- CORREÇÃO: O 'if' que filtrava foi REMOVIDO ---
-
             // Divide o HTML do documento pelo marcador de quebra de página
             const logicalPages = docHtml.split('<div class="manual-page-break"></div>');
 
@@ -1513,6 +1678,13 @@ document.addEventListener('DOMContentLoaded', function() {
             logicalPages.forEach((pageHtml, logicalPageIndex) => {
                 // Não renderiza páginas lógicas vazias (resultantes de quebras no final)
                 if (pageHtml.trim() === "") return;
+
+                // *** INÍCIO DA MODIFICAÇÃO (3/3) ***
+                // Verifica se esta página é a alegação e armazena o número
+                if (pageHtml.includes('data-document-id="alegacao_defesa"')) {
+                    alegacaoDefesaPageNumber = pageCounter;
+                }
+                // *** FIM DA MODIFICAÇÃO (3/3) ***
 
                 const pageDiv = document.createElement('div');
                 pageDiv.className = 'page'; // Aplica a classe CSS de página
@@ -1527,6 +1699,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 contentDiv.className = 'page-content';
 
                 // Processa os placeholders (agora incluindo os de anexo)
+                // Esta chamada AGORA irá usar o 'alegacaoDefesaPageNumber' se ele já tiver sido setado
                 let processedHtml = processPlaceholders(pageHtml);
                 
                 // Limpa o HTML (lógica de limpeza existente)
@@ -1548,6 +1721,20 @@ document.addEventListener('DOMContentLoaded', function() {
                 pageCounter++; // Incrementa o contador de página
             });
         });
+
+        // ---
+        // Adicionado: Segunda passagem para garantir que placeholders em páginas ANTERIORES
+        // (como o cabeçalho na página 1) sejam atualizados.
+        // ---
+        if (alegacaoDefesaPageNumber) {
+            const allPageContents = pageContainer.querySelectorAll('.page-content');
+            allPageContents.forEach(contentDiv => {
+                if (contentDiv.innerHTML.includes('{pagina_alegacao}')) {
+                     const pageNumStr = String(alegacaoDefesaPageNumber).padStart(2, '0');
+                     contentDiv.innerHTML = contentDiv.innerHTML.replace(/{pagina_alegacao}/g, pageNumStr);
+                }
+            });
+        }
     }
 
     // --- LÓGICA PARA EXCLUIR ANEXOS ---
@@ -1785,16 +1972,276 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
+    // --- LÓGICA DE APURAÇÃO (Botão #btn-apurar e formulário) ---
+    const btnApurar = document.getElementById('btn-apurar');
+    const apuracaoForm = document.getElementById('apuracao-form');
+    const btnSalvarApuracao = document.getElementById('btn-salvar-apuracao');
+    const btnReanalisar = document.getElementById('btn-reanalisar-apuracao');
+    const btnCancelarApuracao = document.getElementById('btn-cancelar-apuracao');
+
+    // --- LÓGICA DA PUNIÇÃO (DIAS/TIPO) ---
+    const punicaoDiasInput = document.getElementById('id_punicao_dias');
+    const punicaoTipoSelect = document.getElementById('id_punicao_tipo');
+
+    if (punicaoTipoSelect && punicaoDiasInput) {
+        punicaoTipoSelect.addEventListener('change', () => {
+            const selectedType = punicaoTipoSelect.value;
+            if (selectedType === 'repreensão por escrito' || selectedType === 'repreensão verbal') {
+                punicaoDiasInput.value = 0;
+                punicaoDiasInput.disabled = true;
+            } else {
+                punicaoDiasInput.disabled = false;
+            }
+        });
+    }
+
+    // Função para preencher o formulário de apuração com dados
+    function preencherFormApuracao(data) {
+        if (!data) {
+            console.warn("Nenhum dado de análise recebido para preencher o formulário.");
+            return;
+        }
+        
+        // Preenche Itens Enquadrados
+        const itensTextarea = document.getElementById('itens_enquadrados');
+        if (data.itens && Array.isArray(data.itens)) {
+            itensTextarea.value = data.itens.map(item => `${item.numero}: ${item.descricao}`).join('\n');
+        } else {
+            itensTextarea.value = "Não foi possível extrair os itens.";
+        }
+
+        // Preenche Atenuantes e Agravantes
+        const atenuantesInput = document.getElementById('atenuantes');
+        const agravantesInput = document.getElementById('agravantes');
+        if (data.circunstancias) {
+            atenuantesInput.value = data.circunstancias.atenuantes ? data.circunstancias.atenuantes.join(', ') : "Nenhuma";
+            agravantesInput.value = data.circunstancias.agravantes ? data.circunstancias.agravantes.join(', ') : "Nenhuma";
+        } else {
+            atenuantesInput.value = "Erro na análise";
+            agravantesInput.value = "Erro na análise";
+        }
+
+        // Preenche Punição Sugerida (NOVOS CAMPOS)
+        const punicaoString = data.punicao || "";
+        document.getElementById('punicao_sugerida_original_llm').value = punicaoString; // Salva a string original
+        
+        const punicaoDiasInputJS = document.getElementById('id_punicao_dias');
+        const punicaoTipoSelectJS = document.getElementById('id_punicao_tipo');
+
+        // Tenta extrair dias e tipo da string
+        const match = punicaoString.match(/(\d+)\s+dias\s+de\s+(.+)/i);
+        if (match) {
+            const dias = parseInt(match[1], 10);
+            let tipo = match[2].toLowerCase().trim();
+
+            // Ajusta "repreensão" para "repreensão por escrito" se for o caso
+            if (tipo === "repreensão") {
+                tipo = "repreensão por escrito";
+            }
+            
+            punicaoDiasInputJS.value = dias;
+            // Verifica se o tipo existe nas opções
+            if ([...punicaoTipoSelectJS.options].some(opt => opt.value === tipo)) {
+                punicaoTipoSelectJS.value = tipo;
+            } else {
+                punicaoTipoSelectJS.value = ''; // Valor não reconhecido
+            }
+
+        } else if (punicaoString.toLowerCase().includes('repreensão')) {
+            // Caso seja só "Repreensão"
+            punicaoDiasInputJS.value = 0;
+            if (punicaoString.toLowerCase().includes('verbal')) {
+                 punicaoTipoSelectJS.value = 'repreensão verbal';
+            } else {
+                 punicaoTipoSelectJS.value = 'repreensão por escrito';
+            }
+        } else if (punicaoString) {
+            // Fallback para tipos não reconhecidos (ex: "Erro...")
+            punicaoDiasInputJS.value = 0;
+            punicaoTipoSelectJS.value = ''; // Reseta para "Selecione"
+        }
+        
+        // Dispara o evento change para garantir que a lógica de "disabled" seja aplicada
+        if (punicaoTipoSelectJS) {
+            punicaoTipoSelectJS.dispatchEvent(new Event('change'));
+        }
+
+        // Exibe o formulário e oculta o botão de apurar
+        if(apuracaoForm) apuracaoForm.style.display = 'block';
+        if(btnApurar) btnApurar.style.display = 'none';
+    }
+
+    // Função para buscar e analisar a punição
+    function fetchAnalisePunicao(forceReanalyze = false) {
+        if(btnApurar) btnApurar.classList.add('loading');
+        if(btnReanalisar) btnReanalisar.classList.add('loading');
+
+        const url = `{% url 'Ouvidoria:analisar_punicao' patd.pk %}`;
+        
+        fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({ force_reanalyze: forceReanalyze })
+        })
+        .then(response => response.json())
+        .then(data => {
+            if (data.status === 'success' && data.analise_data) {
+                preencherFormApuracao(data.analise_data);
+            } else {
+                alert('Erro ao buscar análise: ' + (data.message || 'Erro desconhecido.'));
+                // Se já existiam dados (analiseData), preenche com eles
+                if (analiseData && !forceReanalyze) {
+                    preencherFormApuracao(analiseData);
+                }
+            }
+        })
+        .catch(error => {
+            console.error('Erro no fetch da análise:', error);
+            alert('Erro de comunicação ao buscar análise da punição.');
+        })
+        .finally(() => {
+            if(btnApurar) btnApurar.classList.remove('loading');
+            if(btnReanalisar) btnReanalisar.classList.remove('loading');
+        });
+    }
+
+    // Listener para o botão "Visualizar Apuração"
+    if (btnApurar) {
+        btnApurar.addEventListener('click', () => {
+            // Se os dados já foram pré-carregados (analiseData), usa-os.
+            // Senão, faz o fetch.
+            if (analiseData) {
+                preencherFormApuracao(analiseData);
+            } else {
+                fetchAnalisePunicao(false);
+            }
+        });
+    }
+
+    // Listener para o botão "Analisar Novamente"
+    if (btnReanalisar) {
+        btnReanalisar.addEventListener('click', () => {
+            if (confirm('Tem certeza que deseja re-analisar? Isso pode sobrescrever os dados atuais.')) {
+                fetchAnalisePunicao(true); // Força a re-análise
+            }
+        });
+    }
+
+    // Listener para o botão "Ocultar"
+    if (btnCancelarApuracao) {
+        btnCancelarApuracao.addEventListener('click', () => {
+            if(apuracaoForm) apuracaoForm.style.display = 'none';
+            if(btnApurar) btnApurar.style.display = 'inline-flex';
+        });
+    }
+
+    // Listener para o botão "Salvar Apuração e Concluir" (MODIFICADO)
+    if (btnSalvarApuracao) {
+        btnSalvarApuracao.addEventListener('click', () => {
+            const btnSpinner = btnSalvarApuracao.querySelector('.spinner');
+            
+            // Coleta os dados dos novos campos
+            const punicaoDias = document.getElementById('id_punicao_dias').value;
+            const punicaoTipo = document.getElementById('id_punicao_tipo').value;
+            
+            if (!punicaoTipo) {
+                alert('Por favor, selecione um tipo de punição.');
+                return;
+            }
+            
+            if(btnSpinner) btnSpinner.style.display = 'inline-block';
+            btnSalvarApuracao.disabled = true;
+
+            // Gera a string de punição sugerida para compatibilidade
+            let punicaoSugeridaString = "";
+            if (punicaoTipo === 'repreensão por escrito' || punicaoTipo === 'repreensão verbal') {
+                punicaoSugeridaString = punicaoTipo;
+            } else {
+                punicaoSugeridaString = `${punicaoDias} dias de ${punicaoTipo}`;
+            }
+
+            const data = {
+                itens_enquadrados: document.getElementById('itens_enquadrados').value.split('\n')
+                                    .filter(line => line.trim() !== "")
+                                    .map(line => {
+                                        const parts = line.split(':');
+                                        return { numero: parts[0] ? parts[0].trim() : 'N/A', descricao: parts[1] ? parts[1].trim() : line };
+                                    }),
+                circunstancias: {
+                    atenuantes: document.getElementById('atenuantes').value.split(',').map(s => s.trim()).filter(s => s && s !== "Nenhuma"),
+                    agravantes: document.getElementById('agravantes').value.split(',').map(s => s.trim()).filter(s => s && s !== "Nenhuma")
+                },
+                // Envia a string formatada para o campo antigo (fallback)
+                punicao_sugerida: punicaoSugeridaString,
+                // Envia os campos estruturados (preferenciais)
+                punicao_dias: parseInt(punicaoDias, 10),
+                punicao_tipo: punicaoTipo
+            };
+
+            const url = `{% url 'Ouvidoria:salvar_apuracao' patd.pk %}`;
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(data)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Apuração salva com sucesso! A página será recarregada.');
+                    window.location.reload();
+                } else {
+                    alert('Erro ao salvar apuração: ' + data.message);
+                    if(btnSpinner) btnSpinner.style.display = 'none';
+                    btnSalvarApuracao.disabled = false;
+                }
+            })
+            .catch(error => {
+                console.error('Erro ao salvar apuração:', error);
+                alert('Erro de comunicação ao salvar a apuração.');
+                if(btnSpinner) btnSpinner.style.display = 'none';
+                btnSalvarApuracao.disabled = false;
+            });
+        });
+    }
+    // --- FIM DA LÓGICA DE APURAÇÃO ---
+
+
     // CHAMADAS INICIAIS
     renderAnexosGeral(); // Agora apenas renderiza a lista na Visão Geral
 
     const activeTabId = localStorage.getItem('activePatdTab-{{ patd.pk }}') || 'tab-detalhes';
     document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
-    document.querySelector(`.tab-link[data-target="${activeTabId}"]`).classList.add('active');
-    document.getElementById(activeTabId).classList.add('active');
+    
+    // Adiciona verificação para caso o seletor não encontre o elemento
+    const activeLink = document.querySelector(`.tab-link[data-target="${activeTabId}"]`);
+    const activePanel = document.getElementById(activeTabId);
+    
+    if (activeLink) {
+        activeLink.classList.add('active');
+    } else {
+        // Fallback se a aba salva não existir mais
+        document.querySelector('.tab-link[data-target="tab-detalhes"]').classList.add('active');
+    }
 
-    if (activeTabId === 'tab-visualizador') {
+    if (activePanel) {
+        activePanel.classList.add('active');
+    } else {
+        // Fallback se o painel salvo não existir mais
+        document.getElementById('tab-detalhes').classList.add('active');
+    }
+
+
+    if (activeTabId === 'tab-visualizador' && activePanel) {
+        renderVisualizador();
+    } else if (!activePanel && activeTabId === 'tab-visualizador') {
+         // Fallback se a aba era 'visualizador' mas o painel não foi encontrado
         renderVisualizador();
     }
 

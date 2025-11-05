@@ -378,9 +378,6 @@ def _get_document_context(patd):
         '{data ciência}': data_ciencia_fmt,
         '{Data da alegação}': data_alegacao_fmt,
         '{Alegação_defesa_resumo}': patd.alegacao_defesa_resumo or '',
-        
-        # --- NOVO PLACEHOLDER ADICIONADO ---
-        '{pagina_alegacao}': '[Pág. N/D]', # Placeholder temporário
 
         # Placeholders de Punição
         '{punicao_completa}': punicao_final_str,
@@ -1991,19 +1988,60 @@ def salvar_apuracao(request, pk):
 
         patd.itens_enquadrados = data.get('itens_enquadrados')
         patd.circunstancias = data.get('circunstancias')
-        punicao_sugerida_str = data.get('punicao_sugerida', '')
-        patd.punicao_sugerida = punicao_sugerida_str
 
-        match = re.search(r'(\d+)\s+dias\s+de\s+(.+)', punicao_sugerida_str, re.IGNORECASE)
-        if match:
-            dias_num = int(match.group(1))
-            punicao_tipo = match.group(2).strip()
-            dias_texto = num2words(dias_num, lang='pt_BR')
-            patd.dias_punicao = f"{dias_texto} ({dias_num:02d}) dias"
-            patd.punicao = punicao_tipo
+        # *** INÍCIO DA MODIFICAÇÃO ***
+        # Prioriza os novos campos estruturados, se existirem
+        dias_num_int = data.get('punicao_dias') # Já vem como INT do JS
+        punicao_tipo_str = data.get('punicao_tipo')
+
+        # Fallback para o campo de string antigo, se os novos não vierem
+        if dias_num_int is None or not punicao_tipo_str:
+            logger.warning(f"PATD {pk}: Usando fallback (punicao_sugerida) para salvar apuração.")
+            punicao_sugerida_str = data.get('punicao_sugerida', '')
+            patd.punicao_sugerida = punicao_sugerida_str
+            
+            match = re.search(r'(\d+)\s+dias\s+de\s+(.+)', punicao_sugerida_str, re.IGNORECASE)
+            if match:
+                dias_num_int = int(match.group(1))
+                punicao_tipo_str = match.group(2).strip().lower()
+            elif 'repreensão' in punicao_sugerida_str.lower():
+                dias_num_int = 0
+                punicao_tipo_str = punicao_sugerida_str.strip().lower()
+            else:
+                dias_num_int = 0
+                punicao_tipo_str = punicao_sugerida_str # Salva o que veio (ex: "Erro...")
+        
+        # Garante que dias_num_int é um número
+        if dias_num_int is None:
+             dias_num_int = 0
+             
+        # Garante que o tipo não é nulo
+        if not punicao_tipo_str:
+             punicao_tipo_str = "Não definida"
+
+        # Salva a string de punição sugerida (para consistência)
+        if punicao_tipo_str in ['repreensão por escrito', 'repreensão verbal']:
+            patd.punicao_sugerida = punicao_tipo_str
         else:
+            patd.punicao_sugerida = f"{dias_num_int} dias de {punicao_tipo_str}"
+        
+        # Define os campos de punição final
+        if punicao_tipo_str in ['repreensão por escrito', 'repreensão verbal']:
+            patd.dias_punicao = "" # Repreensão não tem dias
+            patd.punicao = punicao_tipo_str
+            patd.justificado = False # Garante que não está justificado
+        elif dias_num_int > 0:
+            dias_texto = num2words(dias_num_int, lang='pt_BR')
+            patd.dias_punicao = f"{dias_texto} ({dias_num_int:02d}) dias"
+            patd.punicao = punicao_tipo_str
+            patd.justificado = False # Garante que não está justificado
+        else:
+             # Caso de 0 dias de prisão/detenção (não deve ocorrer, mas é um fallback)
             patd.dias_punicao = ""
-            patd.punicao = punicao_sugerida_str
+            patd.punicao = punicao_tipo_str
+            patd.justificado = False
+            
+        # *** FIM DA MODIFICAÇÃO ***
 
         patd.transgressao_afirmativa = f"foi verificado que o militar realmente cometeu a transgressão de '{patd.transgressao}'."
 
@@ -2022,7 +2060,6 @@ def salvar_apuracao(request, pk):
     except Exception as e:
         logger.error(f"Erro ao salvar apuração da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
 
 @login_required
 @require_GET
