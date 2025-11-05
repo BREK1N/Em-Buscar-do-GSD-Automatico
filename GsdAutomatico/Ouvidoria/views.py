@@ -23,7 +23,7 @@ import logging
 from datetime import datetime, timedelta
 from django.conf import settings
 import locale
-import docx
+import docx  # Certifique-se que python-docx está instalado
 import re
 # --- CORREÇÃO DA IMPORTAÇÃO ---
 from django.contrib.staticfiles.storage import staticfiles_storage
@@ -277,57 +277,9 @@ def format_militar_string(militar, with_spec=False):
 # Otimização da Geração de Documentos
 # =============================================================================
 
-def get_anexo_content_as_html(anexo):
-    """
-    Lê um ficheiro Anexo e retorna o seu conteúdo como uma string HTML.
-    Suporta imagens, PDFs, e ficheiros DOCX.
-    """
-    try:
-        file_path = anexo.arquivo.path
-        file_url = anexo.arquivo.url
-        file_name = os.path.basename(file_path)
-
-        if not os.path.exists(file_path):
-            return f"<p><strong>{file_name}</strong>: Erro - Ficheiro não encontrado no servidor.</p>"
-
-        ext = os.path.splitext(file_name)[1].lower()
-
-        if ext in ['.png', '.jpg', '.jpeg', '.gif']:
-            with open(file_path, 'rb') as f:
-                encoded_string = base64.b64encode(f.read()).decode('utf-8')
-                return f'<h4>Anexo: {file_name}</h4><img src="data:image/{ext[1:]};base64,{encoded_string}" style="max-width: 100%; height: auto;" alt="{file_name}"><hr>'
-
-        elif ext == '.pdf':
-            try:
-                loader = PyPDFLoader(file_path)
-                pages = loader.load_and_split()
-                content = "\n".join([page.page_content for page in pages])
-                return f'<h4>Anexo: {file_name}</h4><pre style="white-space: pre-wrap; word-wrap: break-word;">{content}</pre><hr>'
-            except Exception as e:
-                logger.error(f"Erro ao ler PDF {file_name}: {e}")
-                return f'<p><strong>{file_name}</strong>: Não foi possível extrair o texto do PDF. <a href="{file_url}" target="_blank">Fazer download</a></p><hr>'
-
-        elif ext == '.docx':
-            try:
-                doc = docx.Document(file_path)
-                content = "\n".join([para.text for para in doc.paragraphs])
-                return f'<h4>Anexo: {file_name}</h4><pre style="white-space: pre-wrap; word-wrap: break-word;">{content}</pre><hr>'
-            except Exception as e:
-                logger.error(f"Erro ao ler DOCX {file_name}: {e}")
-                return f'<p><strong>{file_name}</strong>: Não foi possível ler o conteúdo do DOCX. <a href="{file_url}" target="_blank">Fazer download</a></p><hr>'
-
-        elif ext == '.txt':
-            with open(file_path, 'r', encoding='utf-8', errors='ignore') as f:
-                content = f.read()
-                return f'<h4>Anexo: {file_name}</h4><pre style="white-space: pre-wrap; word-wrap: break-word;">{content}</pre><hr>'
-
-        else:
-            # Para outros tipos de ficheiro, apenas fornece um link
-            return f'<p><strong>Anexo: {file_name}</strong> (Tipo de ficheiro não suportado para visualização) - <a href="{file_url}" target="_blank">Fazer download</a></p><hr>'
-
-    except Exception as e:
-        logger.error(f"Erro ao processar anexo {anexo.id}: {e}")
-        return f"<p>Erro ao carregar o anexo {os.path.basename(anexo.arquivo.name)}.</p>"
+# --- REMOVIDA ---
+# A função get_anexo_content_as_html(anexo) foi removida,
+# pois a lógica de anexos será tratada diretamente na função de exportação.
 
 
 def _get_document_context(patd):
@@ -1363,6 +1315,9 @@ class PATDDetailView(DetailView):
 
         context['historico_punicoes'] = historico_punicoes
 
+        # --- INÍCIO DA MODIFICAÇÃO AQUI ---
+        # Não vamos mais extrair o HTML, apenas passar os metadados do arquivo.
+        
         anexos_defesa = patd.anexos.filter(tipo='defesa')
         anexos_defesa_data = []
         for a in anexos_defesa:
@@ -1370,7 +1325,7 @@ class PATDDetailView(DetailView):
                 'id': a.id,
                 'nome': os.path.basename(a.arquivo.name),
                 'url': a.arquivo.url,
-                'content_html': get_anexo_content_as_html(a)
+                'tipo_arquivo': os.path.splitext(a.arquivo.name)[1].lower().replace('.', '')
             })
         context['anexos_defesa_json'] = json.dumps(anexos_defesa_data)
 
@@ -1381,7 +1336,7 @@ class PATDDetailView(DetailView):
                 'id': a.id,
                 'nome': os.path.basename(a.arquivo.name),
                 'url': a.arquivo.url,
-                'content_html': get_anexo_content_as_html(a)
+                'tipo_arquivo': os.path.splitext(a.arquivo.name)[1].lower().replace('.', '')
             })
         context['anexos_reconsideracao_json'] = json.dumps(anexos_reconsideracao_data)
 
@@ -1392,9 +1347,11 @@ class PATDDetailView(DetailView):
                 'id': a.id,
                 'nome': os.path.basename(a.arquivo.name),
                 'url': a.arquivo.url,
-                'content_html': get_anexo_content_as_html(a)
+                'tipo_arquivo': os.path.splitext(a.arquivo.name)[1].lower().replace('.', '')
             })
         context['anexos_reconsideracao_oficial_json'] = json.dumps(anexos_reconsideracao_oficial_data)
+        
+        # --- FIM DA MODIFICAÇÃO ---
 
         return context
 
@@ -2356,12 +2313,66 @@ def salvar_nova_punicao(request, pk):
         logger.error(f"Erro ao salvar nova punição para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
+
+# --- INÍCIO DA MODIFICAÇÃO: exportar_patd_docx ---
+
+def append_anexo_to_docx(document, anexo):
+    """
+    Função auxiliar para adicionar um anexo (PDF, DOCX, Imagem) a um
+    documento docx existente.
+    """
+    file_path = anexo.arquivo.path
+    file_name = os.path.basename(file_path)
+    ext = os.path.splitext(file_name)[1].lower()
+
+    try:
+        # Adiciona um título para o anexo
+        document.add_heading(f"Anexo: {file_name}", level=2)
+
+        if not os.path.exists(file_path):
+            document.add_paragraph(f"[Erro: Ficheiro anexo '{file_name}' não encontrado no servidor.]")
+            return
+
+        if ext in ['.png', '.jpg', '.jpeg']:
+            # Adiciona imagem, mantendo a proporção com largura máxima de 6 polegadas
+            run = document.add_paragraph().add_run()
+            run.add_picture(file_path, width=Inches(6))
+        
+        elif ext == '.docx':
+            # Adiciona o texto do DOCX, parágrafo por parágrafo
+            sub_doc = docx.Document(file_path)
+            for para in sub_doc.paragraphs:
+                document.add_paragraph(para.text)
+        
+        elif ext == '.pdf':
+            # Extrai texto do PDF e adiciona
+            try:
+                loader = PyPDFLoader(file_path)
+                pages = loader.load_and_split()
+                content = "\n".join([page.page_content for page in pages])
+                document.add_paragraph(content)
+            except Exception as e:
+                logger.error(f"Erro ao ler PDF do anexo {file_name}: {e}")
+                document.add_paragraph(f"[Erro ao extrair texto do PDF '{file_name}'. O ficheiro pode estar corrompido ou ser uma imagem.]")
+        
+        else:
+            # Tipo de ficheiro não suportado para embutir
+            document.add_paragraph(f"[Conteúdo do anexo '{file_name}' (tipo: {ext}) não suportado para inclusão direta no DOCX.]")
+
+    except Exception as e:
+        logger.error(f"Erro geral ao processar anexo {file_name} para DOCX: {e}")
+        document.add_paragraph(f"[Erro ao processar anexo '{file_name}': {e}]")
+    
+    # Adiciona uma quebra de página após o anexo para separá-lo do próximo
+    document.add_page_break()
+
+
 @login_required
 @ouvidoria_required
 def exportar_patd_docx(request, pk):
     """
     Gera e serve um ficheiro DOCX a partir do conteúdo HTML da PATD,
-    incluindo imagens e formatação correta.
+    incluindo imagens, formatação correta E ANEXOS.
     """
     patd = get_object_or_404(PATD, pk=pk)
     context = _get_document_context(patd)
@@ -2382,11 +2393,25 @@ def exportar_patd_docx(request, pk):
     section.right_margin = Cm(2.5)
     section.gutter = Cm(0)
 
+    # --- INÍCIO DA MODIFICAÇÃO: Lógica de Anexos ---
+    # 1. Obtém o HTML de todos os documentos
     full_html_content = "".join(get_document_pages(patd))
+
+    # 2. Busca os anexos (não precisamos do HTML deles, apenas dos ficheiros)
+    anexos_defesa = patd.anexos.filter(tipo='defesa')
+    anexos_reconsideracao = patd.anexos.filter(tipo='reconsideracao')
+    anexos_reconsideracao_oficial = patd.anexos.filter(tipo='reconsideracao_oficial')
+
+    # 3. Remove os placeholders de anexo do HTML principal, pois vamos adicioná-los manualmente
+    full_html_content = full_html_content.replace("{ANEXOS_DEFESA_PLACEHOLDER}", "")
+    full_html_content = full_html_content.replace("{ANEXOS_RECONSIDERACAO_PLACEHOLDER}", "")
+    full_html_content = full_html_content.replace("{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}", "")
+
+    # --- FIM DA MODIFICAÇÃO ---
+
     soup = BeautifulSoup(full_html_content, 'html.parser')
 
     militar_sig_counter = 0
-
     placeholder_regex = re.compile(r'({[^}]+})')
 
     for element in soup.find_all(['p', 'img']):
@@ -2450,16 +2475,30 @@ def exportar_patd_docx(request, pk):
                                     else:
                                          # Se não houver assinatura ou for None, incrementa o contador mesmo assim
                                          militar_sig_counter += 1
+                                
+                                elif placeholder == '{Assinatura Alegacao Defesa}' and patd.assinatura_alegacao_defesa and patd.assinatura_alegacao_defesa.path and os.path.exists(patd.assinatura_alegacao_defesa.path):
+                                     p.add_run().add_picture(patd.assinatura_alegacao_defesa.path, height=Cm(1.5))
+                                     is_image_placeholder = True
 
+                                elif placeholder == '{Assinatura Reconsideracao}' and patd.assinatura_reconsideracao and patd.assinatura_reconsideracao.path and os.path.exists(patd.assinatura_reconsideracao.path):
+                                     p.add_run().add_picture(patd.assinatura_reconsideracao.path, height=Cm(1.5))
+                                     is_image_placeholder = True
 
                                 elif placeholder == '{Brasao da Republica}':
                                     img_path = os.path.join(settings.BASE_DIR, 'Static', 'img', 'brasao.png')
                                     if os.path.exists(img_path):
                                         p.add_run().add_picture(img_path, width=Cm(3))
                                         is_image_placeholder = True
+                                
+                                # Ignora placeholders de botão
+                                elif placeholder in ['{Botao Assinar Oficial}', '{Botao Assinar Testemunha 1}', '{Botao Assinar Testemunha 2}', '{Botao Adicionar Alegacao}', '{Botao Adicionar Reconsideracao}', '{Botao Definir Nova Punicao}', '{Botao Assinar Defesa}', '{Botao Assinar Reconsideracao}']:
+                                    is_image_placeholder = True # Trata como "imagem" para não imprimir o texto
+                                    p.add_run("[LOCAL DA ASSINATURA/AÇÃO]") # Adiciona um texto genérico
+
 
                             except Exception as e:
                                 logger.error(f"Error processing image placeholder {placeholder}: {e}")
+                                p.add_run(f"[{placeholder} - ERRO AO PROCESSAR]")
                                 is_image_placeholder = False # Não adiciona texto se era para ser imagem
 
                         if not is_image_placeholder:
@@ -2482,6 +2521,31 @@ def exportar_patd_docx(request, pk):
                 img_path = os.path.join(settings.BASE_DIR, 'Static', 'img', 'brasao.png')
                 if os.path.exists(img_path):
                     run.add_picture(img_path, width=Cm(3))
+
+    # --- INÍCIO DA MODIFICAÇÃO: Adicionar Anexos ao DOCX ---
+    
+    # Adiciona Anexos da Defesa
+    if anexos_defesa.exists():
+        document.add_page_break()
+        document.add_heading("Anexos da Alegação de Defesa", level=1).alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for anexo in anexos_defesa:
+            append_anexo_to_docx(document, anexo)
+
+    # Adiciona Anexos da Reconsideração (Militar)
+    if anexos_reconsideracao.exists():
+        document.add_page_break()
+        document.add_heading("Anexos do Pedido de Reconsideração", level=1).alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for anexo in anexos_reconsideracao:
+            append_anexo_to_docx(document, anexo)
+
+    # Adiciona Anexo da Reconsideração (Oficial)
+    if anexos_reconsideracao_oficial.exists():
+        document.add_page_break()
+        document.add_heading("Anexo do Oficial (Reconsideração)", level=1).alignment = WD_ALIGN_PARAGRAPH.CENTER
+        for anexo in anexos_reconsideracao_oficial:
+            append_anexo_to_docx(document, anexo)
+            
+    # --- FIM DA MODIFICAÇÃO ---
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     response['Content-Disposition'] = f'attachment; filename=PATD_{patd.numero_patd}.docx'

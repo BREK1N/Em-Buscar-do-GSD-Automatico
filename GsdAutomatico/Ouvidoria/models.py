@@ -211,17 +211,29 @@ class PATD(models.Model):
     assinaturas_npd_reconsideracao = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas da NPD de Reconsideração (Base64)")
     relatorio_final = models.TextField(blank=True, null=True, verbose_name="Relatório Final")
 
+    # --- INÍCIO DAS MODIFICAÇÕES SOLICITADAS ---
     def calcular_e_atualizar_comportamento(self):
         """
         Calcula o total de punições de um militar e atualiza o campo comportamento.
         2 dias de Detenção equivalem a 1 dia de Prisão.
-        Acima de 21 dias de Prisão, o comportamento é classificado como "Mau".
+        Acima de 20 dias de Prisão (MODIFICADO), o comportamento é classificado como "Mau".
+        Uma vez no "Mau comportamento", o militar permanece nele (MODIFICADO).
         """
         militar = self.militar
-        outras_patds = PATD.objects.filter(militar=militar).exclude(pk=self.pk)
+        # Exclui a si mesmo e ordena para verificar o comportamento mais recente
+        outras_patds = PATD.objects.filter(militar=militar).exclude(pk=self.pk).order_by('-data_inicio')
         
         total_dias_prisao = 0.0
 
+        # --- MODIFICAÇÃO (REGRA 2) ---
+        # Verifica se o militar JÁ está no "Mau comportamento" em algum registro anterior.
+        # Nós verificamos a PATD mais recente primeiro (devido ao order_by)
+        patd_mais_recente = outras_patds.first()
+        if patd_mais_recente and patd_mais_recente.comportamento == "Mau comportamento":
+            self.comportamento = "Mau comportamento"
+            return # Para a execução aqui, ele fica em "Mau" para sempre.
+
+        # Se não estava no "Mau Comportamento", calcula o total de dias
         # 1. Calcula a punição das PATDs antigas (do banco de dados)
         for p in outras_patds:
             dias_str = p.dias_punicao or ""
@@ -246,10 +258,13 @@ class PATD(models.Model):
                 total_dias_prisao += dias_atual
 
         # 3. Atualiza o comportamento no objeto atual
-        if total_dias_prisao > 21:
+        # --- MODIFICAÇÃO (REGRA 1) ---
+        if total_dias_prisao > 20: # Alterado de 21 para 20
             self.comportamento = "Mau comportamento"
         else:
             self.comportamento = "Permanece no \"Bom comportamento\""
+    # --- FIM DAS MODIFICAÇÕES SOLICITADAS ---
+
 
     def definir_natureza_transgressao(self):
         """
