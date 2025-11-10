@@ -413,9 +413,15 @@
             </svg>
             Exportar DOCX
         </a>
-        {% if not user|has_comandante_access %}
-        <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
+        {# --- INÍCIO DA MODIFICAÇÃO: Condição para editar --- #}
+        {% if not user|has_comandante_access and patd.status not in locked_statuses_for_edit %}
+            <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
+        {% else %}
+            {# Opcional: Mostrar um botão desabilitado para clareza #}
+            <button class="btn btn-secondary" disabled title="O processo não pode ser editado nesta fase.">Editar</button>
         {% endif %}
+        {# --- FIM DA MODIFICAÇÃO --- #}
+
         <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
     </div>
 </div>

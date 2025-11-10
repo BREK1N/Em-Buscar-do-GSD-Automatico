@@ -529,6 +529,11 @@ def get_document_pages(patd):
     # 4. Relatório de Apuração
     if patd.justificado:
         document_pages.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', doc_context))
+        # --- INÍCIO DA MODIFICAÇÃO: Interromper se justificado ---
+        # Se a PATD foi justificada, o processo documental termina aqui.
+        # Não há NPD, reconsideração, etc.
+        return document_pages
+        # --- FIM DA MODIFICAÇÃO ---
     elif patd.punicao_sugerida:
         document_pages.append(_render_document_from_template('RELATORIO_DELTA.docx', doc_context))
 
@@ -1282,6 +1287,14 @@ class PATDDetailView(DetailView):
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
 
+        # --- INÍCIO DA MODIFICAÇÃO: Passar status bloqueados para o template ---
+        context['locked_statuses_for_edit'] = [
+            'analise_comandante', 'aguardando_assinatura_npd', 'periodo_reconsideracao',
+            'em_reconsideracao', 'aguardando_comandante_base',
+            'aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado'
+        ]
+        # --- FIM DA MODIFICAÇÃO ---
+
         doc_context = _get_document_context(patd)
         context['comandante_assinatura'] = doc_context.get('assinatura_comandante_data')
 
@@ -1368,6 +1381,23 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
 
     def test_func(self):
         return not has_comandante_access(self.request.user)
+
+    # --- INÍCIO DA MODIFICAÇÃO: Bloquear edição em status avançados ---
+    def dispatch(self, request, *args, **kwargs):
+        patd = self.get_object()
+        locked_statuses = [
+            'analise_comandante', 'aguardando_assinatura_npd', 'periodo_reconsideracao',
+            'em_reconsideracao', 'aguardando_comandante_base',
+            'aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado'
+        ]
+
+        if patd.status in locked_statuses:
+            messages.error(request, "A PATD não pode ser editada pois já foi enviada para análise ou está em fase de finalização.")
+            return redirect('Ouvidoria:patd_detail', pk=patd.pk)
+
+        return super().dispatch(request, *args, **kwargs)
+    # --- FIM DA MODIFICAÇÃO ---
+
 
     def handle_no_permission(self):
         messages.error(self.request, "Acesso negado. Comandantes não podem editar o processo.")
@@ -2292,6 +2322,13 @@ def justificar_patd(request, pk):
         # Verifica se as testemunhas foram definidas
         if not patd.testemunha1 or not patd.testemunha2:
             return JsonResponse({'status': 'error', 'message': 'É necessário definir as duas testemunhas antes de justificar o processo.'}, status=400)
+        
+        # --- INÍCIO DA MODIFICAÇÃO: Limpar dados de punição ---
+        # Garante que, ao justificar, os campos de punição sejam limpos
+        # para evitar inconsistências em documentos ou no histórico.
+        patd.punicao = ""
+        patd.dias_punicao = ""
+        # --- FIM DA MODIFICAÇÃO ---
 
         patd.justificado = True
         patd.status = 'finalizado' # Altera o status para finalizado
@@ -2442,7 +2479,7 @@ def exportar_patd_docx(request, pk):
     section.left_margin = Cm(2.15)
     section.right_margin = Cm(2.5)
     section.gutter = Cm(0)
-
+    
     # --- INÍCIO DA MODIFICAÇÃO: Lógica de Anexos ---
     # 1. Obtém o HTML de todos os documentos
     full_html_content = "".join(get_document_pages(patd))
@@ -2530,7 +2567,7 @@ def exportar_patd_docx(request, pk):
                                         is_image_placeholder = True
                                     else:
                                          # Se não houver assinatura ou for None, incrementa o contador mesmo assim
-                                         militar_sig_counter += 1
+                                          militar_sig_counter += 1
                                 
                                 elif placeholder == '{Assinatura Alegacao Defesa}' and patd.assinatura_alegacao_defesa and patd.assinatura_alegacao_defesa.path and os.path.exists(patd.assinatura_alegacao_defesa.path):
                                      p.add_run().add_picture(patd.assinatura_alegacao_defesa.path, height=Cm(1.5))
@@ -2546,7 +2583,6 @@ def exportar_patd_docx(request, pk):
                                         p.add_run().add_picture(img_path, width=Cm(3))
                                         is_image_placeholder = True
                                 
-                                # Ignora placeholders de botão
                                 elif placeholder in ['{Botao Assinar Oficial}', '{Botao Assinar Testemunha 1}', '{Botao Assinar Testemunha 2}', '{Botao Adicionar Alegacao}', '{Botao Adicionar Reconsideracao}', '{Botao Definir Nova Punicao}', '{Botao Assinar Defesa}', '{Botao Assinar Reconsideracao}']:
                                     is_image_placeholder = True # Trata como "imagem" para não imprimir o texto
                                     p.add_run("[LOCAL DA ASSINATURA/AÇÃO]") # Adiciona um texto genérico
