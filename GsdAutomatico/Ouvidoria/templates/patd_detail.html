@@ -402,6 +402,41 @@
         }
     }
 
+    /* --- INÍCIO: Estilos para o botão de navegação de assinatura --- */
+    #signature-nav-button {
+        position: fixed; /* Fixo na tela */
+        right: 40px;
+        bottom: 40px;
+        z-index: 1050; /* Acima de outros elementos */
+        display: none; /* Oculto por padrão */
+        flex-direction: column;
+        align-items: center;
+        gap: 8px;
+        background-color: var(--accent-color);
+        color: white;
+        padding: 12px;
+        border-radius: 50%; /* Círculo */
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        transition: background-color 0.3s, transform 0.2s;
+        width: 60px;
+        height: 60px;
+        justify-content: center;
+    }
+    #signature-nav-button:hover {
+        background-color: #0056b3; /* Um tom mais escuro de azul */
+        transform: scale(1.05);
+    }
+    #signature-counter {
+        font-size: 0.8rem;
+        font-weight: bold;
+    }
+    #signature-nav-button svg {
+        width: 24px;
+        height: 24px;
+    }
+    /* --- FIM: Estilos para o botão de navegação de assinatura --- */
+
 </style>
 
 <div class="patd-header">
@@ -802,10 +837,23 @@
 </div>
 
 <div id="tab-visualizador" class="tab-panel">
+    <!-- INÍCIO: Botão de Navegação de Assinatura -->
+    <div id="signature-nav-button" title="Ir para a próxima assinatura pendente">
+        <span id="signature-counter">0/0</span>
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
+        </svg>
+    </div>
+    <!-- FIM: Botão de Navegação de Assinatura -->
+
     <div id="document-preview-container" class="document-preview-container">
         </div>
 </div>
 
+<style>
+    @keyframes pulse-border { 0%, 100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); } }
+    .signature-focus { animation: pulse-border 1.5s ease-out; border-radius: 8px; }
+</style>
 
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
@@ -1530,13 +1578,19 @@ document.addEventListener('DOMContentLoaded', function() {
     }
     const tabLinks = document.querySelectorAll('.tab-link');
     const tabPanels = document.querySelectorAll('.tab-panel');
-
+    
     tabLinks.forEach(link => {
         link.addEventListener('click', (e) => {
             e.preventDefault();
             tabLinks.forEach(l => l.classList.remove('active'));
             tabPanels.forEach(p => p.classList.remove('active'));
             link.classList.add('active');
+            
+            // --- CORREÇÃO: Mover a definição da variável para dentro do evento ---
+            // Isso evita um erro caso o botão não exista ao carregar a página,
+            // o que estava a impedir a troca de abas.
+            const sigNavButton = document.getElementById('signature-nav-button');
+            sigNavButton.style.display = 'none'; // Oculta ao trocar de aba
             const targetPanel = document.getElementById(link.dataset.target);
             if (targetPanel) {
                  targetPanel.classList.add('active');
@@ -1668,6 +1722,10 @@ document.addEventListener('DOMContentLoaded', function() {
     const pageContainer = document.getElementById('document-preview-container');
     const exportPdfBtn = document.getElementById('export-pdf-btn'); // Botão existe no HTML
     const saveVisualizadorBtn = document.getElementById('save-visualizador-btn'); // Botão não existe mais, mas a var pode ser mantida
+    // --- INÍCIO: Lógica de navegação de assinatura ---
+    let pendingSignatureElements = [];
+    let currentSignatureIndex = -1;
+    // --- FIM: Lógica de navegação de assinatura ---
     let saveTimeout;
 
     function scheduleSave() {
@@ -1872,6 +1930,47 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
+
+        // --- INÍCIO: Lógica de contagem e navegação de assinaturas ---
+        const signatureButtons = pageContainer.querySelectorAll('.open-signature-modal');
+        const signatureImages = pageContainer.querySelectorAll('.signature-image-embedded');
+        
+        const totalSignatures = signatureButtons.length + signatureImages.length;
+        const completedSignatures = signatureImages.length;
+
+        const signatureCounter = document.getElementById('signature-counter');
+        if (signatureCounter) {
+            signatureCounter.textContent = `${completedSignatures}/${totalSignatures}`;
+        }
+
+        pendingSignatureElements = Array.from(signatureButtons);
+        const sigNavButton = document.getElementById('signature-nav-button');
+
+        if (pendingSignatureElements.length > 0) {
+            sigNavButton.style.display = 'flex'; // Mostra o botão
+        } else {
+            sigNavButton.style.display = 'none'; // Oculta se não houver pendentes
+        }
+        // --- FIM: Lógica de contagem e navegação de assinaturas ---
+    }
+
+    // --- INÍCIO: Listener do botão de navegação ---
+    const sigNavButton = document.getElementById('signature-nav-button');
+    if (sigNavButton) {
+        sigNavButton.addEventListener('click', () => {
+            if (pendingSignatureElements.length === 0) return;
+
+            currentSignatureIndex++;
+            if (currentSignatureIndex >= pendingSignatureElements.length) {
+                currentSignatureIndex = 0; // Volta para o início
+            }
+
+            const nextSignature = pendingSignatureElements[currentSignatureIndex];
+            nextSignature.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            
+            nextSignature.classList.add('signature-focus');
+            setTimeout(() => nextSignature.classList.remove('signature-focus'), 1600);
+        });
     }
 
     // --- LÓGICA PARA EXCLUIR ANEXOS ---

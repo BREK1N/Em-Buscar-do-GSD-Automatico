@@ -1360,8 +1360,8 @@ class PATDDetailView(DetailView):
         # --- INÍCIO DA MODIFICAÇÃO: Passar status bloqueados para o template ---
         context['locked_statuses_for_edit'] = [
             'analise_comandante', 'aguardando_assinatura_npd', 'periodo_reconsideracao',
-            'em_reconsideracao', 'aguardando_comandante_base',
-            'aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado'
+            'em_reconsideracao', 'aguardando_comandante_base', 
+            'finalizado'
         ]
         # --- FIM DA MODIFICAÇÃO ---
 
@@ -1457,8 +1457,8 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
         patd = self.get_object()
         locked_statuses = [
             'analise_comandante', 'aguardando_assinatura_npd', 'periodo_reconsideracao',
-            'em_reconsideracao', 'aguardando_comandante_base',
-            'aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado'
+            'em_reconsideracao', 'aguardando_comandante_base', 
+            'finalizado'
         ]
 
         if patd.status in locked_statuses:
@@ -2022,14 +2022,23 @@ def analisar_punicao(request, pk):
         ).exclude(pk=patd.pk).order_by('-data_inicio') # Adiciona order_by para pegar o mais recente
 
         historico_list = []
-        
-        # --- INÍCIO DA CORREÇÃO ---
-        # Busca o comportamento anterior baseado na última PATD finalizada do militar
-        patd_mais_recente = patds_anteriores.first()
+
+        # --- CORREÇÃO: Busca o comportamento anterior de forma mais robusta ---
+        # Verifica se o militar já teve "Mau comportamento" em qualquer PATD anterior (excluindo a atual)
+        if patd.pk: # Se for uma PATD existente sendo re-analisada
+            has_previous_mau_comportamento = PATD.objects.filter(
+                militar=militar_acusado, 
+                comportamento="Mau comportamento"
+            ).exclude(pk=patd.pk).exists()
+        else: # Se for uma nova PATD sendo analisada pela primeira vez
+            has_previous_mau_comportamento = PATD.objects.filter(
+                militar=militar_acusado, 
+                comportamento="Mau comportamento"
+            ).exists()
+
         comportamento_anterior = "Permanece no \"Bom comportamento\"" # Valor padrão
-        
-        if patd_mais_recente and patd_mais_recente.comportamento:
-            comportamento_anterior = patd_mais_recente.comportamento
+        if has_previous_mau_comportamento:
+            comportamento_anterior = "Mau comportamento"
         # --- FIM DA CORREÇÃO ---
 
         if patds_anteriores.exists():

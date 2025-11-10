@@ -163,6 +163,24 @@ class PATDForm(forms.ModelForm):
                     except (ValueError, TypeError):
                         pass # Deixa vazio se não conseguir converter
 
+        # --- INÍCIO DA MODIFICAÇÃO: Lógica para desabilitar campos ---
+        # Se a instância existe e está em um dos status de finalização que permitem editar a punição
+        if self.instance and self.instance.pk and self.instance.status in [
+            'aguardando_preenchimento_npd_reconsideracao',
+            'aguardando_publicacao'
+        ]:
+            # Define os únicos campos que devem permanecer editáveis
+            editable_fields = {'nova_punicao_dias_num', 'nova_punicao_tipo'}
+            
+            # Itera sobre todos os campos do formulário
+            for field_name, field in self.fields.items():
+                # Se o nome do campo não estiver na lista de campos editáveis
+                if field_name not in editable_fields:
+                    # Desabilita o campo
+                    field.disabled = True
+                    field.widget.attrs['title'] = 'Este campo não pode ser editado nesta fase do processo.'
+        # --- FIM DA MODIFICAÇÃO ---
+
 
     def save(self, commit=True):
         # Pega a instância do modelo, mas não salva no banco ainda

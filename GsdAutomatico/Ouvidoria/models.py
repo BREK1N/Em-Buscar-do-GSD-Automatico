@@ -221,23 +221,44 @@ class PATD(models.Model):
         """
         militar = self.militar
         # Exclui a si mesmo e ordena para verificar o comportamento mais recente
-        outras_patds = PATD.objects.filter(militar=militar).exclude(pk=self.pk).order_by('-data_inicio')
         
-        total_dias_prisao = 0.0
+        # --- MODIFICAÇÃO PARA REGRA 2: Verifica se o militar JÁ está no "Mau comportamento" em qualquer PATD anterior ---
+        # Exclui a si mesmo (se já tiver PK) para não contar o comportamento que está sendo calculado
+        # Se a PATD atual ainda não tem PK (é nova), então todas as outras são "anteriores"
+        if self.pk:
+            has_previous_mau_comportamento = PATD.objects.filter(
+                militar=militar, 
+                comportamento="Mau comportamento"
+            ).exclude(pk=self.pk).exists()
+        else:
+            has_previous_mau_comportamento = PATD.objects.filter(
+                militar=militar, 
+                comportamento="Mau comportamento"
+            ).exists()
 
-        # --- MODIFICAÇÃO (REGRA 2) ---
-        # Verifica se o militar JÁ está no "Mau comportamento" em algum registro anterior.
-        # Nós verificamos a PATD mais recente primeiro (devido ao order_by)
-        patd_mais_recente = outras_patds.first()
-        if patd_mais_recente and patd_mais_recente.comportamento == "Mau comportamento":
+        if has_previous_mau_comportamento:
             self.comportamento = "Mau comportamento"
             return # Para a execução aqui, ele fica em "Mau" para sempre.
 
-        # Se não estava no "Mau Comportamento", calcula o total de dias
+        # Se não estava no "Mau Comportamento" anteriormente, calcula o total de dias
+        
+        total_dias_prisao = 0.0
+
         # 1. Calcula a punição das PATDs antigas (do banco de dados)
-        for p in outras_patds:
+        # Inclui todas as PATDs do militar, exceto a atual (se já tiver PK)
+        if self.pk:
+            all_relevant_patds = PATD.objects.filter(militar=militar).exclude(pk=self.pk)
+        else:
+            all_relevant_patds = PATD.objects.filter(militar=militar)
+
+        for p in all_relevant_patds:
             dias_str = p.dias_punicao or ""
             tipo_punicao = p.punicao or ""
+            
+            # Pula se não houver punição ou se foi justificado
+            if p.justificado or not tipo_punicao:
+                continue
+
             match = re.search(r'\((\d+)\)', dias_str)
             if match:
                 dias = int(match.group(1))
@@ -245,17 +266,23 @@ class PATD(models.Model):
                     total_dias_prisao += dias / 2
                 elif "prisão" in tipo_punicao.lower():
                     total_dias_prisao += dias
+            # else:
+            #     logger.debug(f"PATD {p.pk}: Could not parse days from '{dias_str}' for punishment type '{tipo_punicao}'.")
 
         # 2. Adiciona a punição da PATD atual (self)
-        dias_str_atual = self.dias_punicao or ""
-        tipo_punicao_atual = self.punicao or ""
-        match_atual = re.search(r'\((\d+)\)', dias_str_atual)
-        if match_atual:
-            dias_atual = int(match_atual.group(1))
-            if "detenção" in tipo_punicao_atual.lower():
-                total_dias_prisao += dias_atual / 2
-            elif "prisão" in tipo_punicao_atual.lower():
-                total_dias_prisao += dias_atual
+        # Adiciona apenas se a PATD atual não for justificada e tiver uma punição
+        if not self.justificado and self.punicao:
+            dias_str_atual = self.dias_punicao or ""
+            tipo_punicao_atual = self.punicao or ""
+            match_atual = re.search(r'\((\d+)\)', dias_str_atual)
+            if match_atual:
+                dias_atual = int(match_atual.group(1))
+                if "detenção" in tipo_punicao_atual.lower():
+                    total_dias_prisao += dias_atual / 2
+                elif "prisão" in tipo_punicao_atual.lower():
+                    total_dias_prisao += dias_atual
+            # else:
+            #     logger.debug(f"PATD {self.pk}: Could not parse days from '{dias_str_atual}' for current punishment type '{tipo_punicao_atual}'.")
 
         # 3. Atualiza o comportamento no objeto atual
         # --- MODIFICAÇÃO (REGRA 1) ---
@@ -264,6 +291,7 @@ class PATD(models.Model):
         else:
             self.comportamento = "Permanece no \"Bom comportamento\""
     # --- FIM DAS MODIFICAÇÕES SOLICITADAS ---
+        logger.info(f"PATD {self.pk} para Militar {militar.pk}: Total dias prisão (equivalente) = {total_dias_prisao}, Comportamento final = {self.comportamento}")
 
 
     def definir_natureza_transgressao(self):
