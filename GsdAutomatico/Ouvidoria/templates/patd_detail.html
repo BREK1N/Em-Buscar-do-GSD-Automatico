@@ -449,10 +449,9 @@
                 <button type="button" class="btn btn-warning" id="btn-reconsideracao-modal">Solicitar Reconsideração</button>
                 {% endif %}
                 {% if patd.status == 'analise_comandante' and user|has_comandante_access %}
-                <form action="{% url 'Ouvidoria:patd_aprovar' patd.pk %}" method="post" style="display: inline;">
-                    {% csrf_token %}
-                    <button type="submit" class="btn btn-success">Aprovar PATD</button>
-                </form>
+                <button type="button" class="btn btn-success open-aprovar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
+                Aprovar e Finalizar
+                </button>
                 <button type="button" class="btn btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
                 {% endif %}
                 {% if patd.status == 'aguardando_publicacao' and user|has_ouvidoria_access %}
@@ -879,6 +878,23 @@
             <div class="form-actions" style="justify-content: flex-end;">
                 <button type="button" class="btn btn-secondary" id="cancel-retornar-btn">Cancelar</button>
                 <button type="submit" class="btn btn-warning">Confirmar Retorno</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="modal-overlay" id="aprovar-patd-modal">
+    <div class="modal-content">
+        <h3 id="aprovar-modal-title">Aprovar PATD</h3>
+        <p>Para confirmar a aprovação desta PATD e aplicar sua assinatura digital, por favor, insira sua senha.</p>
+        <form id="aprovar-patd-form" method="post" action="" class="model-form">
+            {% csrf_token %}
+            <div class="form-item">
+                <label for="id_senha_comandante">Sua Senha:</label>
+                <input type="password" name="senha_comandante" required id="id_senha_comandante" autocomplete="current-password">
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-aprovar-btn">Cancelar</button>
+                <button type="submit" class="btn btn-success">Confirmar Aprovação</button>
             </div>
         </form>
     </div>
@@ -2244,6 +2260,38 @@ document.addEventListener('DOMContentLoaded', function() {
          // Fallback se a aba era 'visualizador' mas o painel não foi encontrado
         renderVisualizador();
     }
+
+// --- NOVA Lógica do Modal de Aprovação ---
+const aprovarModal = document.getElementById('aprovar-patd-modal');
+const aprovarForm = document.getElementById('aprovar-patd-form');
+const aprovarModalTitle = document.getElementById('aprovar-modal-title');
+const cancelAprovarBtn = document.getElementById('cancel-aprovar-btn');
+
+document.body.addEventListener('click', function(e) {
+    if (e.target.classList.contains('open-aprovar-modal-btn')) {
+        const patdPk = e.target.dataset.patdPk;
+        const patdNumero = e.target.dataset.patdNumero;
+        // A action do form agora aponta para a URL de aprovação correta
+        const url = `/Ouvidoria/patd/${patdPk}/aprovar/`;
+        aprovarForm.action = url;
+        aprovarModalTitle.textContent = `Aprovar PATD Nº ${patdNumero}`;
+        aprovarModal.classList.add('active');
+    }
+});
+
+if (cancelAprovarBtn) {
+    cancelAprovarBtn.addEventListener('click', () => {
+        aprovarModal.classList.remove('active');
+    });
+}
+
+if (aprovarModal) {
+    aprovarModal.addEventListener('click', (e) => {
+        if (e.target === aprovarModal) {
+            aprovarModal.classList.remove('active');
+        }
+    });
+}
 
 });
 </script>
