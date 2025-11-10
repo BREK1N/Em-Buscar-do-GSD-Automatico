@@ -54,6 +54,7 @@ from difflib import SequenceMatcher # Importado para a verificação de similari
 from django.utils.decorators import method_decorator
 from num2words import num2words # Importação para converter números em texto
 from functools import wraps # Importado para criar o decorator
+import os # Importado para verificar a existência de ficheiros
 import threading # Importado para tarefas em background
 from .permissions import has_comandante_access, has_ouvidoria_access
 import base64
@@ -201,7 +202,7 @@ def _check_and_advance_reconsideracao_status(patd_pk):
 
             logger.info(f"PATD {patd.pk}: Current status: {patd.status}, Has Content? {has_content}, Has Signature? {has_signature}")
 
-            if patd.status == 'em_reconsideracao' and has_content:
+            if patd.status == 'em_reconsideracao' and has_content and has_signature:
                 patd.status = 'aguardando_comandante_base'
                 patd.save(update_fields=['status'])
                 logger.info(f"PATD {patd.pk} status advanced to 'aguardando_comandante_base'.")
@@ -212,6 +213,63 @@ def _check_and_advance_reconsideracao_status(patd_pk):
     except Exception as e:
         logger.error(f"Error in _check_and_advance_reconsideracao_status for PATD {patd_pk}: {e}")
 
+# Modified the existing _check_and_advance_reconsideracao_status function (originally at line 226)
+# to include more detailed logging for debugging.
+# The duplicate definition of this function (originally at line 250) has been removed.
+
+def _check_and_advance_reconsideracao_status(patd_pk):
+    """
+    Função centralizada que verifica, dentro de uma transação para garantir a consistência dos dados,
+    se a reconsideração tem conteúdo e assinatura. Se ambas as condições forem verdadeiras,
+    o status é avançado.
+    """
+    try:
+        with transaction.atomic():
+            # Bloqueia a linha da PATD para evitar condições de corrida
+            patd = PATD.objects.select_for_update().get(pk=patd_pk)
+
+            # --- CORREÇÃO: Forçar a releitura do objeto do banco de dados ---
+            # Garante que estamos a verificar o estado mais recente, incluindo
+            # a atualização da assinatura que acabou de ser salva.
+            patd.refresh_from_db()
+
+            # Detailed logging for debugging
+            logger.info(f"PATD {patd.pk} (Reconsideration Check):")
+            logger.info(f"  - Current status: {patd.status}")
+            logger.info(f"  - Has texto_reconsideracao: {bool(patd.texto_reconsideracao)}")
+            logger.info(f"  - Anexos (tipo='reconsideracao') count: {patd.anexos.filter(tipo='reconsideracao').count()}")
+            logger.info(f"  - Has assinatura_reconsideracao: {bool(patd.assinatura_reconsideracao)}")
+
+            has_content = bool(patd.texto_reconsideracao or patd.anexos.filter(tipo='reconsideracao').exists())
+            
+            # Primeiro, tenta verificar pelo campo do modelo (que deveria estar atualizado)
+            has_signature_db_field = bool(patd.assinatura_reconsideracao)
+            logger.info(f"  - Has assinatura_reconsideracao (DB field): {has_signature_db_field}")
+
+            # Se o campo do DB ainda for False, verifica diretamente no sistema de ficheiros como fallback
+            has_signature_filesystem = False
+            if not has_signature_db_field and patd.assinatura_reconsideracao and patd.assinatura_reconsideracao.name:
+                try:
+                    # Constrói o caminho absoluto esperado para o ficheiro da assinatura
+                    expected_file_path = os.path.join(settings.MEDIA_ROOT, patd.assinatura_reconsideracao.name)
+                    has_signature_filesystem = os.path.exists(expected_file_path)
+                    logger.info(f"  - Has assinatura_reconsideracao (Filesystem check at {expected_file_path}): {has_signature_filesystem}")
+                except Exception as e:
+                    logger.warning(f"Erro ao verificar o sistema de ficheiros para a assinatura da PATD {patd.pk} no caminho '{patd.assinatura_reconsideracao.name}': {e}")
+
+            # A assinatura é considerada válida se estiver no DB OU no sistema de ficheiros
+            final_has_signature = has_signature_db_field or has_signature_filesystem
+
+            if patd.status == 'em_reconsideracao' and has_content and final_has_signature:
+                patd.status = 'aguardando_comandante_base'
+                patd.save(update_fields=['status'])
+                logger.info(f"PATD {patd.pk} status advanced to 'aguardando_comandante_base'.")
+            else:
+                logger.info(f"PATD {patd.pk}: Conditions not met to advance status (still 'em_reconsideracao').")
+    except PATD.DoesNotExist:
+        logger.error(f"PATD {patd_pk} not found during status check.")
+    except Exception as e:
+        logger.error(f"Error in _check_and_advance_reconsideracao_status for PATD {patd_pk}: {e}")
 # Removida a classe AnaliseTransgressao daqui, pois foi movida para analise_transgressao.py
 
 def get_next_patd_number():
@@ -558,6 +616,11 @@ def get_document_pages(patd):
          else:
              reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
          html_content = _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+         
+         # --- CORREÇÃO CRÍTICA ---
+         # Substitui o placeholder de assinatura de ciência pelo de reconsideração
+         # para garantir que a função JS correta seja chamada.
+         html_content = html_content.replace('{Assinatura Militar Arrolado}', '{Assinatura Reconsideracao}')
          document_pages.append(html_content) # Adiciona a página do documento
          
          # SÓ adiciona a página de anexo se houver anexos de reconsideração
@@ -1277,6 +1340,13 @@ class PATDDetailView(DetailView):
         patd = self.get_object()
         config = Configuracao.load()
 
+        # --- INÍCIO DA MODIFICAÇÃO: Verificação Proativa ---
+        # Se a PATD está em reconsideração, verifica se já pode avançar.
+        # Isso corrige casos em que a página é recarregada após a assinatura
+        # e o status ainda não foi atualizado.
+        if patd.status == 'em_reconsideracao':
+            _check_and_advance_reconsideracao_status(patd.pk)
+
         document_pages = get_document_pages(patd)
         context['documento_texto_json'] = json.dumps(document_pages)
 
@@ -1451,7 +1521,9 @@ def salvar_assinatura(request, pk):
             if patd.assinatura_oficial:
                 patd.assinatura_oficial.delete(save=False)
 
-            patd.assinatura_oficial.save(file_content.name, file_content, save=True)
+            # Garante que a referência do ficheiro seja salva na base de dados explicitamente
+            patd.assinatura_oficial.save(file_content.name, file_content, save=False)
+            patd.save(update_fields=['assinatura_oficial'])
         except Exception as e:
             logger.error(f"Erro ao converter Base64 para ficheiro para PATD {pk}: {e}")
             return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
@@ -1619,14 +1691,18 @@ def salvar_assinatura_reconsideracao(request, pk):
             if patd.assinatura_reconsideracao:
                 patd.assinatura_reconsideracao.delete(save=False)
 
-            patd.assinatura_reconsideracao.save(file_content.name, file_content, save=True)
+            patd.assinatura_reconsideracao.save(file_content.name, file_content, save=False)
+            patd.save(update_fields=['assinatura_reconsideracao'])
             logger.info(f"Assinatura de reconsideração para PATD {pk} salva em {patd.assinatura_reconsideracao.path}")
 
         except Exception as e:
             logger.error(f"Erro ao converter Base64 para ficheiro para PATD {pk}: {e}")
             return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
 
-        _check_and_advance_reconsideracao_status(pk)
+        # --- CORREÇÃO: Usar transaction.on_commit ---
+        # Agenda a verificação para ser executada APÓS o save() ser confirmado na base de dados,
+        # evitando condições de corrida onde a verificação ocorre antes do campo da assinatura ser atualizado.
+        transaction.on_commit(lambda: _check_and_advance_reconsideracao_status(pk))
 
         return JsonResponse({'status': 'success', 'message': 'Assinatura salva com sucesso.'})
     except Exception as e:
@@ -1887,11 +1963,13 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
             if testemunha_num == 1:
                 if patd.assinatura_testemunha1:
                     patd.assinatura_testemunha1.delete(save=False)
-                patd.assinatura_testemunha1.save(file_content.name, file_content, save=False)
+                patd.assinatura_testemunha1.save(file_content.name, file_content, save=False) # Não salva o modelo PATD ainda
+                patd.save(update_fields=['assinatura_testemunha1']) # Salva explicitamente a referência do ficheiro
             elif testemunha_num == 2:
                 if patd.assinatura_testemunha2:
                     patd.assinatura_testemunha2.delete(save=False)
-                patd.assinatura_testemunha2.save(file_content.name, file_content, save=False)
+                patd.assinatura_testemunha2.save(file_content.name, file_content, save=False) # Não salva o modelo PATD ainda
+                patd.save(update_fields=['assinatura_testemunha2']) # Salva explicitamente a referência do ficheiro
             else:
                 return JsonResponse({'status': 'error', 'message': 'Número de testemunha inválido.'}, status=400)
 
@@ -2240,7 +2318,10 @@ def salvar_reconsideracao(request, pk):
         for arquivo in arquivos:
             Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='reconsideracao')
 
-        _check_and_advance_reconsideracao_status(pk)
+        # --- CORREÇÃO: Usar transaction.on_commit para consistência ---
+        # Garante que a verificação só ocorra após o salvamento do texto/anexos
+        # ser confirmado na base de dados.
+        transaction.on_commit(lambda: _check_and_advance_reconsideracao_status(pk))
 
         return JsonResponse({'status': 'success', 'message': 'Pedido de reconsideração e anexos salvos com sucesso.'})
     except Exception as e:

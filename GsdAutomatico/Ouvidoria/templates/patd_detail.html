@@ -488,11 +488,11 @@
             {% if patd.status == 'aguardando_comandante_base' and user.profile.militar == patd.oficial_responsavel %}
             <div class="card-body" style="margin-top: 20px; border-top: 1px solid var(--border-color); padding-top: 20px;">
                 <h4>Anexar Documento de Reconsideração</h4>
-                <p>Anexe o documento (Word ou imagem) referente à sua análise do pedido de reconsideração para prosseguir.</p>
+                <p>Anexe o documento (PDF, Word ou imagem) referente à sua análise do pedido de reconsideração para prosseguir.</p>
                 <form action="{% url 'Ouvidoria:anexar_reconsideracao_oficial' patd.pk %}" method="post" enctype="multipart/form-data">
                     {% csrf_token %}
                     <div class="form-item">
-                        <input type="file" name="anexo_oficial" accept=".doc,.docx,.png,.jpg,.jpeg" required style="width: 100%; padding: 10px;">
+                        <input type="file" name="anexo_oficial" accept=".doc,.docx,.png,.jpg,.jpeg,.pdf" required style="width: 100%; padding: 10px;">
                     </div>
                     <div class="form-actions" style="justify-content: flex-start; margin-top: 15px;">
                         <button type="submit" class="btn btn-primary">Anexar e Avançar</button>
@@ -1464,6 +1464,41 @@ document.addEventListener('DOMContentLoaded', function() {
             const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
             const s = Math.floor((diff % (1000 * 60)) / 1000);
             countdownTimer.textContent = `${d}d ${h}h ${m}m ${s}s`;
+        }, 1000);
+    }
+
+    // --- INÍCIO DA NOVA LÓGICA PARA O TIMER DE RECONSIDERAÇÃO ---
+    const reconsideracaoCountdownTimer = document.getElementById('reconsideracao-countdown-timer');
+    const reconsideracaoPrazoBox = document.getElementById('reconsideracao-prazo-box');
+    if (reconsideracaoCountdownTimer && '{{ patd.data_publicacao_punicao }}') {
+        const dataPublicacao = new Date('{{ patd.data_publicacao_punicao|date:"c" }}');
+        const prazoDias = 15; // O prazo de reconsideração é fixo em 15 dias corridos.
+        const deadline = new Date(dataPublicacao.getTime() + prazoDias * 24 * 60 * 60 * 1000);
+
+        const interval = setInterval(() => {
+            const now = new Date();
+            const diff = deadline - now;
+
+            if (diff <= 0) {
+                reconsideracaoCountdownTimer.textContent = "Prazo expirado.";
+                if(reconsideracaoPrazoBox) reconsideracaoPrazoBox.classList.add('expirado');
+                clearInterval(interval);
+                // Opcional: Atualizar status da PATD via AJAX se o prazo expirou
+                fetch('{% url "Ouvidoria:verificar_e_atualizar_prazos" %}', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({}) // Corpo vazio, pois a função no servidor verifica todas as PATDs
+                });
+                return;
+            }
+            const d = Math.floor(diff / (1000 * 60 * 60 * 24));
+            const h = Math.floor((diff % (1000 * 60 * 60 * 24)) / (1000 * 60 * 60));
+            const m = Math.floor((diff % (1000 * 60 * 60)) / (1000 * 60));
+            const s = Math.floor((diff % (1000 * 60)) / 1000);
+            reconsideracaoCountdownTimer.textContent = `${d}d ${h}h ${m}m ${s}s`;
         }, 1000);
     }
     function showExpiredButtons() {
