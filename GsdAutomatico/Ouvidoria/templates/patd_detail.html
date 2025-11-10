@@ -226,8 +226,18 @@
 
     /* Aplica espaçamento padrão APENAS a parágrafos com conteúdo */
     .page-content p:not(:empty) {
-       margin-bottom: 0.8em !important; /* Espaçamento entre parágrafos com texto */
+       margin-bottom: 0.5em !important; /* Espaçamento entre parágrafos com texto, reduzido */
        line-height: 1.5;
+       orphans: 3; /* Evita que uma única linha de parágrafo fique isolada no topo da página */
+       widows: 3;  /* Evita que uma única linha de parágrafo fique isolada na base da página */
+    }
+
+    /* Reset de margens para elementos de bloco comuns dentro do conteúdo da página */
+    .page-content h1, .page-content h2, .page-content h3, .page-content h4, .page-content h5, .page-content h6,
+    .page-content ul, .page-content ol, .page-content dl, .page-content blockquote, .page-content pre,
+    .page-content table {
+        margin-top: 0.5em !important;
+        margin-bottom: 0.5em !important;
     }
 
      /* Trata especificamente a imagem do brasão */
@@ -338,6 +348,59 @@
         font-size: 0.9rem; /* Tamanho de fonte padrão de botão */
     }
     /* --- FIM DOS NOVOS ESTILOS --- */
+
+    @media print {
+        /* Oculta tudo que não for o visualizador de documento */
+        .sidebar, .main-header, .patd-header, .status-timeline, .tabs-nav, #tab-detalhes, .patd-actions, .modal-overlay {
+            display: none !important;
+        }
+
+        /* Garante que o visualizador e seu container ocupem o espaço */
+        #tab-visualizador, .document-preview-container {
+            display: block !important;
+            padding: 0 !important;
+            margin: 0 !important;
+            overflow: visible !important;
+        }
+
+        /* Estilo da página para impressão */
+        .page {
+            overflow: visible !important; /* ESSENCIAL: para não cortar conteúdo */
+            box-shadow: none;
+            border: none;
+            margin: 0;
+            width: 100%; /* Ocupa a largura da área de impressão */
+            height: auto;
+            min-height: 0;
+            padding: 0; /* A margem é controlada pelo @page */
+            page-break-after: always; /* Quebra a página depois de cada div .page */
+        }
+
+        .page:last-of-type {
+            page-break-after: auto; /* Não quebra depois da última página */
+        }
+
+        /* Controla as margens da página impressa */
+        @page {
+            size: A4;
+            margin: 2.5cm;
+        }
+
+        /* Evita quebras de página dentro de elementos importantes */
+        .page-content p,
+        .page-content ul,
+        .page-content ol,
+        .page-content img,
+        .embedded-anexo-container,
+        .signature-block { /* Adicionar se tiver um container de assinatura */
+            page-break-inside: avoid;
+        }
+
+        /* Oculta a numeração de página customizada para usar a do navegador */
+        .page-number {
+            display: none;
+        }
+    }
 
 </style>
 
@@ -521,6 +584,34 @@
         </div>
     </div>
 
+    {% if historico_punicoes %}
+    <div class="card">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 24px; height: 24px;"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+            <h2>Histórico Disciplinar do Militar</h2>
+        </div>
+        <div class="card-body">
+            <ul class="historico-list">
+                {% for punicao in historico_punicoes %}
+                    <li class="historico-item">
+                        <strong>PATD Nº <a href="{% url 'Ouvidoria:patd_detail' punicao.pk %}">{{ punicao.numero_patd }}</a> ({{ punicao.data }})</strong>
+                        <span>Punição: {{ punicao.punicao }}</span>
+                        <span>Itens: {{ punicao.itens|default:"Não especificado" }}</span>
+                        {% if punicao.circunstancias.atenuantes %}
+                        <span>Atenuantes: {{ punicao.circunstancias.atenuantes|join:", " }}</span>
+                        {% endif %}
+                        {% if punicao.circunstancias.agravantes %}
+                        <span>Agravantes: {{ punicao.circunstancias.agravantes|join:", " }}</span>
+                        {% endif %}
+                    </li>
+                {% empty %}
+                    <p>Nenhuma punição anterior encontrada.</p>
+                {% endfor %}
+            </ul>
+        </div>
+    </div>
+    {% endif %}
+
     <div class="card">
          <div class="card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /></svg>
@@ -595,21 +686,6 @@
             </div>
              <form id="apuracao-form" class="model-form">
                 <h3>Resultado da Apuração (Editável)</h3>
-
-                <div class="form-item form-item-full">
-                    <label for="historico_disciplinar">Histórico Disciplinar do Militar</label>
-                    <div id="historico_disciplinar" class="historico-list">
-                        {% for punicao in historico_punicoes %}
-                            <li class="historico-item">
-                                <strong>PATD Nº {{ punicao.numero_patd }} ({{ punicao.data }})</strong>
-                                <span>Punição: {{ punicao.punicao }}</span>
-                                <span>Itens: {{ punicao.itens }}</span>
-                            </li>
-                        {% empty %}
-                            <p>Nenhuma punição anterior encontrada.</p>
-                        {% endfor %}
-                    </div>
-                </div>
 
                 <div class="form-grid">
                     <div class="form-item-full">
@@ -1722,6 +1798,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 processedHtml = processedHtml.replace(/<p>(<br\s*\/?>|\s|&nbsp;)*<\/p>/gi, ''); 
                 processedHtml = processedHtml.replace(/<p>(<br\s*\/?>\s*)+/gi, '<p>'); 
                 processedHtml = processedHtml.replace(/(<br\s*\/?>\s*)+<\/p>/gi, '</p>');
+                
+                // NOVO: Reduz múltiplos <br> para apenas um, garantindo no máximo uma linha de espaço.
+                processedHtml = processedHtml.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
+
                 processedHtml = processedHtml.replace(/\s{2,}/g, ' '); 
                 processedHtml = processedHtml.replace(/(&nbsp;){2,}/g, '&nbsp;');
 

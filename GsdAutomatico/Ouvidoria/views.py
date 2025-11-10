@@ -1298,16 +1298,24 @@ class PATDDetailView(DetailView):
 
         historico_punicoes = []
         for p_antiga in patds_anteriores:
-            if p_antiga.punicao:
+            # Inclui no histórico se houve punição OU se foi justificado
+            if p_antiga.punicao or p_antiga.justificado:
                 itens_str = ""
                 if p_antiga.itens_enquadrados and isinstance(p_antiga.itens_enquadrados, list):
                     itens_str = ", ".join([str(item.get('numero', '')) for item in p_antiga.itens_enquadrados if 'numero' in item])
 
+                # Define a string da punição
+                punicao_str = "Transgressão Justificada"
+                if not p_antiga.justificado and p_antiga.punicao:
+                    punicao_str = f"{p_antiga.dias_punicao} de {p_antiga.punicao}" if p_antiga.dias_punicao else p_antiga.punicao
+
                 historico_punicoes.append({
+                    'pk': p_antiga.pk, # Adiciona a PK para o link
                     'numero_patd': p_antiga.numero_patd,
-                    'punicao': f"{p_antiga.dias_punicao} de {p_antiga.punicao}" if p_antiga.dias_punicao else p_antiga.punicao,
+                    'punicao': punicao_str,
                     'itens': itens_str,
-                    'data': p_antiga.data_inicio.strftime('%d/%m/%Y')
+                    'data': p_antiga.data_inicio.strftime('%d/%m/%Y'),
+                    'circunstancias': p_antiga.circunstancias
                 })
 
         context['historico_punicoes'] = historico_punicoes
@@ -2281,8 +2289,13 @@ def justificar_patd(request, pk):
         if patd.status not in ['em_apuracao', 'apuracao_preclusao']:
              return JsonResponse({'status': 'error', 'message': 'A PATD não está na fase correta para ser justificada.'}, status=400)
 
+        # Verifica se as testemunhas foram definidas
+        if not patd.testemunha1 or not patd.testemunha2:
+            return JsonResponse({'status': 'error', 'message': 'É necessário definir as duas testemunhas antes de justificar o processo.'}, status=400)
+
         patd.justificado = True
-        patd.status = 'aguardando_publicacao'
+        patd.status = 'finalizado' # Altera o status para finalizado
+        patd.data_termino = timezone.now() # Define a data de término
 
         patd.punicao_sugerida = "Transgressão Justificada"
         patd.punicao = ""
@@ -2291,7 +2304,7 @@ def justificar_patd(request, pk):
         patd.texto_relatorio = """Após análise dos fatos, alegações e circunstâncias, este Oficial Apurador conclui que a transgressão disciplinar imputada ao militar está JUSTIFICADA, nos termos do Art. 13, item 1 do RDAER."""
 
         patd.save()
-        return JsonResponse({'status': 'success', 'message': 'A transgressão foi justificada com sucesso.'})
+        return JsonResponse({'status': 'success', 'message': 'A transgressão foi justificada e o processo finalizado com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao justificar a PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -2451,7 +2464,13 @@ def exportar_patd_docx(request, pk):
     militar_sig_counter = 0
     placeholder_regex = re.compile(r'({[^}]+})')
 
-    for element in soup.find_all(['p', 'img']):
+    for element in soup.find_all(['p', 'img', 'div']):
+        # --- INÍCIO DA MODIFICAÇÃO: Adicionar quebra de página ---
+        if element.name == 'div' and 'manual-page-break' in element.get('class', []):
+            document.add_page_break()
+            continue
+        # --- FIM DA MODIFICAÇÃO ---
+
         if element.name == 'p':
             p = document.add_paragraph()
 
