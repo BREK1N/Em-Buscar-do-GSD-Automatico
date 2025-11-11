@@ -290,8 +290,6 @@ class PATD(models.Model):
             self.comportamento = "Mau comportamento"
         else:
             self.comportamento = "Permanece no \"Bom comportamento\""
-    # --- FIM DAS MODIFICAÇÕES SOLICITADAS ---
-        logger.info(f"PATD {self.pk} para Militar {militar.pk}: Total dias prisão (equivalente) = {total_dias_prisao}, Comportamento final = {self.comportamento}")
 
 
     def definir_natureza_transgressao(self):
