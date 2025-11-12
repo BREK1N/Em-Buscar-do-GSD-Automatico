@@ -72,6 +72,22 @@ class PATDForm(forms.ModelForm):
         label="Agravantes",
         help_text="Circunstâncias agravantes, separadas por vírgula (ex: a, b, c)."
     )
+    # --- INÍCIO DA MODIFICAÇÃO: Campos para Punição Sugerida ---
+    punicao_sugerida_dias = forms.IntegerField(
+        required=False,
+        min_value=0,
+        label="Punição Sugerida (Dias)",
+        help_text="Número de dias para a punição sugerida pela IA.",
+        widget=forms.NumberInput(attrs={'placeholder': 'Ex: 6'})
+    )
+    punicao_sugerida_tipo = forms.ChoiceField(
+        required=False,
+        label="Punição Sugerida (Tipo)",
+        choices=[('', '---------'), ('detenção', 'Detenção'), ('prisão', 'Prisão'), ('repreensão', 'Repreensão')],
+        help_text="Tipo da punição sugerida pela IA."
+    )
+    # --- FIM DA MODIFICAÇÃO ---
+
     # --- NOVO CAMPO NUMÉRICO PARA DIAS DA NOVA PUNIÇÃO ---
     nova_punicao_dias_num = forms.IntegerField(
         required=False,
@@ -86,8 +102,9 @@ class PATDForm(forms.ModelForm):
         # --- CAMPOS ADICIONADOS AQUI ---
         fields = [
             'status', 'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2',
-            'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'punicao_sugerida',
-            'comprovante', 'dias_punicao', 'punicao', 'transgressao_afirmativa', 'natureza_transgressao', 'comportamento',
+            'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'comprovante',
+            'punicao_sugerida_dias', 'punicao_sugerida_tipo',
+            'transgressao_afirmativa', 'natureza_transgressao', 'comportamento',
             'alegacao_defesa_resumo', 'ocorrencia_reescrita', 'texto_relatorio',
             'nova_punicao_dias_num', 'nova_punicao_tipo' # Adicionados aqui
         ]
@@ -99,7 +116,6 @@ class PATDForm(forms.ModelForm):
                 format='%Y-%m-%d',
                 attrs={'type': 'date', 'class': 'form-control'}
             ),
-            'punicao_sugerida': forms.Textarea(attrs={'rows': 3}),
             'comprovante': forms.Textarea(attrs={'rows': 3}),
             'transgressao_afirmativa': forms.Textarea(attrs={'rows': 3}),
             'alegacao_defesa_resumo': forms.Textarea(attrs={'rows': 3}),
@@ -112,9 +128,6 @@ class PATDForm(forms.ModelForm):
                 ('prisão', 'Prisão'),
                 ('repreensão', 'Repreensão'),
             ]),
-            # Os campos dias_punicao e punicao (originais) não precisam de widget se forem calculados no save
-            'dias_punicao': forms.HiddenInput(),
-            'punicao': forms.HiddenInput(),
         }
         labels = {
             'status': "Status Atual",
@@ -123,7 +136,6 @@ class PATDForm(forms.ModelForm):
             'testemunha1': "1ª Testemunha",
             'testemunha2': "2ª Testemunha",
             'data_ocorrencia': "Data da Ocorrência",
-            'punicao_sugerida': "Punição Sugerida pela IA",
             'comprovante': "Comprovante da Transgressão",
             # 'dias_punicao': "Dias de Punição", # Ocultado
             # 'punicao': "Punição", # Ocultado
@@ -158,6 +170,20 @@ class PATDForm(forms.ModelForm):
                 self.fields['atenuantes'].initial = ", ".join(self.instance.circunstancias.get('atenuantes', []))
                 self.fields['agravantes'].initial = ", ".join(self.instance.circunstancias.get('agravantes', []))
 
+            # --- INÍCIO DA MODIFICAÇÃO: Inicialização dos campos de punição sugerida ---
+            if self.instance.punicao_sugerida:
+                sugerida_str = self.instance.punicao_sugerida.lower()
+                match = re.search(r'(\d+)\s+dias', sugerida_str)
+                if match:
+                    self.fields['punicao_sugerida_dias'].initial = int(match.group(1))
+                
+                if 'detenção' in sugerida_str:
+                    self.fields['punicao_sugerida_tipo'].initial = 'detenção'
+                elif 'prisão' in sugerida_str:
+                    self.fields['punicao_sugerida_tipo'].initial = 'prisão'
+                elif 'repreensão' in sugerida_str:
+                    self.fields['punicao_sugerida_tipo'].initial = 'repreensão'
+            # --- FIM DA MODIFICAÇÃO ---
             # --- INICIALIZAÇÃO DO CAMPO NUMÉRICO ---
             if self.instance.nova_punicao_dias:
                 match = re.search(r'\((\d+)\)', self.instance.nova_punicao_dias)
@@ -174,7 +200,10 @@ class PATDForm(forms.ModelForm):
             'aguardando_publicacao'
         ]:
             # Define os únicos campos que devem permanecer editáveis
-            editable_fields = {'nova_punicao_dias_num', 'nova_punicao_tipo'}
+            editable_fields = {
+                'nova_punicao_dias_num', 'nova_punicao_tipo', 
+                'punicao_sugerida_dias', 'punicao_sugerida_tipo'
+            }
             
             # Itera sobre todos os campos do formulário
             for field_name, field in self.fields.items():
@@ -217,6 +246,27 @@ class PATDForm(forms.ModelForm):
             'atenuantes': atenuantes,
             'agravantes': agravantes
         }
+
+        # --- INÍCIO DA MODIFICAÇÃO: Lógica para punição sugerida ---
+        sugerida_dias = self.cleaned_data.get('punicao_sugerida_dias')
+        sugerida_tipo = self.cleaned_data.get('punicao_sugerida_tipo')
+
+        # Atualiza tanto a punição sugerida quanto a principal
+        if sugerida_dias is not None and sugerida_tipo:
+            dias_texto = num2words(sugerida_dias, lang='pt_BR')
+            instance.punicao_sugerida = f"{sugerida_dias} dias de {sugerida_tipo}"
+            instance.dias_punicao = f"{dias_texto} ({sugerida_dias:02d}) dias"
+            instance.punicao = sugerida_tipo
+            instance.justificado = False
+        elif sugerida_tipo == 'repreensão':
+            instance.punicao_sugerida = "repreensão"
+            instance.dias_punicao = ""
+            instance.punicao = sugerida_tipo
+            instance.justificado = False
+        else:
+            instance.punicao_sugerida = "" # Limpa se os campos não forem válidos
+            instance.dias_punicao = ""
+            instance.punicao = ""
 
         # --- LÓGICA ATUALIZADA PARA PUNIÇÃO ---
         # Prioriza a Nova Punição se ela for preenchida

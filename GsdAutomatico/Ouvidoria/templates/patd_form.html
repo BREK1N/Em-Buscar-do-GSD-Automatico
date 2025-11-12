@@ -127,7 +127,7 @@
         </div>
         <div class="form-card-body">
             <div class="form-grid">
-                <div class="form-item">
+                 <div class="form-item">
                     <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}:</label>
                     {{ form.oficial_responsavel }}
                     {% for error in form.oficial_responsavel.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
@@ -146,12 +146,10 @@
         </div>
     </div>
 
-    {# --- Bloco de Apuração (Visível/Editável apenas para o Oficial Responsável) --- #}
-    {% if form.instance.punicao_sugerida and request.user.profile.militar == form.instance.oficial_responsavel %}
     <div class="form-card">
         <div class="form-card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
-             <h2>Dados da Apuração</h2>
+             <h2>Dados da Apuração (IA)</h2>
         </div>
         <div class="form-card-body">
             <div class="form-grid">
@@ -197,62 +195,45 @@
                     <small>{{ form.agravantes.help_text }}</small>
                     {% for error in form.agravantes.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
-                <div class="form-item full-width">
-                    <label for="{{ form.punicao_sugerida.id_for_label }}">{{ form.punicao_sugerida.label }}:</label>
-                    {{ form.punicao_sugerida }}
-                    {% for error in form.punicao_sugerida.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                <div class="form-item">
+                    <label for="{{ form.punicao_sugerida_dias.id_for_label }}">{{ form.punicao_sugerida_dias.label }}:</label>
+                    {{ form.punicao_sugerida_dias }}
+                    <small>{{ form.punicao_sugerida_dias.help_text }}</small>
+                    {% for error in form.punicao_sugerida_dias.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
-                 {# --- Adicionado campo Transgressao Afirmativa aqui dentro --- #}
-                 <div class="form-item full-width">
-                    <label for="{{ form.transgressao_afirmativa.id_for_label }}">{{ form.transgressao_afirmativa.label }}:</label>
-                    {{ form.transgressao_afirmativa }}
-                    {% for error in form.transgressao_afirmativa.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                 {# --- Adicionado campo Comprovante aqui dentro --- #}
-                 <div class="form-item full-width">
-                    <label for="{{ form.comprovante.id_for_label }}">{{ form.comprovante.label }}:</label>
-                    {{ form.comprovante }}
-                    {% for error in form.comprovante.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                <div class="form-item">
+                    <label for="{{ form.punicao_sugerida_tipo.id_for_label }}">{{ form.punicao_sugerida_tipo.label }}:</label>
+                    {{ form.punicao_sugerida_tipo }}
+                    <small>{{ form.punicao_sugerida_tipo.help_text }}</small>
+                    {% for error in form.punicao_sugerida_tipo.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
             </div>
         </div>
     </div>
 
-        {# --- Seção: Punição Pós-Reconsideração (Só aparece se já foi definida) --- #}
-        {% if form.instance.nova_punicao_dias or form.instance.nova_punicao_tipo %}
-        <div class="form-card">
-            <div class="form-card-header">
-                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-                <h2>Punição Pós-Reconsideração</h2>
-            </div>
-            <div class="form-card-body">
-                <div class="form-grid">
-                     <div class="form-item">
-                        <label for="{{ form.nova_punicao_dias_num.id_for_label }}">{{ form.nova_punicao_dias_num.label }}:</label>
-                        {{ form.nova_punicao_dias_num }}
-                        <small>{{ form.nova_punicao_dias_num.help_text }}</small>
-                         {% for error in form.nova_punicao_dias_num.errors %}<div class="alert-error" style="margin-top: 5px;">{{ error }}</div>{% endfor %}
-                    </div>
-                    <div class="form-item">
-                        <label for="{{ form.nova_punicao_tipo.id_for_label }}">{{ form.nova_punicao_tipo.label }}:</label>
-                        {{ form.nova_punicao_tipo }}
-                         {% for error in form.nova_punicao_tipo.errors %}<div class="alert-error" style="margin-top: 5px;">{{ error }}</div>{% endfor %}
-                    </div>
+    {% if form.instance.status == 'aguardando_preenchimento_npd_reconsideracao' or form.instance.status == 'aguardando_publicacao' %}
+    <div class="form-card">
+        <div class="form-card-header">
+             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+            <h2>Punição Pós-Reconsideração</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="form-grid">
+                 <div class="form-item">
+                    <label for="{{ form.nova_punicao_dias_num.id_for_label }}">{{ form.nova_punicao_dias_num.label }}:</label>
+                    {{ form.nova_punicao_dias_num }}
+                    <small>{{ form.nova_punicao_dias_num.help_text }}</small>
+                     {% for error in form.nova_punicao_dias_num.errors %}<div class="alert-error" style="margin-top: 5px;">{{ error }}</div>{% endfor %}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.nova_punicao_tipo.id_for_label }}">{{ form.nova_punicao_tipo.label }}:</label>
+                    {{ form.nova_punicao_tipo }}
+                     {% for error in form.nova_punicao_tipo.errors %}<div class="alert-error" style="margin-top: 5px;">{{ error }}</div>{% endfor %}
                 </div>
             </div>
         </div>
-        {% endif %}
-
-    {% endif %} {# Fim do if para oficial responsável #}
-
-    {# --- INÍCIO DA CORREÇÃO: Renderiza campos ocultos aqui --- #}
-    {{ form.dias_punicao }}
-    {{ form.punicao }}
-    {# Estes são calculados, então podemos deixá-los ocultos ou removê-los do fields se não forem editáveis #}
-    {# {{ form.natureza_transgressao }} #}
-    {# {{ form.comportamento }} #}
-    {# --- FIM DA CORREÇÃO --- #}
-
+    </div>
+    {% endif %}
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar Alterações</button>
