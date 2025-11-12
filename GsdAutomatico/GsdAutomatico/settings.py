@@ -21,7 +21,7 @@ NAME = os.getenv('NAME')
 USER = os.getenv('USER')
 PASSWORD = os.getenv('PASSWORD')
 PORT = os.getenv('PORT')
-PORT = os.getenv('HOST')
+HOST = os.getenv('HOST')
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
