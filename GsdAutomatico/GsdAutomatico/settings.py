@@ -21,6 +21,7 @@ NAME = os.getenv('NAME')
 USER = os.getenv('USER')
 PASSWORD = os.getenv('PASSWORD')
 PORT = os.getenv('PORT')
+PORT = os.getenv('HOST')
 
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
@@ -55,7 +56,6 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
-    'whitenoise.middleware.WhiteNoiseMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -91,11 +91,11 @@ WSGI_APPLICATION = 'GsdAutomatico.wsgi.application'
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
-        'NAME': 'GsdAutomatico',
-        'USER': 'postgres',
-        'PASSWORD': 'porfavor120',
-        'HOST': 'localhost',
-        'PORT': '5432',
+        'NAME': NAME,
+        'USER': USER,
+        'PASSWORD': PASSWORD,
+        'HOST': HOST,
+        'PORT': PORT,
     }
 }
 
