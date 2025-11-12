@@ -85,7 +85,7 @@ class PATDForm(forms.ModelForm):
         model = PATD
         # --- CAMPOS ADICIONADOS AQUI ---
         fields = [
-            'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2',
+            'status', 'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2',
             'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'punicao_sugerida',
             'comprovante', 'dias_punicao', 'punicao', 'transgressao_afirmativa', 'natureza_transgressao', 'comportamento',
             'alegacao_defesa_resumo', 'ocorrencia_reescrita', 'texto_relatorio',
@@ -117,6 +117,7 @@ class PATDForm(forms.ModelForm):
             'punicao': forms.HiddenInput(),
         }
         labels = {
+            'status': "Status Atual",
             'transgressao': "Descrição da Transgressão",
             'oficial_responsavel': "Oficial Responsável",
             'testemunha1': "1ª Testemunha",
@@ -142,7 +143,10 @@ class PATDForm(forms.ModelForm):
         # Filtra a lista de militares para testemunhas
         queryset_testemunhas = Militar.objects.filter(subsetor='OUVIDORIA')
         self.fields['testemunha1'].queryset = queryset_testemunhas
+        self.fields['testemunha1'].empty_label = "--- Selecione ---"
         self.fields['testemunha2'].queryset = queryset_testemunhas
+        self.fields['testemunha2'].empty_label = "--- Selecione ---"
+        self.fields['status'].disabled = True
 
         # Preenche os campos de texto com os dados JSON formatados
         if self.instance and self.instance.pk:

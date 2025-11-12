@@ -1466,6 +1466,12 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
             return redirect('Ouvidoria:patd_detail', pk=patd.pk)
 
         return super().dispatch(request, *args, **kwargs)
+
+    def form_valid(self, form):
+        """Este método é chamado quando os dados do formulário são válidos."""
+        messages.success(self.request, "PATD atualizada com sucesso!")
+        return super().form_valid(form)
+
     # --- FIM DA MODIFICAÇÃO ---
 
 
@@ -2502,6 +2508,9 @@ def append_anexo_to_docx(document, anexo):
     file_name = os.path.basename(file_path)
     ext = os.path.splitext(file_name)[1].lower()
 
+    # --- INÍCIO DA MODIFICAÇÃO: Garante que o anexo comece em uma nova página ---
+    document.add_page_break()
+    # --- FIM DA MODIFICAÇÃO ---
     try:
         # Adiciona um título para o anexo
         document.add_heading(f"Anexo: {file_name}", level=2)
@@ -2539,9 +2548,35 @@ def append_anexo_to_docx(document, anexo):
     except Exception as e:
         logger.error(f"Erro geral ao processar anexo {file_name} para DOCX: {e}")
         document.add_paragraph(f"[Erro ao processar anexo '{file_name}': {e}]")
-    
-    # Adiciona uma quebra de página após o anexo para separá-lo do próximo
-    document.add_page_break()
+
+
+def add_page_number(paragraph):
+    """
+    Adiciona um campo de número de página a um parágrafo no rodapé.
+    """
+    paragraph.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+
+    # Adiciona o texto "Página "
+    run = paragraph.add_run()
+    run.add_text('Página ')
+
+    # --- INÍCIO DA CORREÇÃO ---
+    # Cria o elemento fldChar para 'begin'
+    fldChar_begin = docx.oxml.shared.OxmlElement('w:fldChar')
+    fldChar_begin.set(docx.oxml.shared.qn('w:fldCharType'), 'begin')
+    run._r.append(fldChar_begin)
+
+    # Adiciona o código de instrução do campo (PAGE)
+    instrText = docx.oxml.shared.OxmlElement('w:instrText')
+    instrText.set(docx.oxml.shared.qn('xml:space'), 'preserve')
+    instrText.text = 'PAGE'
+    run._r.append(instrText)
+
+    # Cria o elemento fldChar para 'end'
+    fldChar_end = docx.oxml.shared.OxmlElement('w:fldChar')
+    fldChar_end.set(docx.oxml.shared.qn('w:fldCharType'), 'end')
+    run._r.append(fldChar_end)
+    # --- FIM DA CORREÇÃO ---
 
 
 @login_required
@@ -2569,36 +2604,67 @@ def exportar_patd_docx(request, pk):
     section.left_margin = Cm(2.15)
     section.right_margin = Cm(2.5)
     section.gutter = Cm(0)
+
+    # Adiciona o número da página no rodapé
+    add_page_number(section.footer.paragraphs[0])
     
-    # --- INÍCIO DA MODIFICAÇÃO: Lógica de Anexos ---
-    # 1. Obtém o HTML de todos os documentos
     full_html_content = "".join(get_document_pages(patd))
 
-    # 2. Busca os anexos (não precisamos do HTML deles, apenas dos ficheiros)
     anexos_defesa = patd.anexos.filter(tipo='defesa')
     anexos_reconsideracao = patd.anexos.filter(tipo='reconsideracao')
     anexos_reconsideracao_oficial = patd.anexos.filter(tipo='reconsideracao_oficial')
 
-    # 3. Remove os placeholders de anexo do HTML principal, pois vamos adicioná-los manualmente
-    full_html_content = full_html_content.replace("{ANEXOS_DEFESA_PLACEHOLDER}", "")
-    full_html_content = full_html_content.replace("{ANEXOS_RECONSIDERACAO_PLACEHOLDER}", "")
-    full_html_content = full_html_content.replace("{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}", "")
-
-    # --- FIM DA MODIFICAÇÃO ---
-
     soup = BeautifulSoup(full_html_content, 'html.parser')
 
     militar_sig_counter = 0
+    # A lógica de processamento de anexos foi movida para dentro do loop principal
+    # para garantir que eles sejam adicionados na ordem correta.
+    was_last_p_empty = False # Variável de estado para controlar parágrafos vazios
     placeholder_regex = re.compile(r'({[^}]+})')
 
-    for element in soup.find_all(['p', 'img', 'div']):
-        # --- INÍCIO DA MODIFICAÇÃO: Adicionar quebra de página ---
+    # --- INÍCIO DA CORREÇÃO: Iteração segura ---
+    # Itera diretamente sobre o objeto soup. Se soup.body existir, usa seus filhos,
+    # caso contrário, itera sobre os elementos de nível superior do soup.
+    # Isso evita o erro 'NoneType' object has no attribute 'children'.
+    for element in (soup.body.children if soup.body else soup.children):
+        if isinstance(element, NavigableString):
+            text = str(element).strip()
+            if "{ANEXOS_DEFESA_PLACEHOLDER}" in text and anexos_defesa.exists():
+                for anexo in anexos_defesa:
+                    append_anexo_to_docx(document, anexo)
+            if "{ANEXOS_RECONSIDERACAO_PLACEHOLDER}" in text and anexos_reconsideracao.exists():
+                for anexo in anexos_reconsideracao:
+                    append_anexo_to_docx(document, anexo)
+            if "{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}" in text and anexos_reconsideracao_oficial.exists():
+                for anexo in anexos_reconsideracao_oficial:
+                    append_anexo_to_docx(document, anexo)
+            continue
+    # --- FIM DA CORREÇÃO ---
+
+        if not hasattr(element, 'name'):
+            continue
+
         if element.name == 'div' and 'manual-page-break' in element.get('class', []):
             document.add_page_break()
+            was_last_p_empty = False # Reseta o estado na quebra de página
             continue
-        # --- FIM DA MODIFICAÇÃO ---
 
         if element.name == 'p':
+            is_empty_paragraph = not element.get_text(strip=True) and not element.find('img')
+
+            if is_empty_paragraph:
+                if not was_last_p_empty:
+                    # Adiciona um parágrafo vazio apenas se o anterior não era vazio
+                    p = document.add_paragraph()
+                    p.paragraph_format.space_before = Pt(0)
+                    p.paragraph_format.space_after = Pt(0)
+                    was_last_p_empty = True
+                # Se o anterior já era vazio, simplesmente ignora este, evitando linhas duplas
+                continue
+            else:
+                # Se o parágrafo atual tem conteúdo, reseta o estado
+                was_last_p_empty = False
+
             p = document.add_paragraph()
 
             p_format = p.paragraph_format
@@ -2608,14 +2674,20 @@ def exportar_patd_docx(request, pk):
             p_format.space_before = Pt(0)
             p_format.space_after = Pt(0)
 
+            # --- INÍCIO DA MODIFICAÇÃO: Controle de Alinhamento ---
+            # Verifica se o parágrafo contém placeholders de assinatura ou é curto
+            text_for_check = element.get_text().strip()
+            is_signature_line = any(sig_placeholder in text_for_check for sig_placeholder in ['{Assinatura', '[LOCAL DA ASSINATURA/AÇÃO]'])
+            is_short_line = len(text_for_check) < 80 # Heurística para linha curta
+
             if element.has_attr('style'):
                 if 'text-align: center' in element['style']:
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
                 elif 'text-align: right' in element['style']:
                     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-                elif 'text-align: justify' in element['style']:
+                elif 'text-align: justify' in element['style'] and not is_signature_line and not is_short_line:
                     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
+            # --- FIM DA MODIFICAÇÃO ---
             for content in element.contents:
                 if isinstance(content, NavigableString):
                     text_content = str(content)
@@ -2670,8 +2742,14 @@ def exportar_patd_docx(request, pk):
                                 elif placeholder == '{Brasao da Republica}':
                                     img_path = os.path.join(settings.BASE_DIR, 'Static', 'img', 'brasao.png')
                                     if os.path.exists(img_path):
-                                        p.add_run().add_picture(img_path, width=Cm(3))
+                                        # --- INÍCIO DA CORREÇÃO: Renderização do Brasão ---
+                                        # Cria um parágrafo dedicado para a imagem, garantindo centralização.
+                                        # Isso evita conflitos com o parágrafo atual (p).
+                                        p_img = document.add_paragraph()
+                                        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                                        p_img.add_run().add_picture(img_path, width=Cm(3))
                                         is_image_placeholder = True
+                                        # --- FIM DA CORREÇÃO ---
                                 
                                 elif placeholder in ['{Botao Assinar Oficial}', '{Botao Assinar Testemunha 1}', '{Botao Assinar Testemunha 2}', '{Botao Adicionar Alegacao}', '{Botao Adicionar Reconsideracao}', '{Botao Definir Nova Punicao}', '{Botao Assinar Defesa}', '{Botao Assinar Reconsideracao}']:
                                     is_image_placeholder = True # Trata como "imagem" para não imprimir o texto
@@ -2691,43 +2769,20 @@ def exportar_patd_docx(request, pk):
                                 else:
                                     p.add_run(sub_part)
 
+                # --- INÍCIO DA CORREÇÃO: Processamento da tag <img> do brasão ---
+                # Esta lógica agora procura pela tag <img> que foi gerada pelo placeholder.
+                elif content.name == 'img' and 'brasao.png' in content.get('src', ''):
+                    img_path = os.path.join(settings.BASE_DIR, 'Static', 'img', 'brasao.png')
+                    if os.path.exists(img_path):
+                        # Adiciona a imagem ao parágrafo atual e o centraliza.
+                        # Isso garante que o brasão seja renderizado no parágrafo correto.
+                        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                        p.add_run().add_picture(img_path, width=Cm(3))
+                        was_last_p_empty = False # Garante que o parágrafo com imagem não seja considerado vazio.
+                # --- FIM DA CORREÇÃO ---
+
                 elif content.name == 'strong':
                     p.add_run(content.get_text()).bold = True
-
-        elif element.name == 'img':
-             if 'brasao.png' in element.get('src', ''):
-                p = document.add_paragraph()
-                p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                run = p.add_run()
-
-                img_path = os.path.join(settings.BASE_DIR, 'Static', 'img', 'brasao.png')
-                if os.path.exists(img_path):
-                    run.add_picture(img_path, width=Cm(3))
-
-    # --- INÍCIO DA MODIFICAÇÃO: Adicionar Anexos ao DOCX ---
-    
-    # Adiciona Anexos da Defesa
-    if anexos_defesa.exists():
-        document.add_page_break()
-        document.add_heading("Anexos da Alegação de Defesa", level=1).alignment = WD_ALIGN_PARAGRAPH.CENTER
-        for anexo in anexos_defesa:
-            append_anexo_to_docx(document, anexo)
-
-    # Adiciona Anexos da Reconsideração (Militar)
-    if anexos_reconsideracao.exists():
-        document.add_page_break()
-        document.add_heading("Anexos do Pedido de Reconsideração", level=1).alignment = WD_ALIGN_PARAGRAPH.CENTER
-        for anexo in anexos_reconsideracao:
-            append_anexo_to_docx(document, anexo)
-
-    # Adiciona Anexo da Reconsideração (Oficial)
-    if anexos_reconsideracao_oficial.exists():
-        document.add_page_break()
-        document.add_heading("Anexo do Oficial (Reconsideração)", level=1).alignment = WD_ALIGN_PARAGRAPH.CENTER
-        for anexo in anexos_reconsideracao_oficial:
-            append_anexo_to_docx(document, anexo)
-            
-    # --- FIM DA MODIFICAÇÃO ---
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     response['Content-Disposition'] = f'attachment; filename=PATD_{patd.numero_patd}.docx'

@@ -198,7 +198,12 @@
         width: 21cm;
         min-height: 29.7cm; /* Altura mínima A4 */
         margin: 0 auto 20px auto; /* Centraliza e adiciona espaço inferior entre páginas */
-        padding: 2.5cm; /* Margens ABNT */
+        /* --- INÍCIO DA MODIFICAÇÃO: Ajuste de margens para corresponder à exportação DOCX --- */
+        padding-top: 1.5cm;
+        padding-bottom: 2.54cm;
+        padding-left: 2.15cm;
+        padding-right: 2.5cm;
+        /* --- FIM DA MODIFICAÇÃO --- */
         box-shadow: 0 5px 15px rgba(0,0,0,0.2); /* Sombra mais visível */
         box-sizing: border-box;
         font-family: 'Times New Roman', Times, serif;
@@ -448,6 +453,7 @@
             </svg>
             Exportar DOCX
         </a>
+
         {# --- INÍCIO DA MODIFICAÇÃO: Condição para editar --- #}
         {% if not user|has_comandante_access and patd.status not in locked_statuses_for_edit %}
             <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
@@ -1081,8 +1087,6 @@
 {# Removidos os json_script dos mapeamentos daqui #}
 
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js"></script>
 
 <script>
 // Dados da análise pré-carregados pelo Django
@@ -1586,17 +1590,19 @@ document.addEventListener('DOMContentLoaded', function() {
             tabPanels.forEach(p => p.classList.remove('active'));
             link.classList.add('active');
             
-            // --- CORREÇÃO: Mover a definição da variável para dentro do evento ---
-            // Isso evita um erro caso o botão não exista ao carregar a página,
-            // o que estava a impedir a troca de abas.
-            const sigNavButton = document.getElementById('signature-nav-button');
-            sigNavButton.style.display = 'none'; // Oculta ao trocar de aba
             const targetPanel = document.getElementById(link.dataset.target);
             if (targetPanel) {
                  targetPanel.classList.add('active');
+
+                // --- INÍCIO DA CORREÇÃO: Lógica de exibição do botão de navegação ---
+                const sigNavButton = document.getElementById('signature-nav-button');
                 if (link.dataset.target === 'tab-visualizador') {
-                     renderVisualizador();
+                    renderVisualizador(); // A função renderVisualizador irá decidir se mostra o botão.
+                } else {
+                    // Se a aba NÃO for o visualizador, garante que o botão esteja oculto.
+                    if (sigNavButton) sigNavButton.style.display = 'none';
                 }
+                // --- FIM DA CORREÇÃO ---
             }
             localStorage.setItem('activePatdTab-{{ patd.pk }}', link.dataset.target);
         });
@@ -1720,8 +1726,6 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- LÓGICA DO VISUALIZADOR DE DOCUMENTO ---
     const pageContainer = document.getElementById('document-preview-container');
-    const exportPdfBtn = document.getElementById('export-pdf-btn'); // Botão existe no HTML
-    const saveVisualizadorBtn = document.getElementById('save-visualizador-btn'); // Botão não existe mais, mas a var pode ser mantida
     // --- INÍCIO: Lógica de navegação de assinatura ---
     let pendingSignatureElements = [];
     let currentSignatureIndex = -1;
@@ -1836,13 +1840,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- LÓGICA DO BOTÃO EXPORTAR (JÁ EXISTIA, AGORA DEVE FUNCIONAR) ---
-    // if (exportPdfBtn) {
-    //     exportPdfBtn.addEventListener('click', async () => {
-    //         // ... (Lógica de exportar PDF permanece a mesma) ...
-    //     });
-    // }
-
     // --- LÓGICA DE RENDERIZAR VISUALIZADOR (MODIFICADA) ---
     function renderVisualizador() {
         if (!pageContainer) return;
@@ -1953,6 +1950,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         // --- FIM: Lógica de contagem e navegação de assinaturas ---
     }
+
+    // --- INÍCIO DA CORREÇÃO: Mover a configuração dos botões para o final ---
+    // Adiciona os listeners DEPOIS que a função renderVisualizador está definida.
 
     // --- INÍCIO: Listener do botão de navegação ---
     const sigNavButton = document.getElementById('signature-nav-button');

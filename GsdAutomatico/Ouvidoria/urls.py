@@ -45,6 +45,7 @@ urlpatterns = [
     path('patd/<int:pk>/exportar-docx/', views.exportar_patd_docx, name='exportar_patd_docx'),
 
 
+
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
     path('patd/<int:pk>/analisar_punicao/', views.analisar_punicao, name='analisar_punicao'),
     path('patd/<int:pk>/salvar_apuracao/', views.salvar_apuracao, name='salvar_apuracao'), 
@@ -75,4 +76,3 @@ urlpatterns = [
     path('api/search-militares/', views.search_militares_json, name='search_militares_json'),
     path('anexo/<int:pk>/excluir/', views.excluir_anexo, name='excluir_anexo'),
 ]
-

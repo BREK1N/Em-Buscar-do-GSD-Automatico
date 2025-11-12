@@ -19,5 +19,3 @@ psycopg2-binary
 django-select2
 num2words
 pypdf
-waitress
-whitenoise
