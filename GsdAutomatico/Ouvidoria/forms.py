@@ -196,7 +196,6 @@ class PATDForm(forms.ModelForm):
         # --- INÍCIO DA MODIFICAÇÃO: Lógica para desabilitar campos ---
         # Se a instância existe e está em um dos status de finalização que permitem editar a punição
         if self.instance and self.instance.pk and self.instance.status in [
-            'aguardando_preenchimento_npd_reconsideracao',
             'aguardando_publicacao'
         ]:
             # Define os únicos campos que devem permanecer editáveis

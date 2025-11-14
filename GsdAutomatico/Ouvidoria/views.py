@@ -576,7 +576,7 @@ def get_document_pages(patd):
     # 3. Termo de Preclusão
     status_preclusao_e_posteriores = [
         'preclusao', 'apuracao_preclusao', 'aguardando_punicao',
-        'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar',
+        'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', # 'aguardando_preenchimento_npd_reconsideracao' removido
         'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao',
         'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao',
         'aguardando_comandante_base'
@@ -598,8 +598,7 @@ def get_document_pages(patd):
     # 5. Nota de Punição Disciplinar (NPD)
     status_npd_e_posteriores = [
         'aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao',
-        'em_reconsideracao', 'aguardando_publicacao',
-        'aguardando_preenchimento_npd_reconsideracao', 'aguardando_comandante_base'
+        'em_reconsideracao', 'aguardando_publicacao', 'aguardando_comandante_base' # 'aguardando_preenchimento_npd_reconsideracao' removido
     ]
     if patd.status in status_npd_e_posteriores:
         document_pages.append(_render_document_from_template('MODELO_NPD.docx', doc_context))
@@ -607,7 +606,7 @@ def get_document_pages(patd):
     # 6. Reconsideração
     status_reconsideracao_e_posteriores = [
         'em_reconsideracao', 'aguardando_publicacao', 'finalizado',
-        'aguardando_preenchimento_npd_reconsideracao', 'aguardando_comandante_base'
+        'aguardando_comandante_base' # 'aguardando_preenchimento_npd_reconsideracao' removido
     ]
     if patd.status in status_reconsideracao_e_posteriores:
          reconsideracao_context = doc_context.copy()
@@ -627,18 +626,12 @@ def get_document_pages(patd):
          if patd.anexos.filter(tipo='reconsideracao').exists():
              document_pages.append("{ANEXOS_RECONSIDERACAO_PLACEHOLDER}")
 
-    # 7. Anexos e NPD da reconsideração
-    status_npd_reconsideracao_e_posteriores = [
-        'aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado'
-    ]
-    if patd.status in status_npd_reconsideracao_e_posteriores:
-        
+    # 7. Anexos da reconsideração oficial
+    status_anexo_reconsideracao_oficial = ['aguardando_publicacao', 'finalizado']
+    if patd.status in status_anexo_reconsideracao_oficial:
         # SÓ adiciona a página de anexo se houver anexos de reconsideração oficial
         if patd.anexos.filter(tipo='reconsideracao_oficial').exists():
             document_pages.append("{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}")
-        
-        # Adiciona a NPD de reconsideração como *outra* "página"
-        document_pages.append(_render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', doc_context))
 
     return document_pages
 def _check_preclusao_signatures(patd):
@@ -1208,19 +1201,26 @@ class MilitarListView(ListView):
                 Q(nome_guerra__icontains=query) |
                 Q(saram__icontains=query)
             )
-        # --- AJAX Handling ---
-        # if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-             # Se for AJAX, renderiza apenas a parte da lista e paginação
-             # context = {'militares': qs, 'is_paginated': False} # Adapte a paginação se necessário
-             # Retorna o HTML parcial
-             # return render(self.request, 'partials/militar_list_partial.html', context) # Crie este template parcial
         return qs
+
+    def get(self, request, *args, **kwargs):
+        """
+        Sobrescreve o método GET para tratar requisições AJAX, renderizando um
+        template parcial com a lista de militares filtrada.
+        """
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            self.object_list = self.get_queryset()
+            context = self.get_context_data()
+            # Renderiza apenas a parte da lista para a resposta AJAX
+            return render(request, 'militar_list_partial.html', context)
+        return super().get(request, *args, **kwargs)
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         config = Configuracao.load()
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
-        context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
+        context['prazo_defesa_minutos'] = config.prazo_defesa_minutos        
+        context['query'] = self.request.GET.get('q', '') # Adiciona a query ao contexto
         return context
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
@@ -2446,32 +2446,41 @@ def justificar_patd(request, pk):
 @oficial_responsavel_required
 @require_POST
 def anexar_documento_reconsideracao_oficial(request, pk):
-    patd = get_object_or_404(PATD, pk=pk)
-    if patd.status != 'aguardando_comandante_base':
-        messages.error(request, "Ação não permitida no status atual.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        if patd.status != 'aguardando_comandante_base':
+            return JsonResponse({'status': 'error', 'message': 'Ação não permitida no status atual.'}, status=400)
 
-    anexo_file = request.FILES.get('anexo_oficial')
-    if not anexo_file:
-        messages.error(request, "Nenhum ficheiro foi enviado.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
+        anexo_file = request.FILES.get('anexo_oficial')
+        if not anexo_file:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum ficheiro foi enviado.'}, status=400)
 
-    Anexo.objects.create(patd=patd, arquivo=anexo_file, tipo='reconsideracao_oficial')
+        Anexo.objects.create(patd=patd, arquivo=anexo_file, tipo='reconsideracao_oficial')
 
-    patd.status = 'aguardando_preenchimento_npd_reconsideracao'
-    patd.save()
-
-    messages.success(request, "Documento anexado com sucesso. O processo aguarda o preenchimento da NPD de Reconsideração.")
-    return redirect('Ouvidoria:patd_detail', pk=pk)
+        # Não muda o status aqui. Apenas retorna um sinal para o frontend.
+        # O status será mudado para 'aguardando_publicacao' pela view 'salvar_nova_punicao'.
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Documento anexado. Por favor, defina a nova punição.',
+            'action': 'open_nova_punicao_modal' # Sinal para o JavaScript
+        })
+    except Exception as e:
+        logger.error(f"Erro ao anexar documento de reconsideração oficial para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
 @oficial_responsavel_required
 @require_POST
 def salvar_nova_punicao(request, pk):
     try:
-        patd = get_object_or_404(PATD, pk=pk)
+        # Permite que esta ação ocorra em ambos os status
+        patd = get_object_or_404(PATD, pk=pk, status__in=['aguardando_comandante_base', 'aguardando_publicacao'])
         data = json.loads(request.body)
-        dias = int(data.get('dias'))
+        dias_str = data.get('dias')
+        if dias_str is None:
+            return JsonResponse({'status': 'error', 'message': 'O número de dias é obrigatório.'}, status=400)
+
+        dias = int(dias_str)
         tipo = data.get('tipo')
 
         if dias < 0 or not tipo:
@@ -2479,12 +2488,18 @@ def salvar_nova_punicao(request, pk):
 
         dias_texto = num2words(dias, lang='pt_BR')
 
-        patd.nova_punicao_dias = f"{dias_texto} ({dias:02d}) dias"
-        patd.nova_punicao_tipo = tipo
+        if tipo == 'repreensão':
+            patd.nova_punicao_dias = ""
+            patd.dias_punicao = ""
+        else:
+            punicao_dias_str = f"{dias_texto} ({dias:02d}) dias"
+            patd.nova_punicao_dias = punicao_dias_str
+            patd.dias_punicao = punicao_dias_str
 
-        patd.dias_punicao = f"{dias_texto} ({dias:02d}) dias"
-        patd.punicao = tipo
+        patd.nova_punicao_tipo = tipo # Salva o tipo da nova punição
+        patd.punicao = tipo # Atualiza a punição principal
 
+        # Recalcula natureza e comportamento com base na nova punição
         patd.definir_natureza_transgressao()
         patd.calcular_e_atualizar_comportamento()
 
@@ -2493,7 +2508,7 @@ def salvar_nova_punicao(request, pk):
 
         return JsonResponse({'status': 'success', 'message': 'Nova punição salva com sucesso.'})
     except Exception as e:
-        logger.error(f"Erro ao salvar nova punição para PATD {pk}: {e}")
+        logger.error(f"Erro ao salvar nova punição para PATD {pk}: {e}", exc_info=True)
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 

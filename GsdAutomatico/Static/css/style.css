@@ -208,17 +208,6 @@ p {
 .data-table thead th { background-color: var(--bg-main); }
 .actions-cell { display: flex; gap: 10px; flex-wrap: wrap; }
 
-.militar-acusado-link {
-    font-weight: 500;
-    color: var(--accent-color);
-    text-decoration: none;
-    transition: color 0.2s;
-}
-.militar-acusado-link:hover {
-    color: var(--accent-hover);
-    text-decoration: underline;
-}
-
 .pagination {
     margin-top: 25px;
     text-align: center;
@@ -675,18 +664,21 @@ p {
     flex-shrink: 0;
 }
 
-.actions {
-    flex-grow: 1; /* Permite que a seção de ações ocupe o espaço disponível */
-}
-
 .filter-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 15px;
     width: 100%;
-    justify-content: flex-end; /* Alinha os filtros à direita */
+    align-items: center;
 }
 
 .search-group {
+    display: flex;
+    flex-grow: 1; /* Faz a barra de pesquisa ocupar a maior parte do espaço */
+    min-width: 250px;
+}
+
+.search-group form {
     display: flex;
     flex-grow: 1; /* Faz a barra de pesquisa ocupar a maior parte do espaço */
     max-width: 400px;
@@ -696,7 +688,7 @@ p {
     position: relative;
 }
 
-.filter-bar input[type="text"] {
+.search-group input[type="text"] {
     width: 100%;
     min-width: 150px;
     padding: 8px 12px;
@@ -710,7 +702,7 @@ p {
     box-sizing: border-box;
 }
 
-.filter-bar .search-btn {
+.search-group .search-btn {
     height: 38px;
     width: 40px;
     padding: 0;
@@ -725,7 +717,7 @@ p {
     flex-shrink: 0;
     transition: background-color 0.2s;
 }
-.filter-bar .search-btn:hover {
+.search-group .search-btn:hover {
     background-color: var(--sidebar-active-bg);
 }
 .filter-bar .search-btn svg {
@@ -758,9 +750,4 @@ p {
 }
 body.dark-theme .filter-bar .filter-select {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23b0b3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
-}
-
-/* Oculta o formulário de pesquisa antigo, se ainda existir */
-.actions > .search-form {
-    display: none;
 }

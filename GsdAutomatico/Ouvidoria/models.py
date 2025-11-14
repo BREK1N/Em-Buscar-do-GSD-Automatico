@@ -121,7 +121,6 @@ class PATD(models.Model):
         ('periodo_reconsideracao', 'Período de Reconsideração'),
         ('em_reconsideracao', 'Em Reconsideração'),
         ('aguardando_comandante_base', 'Aguardando Comandante da Base'),
-        ('aguardando_preenchimento_npd_reconsideracao', 'Aguardando preenchimento NPD Reconsideração'),
         ('aguardando_publicacao', 'Aguardando publicação'),
         ('finalizado', 'Finalizado'),
     ]
