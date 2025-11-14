@@ -423,6 +423,8 @@ def reescrever_ocorrencia(transgressao: str):
     2.  **Formalidade:** Utilize terminologia militar e jurídica apropriada.
     3.  **Clareza e Concisão:** Seja direto e claro. O texto final não deve exceder 50 palavras.
     4.  **Foco nos Fatos:** Descreva o ato transgressor sem adjetivos ou opiniões.
+    5. Fazer texto corrido sem introdução.
+    6. sem começar com letra maiscula 
 
     **Descrição Original da Transgressão:**
     {transgressao}
