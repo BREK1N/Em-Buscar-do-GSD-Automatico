@@ -1499,8 +1499,31 @@ class MilitarPATDListView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
+        """
+        Busca as PATDs e adiciona um atributo 'status_comportamento'
+        indicando se o comportamento 'permaneceu' ou 'entrou' em um novo estado.
+        """
         self.militar = get_object_or_404(Militar, pk=self.kwargs['pk'])
         return PATD.objects.filter(militar=self.militar).order_by('-data_inicio')
+        
+        # Busca todas as PATDs ordenadas da mais antiga para a mais recente para análise
+        patds = list(PATD.objects.filter(militar=self.militar).order_by('data_patd'))
+        
+        # Itera sobre as PATDs para adicionar o status do comportamento
+        for i, patd in enumerate(patds):
+            if i == 0:
+                # A primeira PATD de um militar sempre "permanece" no comportamento inicial.
+                patd.status_comportamento = 'permanece'
+            else:
+                # Compara o comportamento com a PATD anterior na lista ordenada
+                patd_anterior = patds[i-1]
+                if patd.comportamento_apurado == patd_anterior.comportamento_apurado:
+                    patd.status_comportamento = 'permanece'
+                else:
+                    patd.status_comportamento = 'entrou'
+        
+        patds.reverse() # Inverte a lista para que a view exiba da mais recente para a mais antiga
+        return patds
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -2449,24 +2472,25 @@ def anexar_documento_reconsideracao_oficial(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
         if patd.status != 'aguardando_comandante_base':
-            return JsonResponse({'status': 'error', 'message': 'Ação não permitida no status atual.'}, status=400)
+            messages.error(request, "Ação não permitida no status atual.")
+            return redirect('Ouvidoria:patd_detail', pk=pk)
 
         anexo_file = request.FILES.get('anexo_oficial')
         if not anexo_file:
-            return JsonResponse({'status': 'error', 'message': 'Nenhum ficheiro foi enviado.'}, status=400)
+            messages.error(request, "Nenhum ficheiro foi enviado.")
+            return redirect('Ouvidoria:patd_detail', pk=pk)
 
         Anexo.objects.create(patd=patd, arquivo=anexo_file, tipo='reconsideracao_oficial')
 
-        # Não muda o status aqui. Apenas retorna um sinal para o frontend.
-        # O status será mudado para 'aguardando_publicacao' pela view 'salvar_nova_punicao'.
-        return JsonResponse({
-            'status': 'success',
-            'message': 'Documento anexado. Por favor, defina a nova punição.',
-            'action': 'open_nova_punicao_modal' # Sinal para o JavaScript
-        })
+        messages.success(request, "Documento anexado. Por favor, defina a nova punição.")
+        # Redireciona com um parâmetro para o JS abrir o modal
+        redirect_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': pk}) + '?action=open_nova_punicao_modal'
+        return redirect(redirect_url)
+
     except Exception as e:
         logger.error(f"Erro ao anexar documento de reconsideração oficial para PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        messages.error(request, f"Ocorreu um erro ao anexar o documento: {e}")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
 
 @login_required
 @oficial_responsavel_required
