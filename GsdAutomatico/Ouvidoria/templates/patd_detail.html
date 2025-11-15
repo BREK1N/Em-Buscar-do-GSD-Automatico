@@ -469,15 +469,15 @@
 
 <ul class="status-timeline">
     {% with current_status=patd.status %}
-    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_nova_punicao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Abertura</div>
     </li>
-    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_nova_punicao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Defesa</div>
     </li>
-    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_nova_punicao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Apuração</div>
     </li>
@@ -485,7 +485,7 @@
         <div class="status-dot"></div>
         <div class="status-label">Decisão GSD</div>
     </li>
-    <li class="status-step {% if current_status in 'aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'aguardando_comandante_base,aguardando_nova_punicao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Decisão Base</div>
     </li>
@@ -566,6 +566,9 @@
                 {% endif %}
                 {% if patd.status == 'aguardando_publicacao' and user|has_ouvidoria_access %}
                 <button type="button" class="btn btn-success" id="btn-finalizar-modal">Finalizar Publicação</button>
+                {% endif %}
+                {% if patd.status == 'aguardando_nova_punicao' and request.user.profile.militar == patd.oficial_responsavel %}
+                <button type="button" class="btn btn-primary" id="btn-nova-punicao-modal">Definir Nova Punição</button>
                 {% endif %}
             </div>
         </div>
@@ -719,7 +722,7 @@
     </div>
 
      {% if request.user.profile.militar == patd.oficial_responsavel and patd.status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}
-    <div class="card">
+    <div class="card" id="analise-disciplinar-card">
         <div class="card-header">
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-1.5 5.25H12" /></svg>
              <h2>Análise Disciplinar</h2>
@@ -731,7 +734,7 @@
                     <span class="btn-text">Visualizar Apuração</span>
                 </button>
             </div>
-             <form id="apuracao-form" class="model-form">
+             <form id="apuracao-form" class="model-form" style="display: none;">
                 <h3>Resultado da Apuração (Editável)</h3>
 
                 <div class="form-grid">
@@ -783,8 +786,8 @@
             </form>
         </div>
     </div>
-    {% elif patd.punicao_sugerida %} {# Mostra este bloco se a punição existe, mas o user não é o oficial #}
-    <div class="card">
+    {% elif patd.mostrar_resumo_analise %}
+    <div class="card" id="resumo-analise-card">
         <div class="card-header">
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-1.5 5.25H12" /></svg>
              <h2>Resumo da Análise Disciplinar</h2>
@@ -1111,11 +1114,6 @@ let anexosReconsideracaoOficial = {{ anexos_reconsideracao_oficial_json|default:
 
 
 let signatureIndex = 0; // Contador de assinaturas movido para o escopo externo
-
-// *** INÍCIO DA MODIFICAÇÃO (1/3) ***
-let alegacaoDefesaPageNumber = null; // Variável para armazenar o nº da página
-// *** FIM DA MODIFICAÇÃO (1/3) ***
-
 
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -1652,12 +1650,6 @@ document.addEventListener('DOMContentLoaded', function() {
     function processPlaceholders(text) {
         let processedHtml = text;
         
-        // *** INÍCIO DA MODIFICAÇÃO (2/3) ***
-        // Substitui o placeholder da página da alegação
-        const pageNumStr = alegacaoDefesaPageNumber ? String(alegacaoDefesaPageNumber).padStart(2, '0') : "N/D";
-        processedHtml = processedHtml.replace(/{pagina_alegacao}/g, pageNumStr);
-        // *** FIM DA MODIFICAÇÃO (2/3) ***
-
         processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
 
@@ -1820,10 +1812,6 @@ document.addEventListener('DOMContentLoaded', function() {
         pageContainer.innerHTML = ''; // Limpa o container
         signatureIndex = 0; // Reseta o contador de assinaturas do militar
         let pageCounter = 1; // Zera o contador de página
-        
-        // *** INÍCIO DA MODIFICAÇÃO (3/3) ***
-        alegacaoDefesaPageNumber = null; // Reseta o número da página
-        // *** FIM DA MODIFICAÇÃO (3/3) ***
 
         if (!documentPages || documentPages.length === 0) {
             pageContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">O conteúdo do documento está vazio ou não pôde ser carregado.</p>';
@@ -1841,13 +1829,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 // Não renderiza páginas lógicas vazias (resultantes de quebras no final)
                 if (pageHtml.trim() === "") return;
 
-                // *** INÍCIO DA MODIFICAÇÃO (3/3) ***
-                // Verifica se esta página é a alegação e armazena o número
-                if (pageHtml.includes('data-document-id="alegacao_defesa"')) {
-                    alegacaoDefesaPageNumber = pageCounter;
-                }
-                // *** FIM DA MODIFICAÇÃO (3/3) ***
-
                 const pageDiv = document.createElement('div');
                 pageDiv.className = 'page'; // Aplica a classe CSS de página
 
@@ -1861,7 +1842,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 contentDiv.className = 'page-content';
 
                 // Processa os placeholders (agora incluindo os de anexo)
-                // Esta chamada AGORA irá usar o 'alegacaoDefesaPageNumber' se ele já tiver sido setado
                 let processedHtml = processPlaceholders(pageHtml);
                 
                 // Limpa o HTML (lógica de limpeza existente)
@@ -1887,20 +1867,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 pageCounter++; // Incrementa o contador de página
             });
         });
-
-        // ---
-        // Adicionado: Segunda passagem para garantir que placeholders em páginas ANTERIORES
-        // (como o cabeçalho na página 1) sejam atualizados.
-        // ---
-        if (alegacaoDefesaPageNumber) {
-            const allPageContents = pageContainer.querySelectorAll('.page-content');
-            allPageContents.forEach(contentDiv => {
-                if (contentDiv.innerHTML.includes('{pagina_alegacao}')) {
-                     const pageNumStr = String(alegacaoDefesaPageNumber).padStart(2, '0');
-                     contentDiv.innerHTML = contentDiv.innerHTML.replace(/{pagina_alegacao}/g, pageNumStr);
-                }
-            });
-        }
 
         // --- INÍCIO: Lógica de contagem e navegação de assinaturas ---
         const signatureButtons = pageContainer.querySelectorAll('.open-signature-modal');
@@ -2028,9 +1994,66 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // --- LÓGICA PARA MOSTRAR/OCULTAR ANÁLISE DISCIPLINAR NO NOVO STATUS ---
+    const patdStatus = '{{ patd.status }}';
+    const isOficialResponsavel = '{{ request.user.profile.militar.pk }}' === '{{ patd.oficial_responsavel.pk }}';
+
+    // --- INÍCIO DA MODIFICAÇÃO: Inverte a lógica de exibição ---
+    if (patdStatus === 'aguardando_nova_punicao' && isOficialResponsavel) {
+        const analiseCard = document.getElementById('analise-disciplinar-card');
+        const resumoCard = document.getElementById('resumo-analise-card');
+        if (analiseCard) {
+            analiseCard.style.display = 'none'; // Oculta o card de edição
+        }
+        if (resumoCard) {
+            resumoCard.style.display = 'block'; // Mostra o card de resumo
+        }
+    }
     // --- ****** LÓGICA DO MODAL VISUALIZADOR DE ANEXO (REMOVIDA) ****** ---
     // (Toda a lógica do anexo-viewer-modal foi removida)
 
+    // --- INÍCIO: Lógica do Modal de Nova Punição ---
+    const novaPunicaoModal = document.getElementById('nova-punicao-modal');
+    if (novaPunicaoModal) {
+        const openBtn = document.getElementById('btn-nova-punicao-modal');
+        const cancelBtn = document.getElementById('cancel-nova-punicao-btn');
+        const form = document.getElementById('form-nova-punicao');
+
+        if(openBtn) {
+            openBtn.addEventListener('click', () => novaPunicaoModal.classList.add('active'));
+        }
+        if(cancelBtn) {
+            cancelBtn.addEventListener('click', () => novaPunicaoModal.classList.remove('active'));
+        }
+        if(form) {
+            form.addEventListener('submit', (e) => {
+                e.preventDefault();
+                const dias = document.getElementById('nova-punicao-dias-input').value;
+                const tipo = document.getElementById('nova-punicao-tipo-input').value;
+
+                const url = `{% url 'Ouvidoria:salvar_nova_punicao' patd.pk %}`;
+                fetch(url, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken
+                    },
+                    body: JSON.stringify({ dias: dias, tipo: tipo })
+                })
+                .then(response => response.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        alert(data.message);
+                        window.location.reload();
+                    } else {
+                        alert('Erro: ' + data.message);
+                    }
+                })
+                .catch(error => console.error('Erro:', error));
+            });
+        }
+    }
+    // --- FIM: Lógica do Modal de Nova Punição ---
 
     // --- MODIFICADO: renderAnexosGeral (agora usa links <a>) ---
     function renderAnexosGeral() {
@@ -2353,8 +2376,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
     // --- FIM DA LÓGICA DE APURAÇÃO ---
-
-
+    
+    
     // CHAMADAS INICIAIS
     renderAnexosGeral(); // Agora apenas renderiza a lista na Visão Geral
 

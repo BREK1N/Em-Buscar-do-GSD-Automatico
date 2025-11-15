@@ -105,7 +105,6 @@ class OuvidoriaAccessMixin(UserPassesTestMixin):
         return has_ouvidoria_access(self.request.user)
 
 class ComandanteAccessMixin(UserPassesTestMixin):
-    """Mixin para Class-Based Views para verificar a permissão de acesso do Comandante."""
     def test_func(self):
         return has_comandante_access(self.request.user)
 
@@ -462,6 +461,7 @@ def _get_document_context(patd):
         '{texto_relatorio}': patd.texto_relatorio or '',
         '{Texto_reconsideracao}': patd.texto_reconsideracao or '',
         '{Data_reconsideracao}': data_reconsideracao_fmt,
+        '{pagina_alegacao}': "{pagina_alegacao}", # Mantém como placeholder
     }
 
     # Adiciona os dados das assinaturas AO CONTEXTO APENAS SE APLICÁVEL
@@ -513,16 +513,18 @@ def _render_document_from_template(template_name, context):
             inline_text = p.text
 
             # --- INÍCIO DA NOVA LÓGICA ---
-            # Substitui o "à fl. 08" hardcoded pelo nosso placeholder dinâmico
+            # Substitui o "à fl. XX" hardcoded pelo nosso placeholder dinâmico
             if 'RELATORIO_DELTA' in template_name or 'RELATORIO_JUSTIFICADO' in template_name:
                 # Este regex procura por "à fl." seguido de espaço(s), número(s), e depois vírgula, ponto ou espaço.
                 inline_text = re.sub(r'(à fl\.)(\s*\d+\s*)([,\.\s])', r'\1 {pagina_alegacao}\3', inline_text)
             # --- FIM DA NOVA LÓGICA ---
 
+            # --- INÍCIO DA CORREÇÃO: Substituição direta sem escapar HTML ---
+            # A lógica de escape foi removida. Os placeholders são substituídos diretamente.
             for placeholder, value in context.items():
-                if placeholder in inline_text:
-                    inline_text = inline_text.replace(str(placeholder), str(value))
-
+                inline_text = inline_text.replace(str(placeholder), str(value))
+            # --- FIM DA CORREÇÃO ---
+            
             # **INÍCIO DA CORREÇÃO**
             # Tenta obter o alinhamento direto do parágrafo
             effective_alignment = p.paragraph_format.alignment
@@ -533,6 +535,7 @@ def _render_document_from_template(template_name, context):
 
             alignment = alignment_map.get(effective_alignment, 'left')
 
+            # Adiciona o parágrafo com o conteúdo já processado
             html_content.append(f'<p style="text-align: {alignment};">{inline_text}</p>')
 
         return ''.join(html_content)
@@ -551,27 +554,33 @@ def get_document_pages(patd):
     Gera uma LISTA de páginas de documento em HTML a partir dos templates.
     Cada item na lista representa um documento/seção separada.
     """
-    doc_context = _get_document_context(patd)
-    document_pages = []
+    base_context = _get_document_context(patd)
+    document_pages_raw = []
+    page_counter = 0
+    pagina_alegacao_num = 0
 
     # 1. Documento Principal
-    document_pages.append(_render_document_from_template('PATD_Coringa.docx', doc_context))
+    page_counter += 1
+    document_pages_raw.append(_render_document_from_template('PATD_Coringa.docx', base_context))
 
-    # 2. Alegação de Defesa
+    # 2. Alegação de Defesa (ou Preclusão)
     if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
-        alegacao_context = doc_context.copy()
-        alegacao_context['{Alegação de defesa}'] = patd.alegacao_defesa if patd.alegacao_defesa else "[Ver documentos anexos]"
-        html_content = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
-        
-        # --- INÍCIO DA MODIFICAÇÃO (Adiciona marcador) ---
-        # Adiciona um wrapper com ID para o JS encontrar esta página
-        html_content = f'<div data-document-id="alegacao_defesa">{html_content}</div>'
-        document_pages.append(html_content) # Adiciona a página do documento
-        # --- FIM DA MODIFICAÇÃO ---
+        page_counter += 1
+        pagina_alegacao_num = page_counter
+        alegacao_context = base_context.copy()
+
+        # --- INÍCIO DA CORREÇÃO: Restaurar HTML para visualização e manter placeholder para DOCX ---
+        # 1. Gera o HTML para a visualização na página
+        alegacao_html = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
+        # Substitui o placeholder do texto da alegação pelo conteúdo real, formatado para HTML
+        alegacao_texto_html = (patd.alegacao_defesa or "").replace('\n', '<br>')
+        alegacao_html = alegacao_html.replace('{Alegação de defesa}', alegacao_texto_html)
+        document_pages_raw.append(alegacao_html)
+        # --- FIM DA CORREÇÃO ---
         
         # SÓ adiciona a página de anexo se houver anexos de defesa
         if patd.anexos.filter(tipo='defesa').exists():
-            document_pages.append("{ANEXOS_DEFESA_PLACEHOLDER}")
+            document_pages_raw.append("{ANEXOS_DEFESA_PLACEHOLDER}")
 
     # 3. Termo de Preclusão
     status_preclusao_e_posteriores = [
@@ -582,34 +591,45 @@ def get_document_pages(patd):
         'aguardando_comandante_base'
     ]
     if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in status_preclusao_e_posteriores:
-        document_pages.append(_render_document_from_template('PRECLUSAO.docx', doc_context))
+        page_counter += 1
+        pagina_alegacao_num = page_counter
+        html_content = _render_document_from_template('PRECLUSAO.docx', base_context)
+        html_content = f'<div data-document-id="alegacao_defesa">{html_content}</div>'
+        document_pages_raw.append(html_content)
 
-    # 4. Relatório de Apuração
+    # 4. Relatório de Apuração (sem o número da página ainda)
     if patd.justificado:
-        document_pages.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', doc_context))
-        # --- INÍCIO DA MODIFICAÇÃO: Interromper se justificado ---
+        page_counter += 1
+        document_pages_raw.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', base_context))
+        # --- INÍCIO DA MODIFICAÇÃO: Interromper APÓS a lógica de duas passagens ---
         # Se a PATD foi justificada, o processo documental termina aqui.
         # Não há NPD, reconsideração, etc.
-        return document_pages
+        # A lógica de contagem de páginas e substituição de placeholders abaixo
+        # ainda precisa ser executada para que o relatório seja renderizado corretamente.
+        # O 'return' foi movido para depois desse bloco.
         # --- FIM DA MODIFICAÇÃO ---
+
     elif patd.punicao_sugerida:
-        document_pages.append(_render_document_from_template('RELATORIO_DELTA.docx', doc_context))
+        page_counter += 1
+        document_pages_raw.append(_render_document_from_template('RELATORIO_DELTA.docx', base_context))
 
     # 5. Nota de Punição Disciplinar (NPD)
     status_npd_e_posteriores = [
         'aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao',
         'em_reconsideracao', 'aguardando_publicacao', 'aguardando_comandante_base' # 'aguardando_preenchimento_npd_reconsideracao' removido
     ]
-    if patd.status in status_npd_e_posteriores:
-        document_pages.append(_render_document_from_template('MODELO_NPD.docx', doc_context))
+    if patd.status in status_npd_e_posteriores and not patd.justificado:
+        page_counter += 1
+        document_pages_raw.append(_render_document_from_template('MODELO_NPD.docx', base_context))
 
     # 6. Reconsideração
     status_reconsideracao_e_posteriores = [
         'em_reconsideracao', 'aguardando_publicacao', 'finalizado',
         'aguardando_comandante_base' # 'aguardando_preenchimento_npd_reconsideracao' removido
     ]
-    if patd.status in status_reconsideracao_e_posteriores:
-         reconsideracao_context = doc_context.copy()
+    if patd.status in status_reconsideracao_e_posteriores and not patd.justificado:
+         page_counter += 1
+         reconsideracao_context = base_context.copy()
          if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
              reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
          else:
@@ -617,23 +637,48 @@ def get_document_pages(patd):
          html_content = _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
          
          # --- CORREÇÃO CRÍTICA ---
-         # Substitui o placeholder de assinatura de ciência pelo de reconsideração
-         # para garantir que a função JS correta seja chamada.
          html_content = html_content.replace('{Assinatura Militar Arrolado}', '{Assinatura Reconsideracao}')
-         document_pages.append(html_content) # Adiciona a página do documento
+         document_pages_raw.append(html_content)
          
-         # SÓ adiciona a página de anexo se houver anexos de reconsideração
          if patd.anexos.filter(tipo='reconsideracao').exists():
-             document_pages.append("{ANEXOS_RECONSIDERACAO_PLACEHOLDER}")
+             document_pages_raw.append("{ANEXOS_RECONSIDERACAO_PLACEHOLDER}")
 
     # 7. Anexos da reconsideração oficial
     status_anexo_reconsideracao_oficial = ['aguardando_publicacao', 'finalizado']
     if patd.status in status_anexo_reconsideracao_oficial:
         # SÓ adiciona a página de anexo se houver anexos de reconsideração oficial
         if patd.anexos.filter(tipo='reconsideracao_oficial').exists():
-            document_pages.append("{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}")
+            document_pages_raw.append("{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}")
 
-    return document_pages
+    # --- INÍCIO DA LÓGICA DE DUAS PASSAGENS ---
+    # 1. Primeira Passagem: Contar páginas físicas
+    physical_page_count = 0
+    alegacao_physical_page_num = 0
+    
+    for doc_html in document_pages_raw:
+        # Conta as quebras de página manuais dentro do documento
+        num_breaks = doc_html.count('<div class="manual-page-break"></div>')
+        
+        # Se este é o documento da alegação, registra o número da página atual
+        if '<div data-document-id="alegacao_defesa">' in doc_html:
+            alegacao_physical_page_num = physical_page_count + 1
+            
+        # Cada documento começa em uma nova página, e adiciona as quebras internas
+        physical_page_count += (1 + num_breaks)
+
+    # 2. Segunda Passagem: Substituir o placeholder com o número correto
+    final_document_pages = []
+    for doc_html in document_pages_raw:
+        final_html = doc_html.replace('{pagina_alegacao}', f"{alegacao_physical_page_num:02d}")
+        final_document_pages.append(final_html)
+    # --- FIM DA LÓGICA DE DUAS PASSAGENS ---
+
+    # --- INÍCIO DA MODIFICAÇÃO: Ponto de interrupção correto para justificação ---
+    if patd.justificado:
+        return final_document_pages
+    # --- FIM DA MODIFICAÇÃO ---
+
+    return final_document_pages
 def _check_preclusao_signatures(patd):
     """
     Verifica se as assinaturas das testemunhas para o documento de preclusão
@@ -2207,7 +2252,7 @@ def salvar_apuracao(request, pk):
 
         patd.status = 'aguardando_punicao'
 
-        patd.save()
+        patd.save(update_fields=['itens_enquadrados', 'circunstancias', 'punicao_sugerida', 'dias_punicao', 'punicao', 'justificado', 'transgressao_afirmativa', 'texto_relatorio', 'natureza_transgressao', 'comportamento', 'status'])
 
         return JsonResponse({'status': 'success', 'message': 'Apuração salva com sucesso!'})
 
@@ -2482,11 +2527,14 @@ def anexar_documento_reconsideracao_oficial(request, pk):
 
         Anexo.objects.create(patd=patd, arquivo=anexo_file, tipo='reconsideracao_oficial')
 
-        messages.success(request, "Documento anexado. Por favor, defina a nova punição.")
-        # Redireciona com um parâmetro para o JS abrir o modal
-        redirect_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': pk}) + '?action=open_nova_punicao_modal'
-        return redirect(redirect_url)
+        # --- INÍCIO DA MODIFICAÇÃO ---
+        # Atualiza o status para aguardar a definição da nova punição
+        patd.status = 'aguardando_nova_punicao'
+        patd.save(update_fields=['status'])
 
+        messages.success(request, "Documento anexado com sucesso! O processo agora aguarda a definição da nova punição.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+        # --- FIM DA MODIFICAÇÃO ---
     except Exception as e:
         logger.error(f"Erro ao anexar documento de reconsideração oficial para PATD {pk}: {e}")
         messages.error(request, f"Ocorreu um erro ao anexar o documento: {e}")
@@ -2496,10 +2544,10 @@ def anexar_documento_reconsideracao_oficial(request, pk):
 @oficial_responsavel_required
 @require_POST
 def salvar_nova_punicao(request, pk):
-    try:
-        # Permite que esta ação ocorra em ambos os status
-        patd = get_object_or_404(PATD, pk=pk, status__in=['aguardando_comandante_base', 'aguardando_publicacao'])
+    try:        
+        patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
+
         dias_str = data.get('dias')
         if dias_str is None:
             return JsonResponse({'status': 'error', 'message': 'O número de dias é obrigatório.'}, status=400)
@@ -2510,20 +2558,20 @@ def salvar_nova_punicao(request, pk):
         if dias < 0 or not tipo:
             return JsonResponse({'status': 'error', 'message': 'Dados inválidos.'}, status=400)
 
-        dias_texto = num2words(dias, lang='pt_BR')
-
+        # Atualiza a punição principal com os novos valores
         if tipo == 'repreensão':
-            patd.nova_punicao_dias = ""
             patd.dias_punicao = ""
+            patd.punicao = "repreensão"
         else:
+            dias_texto = num2words(dias, lang='pt_BR')
             punicao_dias_str = f"{dias_texto} ({dias:02d}) dias"
-            patd.nova_punicao_dias = punicao_dias_str
             patd.dias_punicao = punicao_dias_str
+            patd.punicao = tipo
 
-        patd.nova_punicao_tipo = tipo # Salva o tipo da nova punição
-        patd.punicao = tipo # Atualiza a punição principal
+        # Atualiza a string de punição sugerida para refletir a nova decisão
+        patd.punicao_sugerida = f"{patd.dias_punicao} de {patd.punicao}" if patd.dias_punicao else patd.punicao
 
-        # Recalcula natureza e comportamento com base na nova punição
+        # Recalcula os campos derivados com base na nova punição
         patd.definir_natureza_transgressao()
         patd.calcular_e_atualizar_comportamento()
 
@@ -2618,6 +2666,71 @@ def add_page_number(paragraph):
     # --- FIM DA CORREÇÃO ---
 
 
+def _append_alegacao_docx(document, patd, context):
+    """Lê o template da alegação, substitui os placeholders e o anexa ao documento principal."""
+    # --- INÍCIO DA CORREÇÃO ---
+    # Reutiliza o mesmo regex da função principal para consistência
+    placeholder_regex = re.compile(r'({[^}]+})')
+    # --- FIM DA CORREÇÃO ---
+    try:
+        document.add_page_break()
+
+        doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PATD_Alegacao_DF.docx')
+        alegacao_doc = Document(doc_path)
+        for source_p in alegacao_doc.paragraphs:
+            if source_p.text.strip():
+                new_p = document.add_paragraph()
+                new_p.paragraph_format.alignment = source_p.paragraph_format.alignment
+
+                text_to_process = source_p.text
+                
+                for placeholder, value in context.items():
+                    text_to_process = text_to_process.replace(str(placeholder), str(value))
+
+                # --- INÍCIO DA CORREÇÃO: Reutilizar lógica de processamento de placeholders e formatação ---
+                # Divide o texto em partes de texto normal e placeholders
+                # O regex agora inclui a formatação de negrito
+                parts = re.split(r'(\*\*.*?\*\*|{[^}]+})', text_to_process)
+
+                for part in parts:
+                    if not part: continue
+
+                    # Lógica para placeholders de imagem (assinaturas)
+                    if placeholder_regex.match(part):
+                        placeholder = part.strip()
+                        is_image_placeholder = False
+                        try:
+                            if placeholder == '{Assinatura Alegacao Defesa}' and patd.assinatura_alegacao_defesa and patd.assinatura_alegacao_defesa.path and os.path.exists(patd.assinatura_alegacao_defesa.path):
+                                new_p.add_run().add_picture(patd.assinatura_alegacao_defesa.path, height=Cm(1.5))
+                                is_image_placeholder = True
+                        except Exception as e:
+                            logger.error(f"Erro ao processar placeholder de imagem na alegação: {placeholder}: {e}")
+                        
+                        if is_image_placeholder:
+                            continue # Pula para a próxima parte se a imagem foi adicionada
+
+                    # Lógica para o texto da alegação
+                    if '{Alegação de defesa}' in part:
+                        alegacao_text = patd.alegacao_defesa or "[ALEGAÇÃO NÃO FORNECIDA]"
+                        lines = alegacao_text.splitlines()
+                        for i, line in enumerate(lines):
+                            if i > 0: new_p.add_run().add_break() # Adiciona quebra de linha
+                            new_p.add_run(line)
+                    # Lógica para texto em negrito
+                    elif part.startswith('**') and part.endswith('**'):
+                        new_p.add_run(part.strip('*')).bold = True
+                    # Ignora outros placeholders que não são imagens
+                    elif placeholder_regex.match(part):
+                        continue
+                    # Adiciona texto normal
+                    else:
+                        new_p.add_run(part)
+                # --- FIM DA CORREÇÃO ---
+    except Exception as e:
+        logger.error(f"Erro ao anexar documento de alegação: {e}")
+        document.add_paragraph(f"[ERRO AO PROCESSAR DOCUMENTO DE ALEGAÇÃO: {e}]")
+
+
 @login_required
 @ouvidoria_required
 def exportar_patd_docx(request, pk):
@@ -2631,6 +2744,18 @@ def exportar_patd_docx(request, pk):
     comandante_gsd = config.comandante_gsd
 
     document = Document()
+
+    # --- INÍCIO DA MODIFICAÇÃO: Adicionar proteção contra edição ---
+    from docx.oxml.ns import qn
+    from docx.oxml import OxmlElement
+
+    # Obtém o elemento <w:settings> do documento
+    doc_settings = document.settings.element
+    # Cria o elemento <w:documentProtection> para tornar o documento somente leitura
+    protection = OxmlElement('w:documentProtection')
+    protection.set(qn('w:edit'), 'readOnly')
+    doc_settings.append(protection)
+    # --- FIM DA MODIFICAÇÃO ---
 
     style = document.styles['Normal']
     font = style.font
@@ -2661,7 +2786,6 @@ def exportar_patd_docx(request, pk):
     was_last_p_empty = False # Variável de estado para controlar parágrafos vazios
     placeholder_regex = re.compile(r'({[^}]+})')
 
-    # --- INÍCIO DA CORREÇÃO: Iteração segura ---
     # Itera diretamente sobre o objeto soup. Se soup.body existir, usa seus filhos,
     # caso contrário, itera sobre os elementos de nível superior do soup.
     # Isso evita o erro 'NoneType' object has no attribute 'children'.
@@ -2690,6 +2814,12 @@ def exportar_patd_docx(request, pk):
 
         if element.name == 'p':
             is_empty_paragraph = not element.get_text(strip=True) and not element.find('img')
+            
+            # --- INÍCIO DA CORREÇÃO: Lógica de substituição para o documento de alegação ---
+            if "ALEGAÇÃO DE DEFESA" in element.get_text() and "Do Acusado:" in element.get_text():
+                _append_alegacao_docx(document, patd, context)
+                continue # Pula para o próximo elemento
+            # --- FIM DA CORREÇÃO ---
 
             if is_empty_paragraph:
                 if not was_last_p_empty:
@@ -2730,6 +2860,7 @@ def exportar_patd_docx(request, pk):
             for content in element.contents:
                 if isinstance(content, NavigableString):
                     text_content = str(content)
+
                     parts = placeholder_regex.split(text_content)
 
                     for part in parts:
@@ -2822,7 +2953,12 @@ def exportar_patd_docx(request, pk):
 
                 elif content.name == 'strong':
                     p.add_run(content.get_text()).bold = True
-
+                
+                # --- INÍCIO DA CORREÇÃO: Processar <br> para quebras de linha ---
+                elif content.name == 'br':
+                    p.add_run().add_break()
+                # --- FIM DA CORREÇÃO ---
+        
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
     response['Content-Disposition'] = f'attachment; filename=PATD_{patd.numero_patd}.docx'
     document.save(response)
