@@ -18,12 +18,13 @@ services:
 
   web:
     build: .
-    # command: /entrypoint.sh  <-- GARANTA QUE ESTA LINHA ESTEJA APAGADA
     restart: always
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
       - .:/app  # <--- IMPORTANTE: Mapeia sua pasta local para salvar as migrations
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./logs:/app/logs
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=False

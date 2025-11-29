@@ -39,5 +39,7 @@ urlpatterns = [
     # URL para Configuracao (Apenas Edição)
     path('configuracao/', views.ConfiguracaoUpdateView.as_view(), name='configuracao_edit'),
 
+    path('api/logs/', views.system_logs_api, name='system_logs_api'),
+
 ]
 

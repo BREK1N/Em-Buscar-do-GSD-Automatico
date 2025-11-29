@@ -109,6 +109,7 @@ body {
     align-items: center;
     box-shadow: var(--box-shadow);
     transition: background-color 0.3s, border-color 0.3s;
+    position: relative; /* Necessário para o posicionamento do painel de notificações */
 }
 
 /* BOTÃO DO MENU HAMBURGER (visível apenas no telemóvel) */
@@ -207,17 +208,6 @@ p {
 .data-table th, .data-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-color); }
 .data-table thead th { background-color: var(--bg-main); }
 .actions-cell { display: flex; gap: 10px; flex-wrap: wrap; }
-
-.militar-acusado-link {
-    font-weight: 500;
-    color: var(--accent-color);
-    text-decoration: none;
-    transition: color 0.2s;
-}
-.militar-acusado-link:hover {
-    color: var(--accent-hover);
-    text-decoration: underline;
-}
 
 .pagination {
     margin-top: 25px;
@@ -576,10 +566,6 @@ p {
     flex-shrink: 0;
     margin-left: 15px;
 }
-/* ESTILOS PARA O HEADER */
-.main-header {
-    position: relative; /* Necessário para o posicionamento do painel de notificações */
-}
 
 /* BOTÃO E PAINEL DE NOTIFICAÇÕES */
 .notifications-container {
@@ -675,18 +661,21 @@ p {
     flex-shrink: 0;
 }
 
-.actions {
-    flex-grow: 1; /* Permite que a seção de ações ocupe o espaço disponível */
-}
-
 .filter-bar {
     display: flex;
+    flex-wrap: wrap;
     gap: 15px;
     width: 100%;
-    justify-content: flex-end; /* Alinha os filtros à direita */
+    align-items: center;
 }
 
 .search-group {
+    display: flex;
+    flex-grow: 1; /* Faz a barra de pesquisa ocupar a maior parte do espaço */
+    min-width: 250px;
+}
+
+.search-group form {
     display: flex;
     flex-grow: 1; /* Faz a barra de pesquisa ocupar a maior parte do espaço */
     max-width: 400px;
@@ -696,7 +685,7 @@ p {
     position: relative;
 }
 
-.filter-bar input[type="text"] {
+.search-group input[type="text"] {
     width: 100%;
     min-width: 150px;
     padding: 8px 12px;
@@ -710,7 +699,7 @@ p {
     box-sizing: border-box;
 }
 
-.filter-bar .search-btn {
+.search-group .search-btn {
     height: 38px;
     width: 40px;
     padding: 0;
@@ -725,7 +714,7 @@ p {
     flex-shrink: 0;
     transition: background-color 0.2s;
 }
-.filter-bar .search-btn:hover {
+.search-group .search-btn:hover {
     background-color: var(--sidebar-active-bg);
 }
 .filter-bar .search-btn svg {
@@ -760,7 +749,153 @@ body.dark-theme .filter-bar .filter-select {
     background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' fill='none' viewBox='0 0 20 20'%3e%3cpath stroke='%23b0b3b8' stroke-linecap='round' stroke-linejoin='round' stroke-width='1.5' d='M6 8l4 4 4-4'/%3e%3c/svg%3e");
 }
 
-/* Oculta o formulário de pesquisa antigo, se ainda existir */
-.actions > .search-form {
-    display: none;
+.signature-block {
+    page-break-inside: avoid;
+}
+
+/* --- ESTILOS DO TERMINAL DOCKER (ADICIONADO) --- */
+.terminal-window {
+    background-color: #1e1e1e; /* Fundo escuro */
+    border-radius: 8px;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.3);
+    overflow: hidden;
+    font-family: 'Courier New', Courier, monospace; /* Fonte monoespaçada */
+    border: 1px solid #333;
+    display: flex;
+    flex-direction: column;
+}
+
+.terminal-header {
+    background-color: #2d2d2d; /* Barra de título cinza */
+    padding: 8px 15px;
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid #333;
+}
+
+/* Botões decorativos do terminal (estilo Mac) */
+.terminal-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    margin-right: 6px;
+    display: inline-block;
+}
+.terminal-dot.red { background-color: #ff5f56; }
+.terminal-dot.yellow { background-color: #ffbd2e; }
+.terminal-dot.green { background-color: #27c93f; }
+
+.terminal-title {
+    color: #999;
+    font-size: 0.8rem;
+    margin-left: 10px;
+    flex-grow: 1;
+    text-align: center;
+    font-weight: 600;
+}
+
+.terminal-body {
+    padding: 15px;
+    height: 300px; /* Altura fixa para scroll */
+    overflow-y: auto;
+    color: #d4d4d4;
+    font-size: 0.85rem;
+    line-height: 1.4;
+    background-color: #0c0c0c;
+}
+
+/* Custom Scrollbar para o terminal */
+.terminal-body::-webkit-scrollbar {
+    width: 10px;
+}
+.terminal-body::-webkit-scrollbar-track {
+    background: #1e1e1e;
+}
+.terminal-body::-webkit-scrollbar-thumb {
+    background: #444;
+    border-radius: 5px;
+    border: 2px solid #1e1e1e;
+}
+
+.log-line {
+    display: flex;
+    flex-wrap: wrap;
+    margin-bottom: 2px;
+    word-break: break-all; /* Quebra linhas longas de log */
+}
+
+.log-prompt {
+    color: #28a745; /* Verde clássico de terminal */
+    font-weight: bold;
+    margin-right: 10px;
+    user-select: none;
+    flex-shrink: 0;
+}
+
+.log-text {
+    color: #e0e0e0; /* Texto branco suave */
+}
+
+/* Cursor piscando */
+.cursor {
+    display: inline-block;
+    width: 8px;
+    height: 15px;
+    background-color: #e0e0e0;
+    animation: blink 1s step-end infinite;
+    margin-left: 5px;
+    vertical-align: middle;
+}
+
+@keyframes blink {
+    0%, 100% { opacity: 1; }
+    50% { opacity: 0; }
+}
+
+.terminal-window {
+    position: relative; /* Necessário para posicionar o alerta dentro dele */
+}
+
+.new-logs-alert {
+    position: absolute;
+    bottom: 15px;
+    right: 20px; /* Canto inferior direito */
+    background-color: var(--accent-color); /* Azul do tema */
+    color: white;
+    padding: 6px 15px;
+    border-radius: 20px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    cursor: pointer;
+    box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+    opacity: 0;
+    visibility: hidden;
+    transform: translateY(10px);
+    transition: all 0.3s ease;
+    z-index: 10;
+    border: 1px solid rgba(255,255,255,0.2);
+    font-family: var(--font-family); /* Usa fonte normal, não de código, para o aviso */
+}
+
+.new-logs-alert.visible {
+    opacity: 1;
+    visibility: visible;
+    transform: translateY(0);
+}
+
+.new-logs-alert:hover {
+    background-color: var(--accent-hover);
+    transform: translateY(-2px);
+}
+
+/* Pequena animação de pulso para chamar atenção */
+.new-logs-alert.visible span {
+    display: inline-block;
+    animation: pulse-dot 1.5s infinite;
+}
+
+@keyframes pulse-dot {
+    0% { opacity: 1; }
+    50% { opacity: 0.5; }
+    100% { opacity: 1; }
 }
