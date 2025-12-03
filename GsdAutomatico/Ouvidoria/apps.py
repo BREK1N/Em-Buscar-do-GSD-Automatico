@@ -11,3 +11,4 @@ class OuvidoriaConfig(AppConfig):
         garantindo que eles sejam registrados e funcionem.
         """
         import Ouvidoria.signals
+        
