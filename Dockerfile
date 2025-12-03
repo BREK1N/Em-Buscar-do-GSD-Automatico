@@ -4,6 +4,13 @@ FROM python:3.11-slim
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
 
+ARG http_proxy
+ARG https_proxy
+
+# Aplica no sistema
+ENV http_proxy=$http_proxy
+ENV https_proxy=$https_proxy
+
 WORKDIR /app
 
 RUN apt-get update && apt-get install -y \
@@ -13,7 +20,8 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/
-RUN pip install --upgrade pip && pip install -r requirements.txt
+RUN pip install --proxy http://19143033776:Recruta24.@10.52.132.240:8080 --upgrade pip && pip install --proxy http://19143033776:Recruta24.@10.52.132.240:8080 -r requirements.txt
+
 
 COPY . /app/
 

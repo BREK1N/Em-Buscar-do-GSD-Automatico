@@ -16,11 +16,11 @@ def main():
     proxy_address = "10.52.132.240"
 
     # Se todas as variáveis de proxy existirem, configura o ambiente
-    #if all([proxy_user, proxy_password, proxy_port]):
-    #    proxy_url = f"http://{proxy_user}:{proxy_password}@{proxy_address}:{proxy_port}"
-    #    os.environ['HTTP_PROXY'] = proxy_url
-    #   os.environ['HTTPS_PROXY'] = proxy_url
-    #   print(">>> Variaveis de ambiente do proxy configuradas com sucesso.")
+    if all([proxy_user, proxy_password, proxy_port]):
+        proxy_url = f"http://{proxy_user}:{proxy_password}@{proxy_address}:{proxy_port}"
+        os.environ['HTTP_PROXY'] = proxy_url
+        os.environ['HTTPS_PROXY'] = proxy_url
+        print(">>> Variaveis de ambiente do proxy configuradas com sucesso.")
 
 
     os.environ.setdefault('DJANGO_SETTINGS_MODULE', 'GsdAutomatico.settings')

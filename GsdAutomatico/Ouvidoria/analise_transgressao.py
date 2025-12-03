@@ -1,11 +1,12 @@
 # GsdAutomatico/Ouvidoria/analise_transgressao.py
-from langchain_openai import ChatOpenAI
+import httpx  # <--- OBRIGATÓRIO: Garanta que esta linha existe
+import os
+from typing import List, Dict
 from dotenv import load_dotenv
+from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
 from langchain_core.output_parsers import PydanticOutputParser, StrOutputParser
-import os
-from typing import List, Dict # Importar List e Dict
 
 load_dotenv()
 
@@ -13,18 +14,39 @@ openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("A variável OPENAI_API_KEY não foi encontrada no ficheiro .env")
 
+# --- CORREÇÃO DE SSL PARA PROXY CORPORATIVO ---
+print("--- [DEBUG] INICIANDO CONFIGURAÇÃO DO CLIENTE OPENAI ---")
+
+# 1. Tenta capturar o proxy definido no .env ou no sistema
+proxy_url = os.getenv("http_proxy") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("HTTPS_PROXY")
+print(f"--- [DEBUG] Proxy detectado: {proxy_url}")
+
+# 2. Configura o cliente HTTP para IGNORAR a validação SSL
+# O parâmetro 'verify=False' é o segredo para funcionar dentro do Docker na Intraer
+if proxy_url:
+    print("--- [DEBUG] Criando cliente HTTP com proxy e verify=False")
+    http_client = httpx.Client(
+        proxy=proxy_url,
+        verify=False,  # Ignora erro de certificado do Proxy
+        timeout=60.0   # Aumenta o tempo limite para evitar timeout na rede lenta
+    )
+else:
+    print("--- [DEBUG] Nenhum proxy encontrado. Criando cliente padrão com verify=False por garantia.")
+    http_client = httpx.Client(verify=False)
+
+# 3. Inicializa o modelo passando o nosso cliente "permissivo"
 model = ChatOpenAI(
     model="gpt-4o",
     temperature=0,
-    api_key=openai_api_key
+    api_key=openai_api_key,
+    http_client=http_client # <--- Injeta o cliente modificado
 )
-
-# --- INÍCIO DA MODIFICAÇÃO ---
+print("--- [DEBUG] MODELO CARREGADO COM SUCESSO ---")
 
 # Modelo para representar um único militar acusado
 class MilitarAcusado(BaseModel):
     nome_militar: str = Field(description="O nome completo do militar acusado, sem o posto ou graduação.")
-    posto_graduacao: str = Field(description="O posto ou graduação (ex: Sargento, Capitão), se mencionado. Se não, retorne uma string vazia.")
+    posto_graduacao: str = Field(description="O posto ou graduação (ex: S2, S1, CB, 3S, 2S, 1S, SO, Etc), se mencionado. Se não, retorne uma string vazia.")
 
 # Modelo principal para a análise, agora com uma lista de acusados
 class AnaliseTransgressao(BaseModel):
@@ -56,9 +78,7 @@ def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
     4.  **Data da Ocorrência:** A data em que a transgressão ocorreu, no formato AAAA-MM-DD. Ignore a data de emissão do documento. Se não for mencionada, retorne uma string vazia.
     5.  **Protocolo COMAER:** O número de protocolo COMAER (Ex: 67112.004914/2025-10). Se não for mencionado, retorne uma string vazia.
     6.  **Ofício de Transgressão:** O número do Ofício de Transgressão (Ex: 189/DSEG/5127). Se não for mencionado, retorne uma string vazia.
-    # --- MODIFICAÇÃO ---
     7.  **Data do Ofício:** A data de emissão do ofício, preferencialmente no formato AAAA-MM-DD ou DD/MM/AAAA. Ignore qualquer nome de cidade ou texto adicional. Se não for mencionada, retorne uma string vazia.
-    # --- FIM DA MODIFICAÇÃO ---
     """
     human_prompt = "Analise o seguinte documento e extraia os dados estruturados:\n\n{documento}"
 

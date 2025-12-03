@@ -7,17 +7,24 @@ services:
     volumes:
       - postgres_data:/var/lib/postgresql/data
     environment:
-      - POSTGRES_DB=${NAME}
-      - POSTGRES_USER=${USER}
-      - POSTGRES_PASSWORD=${PASSWORD}
+      - POSTGRES_DB=${DB_NAME}
+      - POSTGRES_USER=${DB_USER}      # Agora usa DB_USER (gsd)
+      - POSTGRES_PASSWORD=${DB_PASSWORD}
+      - PGPORT=${DB_PORT}
+    ports:
+      - "5434:5434"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${USER} -d ${NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
 
   web:
-    build: .
+    build:
+      context: .
+      args:
+        http_proxy: http://19143033776:Recruta24.@10.52.132.240:8080
+        https_proxy: http://19143033776:Recruta24.@10.52.132.240:8080
     restart: always
     volumes:
       - static_volume:/app/staticfiles
@@ -27,14 +34,21 @@ services:
       - ./logs:/app/logs
     environment:
       - SECRET_KEY=${SECRET_KEY}
-      - DEBUG=False
-      - NAME=${NAME}
-      - USER=${USER}
-      - PASSWORD=${PASSWORD}
-      - HOST=db
-      - PORT=5432
+      - DEBUG=${DEBUG}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      # Aqui fazemos a tradução para o Django:
+      # O Django espera "NAME", mas nós passamos o valor de "DB_NAME"
+      - NAME=${DB_NAME}
+      - USER=${DB_USER}          # O Django receberá USER=gsd
+      - PASSWORD=${DB_PASSWORD}
+      - HOST=${DB_HOST}
+      - PORT=${DB_PORT}
       - DATABASE=postgres
-      # Variáveis do Superusuário
+      # Variáveis de Proxy
+      - http_proxy=${http_proxy}
+      - https_proxy=${https_proxy}
+      - no_proxy=${no_proxy}
+      # Superusuário
       - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME}
       - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
       - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
@@ -50,7 +64,7 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - web
 
