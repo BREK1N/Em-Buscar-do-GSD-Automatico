@@ -4,11 +4,11 @@
             "ssh": "Disabled",
             "previewLimit": 50,
             "server": "localhost",
-            "port": 5432,
+            "port": 5434,
             "driver": "PostgreSQL",
-            "name": "GSD",
+            "name": "gsd",
             "database": "GsdAutomatico",
-            "username": "postgres"
+            "username": "gsd"
         }
     ]
 }

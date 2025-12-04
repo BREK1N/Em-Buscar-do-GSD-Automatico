@@ -1,3 +1,4 @@
+# GsdAutomatico/Ouvidoria/views.py
 import pandas as pd
 import io
 import json
@@ -34,7 +35,6 @@ from django.contrib.auth.mixins import UserPassesTestMixin
 # --- ALTERAÇÃO: Importar authenticate ---
 from django.contrib.auth import authenticate
 
-
 # --- INÍCIO DA MODIFICAÇÃO: Importar novas classes e funções ---
 from .analise_transgressao import (
     enquadra_item,
@@ -46,7 +46,8 @@ from .analise_transgressao import (
     texto_relatorio,
     AnaliseTransgressao, # Importar a classe principal
     MilitarAcusado,      # Importar a sub-classe
-    analisar_documento_pdf # Importar a função de análise atualizada
+    analisar_documento_pdf, # Importar a função de análise atualizada
+    verifica_similaridade
 )
 # --- FIM DA MODIFICAÇÃO ---
 
@@ -196,37 +197,6 @@ def _check_and_advance_reconsideracao_status(patd_pk):
             # Bloqueia a linha da PATD para evitar condições de corrida
             patd = PATD.objects.select_for_update().get(pk=patd_pk)
 
-            has_content = bool(patd.texto_reconsideracao or patd.anexos.filter(tipo='reconsideracao').exists())
-            has_signature = bool(patd.assinatura_reconsideracao)
-
-            logger.info(f"PATD {patd.pk}: Current status: {patd.status}, Has Content? {has_content}, Has Signature? {has_signature}")
-
-            if patd.status == 'em_reconsideracao' and has_content and has_signature:
-                patd.status = 'aguardando_comandante_base'
-                patd.save(update_fields=['status'])
-                logger.info(f"PATD {patd.pk} status advanced to 'aguardando_comandante_base'.")
-            else:
-                logger.info(f"PATD {patd.pk}: Conditions not met to advance status.")
-    except PATD.DoesNotExist:
-        logger.error(f"PATD {patd_pk} not found during status check.")
-    except Exception as e:
-        logger.error(f"Error in _check_and_advance_reconsideracao_status for PATD {patd_pk}: {e}")
-
-# Modified the existing _check_and_advance_reconsideracao_status function (originally at line 226)
-# to include more detailed logging for debugging.
-# The duplicate definition of this function (originally at line 250) has been removed.
-
-def _check_and_advance_reconsideracao_status(patd_pk):
-    """
-    Função centralizada que verifica, dentro de uma transação para garantir a consistência dos dados,
-    se a reconsideração tem conteúdo e assinatura. Se ambas as condições forem verdadeiras,
-    o status é avançado.
-    """
-    try:
-        with transaction.atomic():
-            # Bloqueia a linha da PATD para evitar condições de corrida
-            patd = PATD.objects.select_for_update().get(pk=patd_pk)
-
             # --- CORREÇÃO: Forçar a releitura do objeto do banco de dados ---
             # Garante que estamos a verificar o estado mais recente, incluindo
             # a atualização da assinatura que acabou de ser salva.
@@ -269,7 +239,6 @@ def _check_and_advance_reconsideracao_status(patd_pk):
         logger.error(f"PATD {patd_pk} not found during status check.")
     except Exception as e:
         logger.error(f"Error in _check_and_advance_reconsideracao_status for PATD {patd_pk}: {e}")
-# Removida a classe AnaliseTransgressao daqui, pois foi movida para analise_transgressao.py
 
 def get_next_patd_number():
     """Gera o próximo número sequencial para a PATD."""
@@ -277,7 +246,7 @@ def get_next_patd_number():
     return (max_num or 0) + 1
 
 # =============================================================================
-# FUNÇÕES AUXILIARES MOVIMDAS PARA CIMA PARA CORRIGIR O ERRO
+# FUNÇÕES AUXILIARES
 # =============================================================================
 def format_militar_string(militar, with_spec=False):
     """
@@ -330,14 +299,88 @@ def format_militar_string(militar, with_spec=False):
     else:
         return f"{posto} {formatted_name}".strip()
 
+# --- NOVA FUNÇÃO DE BUSCA INTELIGENTE ---
+def buscar_militar_inteligente(acusado_ia):
+    """
+    Busca um militar dando prioridade absoluta ao SARAM,
+    seguido pelo Nome de Guerra (cruzado com Posto),
+    e por fim o Nome Completo.
+    """
+    # 1. TENTATIVA POR SARAM (Prioridade Máxima - Identificador Único)
+    if acusado_ia.saram:
+        # Remove pontos, traços e espaços para deixar apenas números
+        saram_limpo = re.sub(r'\D', '', str(acusado_ia.saram))
+        if saram_limpo:
+            try:
+                return Militar.objects.get(saram=int(saram_limpo))
+            except (Militar.DoesNotExist, ValueError):
+                pass # SARAM não encontrado ou inválido, continua para o nome...
+
+    # Preparar filtros de texto para Posto
+    filtro_posto = Q()
+    if acusado_ia.posto_graduacao:
+        # Mapeamento simples para normalizar postos (Ex: 'Soldado' -> 'S1' ou 'S2')
+        posto_str = acusado_ia.posto_graduacao.upper()
+        if 'SOLDADO' in posto_str:
+            filtro_posto = Q(posto__in=['S1', 'S2'])
+        elif 'CABO' in posto_str:
+            filtro_posto = Q(posto='CB')
+        elif 'SARGENTO' in posto_str:
+            filtro_posto = Q(posto__in=['1S', '2S', '3S'])
+        else:
+            # Tenta busca direta (Ex: '3S', '1T', 'CAP')
+            filtro_posto = Q(posto__icontains=acusado_ia.posto_graduacao)
+
+    # 2. TENTATIVA POR NOME DE GUERRA (Sua solicitação de prioridade)
+    if acusado_ia.nome_guerra:
+        # Busca exata pelo nome de guerra primeiro
+        candidatos = Militar.objects.filter(nome_guerra__iexact=acusado_ia.nome_guerra)
+        
+        # Se não achar exato, tenta "contém" (para casos de erro de digitação da IA)
+        if not candidatos.exists():
+            candidatos = Militar.objects.filter(nome_guerra__icontains=acusado_ia.nome_guerra)
+
+        if candidatos.exists():
+            # SE TIVER MAIS DE UM, precisamos desempatar
+            if candidatos.count() > 1:
+                # A) Desempate pelo Posto/Graduação (Muito Eficaz)
+                if acusado_ia.posto_graduacao:
+                    candidatos_posto = candidatos.filter(filtro_posto)
+                    if candidatos_posto.exists():
+                        if candidatos_posto.count() == 1:
+                            return candidatos_posto.first()
+                        candidatos = candidatos_posto # Refina a lista de candidatos
+
+                # B) Desempate pelo Nome Completo (se disponível)
+                if acusado_ia.nome_completo:
+                    # Verifica se partes do nome completo da IA estão no nome completo do banco
+                    palavras_nome_ia = acusado_ia.nome_completo.split()
+                    for cand in candidatos:
+                        match_count = sum(1 for p in palavras_nome_ia if p.lower() in cand.nome_completo.lower())
+                        # Se bater 2 ou mais nomes (Ex: sobrenomes), assume que é ele
+                        if match_count >= 2:
+                            return cand
+            
+            # Se sobrou apenas 1 ou não conseguimos desempatar, retorna o primeiro encontrado
+            # (Aqui atende sua regra: achou pelo nome de guerra, retorna ele)
+            return candidatos.first()
+
+    # 3. TENTATIVA POR NOME COMPLETO (Fallback)
+    if acusado_ia.nome_completo:
+        candidatos = Militar.objects.filter(nome_completo__icontains=acusado_ia.nome_completo)
+        if candidatos.exists():
+            if candidatos.count() > 1 and acusado_ia.posto_graduacao:
+                 # Tenta desempatar pelo posto novamente
+                 candidatos_filtrados = candidatos.filter(filtro_posto)
+                 if candidatos_filtrados.exists():
+                     return candidatos_filtrados.first()
+            return candidatos.first()
+
+    return None
+
 # =============================================================================
 # Otimização da Geração de Documentos
 # =============================================================================
-
-# --- REMOVIDA ---
-# A função get_anexo_content_as_html(anexo) foi removida,
-# pois a lógica de anexos será tratada diretamente na função de exportação.
-
 
 def _get_document_context(patd):
     """
@@ -922,62 +965,62 @@ def index(request):
         action = request.POST.get('action', 'analyze')
 
         # --- Modificação na ação 'create_militar_and_patd' (para consistência) ---
-        if action == 'create_militar_and_patd':
-            form = MilitarForm(request.POST)
-            if form.is_valid():
-                new_militar = form.save()
-                transgressao = request.POST.get('transgressao')
-                data_ocorrencia_str = request.POST.get('data_ocorrencia')
-                protocolo_comaer = request.POST.get('protocolo_comaer', '')
-                oficio_transgressao = request.POST.get('oficio_transgressao', '')
-                data_oficio_str = request.POST.get('data_oficio', '') # String da data do ofício
+        # if action == 'create_militar_and_patd':
+        #     form = MilitarForm(request.POST)
+        #     if form.is_valid():
+        #         new_militar = form.save()
+        #         transgressao = request.POST.get('transgressao')
+        #         data_ocorrencia_str = request.POST.get('data_ocorrencia')
+        #         protocolo_comaer = request.POST.get('protocolo_comaer', '')
+        #         oficio_transgressao = request.POST.get('oficio_transgressao', '')
+        #         data_oficio_str = request.POST.get('data_oficio', '') # String da data do ofício
 
-                data_ocorrencia = None
-                if data_ocorrencia_str:
-                    try:
-                        data_ocorrencia = datetime.strptime(data_ocorrencia_str, '%Y-%m-%d').date()
-                    except (ValueError, TypeError):
-                        pass
+        #         data_ocorrencia = None
+        #         if data_ocorrencia_str:
+        #             try:
+        #                 data_ocorrencia = datetime.strptime(data_ocorrencia_str, '%Y-%m-%d').date()
+        #             except (ValueError, TypeError):
+        #                 pass
 
-                # --- Lógica robusta para data_oficio ---
-                data_oficio = None
-                if data_oficio_str:
-                    # Tenta remover prefixos comuns ANTES de converter
-                    cleaned_data_oficio_str = re.sub(r"^[A-Za-z\s]+,\s*", "", data_oficio_str).strip() # Remove "Cidade, "
-                    formats_to_try = ['%d/%m/%Y', '%d de %B de %Y', '%Y-%m-%d', '%d.%m.%Y']
-                    for fmt in formats_to_try:
-                        try:
-                            if '%B' in fmt:
-                                try:
-                                    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
-                                except locale.Error:
-                                    logger.warning("Locale pt_BR.UTF-8 não encontrado ao criar PATD manualmente.")
-                                    continue
-                            # Usa a string limpa para conversão
-                            data_oficio = datetime.strptime(cleaned_data_oficio_str, fmt).date()
-                            break
-                        except (ValueError, TypeError):
-                            continue
-                # --- Fim da lógica robusta ---
+        #         # --- Lógica robusta para data_oficio ---
+        #         data_oficio = None
+        #         if data_oficio_str:
+        #             # Tenta remover prefixos comuns ANTES de converter
+        #             cleaned_data_oficio_str = re.sub(r"^[A-Za-z\s]+,\s*", "", data_oficio_str).strip() # Remove "Cidade, "
+        #             formats_to_try = ['%d/%m/%Y', '%d de %B de %Y', '%Y-%m-%d', '%d.%m.%Y']
+        #             for fmt in formats_to_try:
+        #                 try:
+        #                     if '%B' in fmt:
+        #                         try:
+        #                             locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+        #                         except locale.Error:
+        #                             logger.warning("Locale pt_BR.UTF-8 não encontrado ao criar PATD manualmente.")
+        #                             continue
+        #                     # Usa a string limpa para conversão
+        #                     data_oficio = datetime.strptime(cleaned_data_oficio_str, fmt).date()
+        #                     break
+        #                 except (ValueError, TypeError):
+        #                     continue
+        #         # --- Fim da lógica robusta ---
 
-                patd = PATD.objects.create(
-                    militar=new_militar,
-                    transgressao=transgressao,
-                    numero_patd=get_next_patd_number(),
-                    data_ocorrencia=data_ocorrencia,
-                    protocolo_comaer=protocolo_comaer,
-                    oficio_transgressao=oficio_transgressao,
-                    data_oficio=data_oficio # Salva a data convertida ou None
-                )
-                return JsonResponse({
-                    'status': 'success',
-                    'message': f'Militar "{new_militar.nome_guerra}" cadastrado e PATD Nº {patd.numero_patd} criada com sucesso!'
-                })
-            else:
-                return JsonResponse({'status': 'error', 'errors': form.errors.as_json()}, status=400)
+        #         patd = PATD.objects.create(
+        #             militar=new_militar,
+        #             transgressao=transgressao,
+        #             numero_patd=get_next_patd_number(),
+        #             data_ocorrencia=data_ocorrencia,
+        #             protocolo_comaer=protocolo_comaer,
+        #             oficio_transgressao=oficio_transgressao,
+        #             data_oficio=data_oficio # Salva a data convertida ou None
+        #         )
+        #         return JsonResponse({
+        #             'status': 'success',
+        #             'message': f'Militar "{new_militar.nome_guerra}" cadastrado e PATD Nº {patd.numero_patd} criada com sucesso!'
+        #         })
+        #     else:
+        #         return JsonResponse({'status': 'error', 'errors': form.errors.as_json()}, status=400)
 
         # --- NOVO BLOCO 1: Busca Dinâmica (Search Bar) ---
-        elif action == 'search_militar':
+        if action == 'search_militar':
             term = request.POST.get('term', '').strip()
             if not term or len(term) < 2:
                 return JsonResponse({'results': []})
@@ -1053,9 +1096,13 @@ def index(request):
 
             for patd_existente in existing_patds:
                 # Usa SequenceMatcher para comparar similaridade (acima de 80%)
-                similarity = SequenceMatcher(None, transgressao.strip().lower(), patd_existente.transgressao.strip().lower()).ratio()
-                if similarity > 0.8:
-                    is_duplicate = True
+
+
+                # similarity = SequenceMatcher(None, transgressao.strip().lower(), patd_existente.transgressao.strip().lower()).ratio()
+                # if similarity > 0.8:
+                #     is_duplicate = True
+                is_duplicate = verifica_similaridade(transgressao.strip().lower(), patd_existente.transgressao.strip().lower())
+                if is_duplicate:
                     duplicated_patd_num = patd_existente.numero_patd
                     break
             
@@ -1162,19 +1209,13 @@ def index(request):
 
                 # Itera sobre os acusados (restante da lógica permanece igual)
                 for acusado in resultado_analise.acusados:
-                    nome_extraido = acusado.nome_militar
-                    posto_graduacao_extraido = acusado.posto_graduacao
-
-                    if not nome_extraido:
-                        logger.warning(f"IA retornou um acusado sem nome: {acusado}")
-                        continue
-
-                    logger.info(f"Processando acusado: {posto_graduacao_extraido} {nome_extraido}")
-
-                    militar = Militar.objects.filter(
-                        Q(nome_completo__icontains=nome_extraido) |
-                        Q(nome_guerra__icontains=nome_extraido)
-                    ).first()
+                    # --- ALTERAÇÃO AQUI: Usa a nova função de busca inteligente ---
+                    militar = buscar_militar_inteligente(acusado)
+                    
+                    # Variáveis para caso não encontre (fallback para o formulário manual)
+                    # CORREÇÃO: Mudado de .nome_militar para .nome_completo
+                    nome_extraido = acusado.nome_completo or acusado.nome_guerra or "Desconhecido" 
+                    posto_graduacao_extraido = acusado.posto_graduacao or ""
 
                     if militar:
                         logger.info(f"Militar encontrado no BD: {militar}")
@@ -1185,7 +1226,8 @@ def index(request):
 
                         duplicata = False
                         for patd_existente in existing_patds:
-                            if similar(transgressao_comum.strip().lower(), patd_existente.transgressao.strip().lower()) > 0.8:
+                            is_duplicate = verifica_similaridade(transgressao_comum.strip().lower(), patd_existente.transgressao.strip().lower())
+                            if is_duplicate:
                                 patd_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': patd_existente.pk})
                                 duplicatas_encontradas.append({
                                     'nome_militar': str(militar),
