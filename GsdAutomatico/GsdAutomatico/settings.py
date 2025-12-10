@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'Ouvidoria',
     'login',
     'informatica',
+    'Secao_pessoal',
 ]
 
 MIDDLEWARE = [

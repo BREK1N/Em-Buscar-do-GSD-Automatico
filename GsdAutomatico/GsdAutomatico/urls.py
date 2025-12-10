@@ -24,6 +24,7 @@ urlpatterns = [
     path('Ouvidoria/', include('Ouvidoria.urls')),   
     path('', include('login.urls')),
     path('informatica/', include('informatica.urls')),
+    path('secao_pessoal/', include('Secao_pessoal.urls')),
 ]
 
 handler404 = 'login.views.custom_404_view'

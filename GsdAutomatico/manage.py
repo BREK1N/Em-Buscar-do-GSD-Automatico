@@ -5,8 +5,6 @@ import sys
 from dotenv import load_dotenv
 
 def main():
-    """Run administrative tasks."""
-
     load_dotenv()
 
     # Pega as variáveis de proxy do ambiente
