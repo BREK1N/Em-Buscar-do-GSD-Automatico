@@ -260,6 +260,8 @@ document.addEventListener('DOMContentLoaded', function() {
         const formId = `create-militar-form-${index}`;
         const searchInputId = `search-militar-${index}`;
         const searchResultsId = `search-results-${index}`;
+        // Adiciona um ID único para o container de feedback
+        const feedbackId = `feedback-container-${index}`;
         
         // Converte objeto para string para passar no data attribute
         const transgressaoJson = JSON.stringify(militarData).replace(/'/g, "&apos;");
@@ -278,6 +280,8 @@ document.addEventListener('DOMContentLoaded', function() {
                            placeholder="Pesquisar militar existente (Ex: Alesson)..." autocomplete="off">
                     <div class="search-results-dropdown" id="${searchResultsId}"></div>
                 </div>
+
+                <div id="${feedbackId}" class="dynamic-form-feedback" style="margin-top: 10px;"></div>
 
                 {% comment %} <div class="divisor-ou">OU CADASTRAR NOVO</div>
 
@@ -370,13 +374,17 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function associarMilitarExistente(militarId, transgressaoData, index) {
-        const feedbackContainer = document.querySelector(`#create-militar-form-${index} .dynamic-form-feedback`);
+        // CORREÇÃO: Busca o container pelo ID direto
+        const feedbackContainer = document.getElementById(`feedback-container-${index}`);
         const searchInput = document.getElementById(`search-militar-${index}`);
         const resultsBox = document.getElementById(`search-results-${index}`);
         
         searchInput.disabled = true;
         resultsBox.style.display = 'none';
-        feedbackContainer.innerHTML = '<div class="alert alert-info">⌛ Vinculando PATD ao militar selecionado...</div>';
+        
+        if (feedbackContainer) {
+            feedbackContainer.innerHTML = '<div class="alert alert-info">⌛ Vinculando PATD ao militar selecionado...</div>';
+        }
 
         const formData = new FormData();
         formData.append('action', 'associate_patd');
@@ -393,17 +401,26 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(res => res.json())
         .then(data => {
-            const container = document.querySelector(`#create-militar-form-${index}`).parentElement;
+            // CORREÇÃO: Encontra o container pai através do input
+            const container = searchInput.closest('.militar-nao-encontrado');
             if (data.status === 'success') {
                 container.innerHTML = `<div class="alert alert-success">✅ PATD criada e vinculada com sucesso ao militar <strong>${escapeHtml(data.militar_nome)}</strong>!</div>`;
             } else {
-                feedbackContainer.innerHTML = `<div class="alert alert-error">❌ Erro ao vincular: ${data.message}</div>`;
+                if (feedbackContainer) {
+                    feedbackContainer.innerHTML = `<div class="alert alert-error">❌ Erro ao vincular: ${data.message}</div>`;
+                } else {
+                    alert(`Erro: ${data.message}`);
+                }
                 searchInput.disabled = false;
             }
         })
         .catch(err => {
             console.error(err);
-            feedbackContainer.innerHTML = `<div class="alert alert-error">❌ Erro de conexão.</div>`;
+            if (feedbackContainer) {
+                feedbackContainer.innerHTML = `<div class="alert alert-error">❌ Erro de conexão.</div>`;
+            } else {
+                alert("Erro de conexão.");
+            }
             searchInput.disabled = false;
         });
     }
