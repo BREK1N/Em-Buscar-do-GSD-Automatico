@@ -1,0 +1,19 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Excluir Militar{% endblock %}
+
+{% block content %}
+<div class="analise-box" style="max-width: 600px; margin: 0 auto; text-align: center;">
+    <h2 style="color: var(--danger-color);">Tem certeza?</h2>
+    <p>Você está prestes a excluir o militar <strong>{{ object.posto }} {{ object.nome_guerra }}</strong>.</p>
+    <p>Esta ação não pode ser desfeita.</p>
+    
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-actions" style="justify-content: center; gap: 15px; margin-top: 20px;">
+            <a href="{% url 'Secao_pessoal:militar_list' %}" class="btn btn-secondary">Cancelar</a>
+            <button type="submit" class="btn btn-danger">Sim, Excluir</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
