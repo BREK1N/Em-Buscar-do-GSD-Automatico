@@ -1,12 +1,12 @@
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, SetPasswordForm
 from django.contrib.auth.models import User, Group
-from Ouvidoria.models import Militar
+from Secao_pessoal.models import Efetivo
 from .models import UserProfile
 
 class CustomUserCreationForm(UserCreationForm):
     militar = forms.ModelChoiceField(
-        queryset=Militar.objects.all(),
+        queryset=Efetivo.objects.all(),
         required=False,
         label="Militar Associado",
         help_text="Associe este utilizador a um militar existente no efetivo (opcional).",

@@ -1,3 +1,23 @@
 from django.db import models
 
-# Create your models here.
+class Efetivo(models.Model):
+    posto = models.CharField(max_length=50, blank=True, verbose_name="Posto")
+    quad = models.CharField(max_length=50, blank=True, verbose_name="QUAD")
+    especializacao = models.CharField(max_length=100, blank=True, verbose_name="Especialização")
+    saram = models.IntegerField(unique=True, null=True, blank=True, verbose_name="SARAM")
+    nome_completo = models.CharField(max_length=255, verbose_name="Nome Completo")
+    nome_guerra = models.CharField(max_length=100, verbose_name="Nome de Guerra")
+    turma = models.CharField(max_length=100, blank=True, verbose_name="Turma")
+    situacao = models.CharField(max_length=50, blank=True, verbose_name="Situação")
+    om = models.CharField(max_length=100, blank=True, verbose_name="OM")
+    setor = models.CharField(max_length=100, blank=True, verbose_name="Setor")
+    subsetor = models.CharField(max_length=100, blank=True, verbose_name="Subsetor")
+    oficial = models.BooleanField(default=False, verbose_name="É Oficial?")
+    assinatura = models.TextField(blank=True, null=True, verbose_name="Assinatura Padrão (Base64)")
+    senha_unica = models.CharField(max_length=128, blank=True, null=True, verbose_name="Senha Única")
+
+    def __str__(self):
+        return f"{self.posto} {self.nome_guerra}"
+
+    class Meta:
+        db_table = 'Efetivo'

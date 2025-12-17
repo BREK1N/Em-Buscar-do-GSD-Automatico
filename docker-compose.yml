@@ -14,7 +14,7 @@ services:
     ports:
       - "5434:5434"
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${USER} -d ${DB_NAME}"]
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -22,22 +22,20 @@ services:
   web:
     build:
       context: .
-      args:
-        http_proxy: http://19143033776:Recruta24.@10.52.132.240:8080
-        https_proxy: http://19143033776:Recruta24.@10.52.132.240:8080
+      #args:
+        #http_proxy: http://19143033776:Recruta24.@10.52.132.240:8080
+        #https_proxy: http://19143033776:Recruta24.@10.52.132.240:8080
     restart: always
     volumes:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
-      - .:/app  # <--- IMPORTANTE: Mapeia sua pasta local para salvar as migrations
+      - .:/app 
       - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/app/logs
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=${DEBUG}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
-      # Aqui fazemos a tradução para o Django:
-      # O Django espera "NAME", mas nós passamos o valor de "DB_NAME"
       - NAME=${DB_NAME}
       - USER=${DB_USER}          # O Django receberá USER=gsd
       - PASSWORD=${DB_PASSWORD}
@@ -45,9 +43,9 @@ services:
       - PORT=${DB_PORT}
       - DATABASE=postgres
       # Variáveis de Proxy
-      - http_proxy=${http_proxy}
-      - https_proxy=${https_proxy}
-      - no_proxy=${no_proxy}
+      #- http_proxy=${http_proxy}
+      #- https_proxy=${https_proxy}
+      #- no_proxy=${no_proxy}
       # Superusuário
       - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME}
       - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
@@ -64,7 +62,7 @@ services:
       - static_volume:/app/staticfiles
       - media_volume:/app/media
     ports:
-      - "8080:80"
+      - "80:80"
     depends_on:
       - web
 

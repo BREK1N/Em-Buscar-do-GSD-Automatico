@@ -5,7 +5,8 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.apps import apps
 from django.urls import reverse, NoReverseMatch, reverse_lazy
 from django.contrib.auth.models import User, Group
-from Ouvidoria.models import Militar, PATD, Anexo, Configuracao
+from Ouvidoria.models import PATD, Anexo, Configuracao
+from Secao_pessoal.models import Efetivo
 from login.models import UserProfile
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -47,7 +48,7 @@ def dashboard(request):
     ]
     
     ouvidoria_models_info = [
-        ('Ouvidoria', 'militar', 'Efetivo (Militares)', 'Militar'),
+        ('Secao_pessoal', 'efetivo', 'Efetivo (Militares)', 'Militar'),
         ('Ouvidoria', 'patd', 'Processos (PATD)', 'PATD'),
         ('Ouvidoria', 'configuracao', 'Configurações Gerais', 'Configuração'),
     ]
@@ -91,7 +92,7 @@ def dashboard(request):
         'total_users': User.objects.count(), 
         'total_patds': PATD.objects.count(),
         'active_patds': PATD.objects.exclude(status='finalizado').count(),
-        'militares_count': Militar.objects.count(),
+        'militares_count': Efetivo.objects.count(),
     }
 
     # --- Lógica para Logs do Docker ---
@@ -136,7 +137,7 @@ def dashboard(request):
 
 # --- VIEWS CRUD PARA MILITAR ---
 class MilitarListView(StaffRequiredMixin, ListView):
-    model = Militar
+    model = Efetivo
     template_name = 'informatica/militar_list.html'
     context_object_name = 'militares'
     paginate_by = 20
@@ -153,7 +154,7 @@ class MilitarListView(StaffRequiredMixin, ListView):
         return context
 
 class MilitarCreateView(StaffRequiredMixin, CreateView):
-    model = Militar
+    model = Efetivo
     form_class = MilitarForm
     template_name = 'informatica/militar_form.html'
     success_url = reverse_lazy('informatica:militar_list')
@@ -163,7 +164,7 @@ class MilitarCreateView(StaffRequiredMixin, CreateView):
         return context
 
 class MilitarUpdateView(StaffRequiredMixin, UpdateView):
-    model = Militar
+    model = Efetivo
     form_class = MilitarForm
     template_name = 'informatica/militar_form.html'
     success_url = reverse_lazy('informatica:militar_list')
@@ -173,7 +174,7 @@ class MilitarUpdateView(StaffRequiredMixin, UpdateView):
         return context
 
 class MilitarDeleteView(StaffRequiredMixin, DeleteView):
-    model = Militar
+    model = Efetivo
     template_name = 'informatica/militar_confirm_delete.html'
     success_url = reverse_lazy('informatica:militar_list')
     def get_context_data(self, **kwargs):

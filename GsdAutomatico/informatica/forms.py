@@ -4,7 +4,8 @@ from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.models import User, Group
 # Importa os modelos de outros apps
-from Ouvidoria.models import Militar, Configuracao
+from Ouvidoria.models import Configuracao
+from Secao_pessoal.models import Efetivo
 from login.models import UserProfile # Modelo do Login
 
 class MilitarForm(forms.ModelForm):
@@ -13,7 +14,7 @@ class MilitarForm(forms.ModelForm):
     (Mantém o que já existia)
     """
     class Meta:
-        model = Militar
+        model = Efetivo
         fields = [
             'posto', 'quad', 'especializacao', 'saram', 'nome_completo',
             'nome_guerra', 'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial',
@@ -46,7 +47,7 @@ class InformaticaUserCreationForm(forms.ModelForm): # Alterado para ModelForm
     # Adicionar campos militar e groups
 
     militar = forms.ModelChoiceField(
-        queryset=Militar.objects.all(),
+        queryset=Efetivo.objects.all(),
         required=False, # Associação é opcional
         label="Militar Associado (Opcional)",
         help_text="Associe este utilizador a um militar existente no efetivo.",
@@ -127,8 +128,7 @@ class ConfiguracaoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Filtra os selects para mostrar apenas oficiais
-        self.fields['comandante_gsd'].queryset = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
+        self.fields['comandante_gsd'].queryset = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
         self.fields['comandante_gsd'].empty_label = "--- Selecione ---"
-        self.fields['comandante_bagl'].queryset = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
+        self.fields['comandante_bagl'].queryset = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
         self.fields['comandante_bagl'].empty_label = "--- Selecione ---"
-

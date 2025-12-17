@@ -10,7 +10,8 @@ from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
-from .models import Militar, PATD, Configuracao, Anexo
+from .models import PATD, Configuracao, Anexo
+from Secao_pessoal.models import Efetivo
 # --- ALTERAÇÃO: Adicionar ComandanteAprovarForm ---
 from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm, ComandanteAprovarForm
 from langchain_community.document_loaders import PyPDFLoader
@@ -312,8 +313,8 @@ def buscar_militar_inteligente(acusado_ia):
         saram_limpo = re.sub(r'\D', '', str(acusado_ia.saram))
         if saram_limpo:
             try:
-                return Militar.objects.get(saram=int(saram_limpo))
-            except (Militar.DoesNotExist, ValueError):
+                return Efetivo.objects.get(saram=int(saram_limpo))
+            except (Efetivo.DoesNotExist, ValueError):
                 pass # SARAM não encontrado ou inválido, continua para o nome...
 
     # Preparar filtros de texto para Posto
@@ -334,11 +335,11 @@ def buscar_militar_inteligente(acusado_ia):
     # 2. TENTATIVA POR NOME DE GUERRA (Sua solicitação de prioridade)
     if acusado_ia.nome_guerra:
         # Busca exata pelo nome de guerra primeiro
-        candidatos = Militar.objects.filter(nome_guerra__iexact=acusado_ia.nome_guerra)
+        candidatos = Efetivo.objects.filter(nome_guerra__iexact=acusado_ia.nome_guerra)
         
         # Se não achar exato, tenta "contém" (para casos de erro de digitação da IA)
         if not candidatos.exists():
-            candidatos = Militar.objects.filter(nome_guerra__icontains=acusado_ia.nome_guerra)
+            candidatos = Efetivo.objects.filter(nome_guerra__icontains=acusado_ia.nome_guerra)
 
         if candidatos.exists():
             # SE TIVER MAIS DE UM, precisamos desempatar
@@ -367,7 +368,7 @@ def buscar_militar_inteligente(acusado_ia):
 
     # 3. TENTATIVA POR NOME COMPLETO (Fallback)
     if acusado_ia.nome_completo:
-        candidatos = Militar.objects.filter(nome_completo__icontains=acusado_ia.nome_completo)
+        candidatos = Efetivo.objects.filter(nome_completo__icontains=acusado_ia.nome_completo)
         if candidatos.exists():
             if candidatos.count() > 1 and acusado_ia.posto_graduacao:
                  # Tenta desempatar pelo posto novamente
@@ -1026,7 +1027,7 @@ def index(request):
                 return JsonResponse({'results': []})
             
             # Busca por Nome de Guerra ou Nome Completo ou SARAM
-            militares = Militar.objects.filter(
+            militares = Efetivo.objects.filter(
                 Q(nome_guerra__icontains=term) |
                 Q(nome_completo__icontains=term) |
                 Q(saram__icontains=term)
@@ -1050,7 +1051,7 @@ def index(request):
             if not militar_id:
                 return JsonResponse({'status': 'error', 'message': 'ID do militar não fornecido.'}, status=400)
             
-            militar = get_object_or_404(Militar, pk=militar_id)
+            militar = get_object_or_404(Efetivo, pk=militar_id)
             
             # Recupera os dados
             transgressao = request.POST.get('transgressao', '')
@@ -1351,12 +1352,12 @@ def importar_excel(request):
                         linhas_com_erro += 1
                         continue
                 try:
-                    for field in Militar._meta.get_fields():
+                    for field in Efetivo._meta.get_fields():
                         if not field.is_relation and field.name not in data_dict and not field.blank and field.name not in identifier:
                             if is_recruta and field.name == 'saram':
                                 continue
                             data_dict[field.name] = ''
-                    obj, created = Militar.objects.update_or_create(**identifier, defaults=data_dict)
+                    obj, created = Efetivo.objects.update_or_create(**identifier, defaults=data_dict)
                     if created:
                         militares_criados += 1
                     else:
@@ -1377,7 +1378,7 @@ def importar_excel(request):
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarListView(ListView):
-    model = Militar
+    model = Efetivo
     template_name = 'militar_list.html'
     context_object_name = 'militares'
     paginate_by = 25
@@ -1422,21 +1423,21 @@ class MilitarListView(ListView):
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarCreateView(CreateView):
-    model = Militar
+    model = Efetivo
     form_class = MilitarForm
     template_name = 'militar_form.html'
     success_url = reverse_lazy('Ouvidoria:militar_list')
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarUpdateView(UpdateView):
-    model = Militar
+    model = Efetivo
     form_class = MilitarForm
     template_name = 'militar_form.html'
     success_url = reverse_lazy('Ouvidoria:militar_list')
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarDeleteView(DeleteView):
-    model = Militar
+    model = Efetivo
     template_name = 'militar_confirm_delete.html'
     success_url = reverse_lazy('Ouvidoria:militar_list') # Alterado para militar_list
 
@@ -1700,7 +1701,7 @@ class MilitarPATDListView(ListView):
         Busca as PATDs e adiciona um atributo 'status_comportamento'
         indicando se o comportamento 'permaneceu' ou 'entrou' em um novo estado.
         """
-        self.militar = get_object_or_404(Militar, pk=self.kwargs['pk'])
+        self.militar = get_object_or_404(Efetivo, pk=self.kwargs['pk'])
         return PATD.objects.filter(militar=self.militar).order_by('-data_inicio')
         
         # Busca todas as PATDs ordenadas da mais antiga para a mais recente para análise
@@ -1997,7 +1998,7 @@ def salvar_documento_patd(request, pk):
 @require_GET
 def lista_oficiais(request):
     query = request.GET.get('q', '')
-    oficiais = Militar.objects.filter(oficial=True)
+    oficiais = Efetivo.objects.filter(oficial=True)
     if query:
         oficiais = oficiais.filter(
             Q(nome_completo__icontains=query) |
@@ -2014,13 +2015,13 @@ def salvar_assinatura_padrao(request, pk):
     if not request.user.is_superuser:
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem alterar assinaturas.'}, status=403)
     try:
-        oficial = get_object_or_404(Militar, pk=pk, oficial=True)
+        oficial = get_object_or_404(Efetivo, pk=pk, oficial=True)
         data = json.loads(request.body)
         signature_data = data.get('signature_data', '')
         oficial.assinatura = signature_data
         oficial.save()
         return JsonResponse({'status': 'success', 'message': 'Assinatura padrão salva com sucesso.'})
-    except Militar.DoesNotExist:
+    except Efetivo.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Oficial não encontrado.'}, status=404)
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
@@ -2040,13 +2041,13 @@ def gerenciar_configuracoes_padrao(request):
             prazo_minutos = data.get('prazo_defesa_minutos')
 
             if comandante_gsd_id:
-                comandante = get_object_or_404(Militar, pk=comandante_gsd_id, oficial=True)
+                comandante = get_object_or_404(Efetivo, pk=comandante_gsd_id, oficial=True)
                 config.comandante_gsd = comandante
             else:
                 config.comandante_gsd = None
 
             if comandante_bagl_id:
-                comandante_bagl = get_object_or_404(Militar, pk=comandante_bagl_id, oficial=True)
+                comandante_bagl = get_object_or_404(Efetivo, pk=comandante_bagl_id, oficial=True)
                 config.comandante_bagl = comandante_bagl
             else:
                 config.comandante_bagl = None
@@ -2063,7 +2064,7 @@ def gerenciar_configuracoes_padrao(request):
         except Exception as e:
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-    oficiais = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
+    oficiais = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
     oficiais_data = [{'id': o.id, 'texto': f"{o.posto} {o.nome_guerra}"} for o in oficiais]
     data = {
         'comandante_gsd_id': config.comandante_gsd.id if config.comandante_gsd else None,
@@ -2417,7 +2418,7 @@ def salvar_apuracao(request, pk):
 def search_militares_json(request):
     """Retorna uma lista de militares para a pesquisa no modal."""
     query = request.GET.get('q', '')
-    militares = Militar.objects.all()
+    militares = Efetivo.objects.all()
 
     if query:
         militares = militares.filter(

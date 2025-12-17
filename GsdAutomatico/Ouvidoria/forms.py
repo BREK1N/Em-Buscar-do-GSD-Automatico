@@ -1,5 +1,6 @@
 from django import forms
-from .models import Militar, PATD
+from .models import PATD
+from Secao_pessoal.models import Efetivo
 import json
 import re
 from num2words import num2words
@@ -14,7 +15,7 @@ class AtribuirOficialForm(forms.ModelForm):
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        self.fields['oficial_responsavel'].queryset = Militar.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
+        self.fields['oficial_responsavel'].queryset = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
         self.fields['oficial_responsavel'].empty_label = "--- Selecione um Oficial ---"
 
 class AceitarAtribuicaoForm(forms.Form):
@@ -30,7 +31,7 @@ class ComandanteAprovarForm(forms.Form):
 class MilitarForm(forms.ModelForm):
     # Formulário para criar e atualizar registros de Militares.
     class Meta:
-        model = Militar
+        model = Efetivo
         fields = [
             'posto', 'quad', 'especializacao', 'saram', 'nome_completo',
             'nome_guerra', 'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial',
@@ -153,7 +154,7 @@ class PATDForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Filtra a lista de militares para testemunhas
-        queryset_testemunhas = Militar.objects.filter(subsetor='OUVIDORIA')
+        queryset_testemunhas = Efetivo.objects.filter(subsetor='OUVIDORIA')
         self.fields['testemunha1'].queryset = queryset_testemunhas
         self.fields['testemunha1'].empty_label = "--- Selecione ---"
         self.fields['testemunha2'].queryset = queryset_testemunhas

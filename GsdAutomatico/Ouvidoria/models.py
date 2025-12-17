@@ -4,6 +4,7 @@ import os
 from uuid import uuid4
 import re
 from num2words import num2words
+from Secao_pessoal.models import Efetivo
 
 def patd_anexo_path(instance, filename):
     patd_pk = instance.patd.pk
@@ -20,7 +21,7 @@ def patd_signature_path(instance, filename):
 
 class Configuracao(models.Model):
     comandante_gsd = models.ForeignKey(
-        'Militar',
+        'Secao_pessoal.Efetivo',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -29,7 +30,7 @@ class Configuracao(models.Model):
         verbose_name="Comandante do GSD Padrão"
     )
     comandante_bagl = models.ForeignKey(
-        'Militar',
+        'Secao_pessoal.Efetivo',
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -64,29 +65,6 @@ class Configuracao(models.Model):
         verbose_name = "Configuração Geral"
         verbose_name_plural = "Configurações Gerais"
 
-
-class Militar(models.Model):
-    posto = models.CharField(max_length=50, blank=True, verbose_name="Posto")
-    quad = models.CharField(max_length=50, blank=True, verbose_name="QUAD")
-    especializacao = models.CharField(max_length=100, blank=True, verbose_name="Especialização")
-    saram = models.IntegerField(unique=True, null=True, blank=True, verbose_name="SARAM")
-    nome_completo = models.CharField(max_length=255, verbose_name="Nome Completo")
-    nome_guerra = models.CharField(max_length=100, verbose_name="Nome de Guerra")
-    turma = models.CharField(max_length=100, blank=True, verbose_name="Turma")
-    situacao = models.CharField(max_length=50, blank=True, verbose_name="Situação")
-    om = models.CharField(max_length=100, blank=True, verbose_name="OM")
-    setor = models.CharField(max_length=100, blank=True, verbose_name="Setor")
-    subsetor = models.CharField(max_length=100, blank=True, verbose_name="Subsetor")
-    oficial = models.BooleanField(default=False, verbose_name="É Oficial?")
-    assinatura = models.TextField(blank=True, null=True, verbose_name="Assinatura Padrão (Base64)")
-    senha_unica = models.CharField(max_length=128, blank=True, null=True, verbose_name="Senha Única")
-
-
-    def __str__(self):
-        return f"{self.posto} {self.nome_guerra}"
-
-    class Meta:
-        db_table = 'Efetivo_Militar'
 
 class Anexo(models.Model):
     patd = models.ForeignKey('PATD', on_delete=models.CASCADE, related_name='anexos')
@@ -126,12 +104,12 @@ class PATD(models.Model):
         ('finalizado', 'Finalizado'),
     ]
 
-    militar = models.ForeignKey(Militar, on_delete=models.CASCADE, related_name='patds', verbose_name="Militar Acusado")
+    militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='patds', verbose_name="Militar Acusado")
     transgressao = models.TextField(verbose_name="Transgressão")
     ocorrencia_reescrita = models.TextField(blank=True, null=True, verbose_name="Ocorrência Reescrita (Formal)")
     numero_patd = models.IntegerField(unique=True, verbose_name="N° PATD")
     oficial_responsavel = models.ForeignKey(
-        Militar,
+        Efetivo,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -140,7 +118,7 @@ class PATD(models.Model):
         verbose_name="Oficial Responsável"
     )
     testemunha1 = models.ForeignKey(
-        Militar,
+        Efetivo,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,
@@ -148,7 +126,7 @@ class PATD(models.Model):
         verbose_name="1ª Testemunha"
     )
     testemunha2 = models.ForeignKey(
-        Militar,
+        Efetivo,
         on_delete=models.SET_NULL,
         null=True,
         blank=True,

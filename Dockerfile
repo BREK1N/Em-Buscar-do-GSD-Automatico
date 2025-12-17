@@ -20,7 +20,9 @@ RUN apt-get update && apt-get install -y \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/
-RUN pip install --proxy http://19143033776:Recruta24.@10.52.132.240:8080 --upgrade pip && pip install --proxy http://19143033776:Recruta24.@10.52.132.240:8080 -r requirements.txt
+RUN pip install --upgrade pip && pip install -r requirements.txt
+
+#RUN pip install --proxy http://19143033776:Recruta24.@10.52.132.240:8080 --upgrade pip && pip install --proxy http://19143033776:Recruta24.@10.52.132.240:8080 -r requirements.txt
 
 
 COPY . /app/
