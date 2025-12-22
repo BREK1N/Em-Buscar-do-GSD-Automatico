@@ -7,7 +7,6 @@ from django.utils.decorators import method_decorator
 from Secao_pessoal.models import Efetivo
 from Ouvidoria.forms import MilitarForm 
 from django.contrib import messages
-from django.db.models import Q
 
 
 @login_required
@@ -28,21 +27,8 @@ class MilitarListView(ListView):
         queryset = super().get_queryset()
         q = self.request.GET.get('q')
         if q:
-            queryset = queryset.filter(
-                Q(nome_guerra__icontains=q) |
-                Q(nome_completo__icontains=q) |
-                Q(posto__icontains=q) |
-                Q(om__icontains=q) |
-                Q(saram__icontains=q)
-            )
+            queryset = queryset.filter(nome_guerra__icontains=q)
         return queryset
-
-    def get(self, request, *args, **kwargs):
-        if request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            self.object_list = self.get_queryset()
-            context = self.get_context_data()
-            return render(request, 'Secao_pessoal/militar_list_partial.html', context)
-        return super().get(request, *args, **kwargs)
 
 @method_decorator(login_required, name='dispatch')
 class MilitarCreateView(CreateView):
@@ -80,44 +66,23 @@ def importar_excel(request):
         excel_file = request.FILES['arquivo_excel']
         
         try:
-            df = pd.read_excel(excel_file).fillna('')
+            df = pd.read_excel(excel_file)
 
             df.columns = df.columns.str.strip()
             
             importados = 0
             
             for index, row in df.iterrows():
-                posto = row.get('PST.', '')
-                quad = row.get('QUAD.', '')
-                especializacao = row.get('ESP.', '')
+                posto = row.get('PST.')
+                nome_guerra = row.get('Nome de Guerra')
                 saram = row.get('SARAM')
-                nome_completo = row.get('NOME COMPLETO')
-                nome_guerra = row.get('NOME DE GUERRA')
-                turma = row.get('TURMA', '')
-                situacao = row.get('SITUAÇÃO', '')
-                om = row.get('OM', '')
-                setor = row.get('SETOR', '')
-                subsetor = row.get('SUBSETOR', '')
                 
-                # Fallbacks para compatibilidade caso as colunas venham com nomes antigos
-                if not nome_guerra:
-                    nome_guerra = row.get('Nome de Guerra', '')
-                if not nome_completo:
-                    nome_completo = row.get('Nome Completo', '') or nome_guerra
                 
                 if saram and not Efetivo.objects.filter(saram=saram).exists():
                     Efetivo.objects.create(
                         posto=posto,
-                        quad=quad,
-                        especializacao=especializacao,
-                        saram=saram,
-                        nome_completo=nome_completo,
                         nome_guerra=nome_guerra,
-                        turma=turma,
-                        situacao=situacao,
-                        om=om,
-                        setor=setor,
-                        subsetor=subsetor,
+                        saram=saram,
                     )
                     importados += 1
             
@@ -128,3 +93,11 @@ def importar_excel(request):
             messages.error(request, f'Erro ao processar o arquivo: {str(e)}')
             
     return render(request, 'Secao_pessoal/importar_excel.html')
+
+def nome_de_guerra(request):
+    # Lembre-se de criar o arquivo: templates/Secao_pessoal/nome_de_guerra.html
+    return render(request, 'Secao_pessoal/nome_de_guerra.html')
+
+def troca_de_setor(request):
+    # Lembre-se de criar o arquivo: templates/Secao_pessoal/troca_de_setor.html
+    return render(request, 'Secao_pessoal/troca_de_setor.html')
