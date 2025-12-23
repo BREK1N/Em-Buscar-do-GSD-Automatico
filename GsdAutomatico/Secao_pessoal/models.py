@@ -6,7 +6,7 @@ class Efetivo(models.Model):
     especializacao = models.CharField(max_length=100, blank=True, verbose_name="Especialização")
     saram = models.IntegerField(unique=True, null=True, blank=True, verbose_name="SARAM")
     nome_completo = models.CharField(max_length=255, verbose_name="Nome Completo")
-    nome_guerra = models.CharField(max_length=100, verbose_name="Nome de Guerra")
+    nome_guerra = models.CharField(max_length=100,blank=True, verbose_name="Nome de Guerra")
     turma = models.CharField(max_length=100, blank=True, verbose_name="Turma")
     situacao = models.CharField(max_length=50, blank=True, verbose_name="Situação")
     om = models.CharField(max_length=100, blank=True, verbose_name="OM")

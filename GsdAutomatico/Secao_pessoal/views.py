@@ -5,8 +5,9 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.decorators import login_required
 from django.utils.decorators import method_decorator
 from Secao_pessoal.models import Efetivo
-from Ouvidoria.forms import MilitarForm 
+from .forms import MilitarForm 
 from django.contrib import messages
+from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
 
 
 @login_required
@@ -24,12 +25,23 @@ class MilitarListView(ListView):
     paginate_by = 20
 
     def get_queryset(self):
-        queryset = super().get_queryset()
-        q = self.request.GET.get('q')
-        if q:
-            queryset = queryset.filter(nome_guerra__icontains=q)
-        return queryset
-
+        query = self.request.GET.get('q')
+        rank_order = Case(
+            When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+            When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),
+            default=Value(99), output_field=IntegerField(),
+        )
+        qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        if query:
+            qs = qs.filter(
+                Q(nome_completo__icontains=query) |
+                Q(nome_guerra__icontains=query) |
+                Q(saram__icontains=query)
+            )
+        return qs
+    
 @method_decorator(login_required, name='dispatch')
 class MilitarCreateView(CreateView):
     model = Efetivo

@@ -1387,9 +1387,9 @@ class MilitarListView(ListView):
         query = self.request.GET.get('q')
         rank_order = Case(
             When(posto='TC', then=Value(0)), When(posto='MJ', then=Value(1)), When(posto='CP', then=Value(2)),
-            When(posto='1T', then=Value(3)), When(posto='2T', then=Value(4)), When(posto='SO', then=Value(5)),
-            When(posto='1S', then=Value(6)), When(posto='2S', then=Value(7)), When(posto='3S', then=Value(8)),
-            When(posto='CB', then=Value(9)), When(posto='S1', then=Value(10)), When(posto='S2', then=Value(11)),
+            When(posto='1T', then=Value(3)), When(posto='2T', then=Value(4)),When(posto='ASP', then=Value (5)), When(posto='SO', then=Value(6)),
+            When(posto='1S', then=Value(7)), When(posto='2S', then=Value(8)), When(posto='3S', then=Value(9)),
+            When(posto='CB', then=Value(10)), When(posto='S1', then=Value(11)), When(posto='S2', then=Value(12)),
             default=Value(99), output_field=IntegerField(),
         )
         qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
