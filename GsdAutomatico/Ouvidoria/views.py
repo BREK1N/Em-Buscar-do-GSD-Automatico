@@ -965,61 +965,6 @@ def index(request):
     if request.method == 'POST':
         action = request.POST.get('action', 'analyze')
 
-        # --- Modificação na ação 'create_militar_and_patd' (para consistência) ---
-        # if action == 'create_militar_and_patd':
-        #     form = MilitarForm(request.POST)
-        #     if form.is_valid():
-        #         new_militar = form.save()
-        #         transgressao = request.POST.get('transgressao')
-        #         data_ocorrencia_str = request.POST.get('data_ocorrencia')
-        #         protocolo_comaer = request.POST.get('protocolo_comaer', '')
-        #         oficio_transgressao = request.POST.get('oficio_transgressao', '')
-        #         data_oficio_str = request.POST.get('data_oficio', '') # String da data do ofício
-
-        #         data_ocorrencia = None
-        #         if data_ocorrencia_str:
-        #             try:
-        #                 data_ocorrencia = datetime.strptime(data_ocorrencia_str, '%Y-%m-%d').date()
-        #             except (ValueError, TypeError):
-        #                 pass
-
-        #         # --- Lógica robusta para data_oficio ---
-        #         data_oficio = None
-        #         if data_oficio_str:
-        #             # Tenta remover prefixos comuns ANTES de converter
-        #             cleaned_data_oficio_str = re.sub(r"^[A-Za-z\s]+,\s*", "", data_oficio_str).strip() # Remove "Cidade, "
-        #             formats_to_try = ['%d/%m/%Y', '%d de %B de %Y', '%Y-%m-%d', '%d.%m.%Y']
-        #             for fmt in formats_to_try:
-        #                 try:
-        #                     if '%B' in fmt:
-        #                         try:
-        #                             locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
-        #                         except locale.Error:
-        #                             logger.warning("Locale pt_BR.UTF-8 não encontrado ao criar PATD manualmente.")
-        #                             continue
-        #                     # Usa a string limpa para conversão
-        #                     data_oficio = datetime.strptime(cleaned_data_oficio_str, fmt).date()
-        #                     break
-        #                 except (ValueError, TypeError):
-        #                     continue
-        #         # --- Fim da lógica robusta ---
-
-        #         patd = PATD.objects.create(
-        #             militar=new_militar,
-        #             transgressao=transgressao,
-        #             numero_patd=get_next_patd_number(),
-        #             data_ocorrencia=data_ocorrencia,
-        #             protocolo_comaer=protocolo_comaer,
-        #             oficio_transgressao=oficio_transgressao,
-        #             data_oficio=data_oficio # Salva a data convertida ou None
-        #         )
-        #         return JsonResponse({
-        #             'status': 'success',
-        #             'message': f'Militar "{new_militar.nome_guerra}" cadastrado e PATD Nº {patd.numero_patd} criada com sucesso!'
-        #         })
-        #     else:
-        #         return JsonResponse({'status': 'error', 'errors': form.errors.as_json()}, status=400)
-
         # --- NOVO BLOCO 1: Busca Dinâmica (Search Bar) ---
         if action == 'search_militar':
             term = request.POST.get('term', '').strip()
@@ -1299,147 +1244,36 @@ def index(request):
     return render(request, 'indexOuvidoria.html', context)
 
 
-@login_required
-@ouvidoria_required
-def importar_excel(request):
-    config = Configuracao.load()
-    context = {
-        'prazo_defesa_dias': config.prazo_defesa_dias,
-        'prazo_defesa_minutos': config.prazo_defesa_minutos,
-    }
-    if request.method == 'POST':
-        excel_file = request.FILES.get('excel_file')
-        if not excel_file:
-            messages.error(request, "Nenhum ficheiro foi enviado.")
-            return redirect('Ouvidoria:importar_excel')
-
-        try:
-            df = pd.read_excel(excel_file).fillna('')
-            column_mapping = {
-                'pst.': 'posto', 'quad.': 'quad', 'esp.': 'especializacao', 'saram': 'saram',
-                'nome completo': 'nome_completo', 'nome de guerra': 'nome_guerra', 'turma': 'turma',
-                'situação': 'situacao', 'om': 'om', 'setor': 'setor', 'subsetor': 'subsetor'
-            }
-            df.columns = df.columns.str.lower().str.strip()
-            militares_criados = 0
-            militares_atualizados = 0
-            linhas_com_erro = 0
-            for index, row in df.iterrows():
-                data_dict = {}
-                for excel_col, model_field in column_mapping.items():
-                    if excel_col in df.columns:
-                        data_dict[model_field] = row[excel_col]
-                postos_oficiais = ['TC', 'MJ', 'CP', '1T', '2T']
-                is_recruta = str(data_dict.get('posto', '')).upper() == 'REC'
-                if 'posto' in data_dict:
-                    data_dict['oficial'] = str(data_dict.get('posto', '')).upper() in postos_oficiais
-                identifier = {}
-                if is_recruta:
-                    if 'nome_completo' in data_dict and data_dict['nome_completo']:
-                        identifier['nome_completo'] = data_dict['nome_completo']
-                        data_dict.pop('saram', None)
-                    else:
-                        linhas_com_erro += 1
-                        continue
-                else:
-                    if 'saram' in data_dict and str(data_dict['saram']).strip():
-                        try:
-                            identifier['saram'] = int(data_dict['saram'])
-                        except (ValueError, TypeError):
-                            linhas_com_erro += 1
-                            continue
-                    else:
-                        linhas_com_erro += 1
-                        continue
-                try:
-                    for field in Efetivo._meta.get_fields():
-                        if not field.is_relation and field.name not in data_dict and not field.blank and field.name not in identifier:
-                            if is_recruta and field.name == 'saram':
-                                continue
-                            data_dict[field.name] = ''
-                    obj, created = Efetivo.objects.update_or_create(**identifier, defaults=data_dict)
-                    if created:
-                        militares_criados += 1
-                    else:
-                        militares_atualizados += 1
-                except Exception as e:
-                    logger.warning(f"Não foi possível processar a linha {index+2}: {e}. Dados: {row}")
-                    linhas_com_erro += 1
-                    continue
-            msg = f"Importação concluída! {militares_criados} militares criados e {militares_atualizados} atualizados."
-            if linhas_com_erro > 0:
-                msg += f" {linhas_com_erro} linhas foram ignoradas por dados inválidos ou ausência de identificador."
-            messages.success(request, msg)
-        except Exception as e:
-            logger.error(f"Erro na importação do Excel: {e}")
-            messages.error(request, f"Ocorreu um erro ao processar o ficheiro: {e}")
-        return redirect('Ouvidoria:importar_excel')
-    return render(request, 'importar_excel.html', context)
+class MilitarDetailView(DetailView):
+    model = Efetivo # Certifique-se de usar o modelo correto
+    template_name = 'militar_detail.html'
+    context_object_name = 'militar'
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarListView(ListView):
     model = Efetivo
     template_name = 'militar_list.html'
-    context_object_name = 'militares'
-    paginate_by = 25
-
+    paginate_by = 10
+    
     def get_queryset(self):
+        queryset = super().get_queryset()
+        # Captura o termo 'q' da URL de forma segura
         query = self.request.GET.get('q')
-        rank_order = Case(
-            When(posto='TC', then=Value(0)), When(posto='MJ', then=Value(1)), When(posto='CP', then=Value(2)),
-            When(posto='1T', then=Value(3)), When(posto='2T', then=Value(4)),When(posto='ASP', then=Value (5)), When(posto='SO', then=Value(6)),
-            When(posto='1S', then=Value(7)), When(posto='2S', then=Value(8)), When(posto='3S', then=Value(9)),
-            When(posto='CB', then=Value(10)), When(posto='S1', then=Value(11)), When(posto='S2', then=Value(12)),
-            default=Value(99), output_field=IntegerField(),
-        )
-        qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        
         if query:
-            qs = qs.filter(
-                Q(nome_completo__icontains=query) |
-                Q(nome_guerra__icontains=query) |
+            # Filtra por nome de guerra ou SARAM
+            from django.db.models import Q
+            queryset = queryset.filter(
+                Q(nome_guerra__icontains=query) | 
                 Q(saram__icontains=query)
             )
-        return qs
-
-    def get(self, request, *args, **kwargs):
-        """
-        Sobrescreve o método GET para tratar requisições AJAX, renderizando um
-        template parcial com a lista de militares filtrada.
-        """
-        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
-            self.object_list = self.get_queryset()
-            context = self.get_context_data()
-            # Renderiza apenas a parte da lista para a resposta AJAX
-            return render(request, 'militar_list_partial.html', context)
-        return super().get(request, *args, **kwargs)
+        return queryset
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        config = Configuracao.load()
-        context['prazo_defesa_dias'] = config.prazo_defesa_dias
-        context['prazo_defesa_minutos'] = config.prazo_defesa_minutos        
-        context['query'] = self.request.GET.get('q', '') # Adiciona a query ao contexto
+        # Adiciona 'q' ao contexto. Se não existir, usa string vazia ''
+        context['q'] = self.request.GET.get('q', '')
         return context
-
-@method_decorator([login_required, ouvidoria_required], name='dispatch')
-class MilitarCreateView(CreateView):
-    model = Efetivo
-    form_class = MilitarForm
-    template_name = 'militar_form.html'
-    success_url = reverse_lazy('Ouvidoria:militar_list')
-
-@method_decorator([login_required, ouvidoria_required], name='dispatch')
-class MilitarUpdateView(UpdateView):
-    model = Efetivo
-    form_class = MilitarForm
-    template_name = 'militar_form.html'
-    success_url = reverse_lazy('Ouvidoria:militar_list')
-
-@method_decorator([login_required, ouvidoria_required], name='dispatch')
-class MilitarDeleteView(DeleteView):
-    model = Efetivo
-    template_name = 'militar_confirm_delete.html'
-    success_url = reverse_lazy('Ouvidoria:militar_list') # Alterado para militar_list
 
 # Dicionário com os grupos de status
 STATUS_GROUPS = {
@@ -1697,31 +1531,9 @@ class MilitarPATDListView(ListView):
     paginate_by = 10
 
     def get_queryset(self):
-        """
-        Busca as PATDs e adiciona um atributo 'status_comportamento'
-        indicando se o comportamento 'permaneceu' ou 'entrou' em um novo estado.
-        """
         self.militar = get_object_or_404(Efetivo, pk=self.kwargs['pk'])
-        return PATD.objects.filter(militar=self.militar).order_by('-data_inicio')
-        
-        # Busca todas as PATDs ordenadas da mais antiga para a mais recente para análise
-        patds = list(PATD.objects.filter(militar=self.militar).order_by('data_patd'))
-        
-        # Itera sobre as PATDs para adicionar o status do comportamento
-        for i, patd in enumerate(patds):
-            if i == 0:
-                # A primeira PATD de um militar sempre "permanece" no comportamento inicial.
-                patd.status_comportamento = 'permanece'
-            else:
-                # Compara o comportamento com a PATD anterior na lista ordenada
-                patd_anterior = patds[i-1]
-                if patd.comportamento_apurado == patd_anterior.comportamento_apurado:
-                    patd.status_comportamento = 'permanece'
-                else:
-                    patd.status_comportamento = 'entrou'
-        
-        patds.reverse() # Inverte a lista para que a view exiba da mais recente para a mais antiga
-        return patds
+        # Verifique se no seu model PATD o campo é 'militar_envolvido' ou 'militar'
+        return PATD.objects.filter(militar=self.militar).order_by('-id')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)

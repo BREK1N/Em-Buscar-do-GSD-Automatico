@@ -9,11 +9,8 @@ urlpatterns = [
 
     # Aba de efetivos
     path('efetivo/', views.MilitarListView.as_view(), name='militar_list'),
-    path('efetivo/adicionar/', views.MilitarCreateView.as_view(), name='militar_create'),
-    path('efetivo/<int:pk>/editar/', views.MilitarUpdateView.as_view(), name='militar_update'),
-    path('efetivo/<int:pk>/excluir/', views.MilitarDeleteView.as_view(), name='militar_delete'),
-    path('efetivo/<int:pk>/patds/', views.MilitarPATDListView.as_view(), name='militar_patd_list'),
-    path('efetivo/importar/', views.importar_excel, name='importar_excel'),
+    path('militar/<int:pk>/patds/', views.MilitarPATDListView.as_view(), name='militar_patd_list'),
+    path('militar/<int:pk>/', views.MilitarDetailView.as_view(), name='militar_detail'),
 
     # Aba de PATDs
     path('patd/', views.PATDListView.as_view(), name='patd_list'),

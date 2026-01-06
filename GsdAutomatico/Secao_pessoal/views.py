@@ -74,38 +74,61 @@ class MilitarDeleteView(DeleteView):
 #EFETIVO IMPORT EXCEL
 @login_required
 def importar_excel(request):
-    if request.method == 'POST' and request.FILES.get('arquivo_excel'):
-        excel_file = request.FILES['arquivo_excel']
+    if request.method == 'POST' and request.FILES.get('excel_file'):
+        excel_file = request.FILES['excel_file']
         
         try:
-            df = pd.read_excel(excel_file)
-
+            # Lê o arquivo Excel e converte tudo para string para evitar erros de tipo
+            df = pd.read_excel(excel_file, dtype=str)
+            
+            # Remove espaços em branco dos nomes das colunas
             df.columns = df.columns.str.strip()
             
-            importados = 0
-            
-            for index, row in df.iterrows():
-                posto = row.get('PST.')
-                nome_guerra = row.get('Nome de Guerra')
-                saram = row.get('SARAM')
-                
-                
-                if saram and not Efetivo.objects.filter(saram=saram).exists():
-                    Efetivo.objects.create(
-                        posto=posto,
-                        nome_guerra=nome_guerra,
-                        saram=saram,
-                    )
-                    importados += 1
-            
-            messages.success(request, f'Importação concluída! {importados} novos militares adicionados.')
-            return redirect('Secao_pessoal:militar_list')
-            
-        except Exception as e:
-            messages.error(request, f'Erro ao processar o arquivo: {str(e)}')
-            
-    return render(request, 'Secao_pessoal/importar_excel.html')
+            # Substitui valores 'nan' (vazios) do pandas por string vazia
+            df.fillna('', inplace=True)
 
+            criados = 0
+            atualizados = 0
+
+            for index, row in df.iterrows():
+                # Pega o SARAM e remove espaços extras
+                saram_valor = str(row.get('SARAM', '')).strip()
+                
+                # Se não tiver SARAM, pula a linha
+                if not saram_valor:
+                    continue
+
+                # Dicionário com os dados a serem salvos/atualizados
+                # AJUSTE AQUI: O lado esquerdo é o campo do seu Modelo, o direito é a coluna do Excel
+                dados_militar = {
+                    'nome_guerra': row.get('NOME DE GUERRA', '').strip(),
+                    'posto': row.get('POSTO/GRAD', '').strip(),
+                    'quad': row.get('QUADRO', '').strip(),
+                    'especializacao': row.get('ESPECIALIDADE', '').strip(),
+                    'nome_completo': row.get('NOME COMPLETO', '').strip(),
+                    # Adicione outros campos se necessário, ex: 'data_nascimento': row.get('NASCIMENTO')
+                }
+
+                # update_or_create busca pelo SARAM. Se achar, atualiza. Se não, cria.
+                obj, created = Efetivo.objects.update_or_create(
+                    saram=saram_valor,
+                    defaults=dados_militar
+                )
+
+                if created:
+                    criados += 1
+                else:
+                    atualizados += 1
+
+            messages.success(request, f'Sucesso! {criados} militares criados e {atualizados} atualizados.')
+            return redirect('Secao_pessoal:militar_list') # Verifique o nome da sua rota de listagem
+
+        except Exception as e:
+            messages.error(request, f'Erro na importação: {str(e)}')
+            return redirect('Secao_pessoal:importar_excel')
+
+    return render(request, 'Secao_pessoal/importar_excel.html')
+    
 def nome_de_guerra(request):
     # Lembre-se de criar o arquivo: templates/Secao_pessoal/nome_de_guerra.html
     return render(request, 'Secao_pessoal/nome_de_guerra.html')
