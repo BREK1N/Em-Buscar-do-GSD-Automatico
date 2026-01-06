@@ -1,155 +1,137 @@
-# Sistema de Gestão Disciplinar (Ouvidoria Inteligente)
+# GSD Automático
 
-## 1\. Introdução
+**GSD Automático** é um sistema web desenvolvido em Django para auxiliar na gestão administrativa e disciplinar de Organizações Militares. O projeto visa automatizar processos burocráticos, gerenciar efetivo, controlar solicitações de ouvidoria e gerar documentação oficial (NPD, Relatórios, etc.) de forma padronizada.
 
-O **Sistema de Gestão Disciplinar** é uma aplicação web robusta, desenvolvida com Django, projetada para otimizar e automatizar processos administrativos disciplinares em contexto militar. A funcionalidade central do sistema é a capacidade de analisar documentos PDF de transgressões, utilizando Inteligência Artificial (com LangChain e a API da OpenAI), para extrair informações cruciais e criar automaticamente um **Processo Administrativo Disciplinar (PATD)**.
+## 📋 Funcionalidades Principais
 
-Além da análise inteligente, a plataforma oferece um sistema completo para a gestão do efetivo de militares, o controlo detalhado do ciclo de vida dos PATDs, a geração automática de documentos oficiais e um sistema de notificações para prazos expirados, tudo através de uma interface moderna, responsiva e com temas claro e escuro.
+O sistema é dividido em módulos para melhor organização:
 
-## 2\. Funcionalidades Principais
+### 1. Seção de Pessoal (`Secao_pessoal`)
+* **Gestão de Efetivo:** Cadastro e controle de militares.
+* **Controle de Dados:** Gerenciamento de Nome de Guerra, Posto/Graduação, Setor e SARAM.
+* **Importação de Dados:** Funcionalidade para importar efetivo em massa via planilhas Excel.
 
-  - **Analisador de PDF com IA**: Carregue um documento de transgressão em PDF e a IA extrairá automaticamente o nome do militar, a descrição da transgressão, o local e a data do ocorrido.
-  - **Criação Automática de PATD**: Com base na análise do PDF, o sistema cria uma nova PATD, associando-a ao militar correspondente e verificando a existência de processos similares para evitar duplicidade.
-  - **Cadastro Inteligente**: Se o militar mencionado no PDF não estiver na base de dados, a interface facilita o seu registo, pré-preenchendo os dados obtidos pela IA.
-  - **Gestão de Efetivo (CRUD)**: Interface completa para Adicionar, Visualizar, Editar e Excluir militares, com pesquisa dinâmica e paginação.
-  - **Importação via Excel**: Importe em massa o cadastro de militares a partir de uma planilha Excel, agilizando a configuração inicial do sistema.
-  - **Gestão de PATDs e Fluxo de Trabalho Avançado**:
-      - Visualização e edição detalhada de cada processo.
-      - Registo de até duas testemunhas por PATD.
-      - Recolha digital da assinatura de ciência do militar acusado.
-      - Controlo de prazo para a apresentação da alegação de defesa, com notificações visuais.
-      - Opções para estender o prazo ou registar a preclusão (prosseguir sem defesa).
-  - **Geração de Documentos**: Criação automática dos documentos do processo (PATD, Alegação de Defesa, Termo de Preclusão) em formato HTML, preenchidos dinamicamente com os dados do sistema a partir de templates `.docx`.
-  - **Gestão de Assinaturas**: Interface dedicada para adicionar e gerir as assinaturas digitalizadas dos oficiais, que são usadas automaticamente nos documentos gerados.
-  - **Sistema de Notificações**: Alertas em tempo real na interface sobre PATDs com prazo de defesa expirado, permitindo ações rápidas como estender o prazo ou prosseguir com o processo.
-  - **Configurações Gerais**: Painel para definir parâmetros do sistema, como o Comandante do GSD padrão e os prazos para a defesa.
+### 2. Ouvidoria e Justiça (`Ouvidoria`)
+* **Gestão de PATD:** Controle completo de Processos Administrativos de Transgressão Disciplinar.
+* **Fluxo de Processo:** Acompanhamento desde a notificação, alegação de defesa, até a solução/punição ou justificativa.
+* **Geração de Documentos:** Criação automática de arquivos `.docx` e `.pdf` baseados em modelos (NPD, Reconsideração, Relatórios).
+* **Dashboard do Comandante:** Visão geral para tomada de decisão.
 
-## 3\. Tecnologias Utilizadas
+### 3. Informática (`informatica`)
+* Gestão de usuários e permissões de acesso ao sistema.
+* Configurações gerais do sistema.
 
-  - **Backend**: Python, Django
-  - **Inteligência Artificial**: LangChain, OpenAI API
-  - **Base de Dados**: SQLite (padrão do Django)
-  - **Frontend**: HTML, CSS, JavaScript
-  - **Bibliotecas Python Principais**:
-      - `django`
-      - `langchain-openai`
-      - `langchain-community`
-      - `pypdf`
-      - `python-dotenv`
-      - `pydantic`
-      - `pandas` & `openpyxl` (para importação de Excel)
-      - `python-docx` (para leitura de templates de documentos)
+### 4. Autenticação (`login`)
+* Sistema de login seguro e personalizado.
+* Gestão de perfis de usuário.
 
-## 4\. Pré-requisitos
+---
 
-Antes de começar, garanta que tem os seguintes softwares instalados na sua máquina:
+## 🚀 Tecnologias Utilizadas
 
-  - Python (versão 3.9 ou superior)
-  - pip (geralmente vem com o Python)
-  - Git
+* **Linguagem:** Python 3.x
+* **Framework Web:** Django
+* **Banco de Dados:** PostgreSQL (Configurado via Docker)
+* **Infraestrutura:** Docker & Docker Compose
+* **Servidor Web:** Nginx (Proxy Reverso) & Gunicorn
+* **Frontend:** HTML5, CSS3, JavaScript (Bootstrap e jQuery na área administrativa)
+* **Manipulação de Arquivos:** `python-docx` (Word) e `reportlab` (PDF)
 
-## 5\. Guia de Instalação
+---
 
-Siga os passos abaixo para configurar o ambiente de desenvolvimento local.
+## 🔧 Pré-requisitos
 
-### 1\. Clonar o Repositório
+Para rodar este projeto, você precisará ter instalado em sua máquina:
 
-```bash
-git clone <URL_DO_SEU_REPOSITORIO>
-cd <NOME_DA_PASTA_DO_PROJETO>
-```
+* [Docker](https://www.docker.com/get-started)
+* [Docker Compose](https://docs.docker.com/compose/install/)
+* [Git](https://git-scm.com/)
 
-### 2\. Criar e Ativar um Ambiente Virtual
+---
 
-É uma boa prática usar um ambiente virtual para isolar as dependências do projeto.
-**Para Windows:**
+## 🐳 Como rodar com Docker (Recomendado)
 
-```bash
-python -m venv venv
-venv\Scripts\activate
-```
+Esta é a maneira mais fácil de iniciar o projeto, pois configura o banco de dados, o servidor web e a aplicação automaticamente.
 
-**Para macOS/Linux:**
+1.  **Clone o repositório:**
+    ```bash
+    git clone [https://github.com/brek1n/em-buscar-do-gsd-automatico.git](https://github.com/brek1n/em-buscar-do-gsd-automatico.git)
+    cd em-buscar-do-gsd-automatico
+    ```
 
-```bash
-python3 -m venv venv
-source venv/bin/activate
-```
+2.  **Construa e inicie os containers:**
+    ```bash
+    docker-compose up --build
+    ```
+    *O processo pode levar alguns minutos na primeira vez enquanto baixa as imagens e instala as dependências.*
 
-### 3\. Instalar as Dependências
+3.  **Acesse o sistema:**
+    Abra o seu navegador e acesse: `http://localhost:8000` (ou a porta configurada no seu `docker-compose.yml`/`nginx`).
 
-Instale todas as bibliotecas necessárias listadas no ficheiro `requirements.txt`.
+4.  **Criar um Superusuário (Admin):**
+    Com o container rodando, abra um novo terminal e execute:
+    ```bash
+    docker-compose exec web python manage.py createsuperuser
+    ```
+    Siga as instruções para definir usuário e senha.
 
-```bash
-pip install -r requirements.txt
-```
+---
 
-### 4\. Configurar Variáveis de Ambiente
+## 🛠️ Instalação Manual (Desenvolvimento Local sem Docker)
 
-A integração com a OpenAI requer uma chave de API.
+Caso prefira rodar sem Docker, siga os passos abaixo:
 
-  - Crie um ficheiro chamado `.env` na raiz do projeto (na mesma pasta que `manage.py`).
-  - Dentro do ficheiro `.env`, adicione a sua chave da API:
+1.  **Crie e ative um ambiente virtual:**
+    ```bash
+    python -m venv venv
+    # No Windows:
+    venv\Scripts\activate
+    # No Linux/Mac:
+    source venv/bin/activate
+    ```
 
-<!-- end list -->
+2.  **Instale as dependências:**
+    ```bash
+    pip install -r requirements.txt
+    ```
 
-```
-OPENAI_API_KEY='sua_chave_secreta_da_openai_aqui'
-```
+3.  **Configure o Banco de Dados:**
+    Verifique o arquivo `settings.py`. Se estiver configurado para PostgreSQL, você precisará ter um banco rodando localmente e ajustar as credenciais. Para testes rápidos, você pode alterar para SQLite.
 
-### 5\. Aplicar as Migrações da Base de Dados
+4.  **Execute as migrações:**
+    ```bash
+    python manage.py makemigrations
+    python manage.py migrate
+    ```
 
-Estes comandos irão criar as tabelas (Militar, PATD, etc.) na sua base de dados SQLite.
+5.  **Colete os arquivos estáticos:**
+    ```bash
+    python manage.py collectstatic
+    ```
 
-```bash
-python manage.py makemigrations Ouvidoria
-python manage.py migrate
-```
+6.  **Inicie o servidor de desenvolvimento:**
+    ```bash
+    python manage.py runserver
+    ```
 
-### 6\. Criar um Superutilizador
+---
 
-Para aceder à área de administração do Django (`/admin`), precisa de um utilizador com privilégios.
+## 📂 Estrutura de Arquivos
 
-```bash
-python manage.py createsuperuser
-```
-
-Siga as instruções para criar o seu nome de utilizador e palavra-passe.
-
-## 6\. Como Executar o Projeto
-
-Com tudo configurado, inicie o servidor de desenvolvimento do Django:
-
-```bash
-python manage.py runserver
-```
-
-A aplicação estará disponível no seu navegador nos seguintes endereços:
-
-  - **Página Principal (Analisador)**: `http://127.0.0.1:8000/Ouvidoria/`
-  - **Área de Administração**: `http://127.0.0.1:8000/admin/` (use as credenciais do superutilizador)
-
-## 7\. Estrutura do Projeto
-
-```
-.
-├── GsdAutomatico/         # Pasta principal do projeto Django
-│   ├── settings.py        # Configurações do projeto
-│   └── urls.py            # URLs principais
-├── Ouvidoria/             # Aplicação principal "Ouvidoria"
-│   ├── models.py          # Definição das tabelas da base de dados
-│   ├── views.py           # Lógica de negócio (controllers)
-│   ├── urls.py            # URLs específicas da aplicação
-│   ├── forms.py           # Formulários Django
-│   ├── admin.py           # Configuração da interface de admin
-│   └── templates/         # Ficheiros HTML
-├── static/                # Ficheiros estáticos (CSS, JS, Imagens)
-├── pdf/                   # Templates de documentos (.docx)
-├── manage.py              # Utilitário de linha de comando do Django
-├── requirements.txt       # Lista de dependências Python
-└── .env                   # Ficheiro para variáveis de ambiente (API keys, etc.)
-```
-
-## 8\. Licença
-
-Este projeto está licenciado sob a Licença MIT. Consulte o ficheiro `LICENSE` para mais detalhes.
+```text
+Em-Buscar-do-GSD-Automatico/
+├── Dockerfile              # Configuração da imagem Docker da aplicação
+├── docker-compose.yml      # Orquestração dos serviços (App, DB, Nginx)
+├── entrypoint.sh           # Script de inicialização do container
+├── requirements.txt        # Dependências do Python
+├── nginx/                  # Configurações do servidor Nginx
+└── GsdAutomatico/          # Pasta raiz do projeto Django
+    ├── manage.py
+    ├── GsdAutomatico/      # Configurações principais (settings, urls)
+    ├── Ouvidoria/          # App de Justiça e Disciplina
+    ├── Secao_pessoal/      # App de Gestão de Efetivo
+    ├── informatica/        # App de Suporte/Configuração
+    ├── login/              # App de Autenticação
+    ├── pdf/                # Modelos de documentos (.docx, .pdf)
+    ├── Static/             # Arquivos estáticos (CSS, JS, Imagens) do projeto
+    └── staticfiles/        # Arquivos estáticos coletados (para produção)
