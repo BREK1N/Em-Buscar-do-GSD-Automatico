@@ -7,6 +7,7 @@ from django.contrib import messages
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.urls import reverse_lazy, reverse
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
+from django.db.models.functions import TruncMonth
 from django.db import transaction
 from django.http import JsonResponse, HttpResponse
 from django.views.decorators.http import require_POST, require_GET
@@ -1087,7 +1088,6 @@ def index(request):
                 return JsonResponse({'status': 'error', 'message': "Nenhum ficheiro foi enviado."}, status=400)
 
             try:
-                # ... (código para ler PDF e chamar a IA - permanece igual) ...
                 with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
                     for chunk in pdf_file.chunks():
                         temp_file.write(chunk)
@@ -1098,82 +1098,50 @@ def index(request):
                 os.remove(temp_file_path)
 
                 logger.info("Conteúdo do PDF extraído com sucesso. Chamando a IA para análise...")
-
                 resultado_analise: AnaliseTransgressao = analisar_documento_pdf(content)
-
                 logger.info(f"Resultado da análise da IA: {resultado_analise}")
 
-                patds_criadas = []
+                militares_para_confirmacao = []
                 militares_nao_encontrados = []
                 duplicatas_encontradas = []
 
                 transgressao_comum = resultado_analise.transgressao
-                data_ocorrencia = None
-                if resultado_analise.data_ocorrencia:
-                    try:
-                        data_ocorrencia = datetime.strptime(resultado_analise.data_ocorrencia, '%Y-%m-%d').date()
-                    except (ValueError, TypeError):
-                        logger.warning(f"Formato inválido para data_ocorrencia: {resultado_analise.data_ocorrencia}")
-                        pass
-
-                # --- Lógica robusta REFINADA para data_oficio ---
-                data_oficio = None
-                data_oficio_str_from_ai = resultado_analise.data_oficio
-                if data_oficio_str_from_ai:
-                    # 1. Limpa prefixos comuns (Ex: "Rio de Janeiro, ")
-                    cleaned_data_oficio_str = re.sub(r"^[A-Za-z\s]+,\s*", "", data_oficio_str_from_ai).strip()
-                    logger.debug(f"String da data do ofício original: '{data_oficio_str_from_ai}', Limpa: '{cleaned_data_oficio_str}'")
-
-                    # 2. Tenta os formatos na string limpa
-                    formats_to_try = ['%d/%m/%Y', '%Y-%m-%d', '%d.%m.%Y', '%d de %B de %Y'] # Prioriza formatos numéricos
-                    for fmt in formats_to_try:
-                        try:
-                            if '%B' in fmt:
-                                try:
-                                    locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
-                                except locale.Error:
-                                    logger.warning(f"Locale pt_BR.UTF-8 não disponível para formato {fmt}.")
-                                    continue
-                            # Usa a string limpa para conversão
-                            data_oficio = datetime.strptime(cleaned_data_oficio_str, fmt).date()
-                            logger.info(f"Data do ofício '{cleaned_data_oficio_str}' convertida com sucesso usando o formato {fmt}.")
-                            break # Para se um formato funcionar
-                        except (ValueError, TypeError):
-                            logger.debug(f"Falha ao converter data do ofício '{cleaned_data_oficio_str}' com formato {fmt}. Tentando próximo.")
-                            continue # Tenta o próximo formato
-
-                    if data_oficio is None:
-                        logger.warning(f"Não foi possível converter a string da data do ofício '{data_oficio_str_from_ai}' (limpa: '{cleaned_data_oficio_str}') para data.")
-                # --- Fim da lógica robusta REFINADA ---
-
+                data_ocorrencia_str = resultado_analise.data_ocorrencia
                 protocolo_comaer_comum = resultado_analise.protocolo_comaer
                 oficio_transgressao_comum = resultado_analise.oficio_transgressao
+                data_oficio_str = resultado_analise.data_oficio
+                
+                # Armazenar dados comuns na sessão
+                request.session['analise_transgressao_data'] = {
+                    'transgressao': transgressao_comum,
+                    'data_ocorrencia': data_ocorrencia_str,
+                    'protocolo_comaer': protocolo_comaer_comum,
+                    'oficio_transgressao': oficio_transgressao_comum,
+                    'data_oficio': data_oficio_str,
+                }
 
+                data_ocorrencia = None
+                if data_ocorrencia_str:
+                    try:
+                        data_ocorrencia = datetime.strptime(data_ocorrencia_str, '%Y-%m-%d').date()
+                    except (ValueError, TypeError):
+                        logger.warning(f"Formato inválido para data_ocorrencia: {data_ocorrencia_str}")
+                        pass
+                
                 if not hasattr(resultado_analise, 'acusados') or not isinstance(resultado_analise.acusados, list):
                      logger.error(f"A resposta da IA não continha uma lista válida de 'acusados'. Resposta: {resultado_analise}")
                      raise ValueError("Formato de resposta inválido da IA: lista de acusados ausente ou malformada.")
 
-                # Itera sobre os acusados (restante da lógica permanece igual)
                 for acusado in resultado_analise.acusados:
-                    # --- ALTERAÇÃO AQUI: Usa a nova função de busca inteligente ---
                     militar = buscar_militar_inteligente(acusado)
                     
-                    # Variáveis para caso não encontre (fallback para o formulário manual)
-                    # CORREÇÃO: Mudado de .nome_militar para .nome_completo
-                    nome_extraido = acusado.nome_completo or acusado.nome_guerra or "Desconhecido" 
-                    posto_graduacao_extraido = acusado.posto_graduacao or ""
-
                     if militar:
                         logger.info(f"Militar encontrado no BD: {militar}")
                         existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia)
-
-                        def similar(a, b):
-                            return SequenceMatcher(None, a, b).ratio()
-
+                        
                         duplicata = False
                         for patd_existente in existing_patds:
-                            is_duplicate = verifica_similaridade(transgressao_comum.strip().lower(), patd_existente.transgressao.strip().lower())
-                            if is_duplicate:
+                            if verifica_similaridade(transgressao_comum.strip().lower(), patd_existente.transgressao.strip().lower()):
                                 patd_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': patd_existente.pk})
                                 duplicatas_encontradas.append({
                                     'nome_militar': str(militar),
@@ -1185,38 +1153,28 @@ def index(request):
                                 break
 
                         if not duplicata:
-                            logger.info(f"Criando nova PATD para {militar}...")
-                            patd = PATD.objects.create(
-                                militar=militar,
-                                transgressao=transgressao_comum,
-                                numero_patd=get_next_patd_number(),
-                                data_ocorrencia=data_ocorrencia,
-                                protocolo_comaer=protocolo_comaer_comum,
-                                oficio_transgressao=oficio_transgressao_comum,
-                                data_oficio=data_oficio # Salva a data convertida ou None
-                            )
-                            patds_criadas.append({
-                                'nome_militar': str(militar),
-                                'numero_patd': patd.numero_patd
+                            militares_para_confirmacao.append({
+                                'id': militar.id,
+                                'nome_guerra': militar.nome_guerra,
+                                'nome_completo': militar.nome_completo,
+                                'saram': militar.saram,
+                                'posto': militar.posto,
                             })
-                            logger.info(f"PATD Nº {patd.numero_patd} criada para {militar}.")
                     else:
-                        # ... (lógica para militar não encontrado) ...
-                        logger.warning(f"Militar '{nome_extraido}' não encontrado no banco de dados.")
-                        nome_para_cadastro = f"{posto_graduacao_extraido} {nome_extraido}".strip()
+                        logger.warning(f"Militar '{acusado.nome_completo or acusado.nome_guerra}' não encontrado no banco de dados.")
+                        nome_para_cadastro = f"{acusado.posto_graduacao or ''} {acusado.nome_completo or acusado.nome_guerra}".strip()
                         militares_nao_encontrados.append({
                             'nome_completo_sugerido': nome_para_cadastro,
                             'transgressao': transgressao_comum,
-                            'data_ocorrencia': resultado_analise.data_ocorrencia,
+                            'data_ocorrencia': data_ocorrencia_str,
                             'protocolo_comaer': protocolo_comaer_comum,
                             'oficio_transgressao': oficio_transgressao_comum,
-                            # Passa a STRING original da IA para o formulário
-                            'data_oficio': data_oficio_str_from_ai
+                            'data_oficio': data_oficio_str
                         })
 
                 response_data = {
                     'status': 'processed',
-                    'patds_criadas': patds_criadas,
+                    'militares_para_confirmacao': militares_para_confirmacao,
                     'militares_nao_encontrados': militares_nao_encontrados,
                     'duplicatas_encontradas': duplicatas_encontradas
                 }
@@ -1224,16 +1182,13 @@ def index(request):
                 return JsonResponse(response_data)
 
             except Exception as e:
-                # ... (bloco de tratamento de exceção - permanece igual) ...
                  error_type = type(e).__name__
                  error_message = str(e)
                  error_traceback = traceback.format_exc()
 
                  logger.error(f"Erro detalhado na análise do PDF: {error_type} - {error_message}\nTraceback:\n{error_traceback}")
-
                  user_message = f"Ocorreu um erro inesperado durante a análise ({error_type}). Verifique os logs do servidor para mais detalhes."
-                 # ... (mensagens de erro específicas) ...
-
+                 
                  return JsonResponse({
                      'status': 'error',
                      'message': user_message,
@@ -1253,27 +1208,27 @@ class MilitarDetailView(DetailView):
 class MilitarListView(ListView):
     model = Efetivo
     template_name = 'militar_list.html'
-    paginate_by = 10
-    
+    context_object_name = 'militares'
+    ordering = ['nome_guerra']
+    paginate_by = 20
+
     def get_queryset(self):
-        queryset = super().get_queryset()
-        # Captura o termo 'q' da URL de forma segura
         query = self.request.GET.get('q')
-        
+        rank_order = Case(
+            When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+            When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),
+            default=Value(99), output_field=IntegerField(),
+        )
+        qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
         if query:
-            # Filtra por nome de guerra ou SARAM
-            from django.db.models import Q
-            queryset = queryset.filter(
-                Q(nome_guerra__icontains=query) | 
+            qs = qs.filter(
+                Q(nome_completo__icontains=query) |
+                Q(nome_guerra__icontains=query) |
                 Q(saram__icontains=query)
             )
-        return queryset
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        # Adiciona 'q' ao contexto. Se não existir, usa string vazia ''
-        context['q'] = self.request.GET.get('q', '')
-        return context
+        return qs
 
 # Dicionário com os grupos de status
 STATUS_GROUPS = {
@@ -1320,6 +1275,7 @@ class PATDListView(ListView):
         status_filter = self.request.GET.get('status')
 
         qs = super().get_queryset().exclude(status='finalizado').select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
+
 
         if query:
             qs = qs.filter(
@@ -2250,7 +2206,67 @@ class ComandanteDashboardView(ListView):
     context_object_name = 'patds'
 
     def get_queryset(self):
+        # Este queryset é para a lista principal de PATDs "Aguardando Decisão"
         return PATD.objects.filter(status='analise_comandante').select_related('militar').order_by('-data_inicio')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        today = timezone.now().date()
+        start_of_week = today - timedelta(days=today.weekday())
+        start_of_month = today.replace(day=1)
+
+        # Métricas de contagem simples
+        context['patd_em_andamento'] = PATD.objects.exclude(Q(status='finalizado') | Q(justificado=True)).count()
+        context['patd_finalizadas_total'] = PATD.objects.filter(status='finalizado').count()
+        context['patd_justificadas_total'] = PATD.objects.filter(justificado=True).count()
+        
+        # Criadas na semana/mês
+        context['patd_criadas_semana'] = PATD.objects.filter(data_inicio__date__gte=start_of_week).count()
+        context['patd_criadas_mes'] = PATD.objects.filter(data_inicio__date__gte=start_of_month).count()
+
+        # Finalizadas na semana/mês
+        context['patd_finalizadas_semana'] = PATD.objects.filter(status='finalizado', data_termino__date__gte=start_of_week).count()
+        context['patd_finalizadas_mes'] = PATD.objects.filter(status='finalizado', data_termino__date__gte=start_of_month).count()
+
+        # Dados para gráficos
+        # Garante que todos os meses nos últimos 12 tenham um valor
+        labels = []
+        criadas_counts = []
+        finalizadas_counts = []
+        
+        criadas_por_mes_dict = {
+            item['month'].strftime('%Y-%m'): item['count']
+            for item in PATD.objects
+            .annotate(month=TruncMonth('data_inicio'))
+            .values('month')
+            .annotate(count=Count('id'))
+            .order_by('month')
+        }
+        
+        finalizadas_por_mes_dict = {
+            item['month'].strftime('%Y-%m'): item['count']
+            for item in PATD.objects
+            .filter(status='finalizado')
+            .annotate(month=TruncMonth('data_termino'))
+            .values('month')
+            .annotate(count=Count('id'))
+            .order_by('month')
+        }
+
+        for i in range(11, -1, -1):
+            current_month = today - timedelta(days=i*30)
+            month_key = current_month.strftime('%Y-%m')
+            labels.append(current_month.strftime('%b/%y'))
+            
+            criadas_counts.append(criadas_por_mes_dict.get(month_key, 0))
+            finalizadas_counts.append(finalizadas_por_mes_dict.get(month_key, 0))
+
+        context['chart_labels'] = json.dumps(labels)
+        context['chart_data_criadas'] = json.dumps(criadas_counts)
+        context['chart_data_finalizadas'] = json.dumps(finalizadas_counts)
+        
+        return context
+
 
 # --- ALTERAÇÃO: patd_aprovar modificado ---
 @login_required

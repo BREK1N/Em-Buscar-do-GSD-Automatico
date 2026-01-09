@@ -3,43 +3,96 @@
 {% block title %}Dashboard do Comandante{% endblock %}
 
 {% block content %}
-<h1>PATDs Aguardando Decisão</h1>
-<p>Processos que requerem sua análise para aprovação ou retorno.</p>
+<div class="tabs-container">
+    <div class="tabs-nav">
+        <button class="tab-link active" data-tab="decisao">Aguardando Decisão ({{ patds.count }})</button>
+        <button class="tab-link" data-tab="relatorios">Relatórios</button>
+    </div>
 
-<div class="table-responsive">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>N° PATD</th>
-                <th>Militar Acusado</th>
-                <th>Data da Ocorrência</th>
-                <th>Status</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for patd in patds %}
-            <tr>
-                <td>{{ patd.numero_patd }}</td>
-                <td>{{ patd.militar }}</td>
-                <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
-                <td>{{ patd.get_status_display }}</td>
-                <td class="actions-cell">
-                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver Detalhes</a>
-                    <button type="button" class="btn btn-sm btn-success open-aprovar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
-                        Aprovar e Finalizar
-                    </button>
-                    <button type="button" class="btn btn-sm btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="5" style="text-align: center; padding: 20px;">Nenhuma PATD aguardando decisão.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+    <div id="decisao" class="tab-content active">
+        <h1>PATDs Aguardando Decisão</h1>
+        <p>Processos que requerem sua análise para aprovação ou retorno.</p>
+
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>N° PATD</th>
+                        <th>Militar Acusado</th>
+                        <th>Data da Ocorrência</th>
+                        <th>Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for patd in patds %}
+                    <tr>
+                        <td>{{ patd.numero_patd }}</td>
+                        <td>{{ patd.militar }}</td>
+                        <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
+                        <td>{{ patd.get_status_display }}</td>
+                        <td class="actions-cell">
+                            <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver Detalhes</a>
+                            <button type="button" class="btn btn-sm btn-success open-aprovar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
+                                Aprovar e Finalizar
+                            </button>
+                            <button type="button" class="btn btn-sm btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 20px;">Nenhuma PATD aguardando decisão.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <div id="relatorios" class="tab-content">
+        <h1>Relatórios de PATDs</h1>
+        <p>Visão geral e estatísticas dos processos.</p>
+
+        <div class="report-cards">
+            <div class="card">
+                <h4>Em Andamento</h4>
+                <p>{{ patd_em_andamento }}</p>
+            </div>
+            <div class="card">
+                <h4>Finalizadas (Total)</h4>
+                <p>{{ patd_finalizadas_total }}</p>
+            </div>
+            <div class="card">
+                <h4>Justificadas (Total)</h4>
+                <p>{{ patd_justificadas_total }}</p>
+            </div>
+            <div class="card">
+                <h4>Criadas este Mês</h4>
+                <p>{{ patd_criadas_mes }}</p>
+            </div>
+            <div class="card">
+                <h4>Criadas esta Semana</h4>
+                <p>{{ patd_criadas_semana }}</p>
+            </div>
+            <div class="card">
+                <h4>Finalizadas este Mês</h4>
+                <p>{{ patd_finalizadas_mes }}</p>
+            </div>
+            <div class="card">
+                <h4>Finalizadas esta Semana</h4>
+                <p>{{ patd_finalizadas_semana }}</p>
+            </div>
+        </div>
+
+        <div class="charts-container">
+            <div class="chart-wrapper">
+                <h2>Evolução Mensal (Últimos 12 meses)</h2>
+                <canvas id="patdChart"></canvas>
+            </div>
+        </div>
+    </div>
 </div>
+
 
 <div class="modal-overlay" id="retornar-patd-modal">
     <div class="modal-content">
@@ -79,9 +132,35 @@
 {% endblock %}
 
 {% block extra_js %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
-    // --- Lógica do Modal de Retorno (existente) ---
+    // --- Lógica das Abas ---
+    const tabLinks = document.querySelectorAll('.tab-link');
+    const tabContents = document.querySelectorAll('.tab-content');
+
+    tabLinks.forEach(link => {
+        link.addEventListener('click', () => {
+            const tabId = link.dataset.tab;
+
+            tabLinks.forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+
+            tabContents.forEach(content => {
+                if (content.id === tabId) {
+                    content.classList.add('active');
+                } else {
+                    content.classList.remove('active');
+                }
+            });
+             // Força a renderização do gráfico se a aba de relatórios for selecionada
+            if (tabId === 'relatorios') {
+                renderChart();
+            }
+        });
+    });
+
+    // --- Lógica dos Modais (existente) ---
     const retornarModal = document.getElementById('retornar-patd-modal');
     const retornarForm = document.getElementById('retornar-patd-form');
     const retornarModalTitle = document.getElementById('retornar-modal-title');
@@ -97,22 +176,9 @@ document.addEventListener('DOMContentLoaded', function() {
             retornarModal.classList.add('active');
         }
     });
+    if (cancelRetornarBtn) cancelRetornarBtn.addEventListener('click', () => retornarModal.classList.remove('active'));
+    if (retornarModal) retornarModal.addEventListener('click', (e) => { if (e.target === retornarModal) retornarModal.classList.remove('active'); });
 
-    if (cancelRetornarBtn) {
-        cancelRetornarBtn.addEventListener('click', () => {
-            retornarModal.classList.remove('active');
-        });
-    }
-
-    if (retornarModal) {
-        retornarModal.addEventListener('click', (e) => {
-            if (e.target === retornarModal) {
-                retornarModal.classList.remove('active');
-            }
-        });
-    }
-
-    // --- NOVA Lógica do Modal de Aprovação ---
     const aprovarModal = document.getElementById('aprovar-patd-modal');
     const aprovarForm = document.getElementById('aprovar-patd-form');
     const aprovarModalTitle = document.getElementById('aprovar-modal-title');
@@ -122,26 +188,64 @@ document.addEventListener('DOMContentLoaded', function() {
         if (e.target.classList.contains('open-aprovar-modal-btn')) {
             const patdPk = e.target.dataset.patdPk;
             const patdNumero = e.target.dataset.patdNumero;
-            // A action do form agora aponta para a URL de aprovação correta
             const url = `/Ouvidoria/patd/${patdPk}/aprovar/`;
             aprovarForm.action = url;
             aprovarModalTitle.textContent = `Aprovar PATD Nº ${patdNumero}`;
             aprovarModal.classList.add('active');
         }
     });
+    if (cancelAprovarBtn) cancelAprovarBtn.addEventListener('click', () => aprovarModal.classList.remove('active'));
+    if (aprovarModal) aprovarModal.addEventListener('click', (e) => { if (e.target === aprovarModal) aprovarModal.classList.remove('active'); });
 
-    if (cancelAprovarBtn) {
-        cancelAprovarBtn.addEventListener('click', () => {
-            aprovarModal.classList.remove('active');
+
+    // --- Lógica do Gráfico ---
+    let patdChart = null; // Variável para armazenar a instância do gráfico
+
+    function renderChart() {
+        const ctx = document.getElementById('patdChart');
+        if (!ctx) return;
+        
+        // Destrói o gráfico anterior se ele existir, para evitar sobreposição
+        if (patdChart) {
+            patdChart.destroy();
+        }
+
+        patdChart = new Chart(ctx, {
+            type: 'bar',
+            data: {
+                labels: {{ chart_labels|safe }},
+                datasets: [{
+                    label: 'PATDs Criadas',
+                    data: {{ chart_data_criadas|safe }},
+                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
+                    borderColor: 'rgba(54, 162, 235, 1)',
+                    borderWidth: 1
+                }, {
+                    label: 'PATDs Finalizadas',
+                    data: {{ chart_data_finalizadas|safe }},
+                    backgroundColor: 'rgba(75, 192, 192, 0.5)',
+                    borderColor: 'rgba(75, 192, 192, 1)',
+                    borderWidth: 1
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: {
+                        beginAtZero: true,
+                        ticks: {
+                            stepSize: 1 // Garante que o eixo Y só mostre números inteiros
+                        }
+                    }
+                }
+            }
         });
     }
 
-    if (aprovarModal) {
-        aprovarModal.addEventListener('click', (e) => {
-            if (e.target === aprovarModal) {
-                aprovarModal.classList.remove('active');
-            }
-        });
+    // Renderiza o gráfico se a aba de relatórios já estiver ativa ao carregar
+    if (document.querySelector('.tab-link[data-tab="relatorios"].active')) {
+        renderChart();
     }
 });
 </script>

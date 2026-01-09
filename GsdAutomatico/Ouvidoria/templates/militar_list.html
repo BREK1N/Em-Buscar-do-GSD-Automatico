@@ -1,125 +1,68 @@
 {% extends 'base.html' %}
-{% load static %}
 
-{% block title %}Gerenciar Efetivo - Ouvidoria{% endblock %}
+{% block title %}Gerenciar Efetivo{% endblock %}
 
 {% block content %}
-<div class="container-fluid mt-4">
-    
-    <div class="row mb-4 align-items-center">
-        <div class="col-md-8">
-            <h2 class="text-primary font-weight-bold">
-                <i class="fas fa-users"></i> Efetivo da Ouvidoria
-            </h2>
-            <p class="text-muted">Visualize e gerencie os procedimentos administrativos dos militares.</p>
-        </div>
-    </div>
-
-    <div class="card shadow-sm border-0 rounded-lg">
-        <div class="card-header bg-white py-3 d-flex flex-row align-items-center justify-content-between">
-            <h6 class="m-0 font-weight-bold text-primary">Lista de Militares</h6>
-            
-            <form method="GET" class="form-inline my-2 my-lg-0">
-                <div class="input-group">
-                    <input type="text" name="q" class="form-control bg-light border-0 small" placeholder="Buscar por SARAM ou Nome..." aria-label="Search" value="{{ request.GET.q|default:'' }}">
-                    <div class="input-group-append">
-                        <button class="btn btn-primary" type="submit">
-                            <i class="fas fa-search fa-sm"></i>
-                        </button>
-                    </div>
-                </div>
+<div class="table-header">
+    <h1>Efetivo Cadastrado</h1>
+    <div class="filter-bar">
+        <div class="search-group">
+            <form method="get" id="search-form" onsubmit="return false;">
+                <input type="text" name="q" id="search-input" placeholder="Pesquisar por nome, posto, OM..." value="{{ request.GET.q }}">
+                <button type="button" class="search-btn" aria-label="Pesquisar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                </button>
             </form>
         </div>
-
-        <div class="card-body p-0">
-            <div class="table-responsive">
-                <table class="table table-hover table-striped mb-0 align-middle">
-                    <thead class="bg-light text-uppercase text-secondary text-xs font-weight-bolder">
-                        <tr>
-                            <th class="px-4 py-3" style="width: 15%;">SARAM</th>
-                            <th class="px-4 py-3" style="width: 15%;">Posto/Grad</th>
-                            <th class="px-4 py-3" style="width: 25%;">Nome de Guerra</th>
-                            <th class="px-4 py-3" style="width: 25%;">Setor</th>
-                            <th class="px-4 py-3 text-center" style="width: 20%;">Ações</th>
-                        </tr>
-                    </thead>
-                    <tbody class="text-dark">
-                        {% for militar in object_list %}
-                        <tr>
-                            <td class="px-4 py-3 font-weight-bold">{{ militar.saram }}</td>
-                            <td class="px-4 py-3">
-                                <span class="badge badge-pill badge-light border">{{ militar.posto_grad }}</span>
-                            </td>
-                            <td class="px-4 py-3">{{ militar.nome_guerra }}</td>
-                            <td class="px-4 py-3 text-muted">{{ militar.setor|default:"-" }}</td>
-                            <td class="px-4 py-3 text-center">
-                                <div class="btn-group" role="group">
-                                    <a href="{% url 'Ouvidoria:militar_detail' militar.pk %}" class="btn btn-sm btn-outline-info" data-toggle="tooltip" title="Ver Dados Pessoais">
-                                        <i class="fas fa-user mb-1"></i> Detalhes
-                                    </a>
-                                    
-                                    <a href="{% url 'Ouvidoria:militar_patd_list' militar.pk %}" class="btn btn-sm btn-primary ml-1" data-toggle="tooltip" title="Ver Procedimentos (PATD)">
-                                        <i class="fas fa-file-alt mb-1"></i> PATD
-                                    </a>
-                                </div>
-                            </td>
-                        </tr>
-                        {% empty %}
-                        <tr>
-                            <td colspan="5" class="text-center py-5 text-muted">
-                                <i class="fas fa-folder-open fa-3x mb-3 text-gray-300"></i>
-                                <p class="mb-0">Nenhum militar encontrado com os critérios informados.</p>
-                            </td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
+        <div class="actions">
         </div>
-
-        {% if is_paginated %}
-        <div class="card-footer bg-white py-3">
-            <nav aria-label="Navegação de página">
-                <ul class="pagination justify-content-center mb-0">
-                    {% if page_obj.has_previous %}
-                    <li class="page-item">
-                        <a class="page-link border-0 text-primary" href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&laquo; Primeira</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link border-0 text-primary" href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Anterior</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled"><span class="page-link border-0">&laquo; Primeira</span></li>
-                    <li class="page-item disabled"><span class="page-link border-0">Anterior</span></li>
-                    {% endif %}
-
-                    <li class="page-item active">
-                        <span class="page-link bg-primary border-primary">
-                            {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
-                        </span>
-                    </li>
-
-                    {% if page_obj.has_next %}
-                    <li class="page-item">
-                        <a class="page-link border-0 text-primary" href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Próxima</a>
-                    </li>
-                    <li class="page-item">
-                        <a class="page-link border-0 text-primary" href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">Última &raquo;</a>
-                    </li>
-                    {% else %}
-                    <li class="page-item disabled"><span class="page-link border-0">Próxima</span></li>
-                    <li class="page-item disabled"><span class="page-link border-0">Última &raquo;</span></li>
-                    {% endif %}
-                </ul>
-            </nav>
-        </div>
-        {% endif %}
     </div>
 </div>
 
+<!-- Container para a tabela e paginação que será atualizado -->
+<div id="militar-list-container">
+    {% include 'militar_list_partial.html' %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
 <script>
-    $(function () {
-      $('[data-toggle="tooltip"]').tooltip()
-    })
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    const container = document.getElementById('militar-list-container');
+    let searchTimeout;
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        
+        searchTimeout = setTimeout(() => {
+            const query = searchInput.value;
+            const url = `?q=${encodeURIComponent(query)}`;
+
+            // Atualiza a URL na barra de endereço sem recarregar a página
+            history.pushState(null, '', url);
+
+            // Faz a requisição AJAX para buscar o conteúdo atualizado
+            fetch(url, {
+                headers: {
+                    'X-Requested-With': 'XMLHttpRequest'
+                }
+            })
+            .then(response => response.text())
+            .then(html => {
+                // Replace the contents of the container with the new HTML received
+                // that is the complete 'militar-list-container' block.
+                container.innerHTML = html;
+            })
+            .catch(error => console.error('Erro ao realizar a pesquisa:', error));
+        }, 300); // Aguarda 300ms após o utilizador parar de digitar
+    });
+});
+
+// Previne o envio do formulário ao pressionar Enter
+document.getElementById('search-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+});
+
 </script>
 {% endblock %}
