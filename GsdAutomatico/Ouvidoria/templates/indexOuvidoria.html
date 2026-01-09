@@ -145,6 +145,46 @@
         </div>
     </div>
 </div>
+
+<div class="card" style="margin-top: 30px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-content);">
+    <div class="card-header" style="padding: 20px 25px; border-bottom: 1px solid var(--border-color);">
+        <h3>Criação Manual de PATD</h3>
+        <p style="margin: 0; color: var(--text-secondary); font-size: 0.9rem;">Crie uma PATD manualmente sem a necessidade de anexar um documento.</p>
+    </div>
+    <div class="card-body" style="padding: 25px;">
+        <form id="manual-patd-form">
+            {% csrf_token %}
+            <div id="manual-patd-feedback" style="margin-bottom: 15px;"></div>
+
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label style="display: block; margin-bottom: 5px; font-weight: bold;">Militar</label>
+                <div class="search-wrapper">
+                    <input type="text" class="search-input" id="manual-militar-search" placeholder="Pesquisar militar por nome, nome de guerra ou SARAM..." autocomplete="off" required>
+                    <div class="search-results-dropdown" id="manual-militar-search-results"></div>
+                </div>
+                <input type="hidden" name="militar_id" id="manual-militar-id" required>
+                <div id="selected-militar-display" style="margin-top: 10px; font-size: 14px;"></div>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label for="manual-doc-numero" style="display: block; margin-bottom: 5px; font-weight: bold;">Número do Documento (opcional)</label>
+                <input type="text" class="search-input" name="oficio_transgressao" id="manual-doc-numero">
+            </div>
+
+            <div class="form-group" style="margin-bottom: 15px;">
+                <label for="manual-data-ocorrencia" style="display: block; margin-bottom: 5px; font-weight: bold;">Data da Ocorrência</label>
+                <input type="date" class="search-input" name="data_ocorrencia" id="manual-data-ocorrencia" required>
+            </div>
+
+            <div class="form-group" style="margin-bottom: 20px;">
+                <label for="manual-transgressao" style="display: block; margin-bottom: 5px; font-weight: bold;">Descrição da Transgressão</label>
+                <textarea class="search-input" name="transgressao" id="manual-transgressao" rows="4" required style="height: auto;"></textarea>
+            </div>
+
+            <button type="submit" class="btn btn-primary" style="width: 100%; padding: 12px;">Criar PATD Manualmente</button>
+        </form>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -302,6 +342,28 @@ document.addEventListener('DOMContentLoaded', function() {
             </div>
         `;
     }
+    
+    // ++ NOVA FUNÇÃO: Militar Encontrado (para confirmação) ++
+    function handleMilitarFound(militarData, index) {
+        const militarId = militarData.id;
+        const containerId = `confirm-militar-${index}`;
+
+        return `
+            <div id="${containerId}" class="resultado-item alert alert-info">
+                <h4>Militar Encontrado</h4>
+                <p>
+                    Deseja criar uma PATD para o militar
+                    <strong>${escapeHtml(militarData.posto)} ${escapeHtml(militarData.nome_guerra)}</strong>
+                    (${escapeHtml(militarData.nome_completo)})?
+                </p>
+                <div class="prompt-actions">
+                    <button type="button" class="btn btn-primary btn-sm create-patd-btn" data-militar-id="${militarId}" data-index="${index}">Sim, Criar PATD</button>
+                    <button type="button" class="btn btn-secondary btn-sm" onclick="this.closest('.resultado-item').remove()">Não</button>
+                </div>
+                <div class="dynamic-form-feedback" style="margin-top: 10px;"></div>
+            </div>
+        `;
+    }
 
     // --- Lógica da Search Bar (Debounce e Eventos) ---
 
@@ -319,8 +381,10 @@ document.addEventListener('DOMContentLoaded', function() {
             const query = e.target.value;
             const index = e.target.dataset.index;
             const resultsBox = document.getElementById(`search-results-${index}`);
-            let metaDataStr = e.target.dataset.meta;
             
+            // AGORA, pegamos os dados da transgressão da variável global
+            const transgressaoData = window.currentAnalysisData ? window.currentAnalysisData.transgressao_data : null;
+
             if (query.length < 2) {
                 resultsBox.style.display = 'none';
                 return;
@@ -348,11 +412,18 @@ document.addEventListener('DOMContentLoaded', function() {
                             <small>SARAM: ${militar.saram || 'N/A'}</small>
                         `;
                         item.addEventListener('click', () => {
-                            try {
-                                const metaData = JSON.parse(metaDataStr);
-                                associarMilitarExistente(militar.id, metaData, index);
-                            } catch(err) {
-                                console.error("Erro ao parsear metadata", err);
+                            if (transgressaoData) {
+                                const container = document.getElementById(`search-militar-${index}`).closest('.militar-nao-encontrado');
+                                const militarDataFromSearch = {
+                                    id: militar.id,
+                                    nome_guerra: militar.nome_guerra,
+                                    nome_completo: militar.nome_completo,
+                                    posto: militar.posto || '',
+                                };
+                                // Replace the search UI with the confirmation prompt UI
+                                container.outerHTML = handleMilitarFound(militarDataFromSearch, index);
+                            } else {
+                                console.error("Erro: Dados da transgressão não encontrados ao selecionar militar.");
                             }
                         });
                         resultsBox.appendChild(item);
@@ -373,25 +444,39 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    function associarMilitarExistente(militarId, transgressaoData, index) {
-        // CORREÇÃO: Busca o container pelo ID direto
-        const feedbackContainer = document.getElementById(`feedback-container-${index}`);
-        const searchInput = document.getElementById(`search-militar-${index}`);
-        const resultsBox = document.getElementById(`search-results-${index}`);
-        
-        searchInput.disabled = true;
-        resultsBox.style.display = 'none';
+    // ++ FUNÇÃO DE ASSOCIAÇÃO ATUALIZADA ++
+    function associarMilitarExistente(militarId, transgressaoData, index, buttonElement = null) {
+        let feedbackContainer;
+        let container;
+
+        if (buttonElement) { // Chamado pelo botão "Sim, Criar PATD"
+            container = buttonElement.closest('.resultado-item');
+            feedbackContainer = container.querySelector('.dynamic-form-feedback');
+            buttonElement.disabled = true;
+            buttonElement.textContent = 'Criando...';
+        } else { // Chamado pelo clique na busca
+            const searchInput = document.getElementById(`search-militar-${index}`);
+            container = searchInput.closest('.militar-nao-encontrado');
+            feedbackContainer = container.querySelector('.dynamic-form-feedback');
+            if (searchInput) searchInput.disabled = true;
+            const searchResults = document.getElementById(`search-results-${index}`);
+            if (searchResults) searchResults.style.display = 'none';
+        }
         
         if (feedbackContainer) {
-            feedbackContainer.innerHTML = '<div class="alert alert-info">⌛ Vinculando PATD ao militar selecionado...</div>';
+            feedbackContainer.innerHTML = '<div class="alert alert-info">⌛ Vinculando PATD ao militar...</div>';
         }
 
         const formData = new FormData();
         formData.append('action', 'associate_patd');
         formData.append('militar_id', militarId);
         
+        // Adiciona dados da transgressão ao FormData
         for (const key in transgressaoData) {
-            formData.append(key, transgressaoData[key]);
+            const value = transgressaoData[key];
+            if (value !== null && value !== undefined) {
+                 formData.append(key, value);
+            }
         }
 
         fetch("{% url 'Ouvidoria:index' %}", {
@@ -401,82 +486,56 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(res => res.json())
         .then(data => {
-            // CORREÇÃO: Encontra o container pai através do input
-            const container = searchInput.closest('.militar-nao-encontrado');
             if (data.status === 'success') {
-                container.innerHTML = `<div class="alert alert-success">✅ PATD criada e vinculada com sucesso ao militar <strong>${escapeHtml(data.militar_nome)}</strong>!</div>`;
+                container.innerHTML = `<div class="alert alert-success">✅ PATD criada com sucesso para <strong>${escapeHtml(data.militar_nome)}</strong>!</div>`;
             } else {
                 if (feedbackContainer) {
                     feedbackContainer.innerHTML = `<div class="alert alert-error">❌ Erro ao vincular: ${data.message}</div>`;
-                } else {
-                    alert(`Erro: ${data.message}`);
                 }
-                searchInput.disabled = false;
+                // Re-habilita o controle apropriado
+                if (buttonElement) {
+                    buttonElement.disabled = false;
+                    buttonElement.textContent = 'Sim, Criar PATD';
+                } else {
+                    const searchInput = document.getElementById(`search-militar-${index}`);
+                    if(searchInput) searchInput.disabled = false;
+                }
             }
         })
         .catch(err => {
             console.error(err);
             if (feedbackContainer) {
                 feedbackContainer.innerHTML = `<div class="alert alert-error">❌ Erro de conexão.</div>`;
-            } else {
-                alert("Erro de conexão.");
             }
-            searchInput.disabled = false;
+             if (buttonElement) {
+                buttonElement.disabled = false;
+                buttonElement.textContent = 'Sim, Criar PATD';
+            } else {
+                const searchInput = document.getElementById(`search-militar-${index}`);
+                if(searchInput) searchInput.disabled = false;
+            }
         });
     }
 
     // --- Submissão de Formulários Dinâmicos (Criar Novo) ---
-    analiseBox.addEventListener('submit', function(e) {
-        if (e.target && e.target.classList.contains('create-militar-dynamic-form')) {
+    // ++ ATUALIZADO: Event listener delegado para botões dinâmicos ++
+    analiseBox.addEventListener('click', function(e) {
+        if (e.target && e.target.classList.contains('create-patd-btn')) {
             e.preventDefault();
-            const form = e.target;
-            const index = form.dataset.index;
-            const createBtn = form.querySelector('button[type="submit"]');
-            const feedbackContainer = form.querySelector('.dynamic-form-feedback');
-
-            createBtn.textContent = 'Aguarde...';
-            createBtn.disabled = true;
-            feedbackContainer.innerHTML = '';
-
-            const militarFormData = new FormData(form);
-            militarFormData.append('action', 'create_militar_and_patd');
-
-            fetch("{% url 'Ouvidoria:index' %}", {
-                method: 'POST',
-                headers: { 'X-CSRFToken': csrfToken },
-                body: new URLSearchParams(militarFormData)
-            })
-            .then(response => response.json())
-            .then(data => {
-                const formContainer = form.parentElement;
-                if (data.status === 'success') {
-                    formContainer.innerHTML = `<div class="alert alert-success">✅ ${escapeHtml(data.message)}</div>`;
-                } else {
-                    let errorMsg = "Não foi possível cadastrar o militar.";
-                    if (data.errors) {
-                         try {
-                             const errors = JSON.parse(data.errors);
-                             const firstFieldName = Object.keys(errors)[0];
-                             if(errors[firstFieldName] && errors[firstFieldName][0] && (errors[firstFieldName][0].message || errors[firstFieldName][0])){
-                                 errorMsg += ` (${escapeHtml(errors[firstFieldName][0].message || errors[firstFieldName][0])})`;
-                             }
-                         } catch (parseError) {
-                             errorMsg += ` (Detalhe: ${escapeHtml(data.errors)})`;
-                         }
-                    } else if (data.message) {
-                        errorMsg = data.message;
-                    }
-                    feedbackContainer.innerHTML = `<div class="alert alert-error">❌ ${escapeHtml(errorMsg)}</div>`;
-                    createBtn.textContent = 'Cadastrar e Criar PATD';
-                    createBtn.disabled = false;
+            const button = e.target;
+            const militarId = button.dataset.militarId;
+            const index = button.dataset.index;
+            
+            // Pega os dados da transgressão da variável global
+            if (window.currentAnalysisData && window.currentAnalysisData.transgressao_data) {
+                associarMilitarExistente(militarId, window.currentAnalysisData.transgressao_data, index, button);
+            } else {
+                console.error("Dados da transgressão não encontrados.");
+                const feedbackContainer = button.closest('.resultado-item').querySelector('.dynamic-form-feedback');
+                if (feedbackContainer) {
+                    feedbackContainer.innerHTML = `<div class="alert alert-error">❌ Erro: Dados da transgressão não encontrados no contexto da página.</div>`;
                 }
-            })
-            .catch(error => {
-                console.error('Error:', error);
-                feedbackContainer.innerHTML = `<div class="alert alert-error">❌ Ocorreu um erro de comunicação.</div>`;
-                createBtn.textContent = 'Cadastrar e Criar PATD';
-                createBtn.disabled = false;
-            });
+            }
         }
     });
 
@@ -515,10 +574,20 @@ document.addEventListener('DOMContentLoaded', function() {
             return response.json();
         })
         .then(data => {
+            window.currentAnalysisData = data; // Armazena os dados globalmente
             let htmlResult = '';
+
             if (data.status === 'processed') {
                 htmlResult += '<h3>Resultado da Análise</h3>';
                 let hasContent = false;
+                
+                // ++ LÓGICA ATUALIZADA: Processa militares para confirmação ++
+                if (data.militares_para_confirmacao && data.militares_para_confirmacao.length > 0) {
+                    data.militares_para_confirmacao.forEach((militar, index) => {
+                        htmlResult += handleMilitarFound(militar, index);
+                    });
+                    hasContent = true;
+                }
 
                 if (data.patds_criadas && data.patds_criadas.length > 0) {
                     data.patds_criadas.forEach(patd => {
@@ -528,7 +597,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
                 if (data.militares_nao_encontrados && data.militares_nao_encontrados.length > 0) {
                     data.militares_nao_encontrados.forEach((militar, index) => {
-                        htmlResult += handleMilitarNotFound(militar, index);
+                        // Passa o objeto militar e o índice
+                        htmlResult += handleMilitarNotFound(militar, data.militares_para_confirmacao.length + index);
                     });
                     hasContent = true;
                 }
@@ -576,6 +646,112 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function displayResult(htmlContent) {
         analiseBox.innerHTML = htmlContent;
+    }
+
+    // --- NEW LOGIC FOR MANUAL FORM ---
+    const manualSearchInput = document.getElementById('manual-militar-search');
+    const manualSearchResults = document.getElementById('manual-militar-search-results');
+    const manualMilitarIdInput = document.getElementById('manual-militar-id');
+    const selectedMilitarDisplay = document.getElementById('selected-militar-display');
+
+    if (manualSearchInput) {
+        manualSearchInput.addEventListener('input', debounce(function(e) {
+            const query = e.target.value;
+            
+            // Clear hidden field if user is typing a new search
+            manualMilitarIdInput.value = '';
+            selectedMilitarDisplay.innerHTML = '';
+            
+            if (query.length < 2) {
+                manualSearchResults.style.display = 'none';
+                return;
+            }
+
+            const formData = new FormData();
+            formData.append('action', 'search_militar');
+            formData.append('term', query);
+
+            fetch("{% url 'Ouvidoria:index' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                manualSearchResults.innerHTML = '';
+                if (data.results && data.results.length > 0) {
+                    manualSearchResults.style.display = 'block';
+                    data.results.forEach(militar => {
+                        const item = document.createElement('div');
+                        item.className = 'search-item';
+                        item.innerHTML = `<span>${escapeHtml(militar.posto || '')} ${escapeHtml(militar.nome_guerra)} <small>(${escapeHtml(militar.nome_completo)})</small></span>`;
+                        item.addEventListener('click', () => {
+                            manualSearchInput.value = `${militar.posto || ''} ${militar.nome_guerra}`;
+                            manualMilitarIdInput.value = militar.id;
+                            selectedMilitarDisplay.innerHTML = `<div class="alert alert-success" style="padding: 8px 12px; margin-top: -5px;">Militar selecionado: <strong>${escapeHtml(militar.posto || '')} ${escapeHtml(militar.nome_guerra)}</strong></div>`;
+                            manualSearchResults.style.display = 'none';
+                        });
+                        manualSearchResults.appendChild(item);
+                    });
+                } else {
+                    manualSearchResults.innerHTML = '<div class="search-item" style="cursor: default; color: #888;">Nenhum militar encontrado.</div>';
+                }
+            });
+        }, 400));
+    }
+    
+    // Hide manual search results when clicking outside
+    document.addEventListener('click', function(e) {
+        if (!e.target.closest('#manual-militar-search')) {
+            if(manualSearchResults) manualSearchResults.style.display = 'none';
+        }
+    });
+
+    const manualPatdForm = document.getElementById('manual-patd-form');
+    if (manualPatdForm) {
+        manualPatdForm.addEventListener('submit', function(e) {
+            e.preventDefault();
+            const feedbackContainer = document.getElementById('manual-patd-feedback');
+            const submitBtn = manualPatdForm.querySelector('button[type="submit"]');
+
+            if (!manualMilitarIdInput.value) {
+                feedbackContainer.innerHTML = `<div class="alert alert-error">Por favor, pesquise e selecione um militar.</div>`;
+                return;
+            }
+
+            const formData = new FormData(manualPatdForm);
+            formData.append('action', 'create_manual_patd');
+
+            submitBtn.disabled = true;
+            submitBtn.innerHTML = '<span class="spinner" style="display: inline-block; border-top-color: #fff; margin-right: 5px;"></span> Criando...';
+
+            fetch("{% url 'Ouvidoria:index' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    feedbackContainer.innerHTML = `<div class="alert alert-success">${data.message}</div>`;
+                    manualPatdForm.reset();
+                    selectedMilitarDisplay.innerHTML = '';
+                    setTimeout(() => {
+                        window.location.href = data.patd_url;
+                    }, 1500);
+                } else {
+                    feedbackContainer.innerHTML = `<div class="alert alert-error">Erro: ${data.message}</div>`;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                feedbackContainer.innerHTML = `<div class="alert alert-error">Ocorreu um erro de conexão.</div>`;
+            })
+            .finally(() => {
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = 'Criar PATD Manualmente';
+            });
+        });
     }
 });
 </script>

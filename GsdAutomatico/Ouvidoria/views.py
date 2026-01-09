@@ -983,6 +983,7 @@ def index(request):
             for m in militares:
                 results.append({
                     'id': m.id,
+                    'posto': m.posto,
                     'nome_guerra': m.nome_guerra,
                     'nome_completo': m.nome_completo,
                     'saram': m.saram or 'N/A'
@@ -1081,6 +1082,57 @@ def index(request):
                 logger.error(f"Erro ao associar PATD: {e}")
                 return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
             
+        elif action == 'create_manual_patd':
+            militar_id = request.POST.get('militar_id')
+            transgressao = request.POST.get('transgressao', '')
+            data_ocorrencia_str = request.POST.get('data_ocorrencia')
+            oficio_transgressao = request.POST.get('oficio_transgressao', '')
+
+            if not all([militar_id, transgressao, data_ocorrencia_str]):
+                return JsonResponse({'status': 'error', 'message': 'Militar, transgressão e data da ocorrência são obrigatórios.'}, status=400)
+            
+            militar = get_object_or_404(Efetivo, pk=militar_id)
+
+            data_ocorrencia = None
+            try:
+                data_ocorrencia = datetime.strptime(data_ocorrencia_str, '%Y-%m-%d').date()
+            except (ValueError, TypeError):
+                return JsonResponse({'status': 'error', 'message': 'Formato de data da ocorrência inválido.'}, status=400)
+            
+            # Check for duplicates
+            existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia)
+            is_duplicate = False
+            duplicated_patd_num = None
+            for patd_existente in existing_patds:
+                if verifica_similaridade(transgressao.strip().lower(), patd_existente.transgressao.strip().lower()):
+                    is_duplicate = True
+                    duplicated_patd_num = patd_existente.numero_patd
+                    break
+            
+            if is_duplicate:
+                return JsonResponse({
+                    'status': 'error', 
+                    'message': f'Ação bloqueada: Já existe a PATD Nº {duplicated_patd_num} para o militar {militar.nome_guerra} nesta data com teor similar.'
+                }, status=409) # 409 Conflict
+
+            try:
+                patd = PATD.objects.create(
+                    militar=militar,
+                    transgressao=transgressao,
+                    numero_patd=get_next_patd_number(),
+                    data_ocorrencia=data_ocorrencia,
+                    oficio_transgressao=oficio_transgressao,
+                )
+                
+                return JsonResponse({
+                    'status': 'success', 
+                    'message': f'PATD Nº {patd.numero_patd} criada com sucesso para {militar.nome_guerra}. Redirecionando...',
+                    'patd_url': reverse('Ouvidoria:patd_detail', kwargs={'pk': patd.pk})
+                })
+            except Exception as e:
+                logger.error(f"Erro ao criar PATD manual: {e}")
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
         # --- Modificação na ação 'analyze' ---
         elif action == 'analyze':
             pdf_file = request.FILES.get('pdf_file')
@@ -1176,7 +1228,8 @@ def index(request):
                     'status': 'processed',
                     'militares_para_confirmacao': militares_para_confirmacao,
                     'militares_nao_encontrados': militares_nao_encontrados,
-                    'duplicatas_encontradas': duplicatas_encontradas
+                    'duplicatas_encontradas': duplicatas_encontradas,
+                    'transgressao_data': request.session.get('analise_transgressao_data', {})
                 }
                 logger.info(f"Análise concluída. Resposta: {response_data}")
                 return JsonResponse(response_data)
