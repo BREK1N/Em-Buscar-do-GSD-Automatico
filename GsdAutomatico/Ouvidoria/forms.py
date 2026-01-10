@@ -152,7 +152,9 @@ class PATDForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
+
         # Filtra a lista de militares para testemunhas
         queryset_testemunhas = Efetivo.objects.filter(subsetor='OUVIDORIA')
         self.fields['testemunha1'].queryset = queryset_testemunhas
@@ -193,6 +195,30 @@ class PATDForm(forms.ModelForm):
                         self.fields['nova_punicao_dias_num'].initial = int(match.group(1))
                     except (ValueError, TypeError):
                         pass # Deixa vazio se não conseguir converter
+
+        # --- LÓGICA DE PERMISSÕES ---
+        if user:
+            from .permissions import can_edit_transgressao, can_edit_apuracao
+            
+            apuracao_fields = [
+                'itens_enquadrados_text', 'atenuantes', 'agravantes',
+                'punicao_sugerida_dias', 'punicao_sugerida_tipo',
+                'transgressao_afirmativa', 'natureza_transgressao', 'comportamento',
+                'comprovante', 'ocorrencia_reescrita', 'texto_relatorio',
+                'alegacao_defesa_resumo'
+            ]
+            
+            # Desabilita campo de transgressão
+            if not can_edit_transgressao(user):
+                self.fields['transgressao'].disabled = True
+                self.fields['transgressao'].widget.attrs['title'] = 'Você não tem permissão para editar este campo.'
+
+            # Desabilita campos da apuração
+            if not can_edit_apuracao(user):
+                for field_name in apuracao_fields:
+                    if field_name in self.fields:
+                        self.fields[field_name].disabled = True
+                        self.fields[field_name].widget.attrs['title'] = 'Você não tem permissão para editar este campo.'
 
         # --- INÍCIO DA MODIFICAÇÃO: Lógica para desabilitar campos ---
         # Se a instância existe e está em um dos status de finalização que permitem editar a punição

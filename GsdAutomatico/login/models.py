@@ -6,6 +6,7 @@ from django.dispatch import receiver
 
 class UserProfile(models.Model):
     user = models.OneToOneField(User, on_delete=models.CASCADE, related_name='profile')
+    force_password_change = models.BooleanField(default=False)
     # Garantir que a associação com um militar é opcional
     militar = models.OneToOneField(Efetivo, on_delete=models.SET_NULL, null=True, blank=True)
 

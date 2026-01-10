@@ -59,7 +59,8 @@ from num2words import num2words # Importação para converter números em texto
 from functools import wraps # Importado para criar o decorator
 import os # Importado para verificar a existência de ficheiros
 import threading # Importado para tarefas em background
-from .permissions import has_comandante_access, has_ouvidoria_access
+from .permissions import has_comandante_access, has_ouvidoria_access, can_delete_patd
+from Secao_pessoal.utils import get_rank_value, RANK_HIERARCHY
 import base64
 from django.core.files.base import ContentFile
 from uuid import uuid4
@@ -1329,6 +1330,17 @@ class PATDListView(ListView):
 
         qs = super().get_queryset().exclude(status='finalizado').select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
 
+        # --- Rank-based security ---
+        user = self.request.user
+        if hasattr(user, 'profile') and user.profile.militar and not user.is_superuser:
+            user_rank_value = get_rank_value(user.profile.militar.posto)
+            
+            # Get all ranks that are higher than the current user's rank (lower value means higher rank)
+            higher_ranks = [posto for posto, value in RANK_HIERARCHY.items() if value < user_rank_value]
+
+            # Exclude PATDs where the militar has one of these higher ranks
+            if higher_ranks:
+                qs = qs.exclude(militar__posto__in=higher_ranks)
 
         if query:
             qs = qs.filter(
@@ -1370,6 +1382,23 @@ class PATDDetailView(DetailView):
     model = PATD
     template_name = 'patd_detail.html'
     context_object_name = 'patd'
+
+    def dispatch(self, request, *args, **kwargs):
+        # --- Rank-based security check ---
+        user = request.user
+        if hasattr(user, 'profile') and user.profile.militar and not user.is_superuser:
+            patd = self.get_object()
+            # Ensure the accused militar exists before comparing ranks
+            if patd.militar and hasattr(patd.militar, 'posto'):
+                user_rank_value = get_rank_value(user.profile.militar.posto)
+                subject_rank_value = get_rank_value(patd.militar.posto)
+
+                # Lower value means higher rank
+                if subject_rank_value < user_rank_value:
+                    messages.error(request, "Você não tem permissão para visualizar a PATD de um militar com graduação superior à sua.")
+                    return redirect('Ouvidoria:patd_list')
+        
+        return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
         return super().get_queryset().select_related(
@@ -1493,6 +1522,11 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
     def test_func(self):
         return not has_comandante_access(self.request.user)
 
+    def get_form_kwargs(self):
+        kwargs = super().get_form_kwargs()
+        kwargs['user'] = self.request.user
+        return kwargs
+
     # --- INÍCIO DA MODIFICAÇÃO: Bloquear edição em status avançados ---
     def dispatch(self, request, *args, **kwargs):
         patd = self.get_object()
@@ -1526,11 +1560,20 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
     def get_success_url(self):
         return reverse_lazy('Ouvidoria:patd_detail', kwargs={'pk': self.object.pk})
 
-@method_decorator([login_required, ouvidoria_required], name='dispatch')
-class PATDDeleteView(DeleteView):
+@method_decorator(login_required, name='dispatch')
+class PATDDeleteView(UserPassesTestMixin, DeleteView):
     model = PATD
     template_name = 'militar_confirm_delete.html'
     success_url = reverse_lazy('Ouvidoria:patd_list')
+
+    def test_func(self):
+        return can_delete_patd(self.request.user)
+
+    def handle_no_permission(self):
+        messages.error(self.request, "Você não tem permissão para excluir esta PATD.")
+        if self.kwargs.get('pk'):
+            return redirect('Ouvidoria:patd_detail', pk=self.kwargs.get('pk'))
+        return redirect('Ouvidoria:patd_list')
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarPATDListView(ListView):

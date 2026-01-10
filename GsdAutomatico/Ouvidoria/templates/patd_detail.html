@@ -465,7 +465,9 @@
         {% endif %}
         {# --- FIM DA MODIFICAÇÃO --- #}
 
+        {% if user|can_delete_patd %}
         <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
+        {% endif %}
     </div>
 </div>
 
