@@ -59,11 +59,21 @@ def can_edit_transgressao(user):
         return True
     return user.groups.filter(name__in=[OUVIDORIA_ADJUNTO, OUVIDORIA_CHEFE]).exists()
 
+def can_change_patd_date(user):
+    """
+    Checks if the user has permission to change the PATD date.
+    (ADJUNTO and Chefe roles)
+    """
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name__in=[OUVIDORIA_ADJUNTO, OUVIDORIA_CHEFE]).exists()
+
 def can_manage_absences(user):
     """
     Checks if the user can manage absences for the Ouvidoria staff.
-    (CB, ADJUNTO, and Chefe roles)
-    """
+    (CB, ADJUNTO, and Chefe roles)    """
     if not user.is_authenticated:
         return False
     if user.is_superuser:

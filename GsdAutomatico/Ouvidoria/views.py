@@ -59,7 +59,7 @@ from num2words import num2words # Importação para converter números em texto
 from functools import wraps # Importado para criar o decorator
 import os # Importado para verificar a existência de ficheiros
 import threading # Importado para tarefas em background
-from .permissions import has_comandante_access, has_ouvidoria_access, can_delete_patd
+from .permissions import has_comandante_access, has_ouvidoria_access, can_delete_patd, can_change_patd_date
 from Secao_pessoal.utils import get_rank_value, RANK_HIERARCHY
 import base64
 from django.core.files.base import ContentFile
@@ -69,6 +69,27 @@ from docx.shared import Cm, Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from bs4 import BeautifulSoup, NavigableString
 import traceback # Importar traceback para log detalhado
+
+
+@login_required
+@user_passes_test(can_change_patd_date)
+@require_POST
+def change_patd_date(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        new_date_str = request.POST.get("new_date")
+        if not new_date_str:
+            return JsonResponse({"status": "error", "message": "A nova data não foi fornecida."}, status=400)
+        
+        new_date = datetime.strptime(new_date_str, "%Y-%m-%d").date()
+        patd.data_inicio = new_date
+        patd.save()
+        return JsonResponse({"status": "success", "message": "Data da PATD alterada com sucesso."})
+    except (ValueError, TypeError):
+        return JsonResponse({"status": "error", "message": "Formato de data inválido."}, status=400)
+    except Exception as e:
+        logger.error(f"Erro ao alterar a data da PATD {pk}: {e}")
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
 
 # --- Funções e Mixins de Permissão ---
@@ -442,7 +463,7 @@ def _get_document_context(patd):
         '{N PATD}': str(patd.numero_patd),
         '{DataPatd}': data_patd_fmt,
         '{dia}': now.strftime('%d'),
-        '{Mês}': now.strftime('%B').capitalize(),
+        '{Mês}': now.strftime('%B'),
         '{Ano}': now.strftime('%Y'),
 
         # Dados do Militar Arrolado
@@ -3041,3 +3062,31 @@ def exportar_patd_docx(request, pk):
     document.save(response)
 
     return response
+
+@login_required
+@user_passes_test(can_change_patd_date)
+@require_POST
+def update_document_dates(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        day = request.POST.get("day")
+        month = request.POST.get("month")
+        year = request.POST.get("year")
+        
+        date_fields = request.POST.getlist("date_fields[]")
+
+        if not all([day, month, year, date_fields]):
+            return JsonResponse({"status": "error", "message": "Todos os campos são obrigatórios."}, status=400)
+
+        for field in date_fields:
+            if hasattr(patd, field):
+                new_date = datetime(int(year), int(month), int(day)).date()
+                setattr(patd, field, new_date)
+        
+        patd.save()
+        return JsonResponse({"status": "success", "message": "Datas atualizadas com sucesso."})
+    except (ValueError, TypeError):
+        return JsonResponse({"status": "error", "message": "Formato de data inválido."}, status=400)
+    except Exception as e:
+        logger.error(f"Erro ao atualizar as datas do documento da PATD {pk}: {e}")
+        return JsonResponse({"status": "error", "message": str(e)}, status=500)

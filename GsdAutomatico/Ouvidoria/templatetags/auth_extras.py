@@ -27,3 +27,8 @@ def can_edit_apuracao_filter(user):
 def can_edit_transgressao_filter(user):
     """Verifica se o usuário pode editar a transgressão de uma PATD."""
     return permissions.can_edit_transgressao(user)
+
+@register.filter(name='can_change_patd_date')
+def can_change_patd_date_filter(user):
+    """Verifica se o usuário pode alterar a data da PATD."""
+    return permissions.can_change_patd_date(user)
