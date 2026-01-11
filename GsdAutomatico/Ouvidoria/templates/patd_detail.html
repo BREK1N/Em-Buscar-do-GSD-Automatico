@@ -468,10 +468,6 @@
         {% if user|can_delete_patd %}
         <button type="button" class="btn btn-delete" id="delete-patd-btn">Excluir</button>
         {% endif %}
-        {% if user|can_change_patd_date %}
-        <button type="button" class="btn btn-secondary" id="change-date-btn">Alterar Data</button>
-        <button type="button" class="btn btn-secondary" id="update-dates-btn">Atualizar Datas do Documento</button>
-        {% endif %}
     </div>
 </div>
 
@@ -1092,60 +1088,6 @@
     </div>
 </div>
 
-<div class="modal-overlay" id="change-date-modal">
-    <div class="modal-content">
-        <h3>Alterar Data da PATD</h3>
-        <p>Selecione a nova data de início para a PATD Nº {{ patd.numero_patd }}.</p>
-        <form id="change-date-form" class="model-form">
-            <div class="form-grid">
-                <p>
-                    <label for="new_patd_date">Nova Data:</label>
-                    <input type="date" name="new_date" required id="new_patd_date">
-                </p>
-            </div>
-            <div class="form-actions" style="justify-content: flex-end;">
-                <button type="button" class="btn btn-secondary" id="cancel-change-date-btn">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Salvar Nova Data</button>
-            </div>
-        </form>
-    </div>
-</div>
-
-<div class="modal-overlay" id="update-dates-modal">
-    <div class="modal-content">
-        <h3>Atualizar Datas do Documento</h3>
-        <p>Selecione o dia, mês e ano para atualizar as datas nos campos selecionados.</p>
-        <form id="update-dates-form" class="model-form">
-            <div class="form-grid" style="grid-template-columns: 1fr 1fr 1fr; gap: 15px;">
-                <p>
-                    <label for="update_day">Dia:</label>
-                    <input type="number" name="day" required id="update_day" min="1" max="31">
-                </p>
-                <p>
-                    <label for="update_month">Mês:</label>
-                    <input type="number" name="month" required id="update_month" min="1" max="12">
-                </p>
-                <p>
-                    <label for="update_year">Ano:</label>
-                    <input type="number" name="year" required id="update_year" min="2000" max="2100">
-                </p>
-            </div>
-            <div class="form-item" style="margin-top: 15px;">
-                <label>Campos de data a serem atualizados:</label>
-                <div><input type="checkbox" name="date_fields" value="data_ocorrencia"> Data da Ocorrência</div>
-                <div><input type="checkbox" name="date_fields" value="data_oficio"> Data do Ofício</div>
-                <div><input type="checkbox" name="date_fields" value="data_ciencia"> Data da Ciência</div>
-                <div><input type="checkbox" name="date_fields" value="data_alegacao"> Data da Alegação</div>
-                <div><input type="checkbox" name="date_fields" value="data_publicacao_punicao"> Data de Publicação da Punição</div>
-                <div><input type="checkbox" name="date_fields" value="data_reconsideracao"> Data da Reconsideração</div>
-            </div>
-            <div class="form-actions" style="justify-content: flex-end; margin-top: 20px;">
-                <button type="button" class="btn btn-secondary" id="cancel-update-dates-btn">Cancelar</button>
-                <button type="submit" class="btn btn-primary">Atualizar Datas</button>
-            </div>
-        </form>
-    </div>
-</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -1758,6 +1700,16 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- LÓGICA DO VISUALIZADOR DE DOCUMENTO ---
     const pageContainer = document.getElementById('document-preview-container');
+    pageContainer.addEventListener('change', function(e) {
+        if (e.target.classList.contains('editable-date')) {
+            scheduleSave();
+        }
+    });
+    pageContainer.addEventListener('input', function(e) {
+        if (e.target.classList.contains('editable-text')) {
+            scheduleSave();
+        }
+    });
     // --- INÍCIO: Lógica de navegação de assinatura ---
     let pendingSignatureElements = [];
     let currentSignatureIndex = -1;
@@ -1774,7 +1726,47 @@ document.addEventListener('DOMContentLoaded', function() {
     function saveDocumentChanges() {
         if (!pageContainer) return;
 
+        const dates = {};
+        pageContainer.querySelectorAll('.editable-date').forEach(input => {
+            const fieldName = input.dataset.dateField;
+            if (fieldName) {
+                dates[fieldName] = input.value;
+            }
+        });
+
+        const texts = {};
+        pageContainer.querySelectorAll('.editable-text').forEach(input => {
+            const fieldName = input.dataset.textField;
+            if (fieldName) {
+                texts[fieldName] = input.value;
+            }
+        });
+
         const tempContainer = pageContainer.cloneNode(true);
+
+        const datePlaceholders = {
+            'data_ocorrencia': '{data da Ocorrencia}',
+            'data_oficio': '{data_oficio}',
+            'data_ciencia': '{data ciência}',
+            'data_alegacao': '{Data da alegação}',
+            'data_publicacao_punicao': '{data_publicacao_punicao}',
+            'data_reconsideracao': '{Data_reconsideracao}',
+        };
+
+        tempContainer.querySelectorAll('.editable-date').forEach(input => {
+            const fieldName = input.dataset.dateField;
+            const placeholder = datePlaceholders[fieldName];
+            if (placeholder) {
+                input.replaceWith(document.createTextNode(placeholder));
+            }
+        });
+
+        tempContainer.querySelectorAll('.editable-text').forEach(input => {
+            const fieldName = input.dataset.textField;
+            if (fieldName === 'localidade') {
+                input.replaceWith(document.createTextNode('{Localidade}'));
+            }
+        });
 
         const signaturePlaceholders = {
             'Assinatura da Defesa': '{Assinatura Alegacao Defesa}',
@@ -1808,9 +1800,7 @@ document.addEventListener('DOMContentLoaded', function() {
         tempContainer.querySelectorAll('button#add-defesa-btn-doc').forEach(btn => btn.replaceWith(document.createTextNode('{Botao Adicionar Alegacao}')));
         tempContainer.querySelectorAll('button#add-reconsideracao-texto-btn-doc').forEach(btn => btn.replaceWith(document.createTextNode('{Botao Adicionar Reconsideracao}')));
 
-        // --- NOVO: Remove os anexos embutidos antes de salvar ---
         tempContainer.querySelectorAll('.embedded-anexo-container').forEach(container => {
-            // Determina qual placeholder deve ser
             const header = container.querySelector('.embedded-anexo-header');
             let placeholder = '';
             if (header) {
@@ -1827,13 +1817,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
         tempContainer.querySelectorAll('.page .page-content').forEach(contentDiv => {
             let pageContent = [];
-            // --- MODIFICAÇÃO: Itera sobre childNodes para preservar placeholders de anexo ---
             contentDiv.childNodes.forEach(node => {
                 if (node.nodeType === Node.TEXT_NODE) {
-                    // É um placeholder de anexo
                     pageContent.push(node.textContent.trim());
                 } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'P') {
-                    // É um parágrafo normal
                     let cleanText = node.innerHTML.replace(/<br\s*\/?>/gi, '\n');
                     cleanText = cleanText.replace(/&nbsp;/g, ' ');
                     cleanText = cleanText.replace(/<strong>(.*?)<\/strong>/g, '**$1**');
@@ -1847,18 +1834,22 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         const newDocumentText = fullContent.join(`\n${pageDelimiter}\n`);
-        rawDocumentText = newDocumentText; // Atualiza a variável global se necessário
+        rawDocumentText = newDocumentText;
 
         const url = `{% url 'Ouvidoria:salvar_documento_patd' patd.pk %}`;
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-            body: JSON.stringify({ 'texto_documento': newDocumentText })
+            body: JSON.stringify({ 
+                'texto_documento': newDocumentText,
+                'dates': dates,
+                'texts': texts
+            })
         })
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                 console.log("Documento salvo automaticamente."); // Log para confirmar
+                 console.log("Documento e datas salvos automaticamente.");
             } else {
                 alert('Erro: ' + data.message);
             }
@@ -2503,95 +2494,6 @@ if (aprovarModal) {
             aprovarModal.classList.remove('active');
         }
     });
-}
-
-const changeDateModal = document.getElementById('change-date-modal');
-if (changeDateModal) {
-    const openBtn = document.getElementById('change-date-btn');
-    const cancelBtn = document.getElementById('cancel-change-date-btn');
-    const form = document.getElementById('change-date-form');
-
-    if(openBtn) {
-        openBtn.addEventListener('click', () => changeDateModal.classList.add('active'));
-    }
-    if(cancelBtn) {
-        cancelBtn.addEventListener('click', () => changeDateModal.classList.remove('active'));
-    }
-    if(form) {
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const newDate = document.getElementById('new_patd_date').value;
-
-            const url = `{% url 'Ouvidoria:change_patd_date' patd.pk %}`;
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': csrfToken
-                },
-                body: `new_date=${newDate}`
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert(data.message);
-                    window.location.reload();
-                } else {
-                    alert('Erro: ' + data.message);
-                }
-            })
-            .catch(error => console.error('Erro:', error));
-        });
-    }
-}
-const updateDatesModal = document.getElementById('update-dates-modal');
-if (updateDatesModal) {
-    const openBtn = document.getElementById('update-dates-btn');
-    const cancelBtn = document.getElementById('cancel-update-dates-btn');
-    const form = document.getElementById('update-dates-form');
-
-    if(openBtn) {
-        openBtn.addEventListener('click', () => updateDatesModal.classList.add('active'));
-    }
-    if(cancelBtn) {
-        cancelBtn.addEventListener('click', () => updateDatesModal.classList.remove('active'));
-    }
-    if(form) {
-        form.addEventListener('submit', (e) => {
-            e.preventDefault();
-            const day = document.getElementById('update_day').value;
-            const month = document.getElementById('update_month').value;
-            const year = document.getElementById('update_year').value;
-            const dateFields = Array.from(form.querySelectorAll('input[name="date_fields"]:checked')).map(el => el.value);
-
-            const url = `{% url 'Ouvidoria:update_document_dates' patd.pk %}`;
-            const body = new URLSearchParams();
-            body.append('day', day);
-            body.append('month', month);
-            body.append('year', year);
-            dateFields.forEach(field => body.append('date_fields[]', field));
-
-
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/x-www-form-urlencoded',
-                    'X-CSRFToken': csrfToken
-                },
-                body: body.toString()
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    alert(data.message);
-                    window.location.reload();
-                } else {
-                    alert('Erro: ' + data.message);
-                }
-            })
-            .catch(error => console.error('Erro:', error));
-        });
-    }
 }
 
 });

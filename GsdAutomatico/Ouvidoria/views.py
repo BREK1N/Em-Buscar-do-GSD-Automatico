@@ -71,25 +71,7 @@ from bs4 import BeautifulSoup, NavigableString
 import traceback # Importar traceback para log detalhado
 
 
-@login_required
-@user_passes_test(can_change_patd_date)
-@require_POST
-def change_patd_date(request, pk):
-    try:
-        patd = get_object_or_404(PATD, pk=pk)
-        new_date_str = request.POST.get("new_date")
-        if not new_date_str:
-            return JsonResponse({"status": "error", "message": "A nova data não foi fornecida."}, status=400)
-        
-        new_date = datetime.strptime(new_date_str, "%Y-%m-%d").date()
-        patd.data_inicio = new_date
-        patd.save()
-        return JsonResponse({"status": "success", "message": "Data da PATD alterada com sucesso."})
-    except (ValueError, TypeError):
-        return JsonResponse({"status": "error", "message": "Formato de data inválido."}, status=400)
-    except Exception as e:
-        logger.error(f"Erro ao alterar a data da PATD {pk}: {e}")
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
 
 
 # --- Funções e Mixins de Permissão ---
@@ -419,10 +401,10 @@ def _get_document_context(patd):
     # Formatações de Data
     data_inicio = patd.data_inicio
     data_patd_fmt = data_inicio.strftime('%d%m%Y')
-    data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else "[Data não informada]"
-    data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else "[Data do ofício não informada]"
-    data_ciencia_fmt = patd.data_ciencia.strftime('%d/%m/%Y') if patd.data_ciencia else "[Data não informada]"
-    data_alegacao_fmt = patd.data_alegacao.strftime('%d/%m/%Y') if patd.data_alegacao else "[Data não informada]"
+    data_ocorrencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ocorrencia" value="{patd.data_ocorrencia.strftime("%Y-%m-%d") if patd.data_ocorrencia else ""}">'
+    data_oficio_fmt = f'<input type="date" class="editable-date" data-date-field="data_oficio" value="{patd.data_oficio.strftime("%Y-%m-%d") if patd.data_oficio else ""}">'
+    data_ciencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ciencia" value="{patd.data_ciencia.strftime("%Y-%m-%d") if patd.data_ciencia else ""}">'
+    data_alegacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_alegacao" value="{patd.data_alegacao.strftime("%Y-%m-%d") if patd.data_alegacao else ""}">'
 
     # Formatação de Itens Enquadrados e Circunstâncias
     itens_enquadrados_str = ", ".join([str(item.get('numero', '')) for item in patd.itens_enquadrados]) if patd.itens_enquadrados else ""
@@ -449,11 +431,20 @@ def _get_document_context(patd):
         deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
         deadline_str = deadline.strftime('%d/%m/%Y às %H:%M')
 
-    data_publicacao_fmt = patd.data_publicacao_punicao.strftime('%d/%m/%Y às %H:%M') if patd.data_publicacao_punicao else "[Data não informada]"
-    data_reconsideracao_fmt = patd.data_reconsideracao.strftime('%d/%m/%Y') if patd.data_reconsideracao else "[Data não informada]"
+    data_publicacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_publicacao_punicao" value="{patd.data_publicacao_punicao.strftime("%Y-%m-%d") if patd.data_publicacao_punicao else ""}">'
+    data_reconsideracao_fmt = f'<input type="date" class="editable-date" data-date-field="data_reconsideracao" value="{patd.data_reconsideracao.strftime("%Y-%m-%d") if patd.data_reconsideracao else ""}">'
 
     # Lógica para Oficial Apurador
     oficial_definido = patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
+
+    meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+    mes_select_html = f'<select class="editable-date-part" data-date-field="data_inicio" data-date-part="month">'
+    for i, nome_mes in enumerate(meses):
+        selected = 'selected' if data_inicio.month == i + 1 else ''
+        mes_select_html += f'<option value="{i+1}" {selected}>{nome_mes}</option>'
+    mes_select_html += '</select>'
+
+    localidade_value = patd.circunstancias.get('localidade', 'Rio de Janeiro') if patd.circunstancias else 'Rio de Janeiro'
 
     context = {
         # Placeholders Comuns
@@ -462,9 +453,10 @@ def _get_document_context(patd):
         # --- FIM DA CORREÇÃO ---
         '{N PATD}': str(patd.numero_patd),
         '{DataPatd}': data_patd_fmt,
-        '{dia}': now.strftime('%d'),
-        '{Mês}': now.strftime('%B'),
-        '{Ano}': now.strftime('%Y'),
+        '{Localidade}': f'<input type="text" class="editable-text" data-text-field="localidade" value="{localidade_value}">',
+        '{dia}': f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="day" value="{data_inicio.day}" min="1" max="31">',
+        '{Mês}': mes_select_html,
+        '{Ano}': f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="year" value="{data_inicio.year}" min="2000" max="2100">',
 
         # Dados do Militar Arrolado
         '{Militar Arrolado}': format_militar_string(patd.militar),
@@ -1866,14 +1858,33 @@ def salvar_documento_patd(request, pk):
         patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
         texto_documento = data.get('texto_documento')
+        dates = data.get('dates', {})
+        texts = data.get('texts', {})
 
         if texto_documento is None:
             return JsonResponse({'status': 'error', 'message': 'Nenhum texto recebido.'}, status=400)
 
         patd.documento_texto = texto_documento
+        
+        if 'localidade' in texts:
+            if patd.circunstancias is None:
+                patd.circunstancias = {}
+            patd.circunstancias['localidade'] = texts['localidade']
+
+        for field_name, date_str in dates.items():
+            if hasattr(patd, field_name):
+                if date_str:
+                    try:
+                        date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
+                        setattr(patd, field_name, date_obj)
+                    except (ValueError, TypeError):
+                        logger.warning(f"Formato de data inválido para o campo {field_name}: {date_str}")
+                else:
+                    setattr(patd, field_name, None)
+
         patd.save()
 
-        return JsonResponse({'status': 'success', 'message': 'Documento salvo com sucesso.'})
+        return JsonResponse({'status': 'success', 'message': 'Documento e datas salvos com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar documento da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
