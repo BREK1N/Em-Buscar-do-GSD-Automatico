@@ -47,7 +47,9 @@
         font-weight: 500;
         color: var(--text-secondary);
     }
-    .form-card-body .form-item input,
+
+    /* CORREÇÃO AQUI: Aplicar estilos apenas a inputs que NÃO sejam checkbox ou radio */
+    .form-card-body .form-item input:not([type="checkbox"]):not([type="radio"]),
     .form-card-body .form-item select,
     .form-card-body .form-item textarea {
         width: 100%;
@@ -58,14 +60,33 @@
         color: var(--text-primary);
         box-sizing: border-box;
     }
-     .form-item-checkbox {
+
+    /* Estilos específicos para o Checkbox e seu container */
+    .form-item-checkbox {
         display: flex;
         flex-direction: row;
         align-items: center;
-        gap: 10px;
+        gap: 10px; /* Espaço entre o quadrado e o texto */
+        grid-column: 1 / -1; 
+        margin-top: 10px;
+        padding: 5px 0;
     }
-    .form-item-checkbox input {
-        width: auto;
+    
+    /* Reseta estilos para o input checkbox ficar normal */
+    .form-item-checkbox input[type="checkbox"] {
+        width: 18px;  /* Tamanho confortável */
+        height: 18px;
+        margin: 0;
+        cursor: pointer;
+        padding: 0;
+        border: 1px solid var(--border-color); /* Borda sutil se o browser permitir */
+        background-color: transparent;
+    }
+
+    .form-item-checkbox label {
+        margin-bottom: 0 !important; /* Remove margem inferior para alinhar */
+        cursor: pointer;
+        font-size: 1rem;
     }
 </style>
 
@@ -75,7 +96,6 @@
 <form method="post" class="model-form">
     {% csrf_token %}
 
-    <!-- Card de Informações Militares -->
     <div class="form-card">
         <div class="form-card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
@@ -99,7 +119,6 @@
         </div>
     </div>
 
-    <!-- Card de Informações Militares -->
     <div class="form-card">
         <div class="form-card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21M3 21h18M12 6.75h.008v.008H12V6.75z" /></svg>
@@ -127,12 +146,17 @@
                     <label for="{{ form.situacao.id_for_label }}">{{ form.situacao.label }}:</label>
                     {{ form.situacao }}
                 </div>
+
+                <div class="form-item-checkbox">
+                    {{ form.oficial }}
+                    <label for="{{ form.oficial.id_for_label }}">É Oficial?</label>
+                </div>
+
             </div>
         </div>
     </div>
 
-     <!-- Card de Localização -->
-    <div class="form-card">
+     <div class="form-card">
         <div class="form-card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z" /></svg>
             <h2>Localização</h2>
@@ -154,7 +178,6 @@
             </div>
         </div>
     </div>
-
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar</button>
         <a href="{% url 'Ouvidoria:militar_list' %}" class="btn btn-secondary">Cancelar</a>

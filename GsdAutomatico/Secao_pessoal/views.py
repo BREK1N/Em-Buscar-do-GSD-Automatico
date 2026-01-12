@@ -101,12 +101,18 @@ def importar_excel(request):
                 # Dicionário com os dados a serem salvos/atualizados
                 # AJUSTE AQUI: O lado esquerdo é o campo do seu Modelo, o direito é a coluna do Excel
                 dados_militar = {
-                    'nome_guerra': row.get('NOME DE GUERRA', '').strip(),
-                    'posto': row.get('POSTO/GRAD', '').strip(),
-                    'quad': row.get('QUADRO', '').strip(),
-                    'especializacao': row.get('ESPECIALIDADE', '').strip(),
+                    'posto': row.get('PST.', '').strip(),
+                    'quad': row.get('QUAD.', '').strip(),
+                    'especializacao': row.get('ESP.', '').strip(),
+                    'saram': row.get('SARAM', '').strip(),
                     'nome_completo': row.get('NOME COMPLETO', '').strip(),
-                    # Adicione outros campos se necessário, ex: 'data_nascimento': row.get('NASCIMENTO')
+                    'nome_guerra': row.get('NOME DE GUERRA', '').strip(),
+                    'turma': row.get('TURMA', '').strip(),
+                    'situacao': row.get('SITUAÇÃO', '').strip(),
+                    'om': row.get('OM', '').strip(),
+                    'setor': row.get('SETOR', '').strip(),
+                    'subsetor': row.get('SUBSETOR', '').strip()                    
+
                 }
 
                 # update_or_create busca pelo SARAM. Se achar, atualiza. Se não, cria.
