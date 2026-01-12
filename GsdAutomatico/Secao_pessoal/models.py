@@ -16,6 +16,26 @@ class Efetivo(models.Model):
     assinatura = models.TextField(blank=True, null=True, verbose_name="Assinatura Padrão (Base64)")
     senha_unica = models.CharField(max_length=128, blank=True, null=True, verbose_name="Senha Única")
 
+    def save(self, *args, **kwargs):
+        postos_de_oficiais = [
+            'ASP', 'ASPIRANTE',
+            '2T', '2º TENENTE', '2º TEN',
+            '1T', '1º TENENTE', '1º TEN',
+            'CAP', 'CAPITÃO', 'CAPITAO',
+            'MAJ', 'MAJOR',
+            'TC', 'TENENTE CORONEL', 'TEN CEL',
+            'CEL', 'CORONEL',
+            'BRIG', 'BRIGADEIRO'
+        ]
+        
+        if self.posto and self.posto.upper() in postos_de_oficiais:
+            self.oficial = True
+        else:
+            # Caso queira desmarcar automaticamente se não for oficial:
+            self.oficial = False
+
+        super(Efetivo, self).save(*args, **kwargs)
+
     def __str__(self):
         return f"{self.posto} {self.nome_guerra}"
 

@@ -1,4 +1,4 @@
-{% extends 'base.html' %}
+{% extends 'Secao_pessoal/base.html' %}
 
 {% block title %}{% if form.instance.pk %}Editar Militar{% else %}Adicionar Militar{% endif %}{% endblock %}
 
@@ -180,7 +180,7 @@
     </div>
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar</button>
-        <a href="{% url 'Ouvidoria:militar_list' %}" class="btn btn-secondary">Cancelar</a>
+        <a href="{% url 'Secao_pessoal:militar_list' %}" class="btn btn-secondary">Cancelar</a>
     </div>
 </form>
 {% endblock %}
