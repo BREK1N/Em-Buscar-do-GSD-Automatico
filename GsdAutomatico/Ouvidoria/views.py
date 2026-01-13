@@ -1,4 +1,3 @@
-# GsdAutomatico/Ouvidoria/views.py
 import pandas as pd
 import io
 import json
@@ -1309,6 +1308,11 @@ class MilitarListView(ListView):
     context_object_name = 'militares'
     ordering = ['nome_guerra']
     paginate_by = 20
+
+    def get_template_names(self):
+        if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return ['militar_list_partial.html']
+        return ['militar_list.html']
 
     def get_queryset(self):
         query = self.request.GET.get('q')

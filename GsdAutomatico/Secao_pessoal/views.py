@@ -24,6 +24,11 @@ class MilitarListView(ListView):
     ordering = ['nome_guerra']
     paginate_by = 20
 
+    def get_template_names(self):
+        if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return ['Secao_pessoal/militar_list_partial.html']
+        return ['Secao_pessoal/militar_list.html']
+
     def get_queryset(self):
         query = self.request.GET.get('q')
         rank_order = Case(
