@@ -725,6 +725,27 @@
         </div>
     </div>
 
+    <div class="card">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+            </svg>
+            <h2>Ficha Individual</h2>
+        </div>
+        <div class="card-body">
+            <form action="{% url 'Ouvidoria:upload_ficha_individual' patd.pk %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-item">
+                    <label for="ficha_individual_file">Anexar Ficha Individual (PDF):</label>
+                    <input type="file" name="ficha_individual" id="ficha_individual_file" accept=".pdf" required style="width: 100%; padding: 10px;">
+                </div>
+                <div class="form-actions" style="justify-content: flex-start; margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary">Anexar</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
      {% if request.user.profile.militar == patd.oficial_responsavel and patd.status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}
     <div class="card" id="analise-disciplinar-card">
         <div class="card-header">

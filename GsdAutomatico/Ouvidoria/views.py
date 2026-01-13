@@ -447,6 +447,18 @@ def _get_document_context(patd):
 
     localidade_value = patd.circunstancias.get('localidade', 'Rio de Janeiro') if patd.circunstancias else 'Rio de Janeiro'
 
+    # Adiciona o anexo do ofício de lançamento ao contexto, se existir
+    oficio_anexo = patd.anexos.filter(tipo='oficio_lancamento').first()
+    oficio_lancamento_html = ''
+    if oficio_anexo:
+        oficio_lancamento_html = f'<embed src="{oficio_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
+
+    # Adiciona a ficha individual ao contexto, se existir
+    ficha_individual_anexo = patd.anexos.filter(tipo='ficha_individual').first()
+    ficha_individual_html = ''
+    if ficha_individual_anexo:
+        ficha_individual_html = f'<embed src="{ficha_individual_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
+
     context = {
         # Placeholders Comuns
         # --- CORREÇÃO: Usar staticfiles_storage.url ---
@@ -483,6 +495,8 @@ def _get_document_context(patd):
         '{Oficio Transgressao}': patd.oficio_transgressao,
         '{data_oficio}': data_oficio_fmt,
         '{comprovante}': patd.comprovante or '',
+        '{oficio_lancamento}': oficio_lancamento_html,
+
 
         # Dados da Apuração
         '{Itens enquadrados}': itens_enquadrados_str,
@@ -522,6 +536,7 @@ def _get_document_context(patd):
         '{Texto_reconsideracao}': patd.texto_reconsideracao or '',
         '{Data_reconsideracao}': data_reconsideracao_fmt,
         '{pagina_alegacao}': "{pagina_alegacao}", # Mantém como placeholder
+        '{ficha_individual}': ficha_individual_html
     }
 
     # Adiciona os dados das assinaturas AO CONTEXTO APENAS SE APLICÁVEL
@@ -615,14 +630,6 @@ def get_document_pages(patd):
     Cada item na lista representa um documento/seção separada.
     """
     base_context = _get_document_context(patd)
-    
-    # Adiciona o anexo do ofício de lançamento ao contexto, se existir
-    oficio_anexo = patd.anexos.filter(tipo='oficio_lancamento').first()
-    if oficio_anexo:
-        base_context['{oficio_lancamento}'] = f'<embed src="{oficio_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
-    else:
-        base_context['{oficio_lancamento}'] = ''
-
     document_pages_raw = []
     page_counter = 0
     pagina_alegacao_num = 0
@@ -1994,6 +2001,31 @@ def gerenciar_configuracoes_padrao(request):
         'prazo_defesa_minutos': config.prazo_defesa_minutos
     }
     return JsonResponse(data)
+
+@login_required
+@ouvidoria_required
+@require_POST
+def upload_ficha_individual(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    
+    if 'ficha_individual' not in request.FILES:
+        messages.error(request, "Nenhum arquivo enviado.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    ficha_individual_file = request.FILES['ficha_individual']
+
+    # Remove existing ficha_individual if it exists
+    patd.anexos.filter(tipo='ficha_individual').delete()
+
+    # Create a new Anexo for the ficha_individual
+    Anexo.objects.create(
+        patd=patd,
+        arquivo=ficha_individual_file,
+        tipo='ficha_individual'
+    )
+
+    messages.success(request, "Ficha individual atualizada com sucesso.")
+    return redirect('Ouvidoria:patd_detail', pk=pk)
 
 @login_required
 @ouvidoria_required
