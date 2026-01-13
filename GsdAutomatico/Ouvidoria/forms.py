@@ -102,6 +102,7 @@ class PATDForm(forms.ModelForm):
         model = PATD
         # --- CAMPOS ADICIONADOS AQUI ---
         fields = [
+            'numero_patd',
             'status', 'transgressao', 'oficial_responsavel', 'testemunha1', 'testemunha2',
             'data_ocorrencia', 'itens_enquadrados_text', 'atenuantes', 'agravantes', 'comprovante',
             'punicao_sugerida_dias', 'punicao_sugerida_tipo',
@@ -131,6 +132,7 @@ class PATDForm(forms.ModelForm):
             ]),
         }
         labels = {
+            'numero_patd': "Número da PATD",
             'status': "Status Atual",
             'transgressao': "Descrição da Transgressão",
             'oficial_responsavel': "Oficial Responsável",
@@ -138,17 +140,13 @@ class PATDForm(forms.ModelForm):
             'testemunha2': "2ª Testemunha",
             'data_ocorrencia': "Data da Ocorrência",
             'comprovante': "Comprovante da Transgressão",
-            # 'dias_punicao': "Dias de Punição", # Ocultado
-            # 'punicao': "Punição", # Ocultado
             'transgressao_afirmativa': "Transgressão Afirmativa",
             'natureza_transgressao': "Natureza da Transgressão",
             'comportamento': "Comportamento",
             'alegacao_defesa_resumo': "Resumo da Alegação de Defesa",
             'ocorrencia_reescrita': "Ocorrência Reescrita (IA)",
             'texto_relatorio': "Texto do Relatório (IA)",
-            # --- LABELS ADICIONADOS ---
-            # 'nova_punicao_dias_num' já tem label no campo
-            'nova_punicao_tipo': "Nova Punição (Tipo)"
+            'nova_punicao_tipo': "Nova Punição (Tipo)",
         }
 
     def __init__(self, *args, **kwargs):

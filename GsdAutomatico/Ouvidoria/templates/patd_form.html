@@ -105,16 +105,18 @@
             <h2>Informações da Transgressão</h2>
         </div>
         <div class="form-card-body">
+            <div class="form-card-body">
             <div class="form-grid">
+                <div class="form-item">
+                    <label for="{{ form.numero_patd.id_for_label }}">{{ form.numero_patd.label }}:</label>
+                    {{ form.numero_patd }}
+                    {% for error in form.numero_patd.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                    <small>Ao alterar este número, a próxima PATD criada seguirá a sequência a partir do maior número existente.</small>
+                </div>
                 <div class="form-item full-width">
                     <label for="{{ form.transgressao.id_for_label }}">{{ form.transgressao.label }}:</label>
                     {{ form.transgressao }}
                     {% for error in form.transgressao.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item">
-                    <label for="{{ form.data_ocorrencia.id_for_label }}">{{ form.data_ocorrencia.label }}:</label>
-                    {{ form.data_ocorrencia }}
-                    {% for error in form.data_ocorrencia.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
             </div>
         </div>
