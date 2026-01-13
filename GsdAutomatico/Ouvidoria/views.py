@@ -63,6 +63,7 @@ from .permissions import has_comandante_access, has_ouvidoria_access, can_delete
 from Secao_pessoal.utils import get_rank_value, RANK_HIERARCHY
 import base64
 from django.core.files.base import ContentFile
+from django.core.files import File
 from uuid import uuid4
 from docx import Document
 from docx.shared import Cm, Pt, Inches
@@ -614,6 +615,14 @@ def get_document_pages(patd):
     Cada item na lista representa um documento/seção separada.
     """
     base_context = _get_document_context(patd)
+    
+    # Adiciona o anexo do ofício de lançamento ao contexto, se existir
+    oficio_anexo = patd.anexos.filter(tipo='oficio_lancamento').first()
+    if oficio_anexo:
+        base_context['{oficio_lancamento}'] = f'<embed src="{oficio_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
+    else:
+        base_context['{oficio_lancamento}'] = ''
+
     document_pages_raw = []
     page_counter = 0
     pagina_alegacao_num = 0
@@ -1008,20 +1017,22 @@ def index(request):
         # --- NOVO BLOCO 2: Associar Transgressão a Militar Existente ---
         # --- BLOCO 2 ATUALIZADO: Associar Transgressão com Verificação de Duplicidade ---
         elif action == 'associate_patd':
-            militar_id = request.POST.get('militar_id')
+            post_data = request.POST.copy()
+            post_data.pop('oficio_lancamento_texto', None)
+            militar_id = post_data.get('militar_id')
             if not militar_id:
                 return JsonResponse({'status': 'error', 'message': 'ID do militar não fornecido.'}, status=400)
             
             militar = get_object_or_404(Efetivo, pk=militar_id)
             
             # Recupera os dados
-            transgressao = request.POST.get('transgressao', '')
-            protocolo_comaer = request.POST.get('protocolo_comaer', '')
-            oficio_transgressao = request.POST.get('oficio_transgressao', '')
-            
+            transgressao = post_data.get('transgressao', '')
+            protocolo_comaer = post_data.get('protocolo_comaer', '')
+            oficio_transgressao = post_data.get('oficio_transgressao', '')
+
             # --- Tratamento de Datas ---
-            data_ocorrencia_str = request.POST.get('data_ocorrencia')
-            data_oficio_str = request.POST.get('data_oficio', '')
+            data_ocorrencia_str = post_data.get('data_ocorrencia')
+            data_oficio_str = post_data.get('data_oficio', '')
 
             data_ocorrencia = None
             if data_ocorrencia_str:
@@ -1087,6 +1098,16 @@ def index(request):
                     data_oficio=data_oficio
                 )
                 
+                # Anexar o ofício de lançamento que foi salvo temporariamente
+                filepath = request.session.get('oficio_lancamento_filepath')
+                if filepath and os.path.exists(filepath):
+                    with open(filepath, 'rb') as f:
+                        django_file = File(f, name=os.path.basename(filepath))
+                        Anexo.objects.create(patd=patd, arquivo=django_file, tipo='oficio_lancamento')
+                    os.remove(filepath)
+                    if 'oficio_lancamento_filepath' in request.session:
+                        del request.session['oficio_lancamento_filepath']
+
                 return JsonResponse({
                     'status': 'success', 
                     'militar_nome': militar.nome_guerra,
@@ -1158,10 +1179,13 @@ def index(request):
                     for chunk in pdf_file.chunks():
                         temp_file.write(chunk)
                     temp_file_path = temp_file.name
+                
+                request.session['oficio_lancamento_filepath'] = temp_file_path
 
                 loader = PyPDFLoader(temp_file_path)
-                content = " ".join(page.page_content for page in loader.load_and_split())
-                os.remove(temp_file_path)
+                content = "\n\n".join(page.page_content for page in loader.load_and_split())
+                # Do not remove the temp file here: os.remove(temp_file_path)
+
 
                 logger.info("Conteúdo do PDF extraído com sucesso. Chamando a IA para análise...")
                 resultado_analise: AnaliseTransgressao = analisar_documento_pdf(content)
@@ -2704,13 +2728,10 @@ def append_anexo_to_docx(document, anexo):
     file_name = os.path.basename(file_path)
     ext = os.path.splitext(file_name)[1].lower()
 
-    # --- INÍCIO DA MODIFICAÇÃO: Garante que o anexo comece em uma nova página ---
+    # Adiciona uma quebra de página antes de cada anexo para separação
     document.add_page_break()
-    # --- FIM DA MODIFICAÇÃO ---
+    
     try:
-        # Adiciona um título para o anexo
-        document.add_heading(f"Anexo: {file_name}", level=2)
-
         if not os.path.exists(file_path):
             document.add_paragraph(f"[Erro: Ficheiro anexo '{file_name}' não encontrado no servidor.]")
             return
@@ -2727,12 +2748,15 @@ def append_anexo_to_docx(document, anexo):
                 document.add_paragraph(para.text)
         
         elif ext == '.pdf':
-            # Extrai texto do PDF e adiciona
+            # Extrai texto do PDF e adiciona, tentando preservar quebras de linha
             try:
                 loader = PyPDFLoader(file_path)
-                pages = loader.load_and_split()
-                content = "\n".join([page.page_content for page in pages])
-                document.add_paragraph(content)
+                pages = loader.load() # Use load() para obter uma lista de Documentos LangChain
+                
+                for page in pages:
+                    lines = page.page_content.split('\n')
+                    for line in lines:
+                        document.add_paragraph(line)
             except Exception as e:
                 logger.error(f"Erro ao ler PDF do anexo {file_name}: {e}")
                 document.add_paragraph(f"[Erro ao extrair texto do PDF '{file_name}'. O ficheiro pode estar corrompido ou ser uma imagem.]")
@@ -2922,6 +2946,11 @@ def exportar_patd_docx(request, pk):
             continue
 
         if element.name == 'p':
+            if element.find('embed'):
+                oficio_anexo = patd.anexos.filter(tipo='oficio_lancamento').first()
+                if oficio_anexo:
+                    append_anexo_to_docx(document, oficio_anexo)
+                continue
             is_empty_paragraph = not element.get_text(strip=True) and not element.find('img')
             
             # --- INÍCIO DA CORREÇÃO: Lógica de substituição para o documento de alegação ---

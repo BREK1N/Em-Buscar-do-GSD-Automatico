@@ -64,6 +64,9 @@ class AnaliseTransgressao(BaseModel):
     oficio_transgressao: str = Field(description="O número do documento/ofício de transgressão.")
     data_oficio: str = Field(description="A data de emissão do documento (AAAA-MM-DD).")
 
+    class Config:
+        extra = "forbid"
+
 
 # --- FUNÇÃO DE ANÁLISE (PROMPT REFINADO) ---
 def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
