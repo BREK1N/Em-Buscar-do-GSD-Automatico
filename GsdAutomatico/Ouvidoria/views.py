@@ -1105,14 +1105,26 @@ def index(request):
                 )
                 
                 # Anexar o ofício de lançamento que foi salvo temporariamente
-                filepath = request.session.get('oficio_lancamento_filepath')
-                if filepath and os.path.exists(filepath):
+                oficio_info = request.session.get('oficio_lancamento')
+                if oficio_info and 'path' in oficio_info and os.path.exists(oficio_info['path']):
+                    filepath = oficio_info['path']
                     with open(filepath, 'rb') as f:
                         django_file = File(f, name=os.path.basename(filepath))
                         Anexo.objects.create(patd=patd, arquivo=django_file, tipo='oficio_lancamento')
-                    os.remove(filepath)
-                    if 'oficio_lancamento_filepath' in request.session:
-                        del request.session['oficio_lancamento_filepath']
+
+                    # Decrementa o contador e verifica se o ficheiro pode ser removido
+                    oficio_info['count'] -= 1
+                    if oficio_info['count'] <= 0:
+                        try:
+                            os.remove(filepath)
+                            logger.info(f"Ficheiro temporário {filepath} removido após todas as associações.")
+                            if 'oficio_lancamento' in request.session:
+                                del request.session['oficio_lancamento']
+                        except OSError as e:
+                            logger.error(f"Erro ao remover ficheiro temporário {filepath}: {e}")
+                    else:
+                        # Se ainda não terminou, atualiza a sessão com o novo contador
+                        request.session['oficio_lancamento'] = oficio_info
 
                 return JsonResponse({
                     'status': 'success', 
@@ -1186,8 +1198,6 @@ def index(request):
                         temp_file.write(chunk)
                     temp_file_path = temp_file.name
                 
-                request.session['oficio_lancamento_filepath'] = temp_file_path
-
                 loader = PyPDFLoader(temp_file_path)
                 content = "\n\n".join(page.page_content for page in loader.load_and_split())
                 # Do not remove the temp file here: os.remove(temp_file_path)
@@ -1267,6 +1277,17 @@ def index(request):
                             'oficio_transgressao': oficio_transgressao_comum,
                             'data_oficio': data_oficio_str
                         })
+                
+                if militares_para_confirmacao:
+                    request.session['oficio_lancamento'] = {
+                        'path': temp_file_path,
+                        'count': len(militares_para_confirmacao)
+                    }
+                else:
+                    try:
+                        os.remove(temp_file_path)
+                    except OSError as e:
+                        logger.error(f"Erro ao remover ficheiro temporário {temp_file_path}: {e}")
 
                 response_data = {
                     'status': 'processed',
