@@ -100,7 +100,11 @@ def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
     * **Posto/Graduação:** (S1, S2, CB, 3S, etc).
 
     ### OUTROS CAMPOS:
-    * **Transgressão:** Descreva o fato (o que aconteceu) de forma detalhada.
+    * **Transgressão:** Descreva o fato (o que aconteceu) de forma MUITO detalhada. Seja específico e responda às seguintes perguntas no texto:
+        - O que exatamente o militar fez ou deixou de fazer?
+        - Qual era o contexto? (Ex: Estava de serviço? Em qual local específico? Durante qual evento ou missão?)
+        - Houve consequências diretas? (Ex: Dano a material, prejuízo ao serviço, desrespeito a um superior específico).
+        - Mencione TODOS os detalhes relevantes que ajudem a entender a gravidade e a natureza do ato.
     * **Data/Local/Ofício:** Extraia conforme disponível no texto.
     """
     
@@ -413,11 +417,11 @@ def reescrever_ocorrencia(transgressao: str):
 
     **Instruções:**
     1.  **Objetividade:** Remova qualquer linguagem informal, coloquial ou subjetiva.
-    2.  **Formalidade:** Utilize terminologia militar e jurídica apropriada.
-    3.  **Clareza e Concisão:** Seja direto e claro. O texto final não deve exceder 50 palavras.
-    4.  **Foco nos Fatos:** Descreva o ato transgressor sem adjetivos ou opiniões.
-    5. Fazer texto corrido sem introdução.
-    6. sem começar com letra maiscula 
+    2.  **Formalidade:** Utilize terminologia militar e jurídica apropriada, como "deixou de cumprir", "agiu em desacordo com".
+    3.  **Clareza e Riqueza de Detalhes:** Seja direto, claro e forneça o máximo de detalhes relevantes. O texto final não deve exceder 150 palavras.
+    4.  **Foco nos Fatos:** Descreva o ato transgressor sem adjetivos ou opiniões. Mantenha o foco no que aconteceu, como aconteceu e quais foram as consequências diretas.
+    5.  **Estrutura do Texto:** Comece o texto de forma que possa ser lido como uma continuação, sem introduções como "O militar..." ou "A transgressão foi...".
+    6.  **Formatação:** O texto deve ser corrido, em um único parágrafo, e começar com letra minúscula para ser facilmente integrado em outros documentos.
 
     **Descrição Original da Transgressão:**
     {transgressao}
