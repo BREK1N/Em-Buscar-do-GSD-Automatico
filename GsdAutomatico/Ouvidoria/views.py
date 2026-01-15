@@ -1140,9 +1140,10 @@ def index(request):
             transgressao = request.POST.get('transgressao', '')
             data_ocorrencia_str = request.POST.get('data_ocorrencia')
             oficio_transgressao = request.POST.get('oficio_transgressao', '')
+            oficio_lancamento_file = request.FILES.get('oficio_lancamento')
 
-            if not all([militar_id, transgressao, data_ocorrencia_str]):
-                return JsonResponse({'status': 'error', 'message': 'Militar, transgressão e data da ocorrência são obrigatórios.'}, status=400)
+            if not all([militar_id, transgressao, data_ocorrencia_str, oficio_lancamento_file]):
+                return JsonResponse({'status': 'error', 'message': 'Militar, transgressão, data da ocorrência e ofício de lançamento são obrigatórios.'}, status=400)
             
             militar = get_object_or_404(Efetivo, pk=militar_id)
 
@@ -1175,6 +1176,12 @@ def index(request):
                     numero_patd=get_next_patd_number(),
                     data_ocorrencia=data_ocorrencia,
                     oficio_transgressao=oficio_transgressao,
+                )
+
+                Anexo.objects.create(
+                    patd=patd,
+                    arquivo=oficio_lancamento_file,
+                    tipo='oficio_lancamento'
                 )
                 
                 return JsonResponse({
