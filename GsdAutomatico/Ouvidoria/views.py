@@ -69,6 +69,9 @@ from docx.shared import Cm, Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
 from bs4 import BeautifulSoup, NavigableString
 import traceback # Importar traceback para log detalhado
+import fitz  # PyMuPDF
+import uuid
+from django.contrib.staticfiles import finders
 
 
 
@@ -654,7 +657,7 @@ def get_document_pages(patd):
         
         # SÓ adiciona a página de anexo se houver anexos de defesa
         if patd.anexos.filter(tipo='defesa').exists():
-            document_pages_raw.append("{ANEXOS_DEFESA_PLACEHOLDER}")
+            document_pages_raw.append("<p>{ANEXOS_DEFESA_PLACEHOLDER}</p>")
 
     # 3. Termo de Preclusão
     status_preclusao_e_posteriores = [
@@ -715,14 +718,14 @@ def get_document_pages(patd):
          document_pages_raw.append(html_content)
          
          if patd.anexos.filter(tipo='reconsideracao').exists():
-             document_pages_raw.append("{ANEXOS_RECONSIDERACAO_PLACEHOLDER}")
+             document_pages_raw.append("<p>{ANEXOS_RECONSIDERACAO_PLACEHOLDER}</p>")
 
     # 7. Anexos da reconsideração oficial
     status_anexo_reconsideracao_oficial = ['aguardando_publicacao', 'finalizado']
     if patd.status in status_anexo_reconsideracao_oficial:
         # SÓ adiciona a página de anexo se houver anexos de reconsideração oficial
         if patd.anexos.filter(tipo='reconsideracao_oficial').exists():
-            document_pages_raw.append("{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}")
+            document_pages_raw.append("<p>{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}</p>")
 
     # --- INÍCIO DA LÓGICA DE DUAS PASSAGENS ---
     # 1. Primeira Passagem: Contar páginas físicas
@@ -2805,25 +2808,34 @@ def append_anexo_to_docx(document, anexo):
             run.add_picture(file_path, width=Inches(6))
         
         elif ext == '.docx':
-            # Adiciona o texto do DOCX, parágrafo por parágrafo
+            # Anexa o conteúdo do DOCX, preservando a formatação
             sub_doc = docx.Document(file_path)
-            for para in sub_doc.paragraphs:
-                document.add_paragraph(para.text)
+            for element in sub_doc.element.body:
+                document.element.body.append(element)
         
         elif ext == '.pdf':
-            # Extrai texto do PDF e adiciona, tentando preservar quebras de linha
             try:
-                loader = PyPDFLoader(file_path)
-                pages = loader.load() # Use load() para obter uma lista de Documentos LangChain
-                
-                for page in pages:
-                    lines = page.page_content.split('\n')
-                    for line in lines:
-                        document.add_paragraph(line)
+                pdf_doc = fitz.open(file_path)
+                for page_num in range(len(pdf_doc)):
+                    page = pdf_doc.load_page(page_num)
+                    
+                    # Renderiza a página para um pixmap (imagem) com alta qualidade
+                    pix = page.get_pixmap(dpi=300)
+                    img_bytes = pix.tobytes("png")
+                    
+                    img_stream = io.BytesIO(img_bytes)
+
+                    # Adiciona a imagem ao docx, com uma largura que se ajuste à página
+                    document.add_picture(img_stream, width=Inches(6.5))
+                    
+                    # Adiciona quebra de página entre as páginas do PDF
+                    if page_num < len(pdf_doc) - 1:
+                        document.add_page_break()
+
             except Exception as e:
-                logger.error(f"Erro ao ler PDF do anexo {file_name}: {e}")
-                document.add_paragraph(f"[Erro ao extrair texto do PDF '{file_name}'. O ficheiro pode estar corrompido ou ser uma imagem.]")
-        
+                logger.error(f"Erro ao converter PDF para imagem {file_name}: {e}")
+                document.add_paragraph(f"[Erro ao processar o anexo PDF '{file_name}' como imagem. O ficheiro pode estar corrompido ou ter um formato não suportado.]")
+
         else:
             # Tipo de ficheiro não suportado para embutir
             document.add_paragraph(f"[Conteúdo do anexo '{file_name}' (tipo: {ext}) não suportado para inclusão direta no DOCX.]")
@@ -2928,241 +2940,574 @@ def _append_alegacao_docx(document, patd, context):
 
 
 @login_required
+
+
 @ouvidoria_required
+
+
 def exportar_patd_docx(request, pk):
+
+
     """
+
+
     Gera e serve um ficheiro DOCX a partir do conteúdo HTML da PATD,
+
+
     incluindo imagens, formatação correta E ANEXOS.
+
+
     """
+
+
     patd = get_object_or_404(PATD, pk=pk)
+
+
     context = _get_document_context(patd)
+
+
     config = Configuracao.load()
+
+
     comandante_gsd = config.comandante_gsd
+
+
+
+
 
     document = Document()
 
+
+
+
+
     # --- INÍCIO DA MODIFICAÇÃO: Adicionar proteção contra edição ---
+
+
     from docx.oxml.ns import qn
+
+
     from docx.oxml import OxmlElement
 
+
+
+
+
     # Obtém o elemento <w:settings> do documento
+
+
     doc_settings = document.settings.element
+
+
     # Cria o elemento <w:documentProtection> para tornar o documento somente leitura
+
+
     protection = OxmlElement('w:documentProtection')
+
+
     protection.set(qn('w:edit'), 'readOnly')
+
+
     doc_settings.append(protection)
+
+
     # --- FIM DA MODIFICAÇÃO ---
 
+
+
+
+
     style = document.styles['Normal']
+
+
     font = style.font
+
+
     font.name = 'Times New Roman'
+
+
     font.size = Pt(12)
 
+
+
+
+
     section = document.sections[0]
+
+
     section.top_margin = Cm(1.5)
+
+
     section.bottom_margin = Cm(2.54)
+
+
     section.left_margin = Cm(2.15)
+
+
     section.right_margin = Cm(2.5)
+
+
     section.gutter = Cm(0)
 
+
+
+
+
     # Adiciona o número da página no rodapé
+
+
     add_page_number(section.footer.paragraphs[0])
+
+
     
+
+
     full_html_content = "".join(get_document_pages(patd))
 
+
+
+
+
     anexos_defesa = patd.anexos.filter(tipo='defesa')
+
+
     anexos_reconsideracao = patd.anexos.filter(tipo='reconsideracao')
+
+
     anexos_reconsideracao_oficial = patd.anexos.filter(tipo='reconsideracao_oficial')
+
+
+
+
 
     soup = BeautifulSoup(full_html_content, 'html.parser')
 
+
+
+
+
     militar_sig_counter = 0
-    # A lógica de processamento de anexos foi movida para dentro do loop principal
-    # para garantir que eles sejam adicionados na ordem correta.
-    was_last_p_empty = False # Variável de estado para controlar parágrafos vazios
+
+
+    was_last_p_empty = False
+
+
     placeholder_regex = re.compile(r'({[^}]+})')
 
-    # Itera diretamente sobre o objeto soup. Se soup.body existir, usa seus filhos,
-    # caso contrário, itera sobre os elementos de nível superior do soup.
-    # Isso evita o erro 'NoneType' object has no attribute 'children'.
-    for element in (soup.body.children if soup.body else soup.children):
-        if isinstance(element, NavigableString):
-            text = str(element).strip()
-            if "{ANEXOS_DEFESA_PLACEHOLDER}" in text and anexos_defesa.exists():
-                for anexo in anexos_defesa:
-                    append_anexo_to_docx(document, anexo)
-            if "{ANEXOS_RECONSIDERACAO_PLACEHOLDER}" in text and anexos_reconsideracao.exists():
-                for anexo in anexos_reconsideracao:
-                    append_anexo_to_docx(document, anexo)
-            if "{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}" in text and anexos_reconsideracao_oficial.exists():
-                for anexo in anexos_reconsideracao_oficial:
-                    append_anexo_to_docx(document, anexo)
-            continue
-    # --- FIM DA CORREÇÃO ---
 
-        if not hasattr(element, 'name'):
-            continue
+
+
+
+    for element in soup.find_all(['p', 'div']):
+
 
         if element.name == 'div' and 'manual-page-break' in element.get('class', []):
+
+
             document.add_page_break()
-            was_last_p_empty = False # Reseta o estado na quebra de página
+
+
+            was_last_p_empty = False
+
+
             continue
 
+
+
+
+
         if element.name == 'p':
-            if element.find('embed'):
-                oficio_anexo = patd.anexos.filter(tipo='oficio_lancamento').first()
-                if oficio_anexo:
-                    append_anexo_to_docx(document, oficio_anexo)
+
+
+            text_content_for_check = element.get_text().strip()
+
+
+
+
+
+            # Lida com placeholders de anexo
+
+
+            if "{ANEXOS_DEFESA_PLACEHOLDER}" in text_content_for_check and anexos_defesa.exists():
+
+
+                for anexo in anexos_defesa:
+
+
+                    append_anexo_to_docx(document, anexo)
+
+
                 continue
-            is_empty_paragraph = not element.get_text(strip=True) and not element.find('img')
+
+
+            if "{ANEXOS_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao.exists():
+
+
+                for anexo in anexos_reconsideracao:
+
+
+                    append_anexo_to_docx(document, anexo)
+
+
+                continue
+
+
+            if "{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao_oficial.exists():
+
+
+                for anexo in anexos_reconsideracao_oficial:
+
+
+                    append_anexo_to_docx(document, anexo)
+
+
+                continue
+
+
+
+
+
+            embed_tag = element.find('embed')
+
+
+            if embed_tag:
+
+
+                embed_src = embed_tag.get('src')
+
+
+                if embed_src:
+
+
+                    # Encontra o anexo que corresponde a este src
+
+
+                    anexo_to_append = None
+
+
+                    # Percorre os anexos relevantes para encontrar a correspondência
+
+
+                    for anexo in patd.anexos.filter(tipo__in=['oficio_lancamento', 'ficha_individual']):
+
+
+                        if anexo.arquivo.url == embed_src:
+
+
+                            anexo_to_append = anexo
+
+
+                            break
+
+
+                    
+
+
+                    if anexo_to_append:
+
+
+                        append_anexo_to_docx(document, anexo_to_append)
+
+
+                continue
+
+
+
+
+
+            is_empty_paragraph = not text_content_for_check and not element.find('img')
+
+
             
-            # --- INÍCIO DA CORREÇÃO: Lógica de substituição para o documento de alegação ---
-            if "ALEGAÇÃO DE DEFESA" in element.get_text() and "Do Acusado:" in element.get_text():
-                _append_alegacao_docx(document, patd, context)
-                continue # Pula para o próximo elemento
-            # --- FIM DA CORREÇÃO ---
+
 
             if is_empty_paragraph:
+
+
                 if not was_last_p_empty:
-                    # Adiciona um parágrafo vazio apenas se o anterior não era vazio
+
+
                     p = document.add_paragraph()
+
+
                     p.paragraph_format.space_before = Pt(0)
+
+
                     p.paragraph_format.space_after = Pt(0)
+
+
                     was_last_p_empty = True
-                # Se o anterior já era vazio, simplesmente ignora este, evitando linhas duplas
+
+
                 continue
+
+
             else:
-                # Se o parágrafo atual tem conteúdo, reseta o estado
+
+
                 was_last_p_empty = False
+
+
+
+
 
             p = document.add_paragraph()
 
+
             p_format = p.paragraph_format
-            p_format.left_indent = Inches(0)
-            p_format.first_line_indent = Inches(0)
+
+
             p_format.line_spacing_rule = WD_LINE_SPACING.SINGLE
+
+
             p_format.space_before = Pt(0)
+
+
             p_format.space_after = Pt(0)
 
-            # --- INÍCIO DA MODIFICAÇÃO: Controle de Alinhamento ---
-            # Verifica se o parágrafo contém placeholders de assinatura ou é curto
-            text_for_check = element.get_text().strip()
-            is_signature_line = any(sig_placeholder in text_for_check for sig_placeholder in ['{Assinatura', '[LOCAL DA ASSINATURA/AÇÃO]'])
-            is_short_line = len(text_for_check) < 80 # Heurística para linha curta
+
+            
+
+
+            is_signature_line = any(sig_placeholder in text_content_for_check for sig_placeholder in ['{Assinatura', '[LOCAL DA ASSINATURA/AÇÃO]'])
+
+
+            is_short_line = len(text_content_for_check) < 80
+
+
+
+
 
             if element.has_attr('style'):
+
+
                 if 'text-align: center' in element['style']:
+
+
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+
                 elif 'text-align: right' in element['style']:
+
+
                     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
+
+
                 elif 'text-align: justify' in element['style'] and not is_signature_line and not is_short_line:
+
+
                     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-            # --- FIM DA MODIFICAÇÃO ---
+
+
+
+
+
             for content in element.contents:
+
+
                 if isinstance(content, NavigableString):
+
+
                     text_content = str(content)
+
 
                     parts = placeholder_regex.split(text_content)
 
+
                     for part in parts:
+
+
                         if not part: continue
 
+
                         is_image_placeholder = False
+
+
                         if placeholder_regex.match(part):
+
+
                             placeholder = part.strip()
+
+
                             try:
+
+
                                 if placeholder == '{Assinatura_Imagem_Comandante_GSD}' and comandante_gsd and comandante_gsd.assinatura:
+
+
                                     _, img_str = comandante_gsd.assinatura.split(';base64,')
+
+
                                     p.add_run().add_picture(io.BytesIO(base64.b64decode(img_str)), height=Cm(1.5))
+
+
                                     is_image_placeholder = True
+
 
                                 elif placeholder == '{Assinatura_Imagem_Oficial_Apurador}' and patd.assinatura_oficial and patd.assinatura_oficial.path and os.path.exists(patd.assinatura_oficial.path):
+
+
                                     p.add_run().add_picture(patd.assinatura_oficial.path, height=Cm(1.5))
+
+
                                     is_image_placeholder = True
+
 
                                 elif placeholder == '{Assinatura_Imagem_Testemunha_1}' and patd.assinatura_testemunha1 and patd.assinatura_testemunha1.path and os.path.exists(patd.assinatura_testemunha1.path):
+
+
                                     p.add_run().add_picture(patd.assinatura_testemunha1.path, height=Cm(1.5))
+
+
                                     is_image_placeholder = True
+
 
                                 elif placeholder == '{Assinatura_Imagem_Testemunha_2}' and patd.assinatura_testemunha2 and patd.assinatura_testemunha2.path and os.path.exists(patd.assinatura_testemunha2.path):
+
+
                                     p.add_run().add_picture(patd.assinatura_testemunha2.path, height=Cm(1.5))
+
+
                                     is_image_placeholder = True
 
+
                                 elif placeholder == '{Assinatura Militar Arrolado}':
+
+
                                     assinaturas_arrolado = patd.assinaturas_militar or []
+
+
                                     if militar_sig_counter < len(assinaturas_arrolado) and assinaturas_arrolado[militar_sig_counter]:
+
+
                                         anexo_url = assinaturas_arrolado[militar_sig_counter]
-                                        # Assume que a URL é relativa à MEDIA_URL
+
+
                                         anexo_path = os.path.join(settings.MEDIA_ROOT, anexo_url.replace(settings.MEDIA_URL, '', 1))
+
+
                                         if os.path.exists(anexo_path):
+
+
                                             p.add_run().add_picture(anexo_path, height=Cm(1.5))
+
+
                                         militar_sig_counter += 1
+
+
                                         is_image_placeholder = True
+
+
                                     else:
-                                         # Se não houver assinatura ou for None, incrementa o contador mesmo assim
+
+
                                           militar_sig_counter += 1
-                                
+
+
                                 elif placeholder == '{Assinatura Alegacao Defesa}' and patd.assinatura_alegacao_defesa and patd.assinatura_alegacao_defesa.path and os.path.exists(patd.assinatura_alegacao_defesa.path):
+
+
                                      p.add_run().add_picture(patd.assinatura_alegacao_defesa.path, height=Cm(1.5))
+
+
                                      is_image_placeholder = True
+
 
                                 elif placeholder == '{Assinatura Reconsideracao}' and patd.assinatura_reconsideracao and patd.assinatura_reconsideracao.path and os.path.exists(patd.assinatura_reconsideracao.path):
+
+
                                      p.add_run().add_picture(patd.assinatura_reconsideracao.path, height=Cm(1.5))
+
+
                                      is_image_placeholder = True
 
-                                elif placeholder == '{Brasao da Republica}':
-                                    img_path = os.path.join(settings.BASE_DIR, 'Static', 'img', 'brasao.png')
-                                    if os.path.exists(img_path):
-                                        # --- INÍCIO DA CORREÇÃO: Renderização do Brasão ---
-                                        # Cria um parágrafo dedicado para a imagem, garantindo centralização.
-                                        # Isso evita conflitos com o parágrafo atual (p).
-                                        p_img = document.add_paragraph()
-                                        p_img.alignment = WD_ALIGN_PARAGRAPH.CENTER
-                                        p_img.add_run().add_picture(img_path, width=Cm(3))
-                                        is_image_placeholder = True
-                                        # --- FIM DA CORREÇÃO ---
-                                
+
                                 elif placeholder in ['{Botao Assinar Oficial}', '{Botao Assinar Testemunha 1}', '{Botao Assinar Testemunha 2}', '{Botao Adicionar Alegacao}', '{Botao Adicionar Reconsideracao}', '{Botao Definir Nova Punicao}', '{Botao Assinar Defesa}', '{Botao Assinar Reconsideracao}']:
-                                    is_image_placeholder = True # Trata como "imagem" para não imprimir o texto
-                                    p.add_run("[LOCAL DA ASSINATURA/AÇÃO]") # Adiciona um texto genérico
+
+
+                                    is_image_placeholder = True
+
+
+                                    p.add_run("[LOCAL DA ASSINATURA/AÇÃO]")
 
 
                             except Exception as e:
+
+
                                 logger.error(f"Error processing image placeholder {placeholder}: {e}")
+
+
                                 p.add_run(f"[{placeholder} - ERRO AO PROCESSAR]")
-                                is_image_placeholder = False # Não adiciona texto se era para ser imagem
+
+
+                                is_image_placeholder = False
+
 
                         if not is_image_placeholder:
+
+
                             sub_parts = re.split(r'(\*\*.*?\*\*)', part)
+
+
                             for sub_part in sub_parts:
+
+
                                 if sub_part.startswith('**') and sub_part.endswith('**'):
+
+
                                     p.add_run(sub_part.strip('*')).bold = True
+
+
                                 else:
+
+
                                     p.add_run(sub_part)
 
-                # --- INÍCIO DA CORREÇÃO: Processamento da tag <img> do brasão ---
-                # Esta lógica agora procura pela tag <img> que foi gerada pelo placeholder.
+
                 elif content.name == 'img' and 'brasao.png' in content.get('src', ''):
-                    img_path = os.path.join(settings.BASE_DIR, 'Static', 'img', 'brasao.png')
-                    if os.path.exists(img_path):
-                        # Adiciona a imagem ao parágrafo atual e o centraliza.
-                        # Isso garante que o brasão seja renderizado no parágrafo correto.
+
+
+                    img_path = finders.find('img/brasao.png')
+
+
+                    if img_path and os.path.exists(img_path):
+
+
                         p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+
+
                         p.add_run().add_picture(img_path, width=Cm(3))
-                        was_last_p_empty = False # Garante que o parágrafo com imagem não seja considerado vazio.
-                # --- FIM DA CORREÇÃO ---
+
+
+                        was_last_p_empty = False
+
 
                 elif content.name == 'strong':
+
+
                     p.add_run(content.get_text()).bold = True
-                
-                # --- INÍCIO DA CORREÇÃO: Processar <br> para quebras de linha ---
+
+
                 elif content.name == 'br':
+
+
                     p.add_run().add_break()
-                # --- FIM DA CORREÇÃO ---
+
+
         
+
+
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+
+
     response['Content-Disposition'] = f'attachment; filename=PATD_{patd.numero_patd}.docx'
+
+
     document.save(response)
+
+
+
+
 
     return response
 
