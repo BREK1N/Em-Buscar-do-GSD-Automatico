@@ -480,7 +480,7 @@ def _get_document_context(patd):
         '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if oficial_definido else " ",
         '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', 'N/A')) if oficial_definido else " ",
         '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', 'N/A') if oficial_definido else " ",
-        '{Assinatura Oficial Apurador}': '{Assinatura_Imagem_Oficial_Apurador}' if oficial_definido and patd.assinatura_oficial else (' ' if not oficial_definido else '{Botao Assinar Oficial}'),
+        '{Assinatura Oficial Apurador}': '{Assinatura_Imagem_Oficial_Apurador}' if oficial_definido and patd.oficial_responsavel and patd.oficial_responsavel.assinatura else (' ' if not oficial_definido else '{Botao Assinar Oficial}'),
 
         # Dados do Comandante
         '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
@@ -540,8 +540,8 @@ def _get_document_context(patd):
 
     # Adiciona os dados das assinaturas AO CONTEXTO APENAS SE APLICÁVEL
     # Assinatura do Oficial Apurador
-    if oficial_definido and patd.assinatura_oficial:
-        context['assinatura_oficial_data'] = patd.assinatura_oficial.url # Usar URL se for FileField
+    if oficial_definido and patd.oficial_responsavel and patd.oficial_responsavel.assinatura:
+        context['assinatura_oficial_data'] = patd.oficial_responsavel.assinatura
 
     # Assinatura do Comandante - SÓ ADICIONA SE A PATD JÁ FOI APROVADA
     status_aprovados_e_posteriores = [
@@ -909,24 +909,6 @@ def aceitar_atribuicao(request, pk):
                 patd.status = 'ciencia_militar'
                 status_definido = True
             # --- FIM DA LÓGICA DE STATUS ---
-
-            # Lógica para copiar assinatura padrão do oficial (existente)
-            if patd.oficial_responsavel and patd.oficial_responsavel.assinatura:
-                signature_data_base64 = patd.oficial_responsavel.assinatura
-                try:
-                    format, imgstr = signature_data_base64.split(';base64,')
-                    ext = format.split('/')[-1]
-                    file_content = ContentFile(base64.b64decode(imgstr), name=f'sig_oficial_{patd.pk}.{ext}')
-
-                    if patd.assinatura_oficial:
-                        patd.assinatura_oficial.delete(save=False)
-
-                    patd.assinatura_oficial.save(file_content.name, file_content, save=False) # save=False aqui
-                except Exception as e:
-                    logger.error(f"Erro ao converter assinatura padrão do oficial para a PATD {pk}: {e}")
-                    messages.error(request, "Erro ao processar a assinatura padrão do oficial.")
-                    # Não salva a PATD e redireciona
-                    return redirect('Ouvidoria:patd_atribuicoes_pendentes')
 
             # --- NOVA VERIFICAÇÃO DE ASSINATURAS DE CIÊNCIA ---
             if patd.status == 'ciencia_militar':
