@@ -33,7 +33,18 @@
     <table class="data-table">
         <thead>
             <tr>
-                <th>N° PATD</th>
+                <th>
+                    <a href="?sort={{ numero_patd_next_sort }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">
+                        N° PATD
+                        {% if 'numero_patd' in current_sort %}
+                            {% if current_sort == 'numero_patd' %}
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-arrow-up" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="18" y1="11" x2="12" y2="5" /><line x1="6" y1="11" x2="12" y2="5" /></svg>
+                            {% else %}
+                                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-arrow-down" width="16" height="16" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round"><path stroke="none" d="M0 0h24v24H0z" fill="none"/><line x1="12" y1="5" x2="12" y2="19" /><line x1="18" y1="13" x2="12" y2="19" /><line x1="6" y1="13" x2="12" y2="19" /></svg>
+                            {% endif %}
+                        {% endif %}
+                    </a>
+                </th>
                 <th>Militar Acusado</th>
                 <th>Data da Ocorrência</th>
                 <th>Status</th>

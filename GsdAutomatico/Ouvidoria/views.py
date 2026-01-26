@@ -1404,7 +1404,13 @@ class PATDListView(ListView):
         query = self.request.GET.get('q')
         status_filter = self.request.GET.get('status')
 
-        qs = super().get_queryset().exclude(status='finalizado').select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
+        # --- Sorting Logic ---
+        sort_by = self.request.GET.get('sort', '-numero_patd') # Default sort by PATD number descending
+        valid_sort_fields = ['numero_patd', '-numero_patd', 'data_inicio', '-data_inicio']
+        if sort_by not in valid_sort_fields:
+            sort_by = '-numero_patd' # Fallback to default if invalid sort is provided
+
+        qs = super().get_queryset().exclude(status='finalizado').select_related('militar', 'oficial_responsavel').order_by(sort_by)
 
         # --- Rank-based security ---
         user = self.request.user
@@ -1441,6 +1447,17 @@ class PATDListView(ListView):
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
         context['status_groups'] = STATUS_GROUPS
         context['current_status'] = self.request.GET.get('status', '')
+
+        # --- Sorting Context ---
+        sort = self.request.GET.get('sort', '-numero_patd')
+        context['current_sort'] = sort
+        
+        # Determine the next sort direction for the 'numero_patd' column
+        if sort == 'numero_patd':
+            context['numero_patd_next_sort'] = '-numero_patd'
+        else: # Covers '-numero_patd' and any other default
+            context['numero_patd_next_sort'] = 'numero_patd'
+            
         return context
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
