@@ -106,6 +106,13 @@ def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
         - Houve consequências diretas? (Ex: Dano a material, prejuízo ao serviço, desrespeito a um superior específico).
         - Mencione TODOS os detalhes relevantes que ajudem a entender a gravidade e a natureza do ato.
     * **Data/Local/Ofício:** Extraia conforme disponível no texto.
+
+    ### REGRAS PARA EXTRAÇÃO DE DATA (MUITO IMPORTANTE):
+    1.  **Formato Final:** A `data_ocorrencia` e a `data_oficio` devem SEMPRE ser retornadas no formato **AAAA-MM-DD**.
+    2.  **Datas por Extenso:** Se a data estiver escrita por extenso (ex: "vinte e dois de abril de dois mil e vinte e cinco"), converta-a para o formato numérico AAAA-MM-DD (ex: "2025-04-22").
+    3.  **Intervalo de Datas:** Se a ocorrência aconteceu durante um período (ex: "do dia 22 para o dia 23 de abril", "entre 10 e 12 de maio"), extraia e retorne **APENAS O PRIMEIRO DIA** do intervalo. Para "do dia 22 para o dia 23", use o dia 22.
+    4.  **Data Incompleta:** Se o ano não for mencionado, assuma o ano corrente. Se o mês não for mencionado, tente inferir pelo contexto. Se impossível, deixe a data em branco.
+    5.  **Prioridade:** Dê prioridade para datas que estão claramente associadas ao fato ocorrido, em vez de datas de relatórios ou assinaturas.
     """
     
     human_prompt = "Analise este documento militar e extraia os dados dos acusados:\n\n{documento}"
