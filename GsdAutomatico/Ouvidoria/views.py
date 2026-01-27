@@ -657,6 +657,7 @@ def get_document_pages(patd):
         
         # SÓ adiciona a página de anexo se houver anexos de defesa
         if patd.anexos.filter(tipo='defesa').exists():
+            document_pages_raw.append('<div class="manual-page-break"></div>')
             document_pages_raw.append("<p>{ANEXOS_DEFESA_PLACEHOLDER}</p>")
 
     # 3. Termo de Preclusão
@@ -718,6 +719,7 @@ def get_document_pages(patd):
          document_pages_raw.append(html_content)
          
          if patd.anexos.filter(tipo='reconsideracao').exists():
+             document_pages_raw.append('<div class="manual-page-break"></div>')
              document_pages_raw.append("<p>{ANEXOS_RECONSIDERACAO_PLACEHOLDER}</p>")
 
     # 7. Anexos da reconsideração oficial
@@ -725,6 +727,7 @@ def get_document_pages(patd):
     if patd.status in status_anexo_reconsideracao_oficial:
         # SÓ adiciona a página de anexo se houver anexos de reconsideração oficial
         if patd.anexos.filter(tipo='reconsideracao_oficial').exists():
+            document_pages_raw.append('<div class="manual-page-break"></div>')
             document_pages_raw.append("<p>{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}</p>")
 
     # --- INÍCIO DA LÓGICA DE DUAS PASSAGENS ---
@@ -2785,17 +2788,14 @@ def salvar_nova_punicao(request, pk):
 
 # --- INÍCIO DA MODIFICAÇÃO: exportar_patd_docx ---
 
-def append_anexo_to_docx(document, anexo):
+def _append_anexo_content(document, anexo):
     """
-    Função auxiliar para adicionar um anexo (PDF, DOCX, Imagem) a um
-    documento docx existente.
+    Função auxiliar para adicionar o conteúdo de um anexo (PDF, DOCX, Imagem)
+    a um documento docx existente, sem adicionar uma quebra de página inicial.
     """
     file_path = anexo.arquivo.path
     file_name = os.path.basename(file_path)
     ext = os.path.splitext(file_name)[1].lower()
-
-    # Adiciona uma quebra de página antes de cada anexo para separação
-    document.add_page_break()
     
     try:
         if not os.path.exists(file_path):
@@ -2804,8 +2804,7 @@ def append_anexo_to_docx(document, anexo):
 
         if ext in ['.png', '.jpg', '.jpeg']:
             # Adiciona imagem, mantendo a proporção com largura máxima de 6 polegadas
-            run = document.add_paragraph().add_run()
-            run.add_picture(file_path, width=Inches(6))
+            document.add_picture(file_path, width=Inches(6.5))
         
         elif ext == '.docx':
             # Anexa o conteúdo do DOCX, preservando a formatação
@@ -2816,11 +2815,9 @@ def append_anexo_to_docx(document, anexo):
         elif ext == '.pdf':
             try:
                 pdf_doc = fitz.open(file_path)
-                for page_num in range(len(pdf_doc)):
-                    page = pdf_doc.load_page(page_num)
-                    
+                for page_num, page in enumerate(pdf_doc):
                     # Renderiza a página para um pixmap (imagem) com alta qualidade
-                    pix = page.get_pixmap(dpi=300)
+                    pix = page.get_pixmap(dpi=200) # DPI ajustado para equilíbrio de qualidade/tamanho
                     img_bytes = pix.tobytes("png")
                     
                     img_stream = io.BytesIO(img_bytes)
@@ -3131,10 +3128,16 @@ def exportar_patd_docx(request, pk):
             if "{ANEXOS_DEFESA_PLACEHOLDER}" in text_content_for_check and anexos_defesa.exists():
 
 
-                for anexo in anexos_defesa:
+                for i, anexo in enumerate(anexos_defesa):
 
 
-                    append_anexo_to_docx(document, anexo)
+                    if i > 0:
+
+
+                        document.add_page_break()
+
+
+                    _append_anexo_content(document, anexo)
 
 
                 continue
@@ -3143,10 +3146,16 @@ def exportar_patd_docx(request, pk):
             if "{ANEXOS_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao.exists():
 
 
-                for anexo in anexos_reconsideracao:
+                for i, anexo in enumerate(anexos_reconsideracao):
 
 
-                    append_anexo_to_docx(document, anexo)
+                    if i > 0:
+
+
+                        document.add_page_break()
+
+
+                    _append_anexo_content(document, anexo)
 
 
                 continue
@@ -3155,10 +3164,16 @@ def exportar_patd_docx(request, pk):
             if "{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao_oficial.exists():
 
 
-                for anexo in anexos_reconsideracao_oficial:
+                for i, anexo in enumerate(anexos_reconsideracao_oficial):
 
 
-                    append_anexo_to_docx(document, anexo)
+                    if i > 0:
+
+
+                        document.add_page_break()
+
+
+                    _append_anexo_content(document, anexo)
 
 
                 continue
@@ -3206,7 +3221,7 @@ def exportar_patd_docx(request, pk):
                     if anexo_to_append:
 
 
-                        append_anexo_to_docx(document, anexo_to_append)
+                        _append_anexo_content(document, anexo_to_append)
 
 
                 continue
