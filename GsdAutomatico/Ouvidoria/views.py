@@ -391,7 +391,7 @@ def buscar_militar_inteligente(acusado_ia):
 # Otimização da Geração de Documentos
 # =============================================================================
 
-def _get_document_context(patd):
+def _get_document_context(patd, for_docx=False):
     """
     Função centralizada para coletar e formatar todos os dados
     necessários para qualquer documento.
@@ -404,10 +404,60 @@ def _get_document_context(patd):
     # Formatações de Data
     data_inicio = patd.data_inicio
     data_patd_fmt = data_inicio.strftime('%d%m%Y')
-    data_ocorrencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ocorrencia" value="{patd.data_ocorrencia.strftime("%Y-%m-%d") if patd.data_ocorrencia else ""}">'
-    data_oficio_fmt = f'<input type="date" class="editable-date" data-date-field="data_oficio" value="{patd.data_oficio.strftime("%Y-%m-%d") if patd.data_oficio else ""}">'
-    data_ciencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ciencia" value="{patd.data_ciencia.strftime("%Y-%m-%d") if patd.data_ciencia else ""}">'
-    data_alegacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_alegacao" value="{patd.data_alegacao.strftime("%Y-%m-%d") if patd.data_alegacao else ""}">'
+    
+    if for_docx:
+        # Tenta definir o local, mas tem um fallback robusto se falhar.
+        try:
+            locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
+        except locale.Error:
+            try:
+                locale.setlocale(locale.LC_TIME, 'Portuguese_Brazil.1252')
+            except locale.Error:
+                logger.warning("Locales for Portuguese not found. Using manual month name conversion.")
+
+        data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else ""
+        data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else ""
+        data_ciencia_fmt = patd.data_ciencia.strftime('%d/%m/%Y') if patd.data_ciencia else ""
+        data_alegacao_fmt = patd.data_alegacao.strftime('%d/%m/%Y') if patd.data_alegacao else ""
+        data_publicacao_fmt = patd.data_publicacao_punicao.strftime('%d/%m/%Y') if patd.data_publicacao_punicao else ""
+        data_reconsideracao_fmt = patd.data_reconsideracao.strftime('%d/%m/%Y') if patd.data_reconsideracao else ""
+        dia_fmt = str(data_inicio.day)
+        
+        # --- INÍCIO DA MODIFICAÇÃO: Fallback manual para nomes de meses ---
+        meses_em_portugues = {
+            1: 'janeiro', 2: 'fevereiro', 3: 'março', 4: 'abril',
+            5: 'maio', 6: 'junho', 7: 'julho', 8: 'agosto',
+            9: 'setembro', 10: 'outubro', 11: 'novembro', 12: 'dezembro'
+        }
+        # Tenta usar o locale primeiro, se falhar, usa o dicionário
+        try:
+            mes_fmt = data_inicio.strftime('%B')
+            # Se o resultado for em inglês, o locale falhou, então usamos o fallback
+            if mes_fmt.lower() in ['january', 'february', 'march', 'april', 'may', 'june', 'july', 'august', 'september', 'october', 'november', 'december']:
+                 mes_fmt = meses_em_portugues.get(data_inicio.month, '')
+        except:
+            mes_fmt = meses_em_portugues.get(data_inicio.month, '')
+        # --- FIM DA MODIFICAÇÃO ---
+
+        ano_fmt = str(data_inicio.year)
+    else:
+        data_ocorrencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ocorrencia" value="{patd.data_ocorrencia.strftime("%Y-%m-%d") if patd.data_ocorrencia else ""}">'
+        data_oficio_fmt = f'<input type="date" class="editable-date" data-date-field="data_oficio" value="{patd.data_oficio.strftime("%Y-%m-%d") if patd.data_oficio else ""}">'
+        data_ciencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ciencia" value="{patd.data_ciencia.strftime("%Y-%m-%d") if patd.data_ciencia else ""}">'
+        data_alegacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_alegacao" value="{patd.data_alegacao.strftime("%Y-%m-%d") if patd.data_alegacao else ""}">'
+        data_publicacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_publicacao_punicao" value="{patd.data_publicacao_punicao.strftime("%Y-%m-%d") if patd.data_publicacao_punicao else ""}">'
+        data_reconsideracao_fmt = f'<input type="date" class="editable-date" data-date-field="data_reconsideracao" value="{patd.data_reconsideracao.strftime("%Y-%m-%d") if patd.data_reconsideracao else ""}">'
+        
+        meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+        mes_select_html = f'<select class="editable-date-part" data-date-field="data_inicio" data-date-part="month">'
+        for i, nome_mes in enumerate(meses):
+            selected = 'selected' if data_inicio.month == i + 1 else ''
+            mes_select_html += f'<option value="{i+1}" {selected}>{nome_mes}</option>'
+        mes_select_html += '</select>'
+        
+        dia_fmt = f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="day" value="{data_inicio.day}" min="1" max="31">'
+        mes_fmt = mes_select_html
+        ano_fmt = f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="year" value="{data_inicio.year}" min="2000" max="2100">'
 
     # Formatação de Itens Enquadrados e Circunstâncias
     itens_enquadrados_str = ", ".join([str(item.get('numero', '')) for item in patd.itens_enquadrados]) if patd.itens_enquadrados else ""
@@ -434,18 +484,8 @@ def _get_document_context(patd):
         deadline = data_final + timedelta(minutes=config.prazo_defesa_minutos)
         deadline_str = deadline.strftime('%d/%m/%Y às %H:%M')
 
-    data_publicacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_publicacao_punicao" value="{patd.data_publicacao_punicao.strftime("%Y-%m-%d") if patd.data_publicacao_punicao else ""}">'
-    data_reconsideracao_fmt = f'<input type="date" class="editable-date" data-date-field="data_reconsideracao" value="{patd.data_reconsideracao.strftime("%Y-%m-%d") if patd.data_reconsideracao else ""}">'
-
     # Lógica para Oficial Apurador
     oficial_definido = patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
-
-    meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-    mes_select_html = f'<select class="editable-date-part" data-date-field="data_inicio" data-date-part="month">'
-    for i, nome_mes in enumerate(meses):
-        selected = 'selected' if data_inicio.month == i + 1 else ''
-        mes_select_html += f'<option value="{i+1}" {selected}>{nome_mes}</option>'
-    mes_select_html += '</select>'
 
     localidade_value = patd.circunstancias.get('localidade', 'Rio de Janeiro') if patd.circunstancias else 'Rio de Janeiro'
 
@@ -468,10 +508,10 @@ def _get_document_context(patd):
         # --- FIM DA CORREÇÃO ---
         '{N PATD}': str(patd.numero_patd),
         '{DataPatd}': data_patd_fmt,
-        '{Localidade}': f'<input type="text" class="editable-text" data-text-field="localidade" value="{localidade_value}">',
-        '{dia}': f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="day" value="{data_inicio.day}" min="1" max="31">',
-        '{Mês}': mes_select_html,
-        '{Ano}': f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="year" value="{data_inicio.year}" min="2000" max="2100">',
+        '{Localidade}': f'<input type="text" class="editable-text" data-text-field="localidade" value="{localidade_value}">' if not for_docx else localidade_value,
+        '{dia}': dia_fmt,
+        '{Mês}': mes_fmt,
+        '{Ano}': ano_fmt,
 
         # Dados do Militar Arrolado
         '{Militar Arrolado}': format_militar_string(patd.militar),
@@ -626,12 +666,12 @@ def _render_document_from_template(template_name, context):
         logger.error(error_msg)
         return error_msg
 
-def get_document_pages(patd):
+def get_document_pages(patd, for_docx=False):
     """
     Gera uma LISTA de páginas de documento em HTML a partir dos templates.
     Cada item na lista representa um documento/seção separada.
     """
-    base_context = _get_document_context(patd)
+    base_context = _get_document_context(patd, for_docx=for_docx)
     document_pages_raw = []
     page_counter = 0
     pagina_alegacao_num = 0
@@ -2960,7 +3000,7 @@ def exportar_patd_docx(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
 
 
-    context = _get_document_context(patd)
+    context = _get_document_context(patd, for_docx=True)
 
 
     config = Configuracao.load()
@@ -3059,7 +3099,7 @@ def exportar_patd_docx(request, pk):
     
 
 
-    full_html_content = "".join(get_document_pages(patd))
+    full_html_content = "".join(get_document_pages(patd, for_docx=True))
 
 
 
