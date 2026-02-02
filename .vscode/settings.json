@@ -8,7 +8,8 @@
             "driver": "PostgreSQL",
             "name": "gsd",
             "database": "GsdAutomatico",
-            "username": "gsd"
+            "username": "gsd",
+            "password": "gsd_password"
         }
     ]
 }

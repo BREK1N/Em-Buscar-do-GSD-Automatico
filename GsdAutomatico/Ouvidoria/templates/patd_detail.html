@@ -921,6 +921,9 @@
         <p id="signature-modal-prompt">Desenhe a assinatura no campo abaixo.</p>
         <div class="canvas-container"><canvas id="signature-canvas-generic"></canvas></div>
         <div class="form-actions" style="justify-content: flex-end;">
+            <input type="file" id="signature-file-input" accept="image/*" style="display: none;">
+            <button type="button" class="btn btn-secondary" id="import-signature-btn">Importar Assinatura</button>
+            <button type="button" class="btn btn-secondary" id="paste-signature-btn">Colar da Área de Transferência</button>
             <button type="button" class="btn btn-secondary" id="clear-signature-btn-generic">Limpar</button>
             <button type="button" class="btn btn-secondary" id="cancel-signature-btn-generic">Cancelar</button>
             <button type="button" class="btn btn-primary" id="save-signature-btn-generic">Salvar Assinatura</button>
@@ -1250,6 +1253,68 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(error => console.error('Erro:', error));
         });
+
+        // --- INÍCIO: Lógica para importar e colar assinatura ---
+        const importSignatureBtn = document.getElementById('import-signature-btn');
+        const pasteSignatureBtn = document.getElementById('paste-signature-btn');
+        const signatureFileInput = document.getElementById('signature-file-input');
+
+        if (importSignatureBtn && signatureFileInput) {
+            importSignatureBtn.addEventListener('click', () => {
+                signatureFileInput.click();
+            });
+
+            signatureFileInput.addEventListener('change', (event) => {
+                const file = event.target.files[0];
+                if (file && file.type.startsWith('image/')) {
+                    const reader = new FileReader();
+                    reader.onload = (e) => {
+                        signaturePad.fromDataURL(e.target.result, {
+                            width: canvas.width,
+                            height: canvas.height
+                        });
+                    };
+                    reader.readAsDataURL(file);
+                } else {
+                    alert('Por favor, selecione um ficheiro de imagem válido.');
+                }
+                // Limpa o valor para permitir selecionar o mesmo ficheiro novamente
+                signatureFileInput.value = '';
+            });
+        }
+
+        if (pasteSignatureBtn) {
+            pasteSignatureBtn.addEventListener('click', async () => {
+                try {
+                    const permission = await navigator.permissions.query({ name: 'clipboard-read' });
+                    if (permission.state === 'denied') {
+                        throw new Error('A permissão para aceder à área de transferência foi negada.');
+                    }
+
+                    const clipboardItems = await navigator.clipboard.read();
+                    const imageItem = clipboardItems.find(item => item.types.some(type => type.startsWith('image/')));
+
+                    if (imageItem) {
+                        const imageType = imageItem.types.find(type => type.startsWith('image/'));
+                        const blob = await imageItem.getType(imageType);
+                        const reader = new FileReader();
+                        reader.onload = (e) => {
+                            signaturePad.fromDataURL(e.target.result, {
+                                width: canvas.width,
+                                height: canvas.height
+                            });
+                        };
+                        reader.readAsDataURL(blob);
+                    } else {
+                        alert('Nenhuma imagem encontrada na área de transferência. Por favor, copie uma imagem primeiro.');
+                    }
+                } catch (error) {
+                    console.error('Erro ao colar da área de transferência:', error);
+                    alert('Não foi possível colar a imagem. Verifique as permissões da área de transferência do seu navegador ou tente usar um navegador compatível. ' + error.message);
+                }
+            });
+        }
+        // --- FIM: Lógica para importar e colar assinatura ---
     }
 
     const aceitarAtribuicaoModal = document.getElementById('aceitar-atribuicao-modal');
