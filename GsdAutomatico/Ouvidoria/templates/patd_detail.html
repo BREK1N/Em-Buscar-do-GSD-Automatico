@@ -271,7 +271,8 @@
 
 
     .signature-image-embedded {
-        max-height: 45px; /* Define uma altura máxima para as imagens de assinatura */
+        max-height: 150px; /* Define uma altura máxima para as imagens de assinatura */
+        max-width: 350px; /* Define uma largura máxima para as imagens de assinatura */
         vertical-align: middle; /* Alinha a imagem verticalmente com o texto ao redor */
     }
 
@@ -884,6 +885,17 @@
 </div>
 
 <style>
+    /* Aumenta a área de assinatura para mesas digitalizadoras */
+    #signature-modal-generic .modal-content {
+        max-width: 800px; /* Aumenta a largura do modal */
+    }
+    #signature-canvas-generic {
+        height: 400px; /* Aumenta a altura do canvas */
+        width: 100%;
+    }
+</style>
+
+<style>
     @keyframes pulse-border { 0%, 100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); } }
     .signature-focus { animation: pulse-border 1.5s ease-out; border-radius: 8px; }
 </style>
@@ -1123,6 +1135,19 @@
 const analiseData = {{ analise_data_json|default:'null'|safe }};
 const assinaturasMilitar = {{ assinaturas_militar_json|default:'[]'|safe }};
 let documentPages = {{ documento_texto_json|default:'[]'|safe }};
+const isSuperuser = {{ request.user.is_superuser|yesno:"true,false" }};
+
+function createSignatureHtml(signatureUrl, altText, signatureType, signatureIndex) {
+    let html = `<img class="signature-image-embedded" src="${signatureUrl}" alt="${altText}">`;
+    if (isSuperuser) {
+        html += ` <button class="btn btn-sm btn-danger remove-signature-btn" data-signature-type="${signatureType}"`;
+        if (signatureIndex !== undefined) {
+            html += ` data-signature-index="${signatureIndex}"`;
+        }
+        html += ` title="Remover assinatura">(Remover)</button>`;
+    }
+    return html;
+}
 
 // Dados das assinaturas específicas
 const hasDefesaSig = '{{ patd.assinatura_alegacao_defesa|yesno:"true,false" }}' === 'true';
@@ -1752,20 +1777,20 @@ document.addEventListener('DOMContentLoaded', function() {
         // --- FIM DA MODIFICAÇÃO ---
 
         // Assinaturas que podem ter imagem ou botão
-         processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? `<img class="signature-image-embedded" src="${defesaSigData}" alt="Assinatura da Defesa">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
-        processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? `<img class="signature-image-embedded" src="${reconSigData}" alt="Assinatura da Reconsideração">` : `<button class="btn btn-sm btn-success open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
+        processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? createSignatureHtml(defesaSigData, 'Assinatura da Defesa', 'defesa') : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
+        processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? createSignatureHtml(reconSigData, 'Assinatura da Reconsideração', 'reconsideracao') : `<button class="btn btn-sm btn-success open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
 
         // Assinaturas que SEMPRE são imagens (se existirem)
-        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Oficial_Apurador}/g, oficialSigData ? `<img class="signature-image-embedded" src="${oficialSigData}" alt="Assinatura do Oficial Apurador">` : '[Sem assinatura]');
+        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Oficial_Apurador}/g, oficialSigData ? createSignatureHtml(oficialSigData, 'Assinatura do Oficial Apurador', 'oficial') : '[Sem assinatura]');
         processedHtml = processedHtml.replace(/{Assinatura_Imagem_Comandante_GSD}/g, comandanteSigData ? `<img class="signature-image-embedded" src="${comandanteSigData}" alt="Assinatura do Comandante">` : '[Sem assinatura]');
-        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Testemunha_1}/g, testemunha1SigData ? `<img class="signature-image-embedded" src="${testemunha1SigData}" alt="Assinatura da Testemunha 1">` : '[Sem assinatura]');
-        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Testemunha_2}/g, testemunha2SigData ? `<img class="signature-image-embedded" src="${testemunha2SigData}" alt="Assinatura da Testemunha 2">` : '[Sem assinatura]');
+        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Testemunha_1}/g, testemunha1SigData ? createSignatureHtml(testemunha1SigData, 'Assinatura da Testemunha 1', 'testemunha1') : '[Sem assinatura]');
+        processedHtml = processedHtml.replace(/{Assinatura_Imagem_Testemunha_2}/g, testemunha2SigData ? createSignatureHtml(testemunha2SigData, 'Assinatura da Testemunha 2', 'testemunha2') : '[Sem assinatura]');
 
         // Assinatura do militar (pode ser várias)
         processedHtml = processedHtml.replace(/{Assinatura Militar Arrolado}/g, () => {
             const index = signatureIndex++;
             if (assinaturasMilitar[index]) {
-                return `<img class="signature-image-embedded" src="${assinaturasMilitar[index]}" alt="Assinatura ${index + 1}">`;
+                return createSignatureHtml(assinaturasMilitar[index], `Assinatura ${index + 1}`, 'ciencia', index);
             } else {
                  return `<button class="btn btn-sm btn-success open-signature-modal" data-type="ciencia" data-index="${index}">Assinar</button>`;
             }
@@ -2078,6 +2103,47 @@ document.addEventListener('DOMContentLoaded', function() {
                 })
                 .catch(error => console.error('Erro:', error));
             }
+        }
+    });
+
+    document.body.addEventListener('click', function(e) {
+        const removeBtn = e.target.closest('.remove-signature-btn');
+        if (removeBtn) {
+            e.preventDefault();
+            if (!confirm('Tem certeza que deseja remover esta assinatura?')) {
+                return;
+            }
+
+            const signatureType = removeBtn.dataset.signatureType;
+            const signatureIndex = removeBtn.dataset.signatureIndex;
+            const url = `{% url 'Ouvidoria:remover_assinatura' patd.pk %}`;
+            const body = {
+                signature_type: signatureType,
+            };
+            if (signatureIndex !== undefined) {
+                body.signature_index = parseInt(signatureIndex, 10);
+            }
+
+            fetch(url, {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'X-CSRFToken': csrfToken
+                },
+                body: JSON.stringify(body)
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    window.location.reload();
+                } else {
+                    alert('Erro ao remover assinatura: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Erro:', error);
+                alert('Ocorreu um erro de comunicação.');
+            });
         }
     });
 

@@ -800,11 +800,6 @@ def get_document_pages(patd, for_docx=False):
 
     return final_document_pages
 def _check_preclusao_signatures(patd):
-    """
-    Verifica se as assinaturas das testemunhas para o documento de preclusão
-    foram coletadas, APENAS se as testemunhas tiverem sido designadas.
-    Retorna True se as assinaturas estiverem completas, False caso contrário.
-    """
     if patd.testemunha1 and not patd.assinatura_testemunha1:
         return False
     if patd.testemunha2 and not patd.assinatura_testemunha2:
@@ -813,10 +808,7 @@ def _check_preclusao_signatures(patd):
     return True
 
 def _check_and_finalize_patd(patd):
-    """
-    Verifica se todas as assinaturas necessárias para a NPD foram coletadas
-    e, em caso afirmativo, avança o PATD para o período de reconsideração.
-    """
+ 
     if patd.status != 'aguardando_assinatura_npd':
         return False
 
@@ -1919,6 +1911,57 @@ def salvar_assinatura_reconsideracao(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Assinatura salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da reconsideração da PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+@login_required
+@require_POST
+def remover_assinatura(request, pk):
+    if not request.user.is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem remover assinaturas.'}, status=403)
+
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+        signature_type = data.get('signature_type')
+        signature_index = data.get('signature_index')
+
+        if not signature_type:
+            return JsonResponse({'status': 'error', 'message': 'O tipo de assinatura não foi especificado.'}, status=400)
+
+        if signature_type == 'oficial':
+            if patd.assinatura_oficial:
+                patd.assinatura_oficial.delete(save=True)
+        elif signature_type == 'defesa':
+            if patd.assinatura_alegacao_defesa:
+                patd.assinatura_alegacao_defesa.delete(save=True)
+        elif signature_type == 'reconsideracao':
+            if patd.assinatura_reconsideracao:
+                patd.assinatura_reconsideracao.delete(save=True)
+        elif signature_type == 'testemunha1':
+            if patd.assinatura_testemunha1:
+                patd.assinatura_testemunha1.delete(save=True)
+        elif signature_type == 'testemunha2':
+            if patd.assinatura_testemunha2:
+                patd.assinatura_testemunha2.delete(save=True)
+        elif signature_type == 'ciencia':
+            if signature_index is not None and patd.assinaturas_militar and len(patd.assinaturas_militar) > signature_index:
+                signature_url = patd.assinaturas_militar[signature_index]
+                if signature_url:
+                    try:
+                        anexo = Anexo.objects.get(patd=patd, arquivo=signature_url.replace('/media/', ''))
+                        anexo.delete() 
+                    except Anexo.DoesNotExist:
+                        logger.warning(f"Anexo for signature URL {signature_url} not found for PATD {pk}. Removing URL from list.")
+                        pass
+                patd.assinaturas_militar[signature_index] = None
+                patd.save(update_fields=['assinaturas_militar'])
+        else:
+            return JsonResponse({'status': 'error', 'message': 'Tipo de assinatura desconhecido.'}, status=400)
+
+        return JsonResponse({'status': 'success', 'message': 'Assinatura removida com sucesso.'})
+
+    except Exception as e:
+        logger.error(f"Erro ao remover assinatura da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required

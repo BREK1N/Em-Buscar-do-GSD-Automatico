@@ -288,6 +288,17 @@
         </div>
     </div>
 
+    <style>
+        /* Aumenta a área de assinatura para mesas digitalizadoras (modal pessoal) */
+        #signature-modal-pessoal .signature-modal-content {
+            max-width: 800px; /* Aumenta a largura do modal */
+        }
+        #signature-canvas-pessoal {
+            height: 400px; /* Aumenta a altura do canvas */
+            width: 100%;
+        }
+    </style>
+
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             const isSuperuser = {{ request.user.is_superuser|yesno:"true,false" }};

@@ -436,8 +436,8 @@ p {
     gap: 15px;
 }
 .oficial-info .signature-preview {
-    width: 250px;
-    height: 100px;
+    width: 200px;
+    height: 80px;
     background-color: #fff;
     border: 1px solid var(--border-color);
     border-radius: 4px;
