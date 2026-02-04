@@ -1,4 +1,5 @@
 from django import forms
+from django.db.models import Q
 from .models import PATD
 from Secao_pessoal.models import Efetivo
 import json
@@ -14,9 +15,21 @@ class AtribuirOficialForm(forms.ModelForm):
         }
 
     def __init__(self, *args, **kwargs):
+        user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
-        self.fields['oficial_responsavel'].queryset = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
-        self.fields['oficial_responsavel'].empty_label = "--- Selecione um Oficial ---"
+
+        # --- MODIFICAÇÃO: Filtrar apenas oficiais com assinatura ---
+        # A assinatura é um campo de texto, então excluímos nulos e strings vazias.
+        base_queryset = Efetivo.objects.exclude(assinatura__isnull=True).exclude(assinatura__exact='')
+        
+        if user and user.is_superuser:
+            # Superusuários veem todos os usuários com assinatura
+            self.fields['oficial_responsavel'].queryset = base_queryset.order_by('posto', 'nome_guerra')
+        else:
+            # Outros usuários veem apenas oficiais com assinatura
+            self.fields['oficial_responsavel'].queryset = base_queryset.filter(oficial=True).order_by('posto', 'nome_guerra')
+            
+        self.fields['oficial_responsavel'].empty_label = "--- Selecione um Oficial (com assinatura) ---"
 
 class AceitarAtribuicaoForm(forms.Form):
     senha = forms.CharField(widget=forms.PasswordInput, label="Sua Senha de Acesso")

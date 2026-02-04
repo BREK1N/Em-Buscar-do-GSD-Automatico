@@ -254,6 +254,43 @@ def get_next_patd_number():
     max_num = PATD.objects.aggregate(max_num=Max('numero_patd'))['max_num']
     return (max_num or 0) + 1
 
+def _sync_oficial_signature(patd):
+    """
+    Verifica e sincroniza a assinatura do oficial responsável para a PATD.
+
+    Esta função verifica se:
+    1. A PATD tem um oficial responsável designado.
+    2. O oficial já aceitou a atribuição (status não é inicial).
+    3. O oficial tem uma assinatura padrão em seu perfil.
+    4. A PATD ainda não tem uma assinatura de oficial específica.
+
+    Se todas as condições forem verdadeiras, a assinatura padrão do oficial
+    é copiada para a PATD. Retorna True se a assinatura foi copiada.
+    """
+    try:
+        oficial = patd.oficial_responsavel
+        is_past_acceptance = patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
+        
+        if oficial and is_past_acceptance and oficial.assinatura and not patd.assinatura_oficial:
+            if ';base64,' in oficial.assinatura:
+                format, imgstr = oficial.assinatura.split(';base64,')
+                ext = format.split('/')[-1] if '/' in format else 'png'
+                file_name = f'sig_oficial_{oficial.pk}_{patd.pk}.{ext}'
+                
+                decoded_file = base64.b64decode(imgstr)
+                file_content = ContentFile(decoded_file, name=file_name)
+                
+                patd.assinatura_oficial.save(file_name, file_content, save=False)
+                patd.save(update_fields=['assinatura_oficial'])
+                logger.info(f"Assinatura do oficial {oficial.nome_guerra} sincronizada para a PATD {patd.numero_patd}.")
+                return True
+            else:
+                logger.warning(f"Formato de assinatura do oficial {oficial.nome_guerra} é inválido durante a sincronização.")
+    except Exception as e:
+        logger.error(f"Erro ao sincronizar a assinatura do oficial para a PATD {patd.pk}: {e}")
+    
+    return False
+
 # =============================================================================
 # FUNÇÕES AUXILIARES
 # =============================================================================
@@ -870,13 +907,13 @@ def _try_advance_status_from_justificativa(patd):
 def atribuir_oficial(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
     if request.method == 'POST':
-        form = AtribuirOficialForm(request.POST, instance=patd)
+        form = AtribuirOficialForm(request.POST, instance=patd, user=request.user)
         if form.is_valid():
             form.save()
             messages.success(request, f'Oficial {patd.oficial_responsavel.nome_guerra} foi atribuído. Aguardando aceitação.')
             return redirect('Ouvidoria:patd_detail', pk=pk)
     else:
-        form = AtribuirOficialForm(instance=patd)
+        form = AtribuirOficialForm(instance=patd, user=request.user)
     return render(request, 'atribuir_oficial.html', {'form': form, 'patd': patd})
 
 @login_required
@@ -947,6 +984,12 @@ def aceitar_atribuicao(request, pk):
                 patd.status = 'ciencia_militar'
                 status_definido = True
             # --- FIM DA LÓGICA DE STATUS ---
+            
+            patd.save() # Salva o status para que a sincronização funcione corretamente
+
+            # --- INÍCIO DA MODIFICAÇÃO: Sincronizar assinatura do oficial ---
+            _sync_oficial_signature(patd)
+            # --- FIM DA MODIFICAÇÃO ---
 
             # --- NOVA VERIFICAÇÃO DE ASSINATURAS DE CIÊNCIA ---
             if patd.status == 'ciencia_militar':
@@ -1521,6 +1564,18 @@ class PATDDetailView(DetailView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         patd = self.get_object()
+
+        # --- INÍCIO DA MODIFICAÇÃO: Sincronização de Assinatura ---
+        # Garante que a assinatura do oficial seja copiada para a PATD se for adicionada posteriormente.
+        if _sync_oficial_signature(patd):
+            patd.refresh_from_db() # Recarrega a PATD se a assinatura foi adicionada
+        # --- FIM DA MODIFICAÇÃO ---
+
+        # Força o recarregamento do objeto oficial_responsavel para garantir 
+        # que quaisquer alterações (como a assinatura) sejam refletidas.
+        if patd.oficial_responsavel:
+            patd.oficial_responsavel.refresh_from_db()
+
         config = Configuracao.load()
 
         # --- INÍCIO DA MODIFICAÇÃO: Verificação Proativa ---
@@ -1929,8 +1984,7 @@ def remover_assinatura(request, pk):
             return JsonResponse({'status': 'error', 'message': 'O tipo de assinatura não foi especificado.'}, status=400)
 
         if signature_type == 'oficial':
-            if patd.assinatura_oficial:
-                patd.assinatura_oficial.delete(save=True)
+            return JsonResponse({'status': 'error', 'message': 'A assinatura do oficial não pode ser removida.'}, status=403)
         elif signature_type == 'defesa':
             if patd.assinatura_alegacao_defesa:
                 patd.assinatura_alegacao_defesa.delete(save=True)
