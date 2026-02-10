@@ -1,59 +1,64 @@
-<div class="table-responsive">
-    <table class="table table-hover">
-        <thead>
-            <tr>
-                <th>Posto</th>
-                <th>Nome de Guerra</th>
-                <th>Nome Completo</th>
-                <th>Especialização</th>
-                <th>OM</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-
-        <tbody id="militar-table-body">
-            {% for militar in page_obj %}
-            <tr >
-                <td>{{ militar.posto }}</td>
-                <td>{{ militar.nome_guerra }}</td>
-                <td>{{ militar.nome_completo }}</td>
-                <td>{{ militar.especializacao }}</td>
-                <td>{{ militar.om|default:"-" }}</td>
-                <td class="actions-cell"> 
-                     <a href="{% url 'Ouvidoria:militar_detail' militar.pk %}" class="btn btn-sm btn-edit">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-                        Ver Detalhes                    </a>
-
-                    <a href="{% url 'Ouvidoria:militar_patd_list' militar.pk %}" class="btn btn-sm btn-secondary">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
-                            Ver PATDs
-                    </a>
-
-                </td>
-             </tr>
-        {% empty %}
-             <tr>
-                <td colspan="6" style="text-align: center; padding: 20px;">Nenhum militar encontrado.</td>
-            </tr>
-            {% endfor %}
-
-        </tbody>
-    </table>
+<div class="militar-grid">
+    {% for militar in page_obj %}
+    <div class="militar-card">
+        <div class="card-header">
+            <h5 class="card-title">{{ militar.posto }} {{ militar.nome_guerra }}</h5>
+            <div class="card-subtitle">{{ militar.om|default:"-" }} | {{ militar.saram }}</div>
+        </div>
+        <div class="card-body">
+            <p><strong>Nome Completo:</strong> {{ militar.nome_completo }}</p>
+            <p><strong>Especialização:</strong> {{ militar.especializacao }}</p>
+        </div>
+        <div class="card-footer">
+            <a href="{% url 'Ouvidoria:militar_detail' militar.pk %}" class="btn btn-sm btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                Ver Detalhes
+            </a>
+            <a href="{% url 'Ouvidoria:militar_patd_list' militar.pk %}" class="btn btn-sm btn-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
+                Ver PATDs
+            </a>
+        </div>
+    </div>
+    {% empty %}
+    <div class="card-body">
+        <p class="text-center">Nenhum militar encontrado.</p>
+    </div>
+    {% endfor %}
 </div>
 
-<div id="pagination-container">
+<div id="pagination-container" class="pagination">
     {% if is_paginated %}
-    <div class="pagination" >
-        <span class="step-links">
+        <div class="pagination-links">
             {% if page_obj.has_previous %}
-                <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&laquo; primeira</a>
-                <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">anterior</a>
+                <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="pagination-action" title="Primeira página">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M18.75 19.5l-7.5-7.5 7.5-7.5" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 19.5l-7.5-7.5 7.5-7.5" />
+                    </svg>
+                </a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="pagination-action" title="Página anterior">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" />
+                    </svg>
+                </a>
             {% endif %}
-            <span class="current">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.</span>
-        {% if page_obj.has_next %}
-                <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">próxima</a>
-                <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">última &raquo;</a>
+
+            <span class="pagination-info">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
+
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="pagination-action" title="Próxima página">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                </a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}" class="pagination-action" title="Última página">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 4.5l7.5 7.5-7.5 7.5" />
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 4.5l7.5 7.5-7.5 7.5" />
+                    </svg>
+                </a>
             {% endif %}
-        </span>
-    </div>
+        </div>
     {% endif %}
+</div>
