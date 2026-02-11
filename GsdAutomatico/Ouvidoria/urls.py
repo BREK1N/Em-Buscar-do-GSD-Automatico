@@ -15,6 +15,9 @@ urlpatterns = [
     # Aba de PATDs
     path('patd/', views.PATDListView.as_view(), name='patd_list'),
     path('patd/finalizadas/', views.PatdFinalizadoListView.as_view(), name='patd_finalizado_list'),
+    path('patd/arquivadas/', views.PatdArquivadoListView.as_view(), name='patd_arquivado_list'),
+    path('patd/<int:pk>/arquivar/', views.arquivar_patd, name='arquivar_patd'),
+    path('patd/<int:pk>/desarquivar/', views.desarquivar_patd, name='desarquivar_patd'),
     path('minhas-atribuicoes/', views.patd_atribuicoes_pendentes, name='patd_atribuicoes_pendentes'),
     path('patd/<int:pk>/', views.PATDDetailView.as_view(), name='patd_detail'),
     path('patd/<int:pk>/editar/', views.PATDUpdateView.as_view(), name='patd_update'),

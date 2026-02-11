@@ -250,9 +250,21 @@ def _check_and_advance_reconsideracao_status(patd_pk):
         logger.error(f"Error in _check_and_advance_reconsideracao_status for PATD {patd_pk}: {e}")
 
 def get_next_patd_number():
-    """Gera o próximo número sequencial para a PATD."""
-    max_num = PATD.objects.aggregate(max_num=Max('numero_patd'))['max_num']
-    return (max_num or 0) + 1
+    """
+    Gera o próximo número para a PATD, procurando pelo menor número positivo vago.
+    """
+    numeros_usados = sorted(list(PATD.objects.filter(numero_patd__gt=0).values_list('numero_patd', flat=True)))
+
+    if not numeros_usados:
+        return 1
+
+    numero_esperado = 1
+    for numero in numeros_usados:
+        if numero > numero_esperado:
+            return numero_esperado
+        numero_esperado = numero + 1
+    
+    return numeros_usados[-1] + 1
 
 def _sync_oficial_signature(patd):
     """
@@ -478,12 +490,12 @@ def _get_document_context(patd, for_docx=False):
 
         ano_fmt = str(data_inicio.year)
     else:
-        data_ocorrencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ocorrencia" value="{patd.data_ocorrencia.strftime("%Y-%m-%d") if patd.data_ocorrencia else ""}">'
-        data_oficio_fmt = f'<input type="date" class="editable-date" data-date-field="data_oficio" value="{patd.data_oficio.strftime("%Y-%m-%d") if patd.data_oficio else ""}">'
-        data_ciencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ciencia" value="{patd.data_ciencia.strftime("%Y-%m-%d") if patd.data_ciencia else ""}">'
-        data_alegacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_alegacao" value="{patd.data_alegacao.strftime("%Y-%m-%d") if patd.data_alegacao else ""}">'
-        data_publicacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_publicacao_punicao" value="{patd.data_publicacao_punicao.strftime("%Y-%m-%d") if patd.data_publicacao_punicao else ""}">'
-        data_reconsideracao_fmt = f'<input type="date" class="editable-date" data-date-field="data_reconsideracao" value="{patd.data_reconsideracao.strftime("%Y-%m-%d") if patd.data_reconsideracao else ""}">'
+        data_ocorrencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ocorrencia" value="{patd.data_ocorrencia.strftime("%Y-%m-%d") if patd.data_ocorrencia else ""}" >'
+        data_oficio_fmt = f'<input type="date" class="editable-date" data-date-field="data_oficio" value="{patd.data_oficio.strftime("%Y-%m-%d") if patd.data_oficio else ""}" >'
+        data_ciencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ciencia" value="{patd.data_ciencia.strftime("%Y-%m-%d") if patd.data_ciencia else ""}" >'
+        data_alegacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_alegacao" value="{patd.data_alegacao.strftime("%Y-%m-%d") if patd.data_alegacao else ""}" >'
+        data_publicacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_publicacao_punicao" value="{patd.data_publicacao_punicao.strftime("%Y-%m-%d") if patd.data_publicacao_punicao else ""}" >'
+        data_reconsideracao_fmt = f'<input type="date" class="editable-date" data-date-field="data_reconsideracao" value="{patd.data_reconsideracao.strftime("%Y-%m-%d") if patd.data_reconsideracao else ""}" >'
         
         meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
         mes_select_html = f'<select class="editable-date-part" data-date-field="data_inicio" data-date-part="month">'
@@ -541,7 +553,7 @@ def _get_document_context(patd, for_docx=False):
     context = {
         # Placeholders Comuns
         # --- CORREÇÃO: Usar staticfiles_storage.url ---
-        '{Brasao da Republica}': f'<img src="{staticfiles_storage.url("img/brasao.png")}" alt="Brasão da República" style="width: 100px; height: auto;">',
+        '{Brasao da Republica}': f"<img src='{staticfiles_storage.url('img/brasao.png')}' alt='Brasão da República' style='width: 100px; height: auto;'>",
         # --- FIM DA CORREÇÃO ---
         '{N PATD}': str(patd.numero_patd),
         '{DataPatd}': data_patd_fmt,
@@ -553,7 +565,7 @@ def _get_document_context(patd, for_docx=False):
         # Dados do Militar Arrolado
         '{Militar Arrolado}': format_militar_string(patd.militar),
         '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
-        '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]'),
+        '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]') ,
 
         # Dados do Oficial Apurador
         '{Oficial Apurador}': format_militar_string(patd.oficial_responsavel) if oficial_definido else ' ',
@@ -670,7 +682,7 @@ def _render_document_from_template(template_name, context):
             # Substitui o "à fl. XX" hardcoded pelo nosso placeholder dinâmico
             if 'RELATORIO_DELTA' in template_name or 'RELATORIO_JUSTIFICADO' in template_name:
                 # Este regex procura por "à fl." seguido de espaço(s), número(s), e depois vírgula, ponto ou espaço.
-                inline_text = re.sub(r'(à fl\.)(\s*\d+\s*)([,\.\s])', r'\1 {pagina_alegacao}\3', inline_text)
+                inline_text = re.sub(r'(à fl\.)(\s*\d+\s*)([\,\.\s])', r'\1 {pagina_alegacao}\3', inline_text)
             # --- FIM DA NOVA LÓGICA ---
 
             # --- INÍCIO DA CORREÇÃO: Substituição direta sem escapar HTML ---
@@ -1249,7 +1261,7 @@ def index(request):
                 
                 return JsonResponse({
                     'status': 'success', 
-                    'message': f'PATD Nº {patd.numero_patd} criada com sucesso para {militar.nome_guerra}. Redirecionando...',
+                    'message': f'PATD Nº {patd.numero_patd} criada com sucesso para {militar.nome_guerra}. Redirecionando...', 
                     'patd_url': reverse('Ouvidoria:patd_detail', kwargs={'pk': patd.pk})
                 })
             except Exception as e:
@@ -1473,7 +1485,7 @@ class PATDListView(ListView):
         if sort_by not in valid_sort_fields:
             sort_by = '-numero_patd' # Fallback to default if invalid sort is provided
 
-        qs = super().get_queryset().exclude(status='finalizado').select_related('militar', 'oficial_responsavel').order_by(sort_by)
+        qs = super().get_queryset().exclude(status='finalizado').exclude(arquivado=True).select_related('militar', 'oficial_responsavel').order_by(sort_by)
 
         # --- Rank-based security ---
         user = self.request.user
@@ -1831,7 +1843,7 @@ def salvar_assinatura_ciencia(request, pk):
             document_pages = get_document_pages(patd)
             coringa_doc_text = document_pages[0] if document_pages else ""
             required_initial_signatures = coringa_doc_text.count('{Assinatura Militar Arrolado}')
-            provided_signatures = sum(1 for s in patd.assinaturas_militar if s is not None)
+            provided_signatures = sum(1 for s in (patd.assinaturas_militar or []) if s is not None)
             if provided_signatures >= required_initial_signatures:
                 if patd.data_ciencia is None:
                     patd.data_ciencia = timezone.now()
@@ -3084,12 +3096,9 @@ def exportar_patd_docx(request, pk):
 
     """
 
-
     Gera e serve um ficheiro DOCX a partir do conteúdo HTML da PATD,
 
-
     incluindo imagens, formatação correta E ANEXOS.
-
 
     """
 
@@ -3108,9 +3117,7 @@ def exportar_patd_docx(request, pk):
 
 
 
-
     document = Document()
-
 
 
 
@@ -3122,7 +3129,6 @@ def exportar_patd_docx(request, pk):
 
 
     from docx.oxml import OxmlElement
-
 
 
 
@@ -3150,7 +3156,6 @@ def exportar_patd_docx(request, pk):
 
 
 
-
     style = document.styles['Normal']
 
 
@@ -3161,7 +3166,6 @@ def exportar_patd_docx(request, pk):
 
 
     font.size = Pt(12)
-
 
 
 
@@ -3186,7 +3190,6 @@ def exportar_patd_docx(request, pk):
 
 
 
-
     # Adiciona o número da página no rodapé
 
 
@@ -3195,9 +3198,7 @@ def exportar_patd_docx(request, pk):
 
     
 
-
     full_html_content = "".join(get_document_pages(patd, for_docx=True))
-
 
 
 
@@ -3213,9 +3214,7 @@ def exportar_patd_docx(request, pk):
 
 
 
-
     soup = BeautifulSoup(full_html_content, 'html.parser')
-
 
 
 
@@ -3227,7 +3226,6 @@ def exportar_patd_docx(request, pk):
 
 
     placeholder_regex = re.compile(r'({[^}]+})')
-
 
 
 
@@ -3249,12 +3247,10 @@ def exportar_patd_docx(request, pk):
 
 
 
-
         if element.name == 'p':
 
 
             text_content_for_check = element.get_text().strip()
-
 
 
 
@@ -3318,7 +3314,6 @@ def exportar_patd_docx(request, pk):
 
 
 
-
             embed_tag = element.find('embed')
 
 
@@ -3351,9 +3346,7 @@ def exportar_patd_docx(request, pk):
 
                             break
 
-
                     
-
 
                     if anexo_to_append:
 
@@ -3366,12 +3359,10 @@ def exportar_patd_docx(request, pk):
 
 
 
-
             is_empty_paragraph = not text_content_for_check and not element.find('img')
 
 
             
-
 
             if is_empty_paragraph:
 
@@ -3402,7 +3393,6 @@ def exportar_patd_docx(request, pk):
 
 
 
-
             p = document.add_paragraph()
 
 
@@ -3420,12 +3410,10 @@ def exportar_patd_docx(request, pk):
 
             
 
-
             is_signature_line = any(sig_placeholder in text_content_for_check for sig_placeholder in ['{Assinatura', '[LOCAL DA ASSINATURA/AÇÃO]'])
 
 
             is_short_line = len(text_content_for_check) < 80
-
 
 
 
@@ -3449,7 +3437,6 @@ def exportar_patd_docx(request, pk):
 
 
                     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
 
 
 
@@ -3574,7 +3561,7 @@ def exportar_patd_docx(request, pk):
                                      is_image_placeholder = True
 
 
-                                elif placeholder in ['{Botao Assinar Oficial}', '{Botao Assinar Testemunha 1}', '{Botao Assinar Testemunha 2}', '{Botao Adicionar Alegacao}', '{Botao Adicionar Reconsideracao}', '{Botao Definir Nova Punicao}', '{Botao Assinar Defesa}', '{Botao Assinar Reconsideracao}']:
+                                elif placeholder in ['{Botao Assinar Oficial}', '{Botao Assinar Testemunha 1}', '{Botao Assinar Testemunha 2}', '{Botao Adicionar Alegacao}', '{Botao Adicionar Reconsideracao}', '{Botao Definir Nova Punicao}', '{Botao Assinar Defesa}', '{Botao Assinar Reconsideracao}']: # Botões não devem ser renderizados como imagem
 
 
                                     is_image_placeholder = True
@@ -3645,9 +3632,7 @@ def exportar_patd_docx(request, pk):
 
                     p.add_run().add_break()
 
-
         
-
 
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
 
@@ -3656,7 +3641,6 @@ def exportar_patd_docx(request, pk):
 
 
     document.save(response)
-
 
 
 
@@ -3690,3 +3674,36 @@ def update_document_dates(request, pk):
     except Exception as e:
         logger.error(f"Erro ao atualizar as datas do documento da PATD {pk}: {e}")
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
+class PatdArquivadoListView(ListView):
+    model = PATD
+    template_name = 'patd_arquivado_list.html'
+    context_object_name = 'patds'
+    paginate_by = 15
+
+    def get_queryset(self):
+        return PATD.objects.filter(arquivado=True).select_related('militar').order_by('-data_inicio')
+
+@login_required
+@ouvidoria_required
+@require_POST
+def arquivar_patd(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    if patd.numero_patd > 0:
+        patd.numero_patd = -patd.numero_patd
+    patd.arquivado = True
+    patd.save()
+    messages.success(request, f'A PATD Nº {-patd.numero_patd} foi arquivada com sucesso.')
+    return redirect('Ouvidoria:patd_list')
+
+@login_required
+@ouvidoria_required
+@require_POST
+def desarquivar_patd(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    patd.arquivado = False
+    patd.numero_patd = get_next_patd_number()
+    patd.save()
+    messages.success(request, f'A PATD foi desarquivada e recebeu o novo número {patd.numero_patd}.')
+    return redirect('Ouvidoria:patd_arquivado_list')

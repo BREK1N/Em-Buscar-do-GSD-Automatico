@@ -188,6 +188,7 @@ class PATD(models.Model):
     anexo_reconsideracao_oficial = models.FileField(upload_to=patd_anexo_path, null=True, blank=True, verbose_name="Anexo da Reconsideração do Oficial")
     assinaturas_npd_reconsideracao = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas da NPD de Reconsideração (Base64)")
     relatorio_final = models.TextField(blank=True, null=True, verbose_name="Relatório Final")
+    arquivado = models.BooleanField(default=False, verbose_name="Arquivado")
 
     # --- INÍCIO DAS MODIFICAÇÕES SOLICITADAS ---
     def calcular_e_atualizar_comportamento(self):

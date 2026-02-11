@@ -1,0 +1,82 @@
+{% extends 'base.html' %}
+
+{% block title %}PATDs Arquivadas{% endblock %}
+
+{% block content %}
+<div class="table-header">
+    <h1>Processos Administrativos Arquivados (PATD)</h1>
+    <div class="actions">
+        <form method="get" class="filter-bar">
+            <div class="search-group">
+                <input type="text" name="q" placeholder="Pesquisar por Nº ou Militar..." value="{{ request.GET.q|default:'' }}">
+                <button type="submit" class="search-btn" title="Pesquisar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>N° PATD</th>
+                <th>Militar Acusado</th>
+                <th>Data da Ocorrência</th>
+                <th>Status</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for patd in patds %}
+            <tr>
+                <td>{{ patd.numero_patd}}</td>
+                <td>
+                    <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
+                </td>
+                <td>
+                    {% if patd.data_ocorrencia %}
+                        {{ patd.data_ocorrencia|date:"d/m/Y" }}
+                    {% else %}
+                        -
+                    {% endif %}
+                </td>
+                <td>{{ patd.get_status_display }}</td>
+                <td class="actions-cell">
+                    <form method="post" action="{% url 'Ouvidoria:desarquivar_patd' patd.pk %}" style="display: inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn btn-sm btn-success">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                            </svg>
+                            Desarquivar
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="5" style="text-align: center; padding: 20px;">Nenhum PATD arquivado encontrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% if is_paginated %}
+<div class="pagination">
+    <span class="step-links">
+        {% if page_obj.has_previous %}
+            <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&laquo; primeira</a>
+            <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">anterior</a>
+        {% endif %}
+        <span class="current">
+            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
+        </span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">próxima</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">última &raquo;</a>
+        {% endif %}
+    </span>
+</div>
+{% endif %}
+{% endblock %}

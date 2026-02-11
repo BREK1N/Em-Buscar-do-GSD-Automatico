@@ -32,3 +32,8 @@ def can_edit_transgressao_filter(user):
 def can_change_patd_date_filter(user):
     """Verifica se o usuário pode alterar a data da PATD."""
     return permissions.can_change_patd_date(user)
+
+@register.filter(name='abs_value')
+def abs_value(value):
+    """Retorna o valor absoluto de um número."""
+    return abs(value)
