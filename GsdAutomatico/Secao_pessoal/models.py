@@ -21,11 +21,11 @@ class Efetivo(models.Model):
             'ASP', 'ASPIRANTE',
             '2T', '2º TENENTE', '2º TEN',
             '1T', '1º TENENTE', '1º TEN',
-            'CAP', 'CAPITÃO', 'CAPITAO',
-            'MAJ', 'MAJOR',
+            'CAP', 'CAPITÃO', 'CAPITAO','CP',
+            'MAJ', 'MAJOR','MJ',
             'TC', 'TENENTE CORONEL', 'TEN CEL',
-            'CEL', 'CORONEL',
-            'BRIG', 'BRIGADEIRO'
+            'CEL', 'CORONEL','CL',
+            'BRIG', 'BRIGADEIRO', 'BG'
         ]
         
         if self.posto and self.posto.upper() in postos_de_oficiais:
