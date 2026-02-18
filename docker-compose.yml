@@ -32,6 +32,7 @@ services:
       - .:/app 
       - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/app/logs
+      - /home/admin-gsd/logs:/logs_do_host
     environment:
       - SECRET_KEY=${SECRET_KEY}
       - DEBUG=${DEBUG}
@@ -62,7 +63,7 @@ services:
       - static_volume:/app/staticfiles
       - ./media:/app/media
     ports:
-      - "80:80"
+      - "8080:80"
     depends_on:
       - web
 

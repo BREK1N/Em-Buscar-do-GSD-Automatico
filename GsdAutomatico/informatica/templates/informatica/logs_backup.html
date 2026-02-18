@@ -3,12 +3,12 @@
 
 {% block content %}
 <style>
-    /* --- VARIÁVEIS DE CORES (Consistentes com o Dashboard) --- */
+    /* --- VARIÁVEIS DE CORES --- */
     :root {
         --bg-body: #f4f6f9;
         --bg-card: #ffffff;
         --text-main: #212529;
-        --border-color: #000000; /* Borda preta forte (Pedido) */
+        --border-color: #000000; /* Borda preta forte no tema claro */
         
         /* Cores do Terminal (Tema Claro) */
         --term-bg: #ffffff;
@@ -25,8 +25,8 @@
         --border-color: #6c757d;
 
         /* Cores do Terminal (Tema Escuro) */
-        --term-bg: #1e1e1e; /* Cinza muito escuro, quase preto */
-        --term-text: #d4d4d4; /* Branco suave */
+        --term-bg: #1e1e1e; /* Fundo escuro */
+        --term-text: #d4d4d4; /* Texto claro */
         --term-border: #444;
         --line-hover: #2d2d2d;
         --line-num: #555;
@@ -36,6 +36,9 @@
         padding: 20px;
         max-width: 100%;
         margin: 0 auto;
+        height: 85vh; /* Ocupa quase toda altura */
+        display: flex;
+        flex-direction: column;
     }
 
     /* Card Principal */
@@ -43,38 +46,41 @@
         background: var(--bg-card);
         border: 1px solid var(--border-color);
         border-radius: 4px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         display: flex;
         flex-direction: column;
-        height: 80vh; /* Ocupa 80% da altura da tela */
+        flex: 1; /* Cresce para ocupar espaço */
+        overflow: hidden;
     }
 
     /* Cabeçalho do Log */
     .log-header {
-        padding: 10px 15px;
+        padding: 12px 20px;
         border-bottom: 1px solid var(--border-color);
         background-color: rgba(0,0,0,0.03);
         display: flex;
         justify-content: space-between;
         align-items: center;
+        flex-wrap: wrap;
+        gap: 10px;
     }
 
     .log-title {
-        font-weight: 700;
-        font-size: 1.1rem;
+        font-weight: 800;
+        font-size: 1.2rem;
         color: var(--text-main);
-        display: flex;
-        align-items: center;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
     }
 
     /* Área de Texto do Log */
     .terminal-window {
-        flex: 1; /* Ocupa o resto do espaço */
+        flex: 1;
         background-color: var(--term-bg);
         color: var(--term-text);
         font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
-        font-size: 0.9rem;
-        overflow-y: auto; /* Scroll vertical */
+        font-size: 0.85rem;
+        overflow-y: auto;
         padding: 10px 0;
     }
 
@@ -83,22 +89,22 @@
         display: flex;
         padding: 2px 15px;
         line-height: 1.5;
-        border-bottom: 1px solid transparent; /* Espaço invisível */
+        border-bottom: 1px solid transparent;
     }
     .log-row:hover {
         background-color: var(--line-hover);
-        border-bottom: 1px solid rgba(0,0,0,0.05);
     }
 
     .line-number {
         color: var(--line-num);
-        min-width: 35px;
+        min-width: 40px;
         text-align: right;
         margin-right: 15px;
         user-select: none;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         border-right: 1px solid var(--term-border);
         padding-right: 10px;
+        opacity: 0.7;
     }
 
     .log-msg {
@@ -106,34 +112,43 @@
         word-break: break-all;
     }
 
-    /* Scrollbar Personalizada */
-    .terminal-window::-webkit-scrollbar { width: 10px; }
+    /* Scrollbar */
+    .terminal-window::-webkit-scrollbar { width: 12px; }
     .terminal-window::-webkit-scrollbar-track { background: var(--term-bg); }
-    .terminal-window::-webkit-scrollbar-thumb { background: #888; border-radius: 5px; }
+    .terminal-window::-webkit-scrollbar-thumb { background: #888; border: 2px solid var(--term-bg); border-radius: 10px; }
     .terminal-window::-webkit-scrollbar-thumb:hover { background: #555; }
 
-    /* Destaques de Sintaxe (Funciona no Claro e Escuro) */
-    .hl-error { color: #dc3545; font-weight: bold; } /* Vermelho */
-    .hl-success { color: #28a745; font-weight: bold; } /* Verde */
-    .hl-warn { color: #ffc107; font-weight: bold; } /* Amarelo/Laranja */
-    .hl-info { color: #17a2b8; font-weight: bold; } /* Azul Claro */
+    /* Destaques de Sintaxe */
+    .hl-error { color: #dc3545; font-weight: bold; }
+    .hl-success { color: #28a745; font-weight: bold; }
+    .hl-warn { color: #ffc107; font-weight: bold; }
+    .hl-info { color: #17a2b8; font-weight: bold; }
     
-    /* Controles do Timer */
+    /* Controles */
     .controls {
         display: flex;
         align-items: center;
-        gap: 15px;
+        gap: 20px;
         font-size: 0.9rem;
         color: var(--text-main);
     }
     
-    /* Switch de Pause */
+    .status-pill {
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: rgba(0,0,0,0.1);
+        font-weight: 600;
+        font-size: 0.8rem;
+    }
+    
+    /* Switch Checkbox */
     .switch-label {
         display: flex;
         align-items: center;
         cursor: pointer;
+        user-select: none;
     }
-    .switch-input { margin-right: 5px; }
+    .switch-input { margin-right: 8px; transform: scale(1.2); }
 
 </style>
 
@@ -142,22 +157,22 @@
     <div class="log-card">
         <div class="log-header">
             <div class="log-title">
-                <i class="fas fa-terminal me-2"></i> Logs de Execução (backup_sender.py)
+                <i class="fas fa-terminal me-2"></i> Monitor de Logs
             </div>
             
             <div class="controls">
-                <label class="switch-label">
+                <label class="switch-label" title="Marque para parar de rolar a tela">
                     <input type="checkbox" id="pauseUpdate" class="switch-input">
                     <span>Pausar Atualização</span>
                 </label>
                 
-                <span id="timerContainer">
+                <span class="status-pill">
                     <i class="fas fa-sync-alt fa-spin" id="spinner" style="display:none;"></i>
-                    Próxima leitura: <b id="timer">5</b>s
+                    Atualizando em: <span id="timer" style="color:var(--primary);">5</span>s
                 </span>
 
-                <a href="{% url 'informatica:logs_backup' %}" class="btn btn-sm btn-outline-primary" style="border-color: var(--text-main); color: var(--text-main);">
-                    Refresh Manual
+                <a href="{% url 'informatica:logs_backup' %}" class="btn btn-sm btn-dark">
+                    <i class="fas fa-redo"></i> Refresh
                 </a>
             </div>
         </div>
@@ -168,15 +183,15 @@
                     <span class="line-number">{{ forloop.counter }}</span>
                     <span class="log-msg">
                         {% if "ERRO" in linha or "CRÍTICO" in linha or "Falha" in linha %}
-                            <span class="hl-error">{{ linha }}</span>
+                            <span class="hl-error"><i class="fas fa-times-circle"></i> {{ linha }}</span>
                         {% elif "SUCESSO" in linha or "ONLINE" in linha %}
-                            <span class="hl-success">{{ linha }}</span>
+                            <span class="hl-success"><i class="fas fa-check"></i> {{ linha }}</span>
                         {% elif "AVISO" in linha or "Tentativa" in linha %}
-                            <span class="hl-warn">{{ linha }}</span>
+                            <span class="hl-warn"><i class="fas fa-exclamation"></i> {{ linha }}</span>
                         {% elif "INICIANDO" in linha or "FINALIZADO" in linha %}
-                            <span class="hl-info">--------------------------------------------------</span><br>
+                            <span class="hl-info">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span><br>
                             <span class="hl-info">{{ linha }}</span>
-                            <span class="hl-info">--------------------------------------------------</span>
+                            <span class="hl-info">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
                         {% else %}
                             {{ linha }}
                         {% endif %}
@@ -184,65 +199,55 @@
                 </div>
             {% empty %}
                 <div class="log-row">
-                    <span class="line-number">0</span>
-                    <span class="hl-warn">Nenhum log encontrado ou arquivo inacessível.</span>
+                    <span class="line-number">!</span>
+                    <span class="hl-error" style="padding: 20px;">
+                        ARQUIVO DE LOG NÃO ENCONTRADO.<br>
+                        Verifique se o volume foi montado no docker-compose.yml:<br>
+                        <code>volumes: - /home/admin-gsd/logs:/logs_do_host</code>
+                    </span>
                 </div>
             {% endfor %}
         </div>
     </div>
     
     <div class="text-right mt-2 text-muted small">
-        Exibindo as últimas 100 linhas.
+        Visualizando <b>backup_sender.log</b> (Últimas 100 linhas).
     </div>
 
 </div>
 
 <script>
-    // --- LÓGICA DE ATUALIZAÇÃO E SCROLL ---
-    
     const timerElem = document.getElementById('timer');
     const pauseCheckbox = document.getElementById('pauseUpdate');
     const spinner = document.getElementById('spinner');
     const terminal = document.getElementById('terminalWindow');
     
-    let timeLeft = 5; // Atualiza a cada 5 segundos (mais rápido para logs)
+    let timeLeft = 5;
 
-    // 1. Função para rolar para o final (Tail -f style)
-    function scrollToBottom() {
-        // Só rola se o usuário já estiver perto do fundo OU acabou de carregar a página
-        // Isso evita pular se o usuário estiver lendo logs antigos
-        const isNearBottom = terminal.scrollHeight - terminal.scrollTop - terminal.clientHeight < 100;
-        
-        if (isNearBottom || document.referrer === "") {
-            terminal.scrollTop = terminal.scrollHeight;
-        }
-    }
-
-    // Ao carregar a página:
+    // Recupera estado salvo
     window.onload = function() {
-        // Restaura posição do scroll se houver (para não pular no refresh)
-        const savedScroll = localStorage.getItem('logScrollPos');
-        if (savedScroll) {
-            terminal.scrollTop = savedScroll;
-        } else {
-            terminal.scrollTop = terminal.scrollHeight; // Vai pro final por padrão
+        if(localStorage.getItem('logPaused') === 'true') {
+            pauseCheckbox.checked = true;
         }
         
-        // Verifica se estava pausado
-        const isPaused = localStorage.getItem('logPaused') === 'true';
-        pauseCheckbox.checked = isPaused;
+        // Rola para o fim apenas se não estiver pausado ou se for o primeiro load
+        if (!pauseCheckbox.checked) {
+            terminal.scrollTop = terminal.scrollHeight;
+        } else {
+            // Se estiver pausado, tenta manter a posição antiga (se salvou)
+            const savedPos = localStorage.getItem('logScrollPos');
+            if(savedPos) terminal.scrollTop = savedPos;
+        }
     };
 
-    // Salva estado de pausa ao clicar
     pauseCheckbox.addEventListener('change', function() {
         localStorage.setItem('logPaused', this.checked);
     });
 
-    // 2. Timer de Atualização
+    // Loop de atualização
     setInterval(() => {
-        // Se estiver pausado, não faz nada
         if (pauseCheckbox.checked) {
-            timerElem.innerText = "PAUSADO";
+            timerElem.innerText = "--";
             return;
         }
 
@@ -250,16 +255,10 @@
         timerElem.innerText = timeLeft;
 
         if (timeLeft <= 0) {
-            // Mostra carregando
             spinner.style.display = 'inline-block';
-            
-            // Salva a posição do scroll antes de recarregar
-            localStorage.setItem('logScrollPos', terminal.scrollTop);
-            
-            // Recarrega a página
+            localStorage.setItem('logScrollPos', terminal.scrollTop); // Salva onde estava
             window.location.reload();
         }
     }, 1000);
-
 </script>
 {% endblock %}

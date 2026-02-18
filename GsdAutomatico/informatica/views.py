@@ -483,7 +483,7 @@ def system_logs_api(request):
 
 # --- CONFIGURAÇÕES ---
 URL_MONITOR = "http://10.52.18.29:5000"
-LOG_FILE_PATH = "/home/admin-gsd/logs/backup_sender.log"
+LOG_FILE_PATH = "/logs_do_host/backup_sender.log"
 
 @login_required
 @permission_required('informatica.view_configuracao', raise_exception=True)
@@ -527,7 +527,7 @@ def visualizar_logs_backup(request):
             with open(LOG_FILE_PATH, 'r') as f:
                 # Lê as últimas 100 linhas para não pesar
                 logs = f.readlines()[-100:]
-                logs.reverse() # Mostra o mais recente primeiro
+                #logs.reverse() # Mostra o mais recente primeiro
         else:
             logs = [f"Arquivo de log não encontrado em: {LOG_FILE_PATH}"]
     except Exception as e:
