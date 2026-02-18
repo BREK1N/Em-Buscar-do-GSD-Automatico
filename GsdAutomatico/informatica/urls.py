@@ -41,5 +41,8 @@ urlpatterns = [
 
     path('api/logs/', views.system_logs_api, name='system_logs_api'),
 
+    path('monitoramento/', views.monitoramento_backup, name='monitoramento_backup'),
+    path('logs-backup/', views.visualizar_logs_backup, name='logs_backup'),
+
 ]
 

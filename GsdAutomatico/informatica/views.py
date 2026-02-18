@@ -24,6 +24,11 @@ from django.contrib import messages
 import datetime
 import docker
 # --------------------------------------------------
+import requests
+import os
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required, permission_required
+
 
 logger = logging.getLogger(__name__)
 
@@ -475,3 +480,57 @@ def system_logs_api(request):
         logs_data.append({'container': 'system', 'text': f"Erro leitura logs: {str(e)}"})
 
     return JsonResponse({'logs': logs_data})
+
+# --- CONFIGURAÇÕES ---
+URL_MONITOR = "http://10.52.18.29:5000"
+LOG_FILE_PATH = "/home/admin-gsd/logs/backup_sender.log"
+
+@login_required
+@permission_required('informatica.view_configuracao', raise_exception=True)
+def monitoramento_backup(request):
+    """
+    Interface gráfica para o Código 1 (Status do PC de Backup)
+    """
+    context = {}
+    try:
+        response = requests.get(URL_MONITOR, timeout=5)
+        
+        if response.status_code == 200:
+            dados = response.json()
+            context['online'] = True
+            context['dados'] = dados
+            # Processa alertas para definir cor
+            context['status_color'] = "text-danger" if dados.get('alerta') else "text-success"
+            context['status_icon'] = "fa-exclamation-triangle" if dados.get('alerta') else "fa-check-circle"
+        else:
+            context['online'] = False
+            context['erro'] = f"Erro HTTP: {response.status_code}"
+
+    except requests.exceptions.ConnectionError:
+        context['online'] = False
+        context['erro'] = "Não foi possível conectar ao PC de Backup (10.52.18.29). Verifique se está ligado."
+    except Exception as e:
+        context['online'] = False
+        context['erro'] = f"Erro inesperado: {str(e)}"
+
+    return render(request, 'informatica/monitoramento.html', context)
+
+@login_required
+@permission_required('informatica.view_configuracao', raise_exception=True)
+def visualizar_logs_backup(request):
+    """
+    Interface gráfica para visualizar os logs do Código 2
+    """
+    logs = []
+    try:
+        if os.path.exists(LOG_FILE_PATH):
+            with open(LOG_FILE_PATH, 'r') as f:
+                # Lê as últimas 100 linhas para não pesar
+                logs = f.readlines()[-100:]
+                logs.reverse() # Mostra o mais recente primeiro
+        else:
+            logs = [f"Arquivo de log não encontrado em: {LOG_FILE_PATH}"]
+    except Exception as e:
+        logs = [f"Erro ao ler log: {str(e)}"]
+
+    return render(request, 'informatica/logs_backup.html', {'logs': logs})

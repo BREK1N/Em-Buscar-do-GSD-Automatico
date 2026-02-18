@@ -8,6 +8,8 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>{% block title %}Dashboard Informática{% endblock %}</title>
 
+    {# Bibliotecas para ícones (FontAwesome opcional, já que estamos usando SVG, mas bom garantir) #}
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
@@ -40,7 +42,28 @@
                         <span>Grupos</span>
                     </a>
                 </li>
-                {# --- REMOVIDO: Links Efetivo e PATDs --- #}
+
+                {# --- NOVOS LINKS DE BACKUP --- #}
+                <li>
+                    <a href="{% url 'informatica:monitoramento_backup' %}" class="{% if 'monitoramento' in request.resolver_match.url_name %}active{% endif %}">
+                        {# Ícone Monitor/Server #}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.25l.075-.113a4.5 4.5 0 012.775-1.888 3.75 3.75 0 012.25 0 4.5 4.5 0 012.775 1.888l.075.113a4.5 4.5 0 01.9 2.25v3.75" />
+                        </svg>
+                        <span>Monitor GSD</span>
+                    </a>
+                </li>
+                <li>
+                    <a href="{% url 'informatica:logs_backup' %}" class="{% if 'logs_backup' in request.resolver_match.url_name %}active{% endif %}">
+                        {# Ícone Logs/Terminal #}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
+                        </svg>
+                        <span>Logs Backup</span>
+                    </a>
+                </li>
+                {# ---------------------------- #}
+
             </ul>
         </div>
         {# --- Footer da Sidebar --- #}
@@ -96,32 +119,24 @@
         </div>
     </div>
 
-    {# --- REMOVIDO: Modal de Configurações (#settings-modal) --- #}
-
-    {# --- REMOVIDO: Modal de Assinatura Pessoal (#signature-modal-pessoal) --- #}
-
-
-    {# --- Scripts JS (Atualizados) --- #}
-    {# <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script> <!-- Removido --> #}
+    {# --- Scripts JS --- #}
     <script>
         document.addEventListener('DOMContentLoaded', function() {
             // --- Variáveis Globais ---
             const isSuperuser = {{ request.user.is_superuser|yesno:"true,false" }};
             const body = document.body;
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : null; // Use null como fallback
+            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : null;
 
             // --- Lógica do Tema ---
              const themeToggle = document.getElementById('theme-toggle');
             const sunIcon = document.getElementById('theme-icon-sun');
             const moonIcon = document.getElementById('theme-icon-moon');
-            // const themeSelect = document.getElementById('theme-select'); // Removido
 
             function applyTheme(theme) {
                 body.className = ''; // Limpa classes anteriores
                 body.classList.add(theme);
                 localStorage.setItem('theme', theme);
                 updateIcon(theme);
-                // if (themeSelect) themeSelect.value = theme; // Removido
             }
             function updateIcon(theme) {
                 if (sunIcon && moonIcon) {
@@ -138,10 +153,6 @@
                     applyTheme(newTheme);
                 });
             }
-             // if (themeSelect) { // Removido
-             //     themeSelect.addEventListener('change', (e) => applyTheme(e.target.value));
-             // }
-
 
             // --- Lógica da Sidebar Mobile ---
             const mobileNavToggle = document.getElementById('mobile-nav-toggle');
@@ -157,14 +168,8 @@
                     }
                 });
             }
-
-            // --- REMOVIDO: Lógica Modal Configurações ---
-
-            // --- REMOVIDO: Lógica para Aba de Assinaturas ---
-
         });
     </script>
     {% block extra_js %}{% endblock %}
 </body>
 </html>
-
