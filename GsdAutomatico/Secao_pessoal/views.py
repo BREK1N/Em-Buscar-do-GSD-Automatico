@@ -2,9 +2,9 @@ import pandas as pd
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
-from django.contrib.auth.decorators import login_required
+from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
-from Secao_pessoal.models import Efetivo
+from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor
 from .forms import MilitarForm 
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
@@ -147,3 +147,66 @@ def nome_de_guerra(request):
 def troca_de_setor(request):
     # Lembre-se de criar o arquivo: templates/Secao_pessoal/troca_de_setor.html
     return render(request, 'Secao_pessoal/troca_de_setor.html')
+
+@user_passes_test(lambda u: u.is_superuser)
+def gerenciar_opcoes(request):
+    # Dicionário que mapeia o 'tipo' do formulário para a Model correspondente
+    MAPA_OPCOES = {
+        'posto': Posto,
+        'quad': Quad,
+        'especializacao': Especializacao,
+        'om': OM,
+        'setor': Setor,
+        'subsetor': Subsetor,
+    }
+
+    if request.method == 'POST':
+        action = request.POST.get('action')
+        tipo_opcao = request.POST.get('tipo_opcao') # Pega o tipo de opção para o redirect
+        
+        # Ação para ADICIONAR um novo item
+        if action == 'add':
+            nome = request.POST.get('nome', '').strip()
+            
+            if tipo_opcao in MAPA_OPCOES and nome:
+                model = MAPA_OPCOES[tipo_opcao]
+                # 'get_or_create' evita duplicatas
+                obj, created = model.objects.get_or_create(nome=nome)
+                if created:
+                    messages.success(request, f'Opção "{nome}" adicionada com sucesso.')
+                else:
+                    messages.warning(request, f'Opção "{nome}" já existia.')
+            else:
+                messages.error(request, 'Erro ao adicionar a opção. Verifique os dados.')
+
+        # Ação para DELETAR um item
+        elif action == 'delete':
+            item_id = request.POST.get('item_id')
+
+            if tipo_opcao in MAPA_OPCOES and item_id:
+                model = MAPA_OPCOES[tipo_opcao]
+                try:
+                    item = model.objects.get(id=item_id)
+                    item_nome = item.nome
+                    item.delete()
+                    messages.success(request, f'Opção "{item_nome}" removida com sucesso.')
+                except model.DoesNotExist:
+                    messages.error(request, 'Erro: A opção que você tentou remover não existe.')
+
+        # Redireciona para a mesma página, mantendo o tipo selecionado na URL
+        redirect_url = reverse_lazy('Secao_pessoal:gerenciar_opcoes')
+        if tipo_opcao:
+            return redirect(f'{redirect_url}?tipo={tipo_opcao}')
+        return redirect(redirect_url)
+
+    # Contexto para o método GET (carregamento da página)
+    context = {
+        'postos': Posto.objects.all(),
+        'quads': Quad.objects.all(),
+        'especializacoes': Especializacao.objects.all(),
+        'oms': OM.objects.all(),
+        'setores': Setor.objects.all(),
+        'subsetores': Subsetor.objects.all(),
+        'selected_tipo': request.GET.get('tipo', 'posto'), # Pega da URL ou define um padrão
+    }
+    return render(request, 'Secao_pessoal/gerenciar_opcoes.html', context)

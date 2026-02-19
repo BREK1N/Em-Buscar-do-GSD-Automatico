@@ -41,3 +41,46 @@ class Efetivo(models.Model):
 
     class Meta:
         db_table = 'Efetivo'
+
+# Novas models para as opções
+class Posto(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+    class Meta:
+        ordering = ['nome']
+    def __str__(self):
+        return self.nome
+
+class Quad(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+    class Meta:
+        ordering = ['nome']
+    def __str__(self):
+        return self.nome
+
+class Especializacao(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+    class Meta:
+        ordering = ['nome']
+    def __str__(self):
+        return self.nome
+
+class OM(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+    class Meta:
+        ordering = ['nome']
+    def __str__(self):
+        return self.nome
+
+class Setor(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+    class Meta:
+        ordering = ['nome']
+    def __str__(self):
+        return self.nome
+
+class Subsetor(models.Model):
+    nome = models.CharField(max_length=100, unique=True)
+    class Meta:
+        ordering = ['nome']
+    def __str__(self):
+        return self.nome

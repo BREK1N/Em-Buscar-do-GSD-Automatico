@@ -1,0 +1,287 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Gerenciar Opções do Efetivo{% endblock %}
+
+{% block content %}
+<style>
+    .options-manager {
+        display: grid;
+        grid-template-columns: 1fr;
+        gap: 30px;
+    }
+
+    .options-card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: var(--box-shadow);
+    }
+
+    .options-card h2 {
+        margin-top: 0;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+        font-size: 1.3rem;
+    }
+    
+    /* Formulário de Adição */
+    .add-form {
+        display: flex;
+        gap: 15px;
+        align-items: flex-end;
+        margin-bottom: 25px;
+        flex-wrap: wrap;
+    }
+
+    .add-form .form-item {
+        flex-grow: 1;
+    }
+
+    .add-form label {
+        display: block;
+        margin-bottom: 8px;
+        font-weight: 500;
+    }
+
+    .add-form input[type="text"],
+    .add-form select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        box-sizing: border-box;
+    }
+
+    .add-form button {
+        height: 42px; /* Alinha com a altura do input+padding */
+    }
+
+    /* Grid para as listas de opções */
+    .options-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 20px;
+    }
+
+    .options-list-card h3 {
+        font-size: 1.1rem;
+        color: var(--text-secondary);
+        margin-bottom: 15px;
+    }
+
+    .options-list {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+
+    .options-list li {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 12px;
+        border-radius: 6px;
+        background-color: var(--bg-main);
+        margin-bottom: 8px;
+        font-size: 0.95rem;
+    }
+    
+    .options-list li:last-child {
+        margin-bottom: 0;
+    }
+
+    .options-list .delete-btn {
+        background: none;
+        border: none;
+        cursor: pointer;
+        color: var(--danger-color);
+        padding: 4px;
+    }
+    .options-list .delete-btn:hover {
+        opacity: 0.8;
+    }
+    .options-list .delete-btn svg {
+        width: 18px;
+        height: 18px;
+        display: block;
+    }
+</style>
+
+<h1>Gerenciar Opções do Efetivo</h1>
+<p>Adicione ou remova as opções que aparecerão nos formulários de cadastro do efetivo.</p>
+
+<div class="options-manager">
+    <!-- Card para Adicionar Opções -->
+    <div class="options-card">
+        <h2>Adicionar Nova Opção</h2>
+        <form method="post" action="{% url 'Secao_pessoal:gerenciar_opcoes' %}" class="add-form">
+            {% csrf_token %}
+            <input type="hidden" name="action" value="add">
+            
+            <div class="form-item" style="min-width: 200px;">
+                <label for="id_tipo_opcao">Tipo da Opção</label>
+                <select name="tipo_opcao" id="id_tipo_opcao" required>
+                    <option value="posto" {% if selected_tipo == 'posto' %}selected{% endif %}>Posto/Grad.</option>
+                    <option value="quad" {% if selected_tipo == 'quad' %}selected{% endif %}>Quadro</option>
+                    <option value="especializacao" {% if selected_tipo == 'especializacao' %}selected{% endif %}>Especialização</option>
+                    <option value="om" {% if selected_tipo == 'om' %}selected{% endif %}>OM</option>
+                    <option value="setor" {% if selected_tipo == 'setor' %}selected{% endif %}>Setor</option>
+                    <option value="subsetor" {% if selected_tipo == 'subsetor' %}selected{% endif %}>Subsetor</option>
+                </select>
+            </div>
+            
+            <div class="form-item" style="flex-basis: 350px;">
+                <label for="id_nome">Nome da Opção</label>
+                <input type="text" name="nome" id="id_nome" placeholder="Digite o novo valor" required>
+            </div>
+
+            <button type="submit" class="btn btn-primary">Adicionar</button>
+        </form>
+    </div>
+
+    <!-- Card para Listar e Remover Opções -->
+    <div class="options-card">
+        <h2>Opções Existentes</h2>
+        <div class="options-grid">
+            
+            <div class="options-list-card">
+                <h3>Postos/Graduações</h3>
+                <ul class="options-list">
+                    {% for item in postos %}
+                    <li>
+                        <span>{{ item.nome }}</span>
+                        <form method="post" action="{% url 'Secao_pessoal:gerenciar_opcoes' %}" onsubmit="return confirm('Tem certeza que deseja remover esta opção?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="tipo_opcao" value="posto">
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <button type="submit" class="delete-btn" title="Remover">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            </button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li>Nenhuma opção cadastrada.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="options-list-card">
+                <h3>Quadros</h3>
+                <ul class="options-list">
+                    {% for item in quads %}
+                    <li>
+                        <span>{{ item.nome }}</span>
+                        <form method="post" action="{% url 'Secao_pessoal:gerenciar_opcoes' %}" onsubmit="return confirm('Tem certeza que deseja remover esta opção?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="tipo_opcao" value="quad">
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <button type="submit" class="delete-btn" title="Remover">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            </button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li>Nenhuma opção cadastrada.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="options-list-card">
+                <h3>Especializações</h3>
+                <ul class="options-list">
+                    {% for item in especializacoes %}
+                    <li>
+                        <span>{{ item.nome }}</span>
+                        <form method="post" action="{% url 'Secao_pessoal:gerenciar_opcoes' %}" onsubmit="return confirm('Tem certeza que deseja remover esta opção?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="tipo_opcao" value="especializacao">
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <button type="submit" class="delete-btn" title="Remover">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            </button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li>Nenhuma opção cadastrada.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="options-list-card">
+                <h3>Organizações Militares (OM)</h3>
+                <ul class="options-list">
+                    {% for item in oms %}
+                    <li>
+                        <span>{{ item.nome }}</span>
+                        <form method="post" action="{% url 'Secao_pessoal:gerenciar_opcoes' %}" onsubmit="return confirm('Tem certeza que deseja remover esta opção?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="tipo_opcao" value="om">
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <button type="submit" class="delete-btn" title="Remover">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            </button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li>Nenhuma opção cadastrada.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="options-list-card">
+                <h3>Setores</h3>
+                <ul class="options-list">
+                    {% for item in setores %}
+                    <li>
+                        <span>{{ item.nome }}</span>
+                        <form method="post" action="{% url 'Secao_pessoal:gerenciar_opcoes' %}" onsubmit="return confirm('Tem certeza que deseja remover esta opção?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="tipo_opcao" value="setor">
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <button type="submit" class="delete-btn" title="Remover">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            </button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li>Nenhuma opção cadastrada.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+            <div class="options-list-card">
+                <h3>Subsetores</h3>
+                <ul class="options-list">
+                    {% for item in subsetores %}
+                    <li>
+                        <span>{{ item.nome }}</span>
+                        <form method="post" action="{% url 'Secao_pessoal:gerenciar_opcoes' %}" onsubmit="return confirm('Tem certeza que deseja remover esta opção?');">
+                            {% csrf_token %}
+                            <input type="hidden" name="action" value="delete">
+                            <input type="hidden" name="tipo_opcao" value="subsetor">
+                            <input type="hidden" name="item_id" value="{{ item.id }}">
+                            <button type="submit" class="delete-btn" title="Remover">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                            </button>
+                        </form>
+                    </li>
+                    {% empty %}
+                    <li>Nenhuma opção cadastrada.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+
+        </div>
+    </div>
+</div>
+{% endblock %}
+ 

@@ -12,4 +12,5 @@ urlpatterns = [
     path('efetivo/importar/', views.importar_excel, name='importar_excel'),
     path('controle/nome-de-guerra/', views.nome_de_guerra, name='nome_de_guerra'),
     path('controle/troca-de-setor/', views.troca_de_setor, name='troca_de_setor'),
+    path('gerenciar-opcoes/', views.gerenciar_opcoes, name='gerenciar_opcoes'),
 ]
