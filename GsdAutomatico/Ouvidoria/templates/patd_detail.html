@@ -457,11 +457,14 @@
             Exportar DOCX
         </a>
 
-        {# --- INÍCIO DA MODIFICAÇÃO: Condição para editar --- #}
-        {% if not user|has_comandante_access and patd.status not in locked_statuses_for_edit %}
+        {% if user.is_superuser %}
             <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
-        {% else %}
-            <button class="btn btn-secondary" disabled title="O processo não pode ser editado nesta fase.">Editar12</button>
+        {% elif user|has_comandante_access %}
+            {% if patd.status not in locked_statuses_for_edit %}
+                <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
+            {% else %}
+                <button class="btn btn-secondary" disabled title="O processo não pode ser editado nesta fase.">Editar</button>
+            {% endif %}
         {% endif %}
     
 

@@ -1700,7 +1700,9 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
     template_name = 'patd_form.html'
 
     def test_func(self):
-        return not has_comandante_access(self.request.user)
+        # Allow access if the user is a superuser or has 'comandante' access.
+        # The detailed status check will be handled in dispatch.
+        return has_comandante_access(self.request.user)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
@@ -1716,8 +1718,10 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
             'finalizado'
         ]
 
-        if patd.status in locked_statuses:
-            messages.error(request, "A PATD não pode ser editada pois já foi enviada para análise ou está em fase de finalização.")
+        # Superusers can bypass the status lock.
+        # Comandantes (who are not superusers) are subject to the status lock.
+        if not request.user.is_superuser and patd.status in locked_statuses:
+            messages.error(request, "A PATD não pode ser editada nesta fase do processo.")
             return redirect('Ouvidoria:patd_detail', pk=patd.pk)
 
         return super().dispatch(request, *args, **kwargs)
@@ -1731,7 +1735,8 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
 
 
     def handle_no_permission(self):
-        messages.error(self.request, "Acesso negado. Comandantes não podem editar o processo.")
+        # This is now called for users who are not superusers and not comandantes.
+        messages.error(self.request, "Você não tem permissão para editar este processo.")
         patd_pk = self.kwargs.get('pk')
         if patd_pk:
             return redirect('Ouvidoria:patd_detail', pk=patd_pk)
