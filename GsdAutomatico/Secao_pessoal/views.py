@@ -9,14 +9,20 @@ from .forms import MilitarForm
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
 
+def is_s1_member(user):
+    """Check if the user is a member of the 'S1' group."""
+    return user.groups.filter(name='S1').exists()
 
-@login_required
+s1_required = user_passes_test(is_s1_member)
+
+
+@s1_required
 def index(request):
     return render(request, 'Secao_pessoal/index.html')
 
 #Efetivo
 
-@method_decorator(login_required, name='dispatch')
+@method_decorator(s1_required, name='dispatch')
 class MilitarListView(ListView):
     model = Efetivo
     template_name = 'Secao_pessoal/militar_list.html'
@@ -47,7 +53,7 @@ class MilitarListView(ListView):
             )
         return qs
     
-@method_decorator(login_required, name='dispatch')
+@method_decorator(s1_required, name='dispatch')
 class MilitarCreateView(CreateView):
     model = Efetivo
     form_class = MilitarForm
@@ -59,7 +65,7 @@ class MilitarCreateView(CreateView):
         context['titulo'] = 'Adicionar Militar'
         return context
 
-@method_decorator(login_required, name='dispatch')
+@method_decorator(s1_required, name='dispatch')
 class MilitarUpdateView(UpdateView):
     model = Efetivo
     form_class = MilitarForm
@@ -71,13 +77,14 @@ class MilitarUpdateView(UpdateView):
         context['titulo'] = 'Editar Militar'
         return context
 
-@method_decorator(login_required, name='dispatch')
+@method_decorator(s1_required, name='dispatch')
 class MilitarDeleteView(DeleteView):
     model = Efetivo
     template_name = 'Secao_pessoal/militar_confirm_delete.html'
     success_url = reverse_lazy('Secao_pessoal:militar_list')
+
 #EFETIVO IMPORT EXCEL
-@login_required
+@s1_required
 def importar_excel(request):
     if request.method == 'POST' and request.FILES.get('excel_file'):
         excel_file = request.FILES['excel_file']
@@ -140,15 +147,17 @@ def importar_excel(request):
 
     return render(request, 'Secao_pessoal/importar_excel.html')
     
+@s1_required
 def nome_de_guerra(request):
     # Lembre-se de criar o arquivo: templates/Secao_pessoal/nome_de_guerra.html
     return render(request, 'Secao_pessoal/nome_de_guerra.html')
 
+@s1_required
 def troca_de_setor(request):
     # Lembre-se de criar o arquivo: templates/Secao_pessoal/troca_de_setor.html
     return render(request, 'Secao_pessoal/troca_de_setor.html')
 
-@user_passes_test(lambda u: u.is_superuser)
+@s1_required
 def gerenciar_opcoes(request):
     # Dicionário que mapeia o 'tipo' do formulário para a Model correspondente
     MAPA_OPCOES = {

@@ -919,6 +919,13 @@ def _try_advance_status_from_justificativa(patd):
 def atribuir_oficial(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
     if request.method == 'POST':
+        # --- INÍCIO DA MODIFICAÇÃO: Validação explícita ---
+        if not request.POST.get('oficial_responsavel'):
+            messages.error(request, 'Você deve selecionar um oficial para fazer a atribuição.')
+            form = AtribuirOficialForm(instance=patd, user=request.user)
+            return render(request, 'atribuir_oficial.html', {'form': form, 'patd': patd})
+        # --- FIM DA MODIFICAÇÃO ---
+
         form = AtribuirOficialForm(request.POST, instance=patd, user=request.user)
         if form.is_valid():
             form.save()
