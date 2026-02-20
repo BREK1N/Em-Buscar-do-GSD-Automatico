@@ -170,7 +170,7 @@ LOGGING = {
         'file': {
             'level': 'INFO',
             'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': os.path.join(LOG_DIR, 'sistema.logs'),
+            'filename': os.path.join(LOG_DIR, 'sistema.log'),
             'when': 'midnight',
             'backupCount': 7,
             'formatter': 'verbose',
