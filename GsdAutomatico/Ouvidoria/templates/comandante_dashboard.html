@@ -50,47 +50,55 @@
     </div>
 
     <div id="relatorios" class="tab-content">
-        <h1>Relatórios de PATDs</h1>
-        <p>Visão geral e estatísticas dos processos.</p>
-
-        <div class="report-cards">
-            <div class="card">
-                <h4>Em Andamento</h4>
-                <p>{{ patd_em_andamento }}</p>
-            </div>
-            <div class="card">
-                <h4>Finalizadas (Total)</h4>
-                <p>{{ patd_finalizadas_total }}</p>
-            </div>
-            <div class="card">
-                <h4>Justificadas (Total)</h4>
-                <p>{{ patd_justificadas_total }}</p>
-            </div>
-            <div class="card">
-                <h4>Criadas este Mês</h4>
-                <p>{{ patd_criadas_mes }}</p>
-            </div>
-            <div class="card">
-                <h4>Criadas esta Semana</h4>
-                <p>{{ patd_criadas_semana }}</p>
-            </div>
-            <div class="card">
-                <h4>Finalizadas este Mês</h4>
-                <p>{{ patd_finalizadas_mes }}</p>
-            </div>
-            <div class="card">
-                <h4>Finalizadas esta Semana</h4>
-                <p>{{ patd_finalizadas_semana }}</p>
+    <div class="detail-card">
+        <div class="detail-card-header">
+            <h3>Visão Geral e Estatísticas</h3>
+        </div>
+        <div class="detail-card-body">
+            <div class="detail-grid">
+                <div class="detail-item">
+                    <strong>Em Andamento</strong>
+                    <p>{{ patd_em_andamento }}</p>
+                </div>
+                <div class="detail-item">
+                    <strong>Finalizadas (Total)</strong>
+                    <p>{{ patd_finalizadas_total }}</p>
+                </div>
+                <div class="detail-item">
+                    <strong>Justificadas (Total)</strong>
+                    <p>{{ patd_justificadas_total }}</p>
+                </div>
+                <div class="detail-item">
+                    <strong>Criadas este Mês</strong>
+                    <p>{{ patd_criadas_mes }}</p>
+                </div>
+                <div class="detail-item">
+                    <strong>Criadas esta Semana</strong>
+                    <p>{{ patd_criadas_semana }}</p>
+                </div>
+                <div class="detail-item">
+                    <strong>Finalizadas este Mês</strong>
+                    <p>{{ patd_finalizadas_mes }}</p>
+                </div>
+                <div class="detail-item">
+                    <strong>Finalizadas esta Semana</strong>
+                    <p>{{ patd_finalizadas_semana }}</p>
+                </div>
             </div>
         </div>
+    </div>
 
-        <div class="charts-container">
-            <div class="chart-wrapper">
-                <h2>Evolução Mensal (Últimos 12 meses)</h2>
+    <div class="detail-card" style="margin-top: 25px;">
+        <div class="detail-card-header">
+            <h3>Evolução Mensal (Últimos 12 meses)</h3>
+        </div>
+        <div class="detail-card-body">
+            <div class="chart-wrapper" style="height: 350px;">
                 <canvas id="patdChart"></canvas>
             </div>
         </div>
     </div>
+</div>
 </div>
 
 

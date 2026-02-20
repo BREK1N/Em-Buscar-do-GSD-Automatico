@@ -1,5 +1,0 @@
-[2026-02-20 10:36:29,514] WARNING Ouvidoria.views: Locale pt_BR.UTF-8 não encontrado. A data pode não ser formatada corretamente.
-[2026-02-20 10:36:32,732] WARNING Ouvidoria.views: Locale pt_BR.UTF-8 não encontrado. A data pode não ser formatada corretamente.
-[2026-02-20 10:36:36,079] WARNING Ouvidoria.views: Locale pt_BR.UTF-8 não encontrado. A data pode não ser formatada corretamente.
-[2026-02-20 10:36:39,236] INFO waitress: Serving on http://0.0.0.0:8000
-[2026-02-20 10:36:39,236] INFO waitress: Serving on http://[::]:8000
