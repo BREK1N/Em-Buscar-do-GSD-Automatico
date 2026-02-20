@@ -3707,7 +3707,7 @@ def arquivar_patd(request, pk):
     patd.arquivado = True
     patd.save()
     messages.success(request, f'A PATD Nº {-patd.numero_patd} foi arquivada com sucesso.')
-    return redirect('Ouvidoria:patd_list')
+    return redirect('Ouvidoria:patd_arquivado_list')
 
 @login_required
 @ouvidoria_required
