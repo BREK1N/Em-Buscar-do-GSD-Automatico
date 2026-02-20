@@ -43,7 +43,7 @@
                 </td>
                 <td>{{ patd.get_status_display }}</td>
                 <td class="actions-cell">
-                    <form method="post" action="{% url 'Ouvidoria:desarquivar_patd' patd.pk %}" style="display: inline;">
+                    <form method="post" action="{% url 'Ouvidoria:desarquivar_patd' patd.pk %}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desarquivar esta PATD?');">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-success">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
