@@ -203,7 +203,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     data.forEach(oficial => {
                         const listItem = document.createElement('li');
                         const signaturePreview = oficial.assinatura
-                            ? `<img src="${oficial.assinatura}" alt="Assinatura">`
+                            ? `<img class="signature-image-embedded" src="${oficial.assinatura}" alt="Assinatura">`
                             : '<span class="no-signature">Sem assinatura</span>';
 
                         const manageButton = isSuperuser ? `

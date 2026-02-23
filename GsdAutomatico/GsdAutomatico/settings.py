@@ -64,6 +64,8 @@ MIDDLEWARE = [
 
 CSRF_TRUSTED_ORIGINS = [
     'http://10.52.17.168:8080',
+    'http://localhost:8080',
+    'http://127.0.0.1:8080',
 ]
 
 ROOT_URLCONF = 'GsdAutomatico.urls'
