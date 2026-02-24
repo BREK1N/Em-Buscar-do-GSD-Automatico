@@ -3,8 +3,7 @@ import os
 import tempfile
 import httpx
 import random
-import fitz  # PyMuPDF
-import base64
+import unicodedata
 from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
@@ -15,12 +14,6 @@ from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor
 from .forms import MilitarForm 
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
-from langchain_community.document_loaders import PyPDFLoader
-from langchain_openai import ChatOpenAI
-from langchain.prompts import ChatPromptTemplate
-from langchain_core.output_parsers import PydanticOutputParser
-from langchain_core.messages import HumanMessage
-from pydantic import BaseModel, Field
 
 def is_s1_member(user):
     """Check if the user is a member of the 'S1' group."""
@@ -55,7 +48,7 @@ class MilitarListView(ListView):
             When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
             When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
             When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
-            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
             default=Value(99), output_field=IntegerField(),
         )
         qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
@@ -63,7 +56,8 @@ class MilitarListView(ListView):
             qs = qs.filter(
                 Q(nome_completo__icontains=query) |
                 Q(nome_guerra__icontains=query) |
-                Q(saram__icontains=query)
+                Q(saram__icontains=query) |
+                Q(posto__icontains=query)
             )
         return qs
     
@@ -163,25 +157,11 @@ def importar_excel(request):
     
 # --- Lógica para Nome de Guerra ---
 
-class CandidatoExtraction(BaseModel):
-    numero: str = Field(description="Número do candidato (ex: 01, 02)")
-    nome_completo: str = Field(description="Nome completo do candidato")
-    saram: str = Field(description="SARAM do candidato")
-
-class ListaCandidatosExtraction(BaseModel):
-    candidatos: list[CandidatoExtraction] = Field(description="Lista de candidatos extraídos")
-
-def get_llm_model():
-    """Configura o modelo LLM com as mesmas configurações de proxy da Ouvidoria."""
-    openai_api_key = os.getenv("OPENAI_API_KEY")
-    proxy_url = os.getenv("http_proxy") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("HTTPS_PROXY")
-    
-    if proxy_url:
-        http_client = httpx.Client(proxy=proxy_url, verify=False, timeout=600.0)
-    else:
-        http_client = httpx.Client(verify=False, timeout=600.0)
-        
-    return ChatOpenAI(model="gpt-4o", temperature=0, api_key=openai_api_key, http_client=http_client)
+def normalize_name(name):
+    """Remove acentos e caracteres especiais para comparação (ex: 'Corrêa' -> 'CORREA')."""
+    if not name:
+        return ""
+    return ''.join(c for c in unicodedata.normalize('NFD', name) if unicodedata.category(c) != 'Mn').upper()
 
 def gerar_sugestoes_guerra(nome_completo):
     """Gera uma lista de possíveis nomes de guerra baseados no nome completo, em ordem de prioridade."""
@@ -209,117 +189,114 @@ def gerar_sugestoes_guerra(nome_completo):
     if len(partes) >= 2:
         add_unique(f"{partes[-2]} {partes[-1]}")
 
-    # 4. Primeiro + Último
-    add_unique(f"{partes[0]} {partes[-1]}")
+    # 4. Primeiro + Último (Prioriza abreviação se o nome for longo)
+    primeiro_ultimo = f"{partes[0]} {partes[-1]}"
+    inicial_ultimo = f"{partes[0][0]}. {partes[-1]}"
     
-    # 5. Inicial + Último
-    add_unique(f"{partes[0][0]}. {partes[-1]}")
+    if len(partes[0]) > 5: # Ex: Leonardo (8) -> L. MARTINS
+        add_unique(inicial_ultimo)
+        add_unique(primeiro_ultimo)
+    else:
+        add_unique(primeiro_ultimo)
+        add_unique(inicial_ultimo)
     
-    # 6. Outras combinações
+    # 5. Outras combinações
     if len(partes) > 2:
-        add_unique(f"{partes[0]} {partes[-2]}")
-        add_unique(f"{partes[0][0]}. {partes[-2]}")
+        primeiro_penultimo = f"{partes[0]} {partes[-2]}"
+        inicial_penultimo = f"{partes[0][0]}. {partes[-2]}"
+        
+        if len(partes[0]) > 5:
+            add_unique(inicial_penultimo)
+            add_unique(primeiro_penultimo)
+        else:
+            add_unique(primeiro_penultimo)
+            add_unique(inicial_penultimo)
 
     for i in range(1, len(partes)-1):
         add_unique(partes[i])
-        add_unique(f"{partes[0]} {partes[i]}")
+        # Adiciona combinações com nomes do meio, também verificando tamanho
+        comb_nome = f"{partes[0]} {partes[i]}"
+        comb_inicial = f"{partes[0][0]}. {partes[i]}"
+        
+        if len(partes[0]) > 5:
+            add_unique(comb_inicial)
+            add_unique(comb_nome)
+        else:
+            add_unique(comb_nome)
+            add_unique(comb_inicial)
 
     return sugestoes
 
 @s1_required
 def nome_de_guerra(request):
-    if request.method == 'POST' and request.FILES.get('pdf_file'):
+    if request.method == 'POST':
         try:
-            pdf_file = request.FILES['pdf_file']
+            # 1. Buscar Recrutas no Banco de Dados
+            recrutas = Efetivo.objects.filter(posto='REC')
             
-            # 1. Salvar PDF temporariamente
-            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
-                for chunk in pdf_file.chunks():
-                    temp_file.write(chunk)
-                temp_path = temp_file.name
-            
-            # 2. Processar PDF como Imagens (Vision) para lidar com planilhas digitalizadas/imagens
-            doc = fitz.open(temp_path)
-            content_parts = []
-            
-            # Instrução para o modelo
-            content_parts.append({
-                "type": "text", 
-                "text": "Analise as imagens deste documento. Ele contém uma lista ou planilha de militares. Extraia os dados de cada candidato: Número (ex: 01, 02), Nome Completo e SARAM. Ignore cabeçalhos, rodapés e assinaturas."
-            })
+            if not recrutas.exists():
+                messages.warning(request, "Nenhum militar com posto 'REC' encontrado no efetivo.")
+                return redirect('Secao_pessoal:nome_de_guerra')
 
-            for page_num in range(len(doc)):
-                page = doc.load_page(page_num)
-                # Renderiza a página como imagem (PNG) com DPI suficiente para leitura
-                pix = page.get_pixmap(dpi=150) 
-                img_data = pix.tobytes("png")
-                base64_image = base64.b64encode(img_data).decode('utf-8')
-                
-                content_parts.append({
-                    "type": "image_url",
-                    "image_url": {"url": f"data:image/png;base64,{base64_image}"}
-                })
+            # Carrega todos os nomes existentes e normaliza para comparação rápida e sem acentos
+            existing_names_map = {}
+            all_efetivo = Efetivo.objects.exclude(nome_guerra__isnull=True).exclude(nome_guerra='').values('id', 'nome_guerra')
             
-            doc.close()
-            os.remove(temp_path) # Limpeza
-            
-            # 3. Usar IA com capacidade de Visão (GPT-4o)
-            llm = get_llm_model()
-            structured_llm = llm.with_structured_output(ListaCandidatosExtraction)
-            
-            # Cria a mensagem humana com o conteúdo misto (texto + imagens)
-            message = HumanMessage(content=content_parts)
-            
-            # Invoca o modelo
-            resultado = structured_llm.invoke([message])
-            
-            # 4. Gerar Nomes de Guerra e Criar Excel
-            data_rows = []
-            nomes_usados_sessao = set() # Rastreia nomes gerados nesta importação para evitar duplicatas no lote
+            for item in all_efetivo:
+                norm = normalize_name(item['nome_guerra'])
+                if norm not in existing_names_map:
+                    existing_names_map[norm] = set()
+                existing_names_map[norm].add(item['id'])
 
-            for cand in resultado.candidatos:
-                sugestoes = gerar_sugestoes_guerra(cand.nome_completo)
+            nomes_usados_sessao_norm = set() # Rastreia nomes gerados nesta sessão (normalizados)
+            count_atualizados = 0
+
+            for recruta in recrutas:
+                sugestoes = gerar_sugestoes_guerra(recruta.nome_completo)
                 nome_final = None
                 
-                # Verifica disponibilidade no banco de dados (prioridade da lista)
                 for sugestao in sugestoes:
-                    # Verifica no banco E na lista atual de nomes gerados
-                    if not Efetivo.objects.filter(nome_guerra=sugestao).exists() and sugestao not in nomes_usados_sessao:
+                    sugestao_norm = normalize_name(sugestao)
+                    
+                    # Verifica conflito no DB (se existe e não é o próprio recruta)
+                    ids_com_esse_nome = existing_names_map.get(sugestao_norm, set())
+                    conflito_db = bool(ids_com_esse_nome - {recruta.pk})
+                    
+                    # Verifica conflito na sessão atual
+                    conflito_sessao = sugestao_norm in nomes_usados_sessao_norm
+
+                    if not conflito_db and not conflito_sessao:
                         nome_final = sugestao
                         break
                 
-                # Se todas as sugestões estiverem ocupadas, cria uma variação numérica
                 if not nome_final:
                     base = sugestoes[0] if sugestoes else "MILITAR"
                     contador = 2
                     while True:
                         teste = f"{base} {contador}"
-                        if not Efetivo.objects.filter(nome_guerra=teste).exists() and teste not in nomes_usados_sessao:
+                        teste_norm = normalize_name(teste)
+                        
+                        ids_com_esse_nome = existing_names_map.get(teste_norm, set())
+                        conflito_db = bool(ids_com_esse_nome - {recruta.pk})
+                        conflito_sessao = teste_norm in nomes_usados_sessao_norm
+
+                        if not conflito_db and not conflito_sessao:
                             nome_final = teste
                             break
                         contador += 1
 
-                nomes_usados_sessao.add(nome_final) # Adiciona ao conjunto de usados nesta sessão
+                nomes_usados_sessao_norm.add(normalize_name(nome_final))
 
-                row = {
-                    'Numero': cand.numero,
-                    'SARAM': cand.saram,
-                    'NOME COMPLETO': cand.nome_completo,
-                    'NOME DE GUERRA': nome_final
-                }
-                
-                data_rows.append(row)
+                # Atualiza diretamente no banco de dados
+                recruta.nome_guerra = nome_final
+                recruta.save()
+                count_atualizados += 1
             
-            df = pd.DataFrame(data_rows)
-            
-            # 5. Retornar o arquivo Excel
-            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
-            response['Content-Disposition'] = 'attachment; filename=sugestoes_nome_guerra.xlsx'
-            df.to_excel(response, index=False)
-            return response
+            messages.success(request, f"Sucesso! Nomes de guerra atualizados para {count_atualizados} recrutas.")
+            return redirect('Secao_pessoal:nome_de_guerra')
             
         except Exception as e:
-            messages.error(request, f"Erro ao processar o arquivo: {str(e)}")
+            messages.error(request, f"Erro ao gerar nomes: {str(e)}")
             return redirect('Secao_pessoal:nome_de_guerra')
 
     return render(request, 'Secao_pessoal/nome_de_guerra.html')

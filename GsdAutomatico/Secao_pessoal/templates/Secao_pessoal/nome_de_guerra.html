@@ -15,16 +15,14 @@
             Alteração de Nome de Guerra
         </div>
         <div class="card-body">
-            <form method="post" enctype="multipart/form-data" class="row g-3 align-items-center mb-4">
+           Crie aqui o nome de guerra para os recrutas do efetivo.
+            
+            <form method="post" class="row g-3 align-items-center mb-4">
                 {% csrf_token %}
                 <div class="col-auto">
-                    <label for="pdfFile" class="col-form-label">Selecione o PDF da Turma:</label>
-                </div>
-                <div class="col-auto">
-                    <input type="file" name="pdf_file" id="pdfFile" class="form-control" accept=".pdf" required>
-                </div>
-                <div class="col-auto">
-                    <button type="submit" class="btn btn-primary"><i class="fas fa-cogs"></i> Gerar Nomes</button>
+                    <button type="submit" class="btn btn-primary btn-lg">
+                        <i class="fas fa-cogs"></i> Gerar Nomes para Recrutas do Efetivo
+                    </button>
                 </div>
             </form>
 
@@ -67,19 +65,4 @@
         </div>
     </div>
 </div>
-{% endblock %}
-
-{% block extra_js %}
-<script>
-    // Validação preventiva de tamanho de arquivo
-    document.getElementById('pdfFile').addEventListener('change', function() {
-        // Define o limite em Bytes (ex: 50MB = 50 * 1024 * 1024)
-        const maxSize = 50 * 1024 * 1024; 
-        
-        if (this.files[0] && this.files[0].size > maxSize) {
-            alert('O arquivo selecionado é muito grande (maior que 50MB). Por favor, selecione um arquivo menor ou solicite o aumento do limite do servidor.');
-            this.value = ''; // Limpa a seleção para impedir o envio
-        }
-    });
-</script>
 {% endblock %}
