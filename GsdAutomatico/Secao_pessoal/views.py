@@ -1,4 +1,11 @@
 import pandas as pd
+import os
+import tempfile
+import httpx
+import random
+import fitz  # PyMuPDF
+import base64
+from django.http import HttpResponse
 from django.shortcuts import render, redirect
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
@@ -8,12 +15,19 @@ from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor
 from .forms import MilitarForm 
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
+from langchain_community.document_loaders import PyPDFLoader
+from langchain_openai import ChatOpenAI
+from langchain.prompts import ChatPromptTemplate
+from langchain_core.output_parsers import PydanticOutputParser
+from langchain_core.messages import HumanMessage
+from pydantic import BaseModel, Field
 
 def is_s1_member(user):
     """Check if the user is a member of the 'S1' group."""
     return user.groups.filter(name='S1').exists()
 
 s1_required = user_passes_test(is_s1_member)
+
 
 
 @s1_required
@@ -147,10 +161,173 @@ def importar_excel(request):
 
     return render(request, 'Secao_pessoal/importar_excel.html')
     
+# --- Lógica para Nome de Guerra ---
+
+class CandidatoExtraction(BaseModel):
+    numero: str = Field(description="Número do candidato (ex: 01, 02)")
+    nome_completo: str = Field(description="Nome completo do candidato")
+    saram: str = Field(description="SARAM do candidato")
+
+class ListaCandidatosExtraction(BaseModel):
+    candidatos: list[CandidatoExtraction] = Field(description="Lista de candidatos extraídos")
+
+def get_llm_model():
+    """Configura o modelo LLM com as mesmas configurações de proxy da Ouvidoria."""
+    openai_api_key = os.getenv("OPENAI_API_KEY")
+    proxy_url = os.getenv("http_proxy") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("HTTPS_PROXY")
+    
+    if proxy_url:
+        http_client = httpx.Client(proxy=proxy_url, verify=False, timeout=600.0)
+    else:
+        http_client = httpx.Client(verify=False, timeout=600.0)
+        
+    return ChatOpenAI(model="gpt-4o", temperature=0, api_key=openai_api_key, http_client=http_client)
+
+def gerar_sugestoes_guerra(nome_completo):
+    """Gera uma lista de possíveis nomes de guerra baseados no nome completo, em ordem de prioridade."""
+    ignore = ['de', 'da', 'do', 'dos', 'das', 'e']
+    partes = [p for p in nome_completo.split() if p.lower() not in ignore]
+    
+    if not partes:
+        return []
+    
+    sugestoes = []
+    
+    def add_unique(nome):
+        nome = nome.upper()
+        if nome not in sugestoes:
+            sugestoes.append(nome)
+    
+    # 1. Último nome (Padrão)
+    add_unique(partes[-1])
+    
+    # 2. Penúltimo (se houver e não for o primeiro)
+    if len(partes) > 2:
+        add_unique(partes[-2])
+
+    # 3. Nomes Compostos (ex: Del Puerto, Villas Boas)
+    if len(partes) >= 2:
+        add_unique(f"{partes[-2]} {partes[-1]}")
+
+    # 4. Primeiro + Último
+    add_unique(f"{partes[0]} {partes[-1]}")
+    
+    # 5. Inicial + Último
+    add_unique(f"{partes[0][0]}. {partes[-1]}")
+    
+    # 6. Outras combinações
+    if len(partes) > 2:
+        add_unique(f"{partes[0]} {partes[-2]}")
+        add_unique(f"{partes[0][0]}. {partes[-2]}")
+
+    for i in range(1, len(partes)-1):
+        add_unique(partes[i])
+        add_unique(f"{partes[0]} {partes[i]}")
+
+    return sugestoes
+
 @s1_required
 def nome_de_guerra(request):
-    # Lembre-se de criar o arquivo: templates/Secao_pessoal/nome_de_guerra.html
+    if request.method == 'POST' and request.FILES.get('pdf_file'):
+        try:
+            pdf_file = request.FILES['pdf_file']
+            
+            # 1. Salvar PDF temporariamente
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+                for chunk in pdf_file.chunks():
+                    temp_file.write(chunk)
+                temp_path = temp_file.name
+            
+            # 2. Processar PDF como Imagens (Vision) para lidar com planilhas digitalizadas/imagens
+            doc = fitz.open(temp_path)
+            content_parts = []
+            
+            # Instrução para o modelo
+            content_parts.append({
+                "type": "text", 
+                "text": "Analise as imagens deste documento. Ele contém uma lista ou planilha de militares. Extraia os dados de cada candidato: Número (ex: 01, 02), Nome Completo e SARAM. Ignore cabeçalhos, rodapés e assinaturas."
+            })
+
+            for page_num in range(len(doc)):
+                page = doc.load_page(page_num)
+                # Renderiza a página como imagem (PNG) com DPI suficiente para leitura
+                pix = page.get_pixmap(dpi=150) 
+                img_data = pix.tobytes("png")
+                base64_image = base64.b64encode(img_data).decode('utf-8')
+                
+                content_parts.append({
+                    "type": "image_url",
+                    "image_url": {"url": f"data:image/png;base64,{base64_image}"}
+                })
+            
+            doc.close()
+            os.remove(temp_path) # Limpeza
+            
+            # 3. Usar IA com capacidade de Visão (GPT-4o)
+            llm = get_llm_model()
+            structured_llm = llm.with_structured_output(ListaCandidatosExtraction)
+            
+            # Cria a mensagem humana com o conteúdo misto (texto + imagens)
+            message = HumanMessage(content=content_parts)
+            
+            # Invoca o modelo
+            resultado = structured_llm.invoke([message])
+            
+            # 4. Gerar Nomes de Guerra e Criar Excel
+            data_rows = []
+            nomes_usados_sessao = set() # Rastreia nomes gerados nesta importação para evitar duplicatas no lote
+
+            for cand in resultado.candidatos:
+                sugestoes = gerar_sugestoes_guerra(cand.nome_completo)
+                nome_final = None
+                
+                # Verifica disponibilidade no banco de dados (prioridade da lista)
+                for sugestao in sugestoes:
+                    # Verifica no banco E na lista atual de nomes gerados
+                    if not Efetivo.objects.filter(nome_guerra=sugestao).exists() and sugestao not in nomes_usados_sessao:
+                        nome_final = sugestao
+                        break
+                
+                # Se todas as sugestões estiverem ocupadas, cria uma variação numérica
+                if not nome_final:
+                    base = sugestoes[0] if sugestoes else "MILITAR"
+                    contador = 2
+                    while True:
+                        teste = f"{base} {contador}"
+                        if not Efetivo.objects.filter(nome_guerra=teste).exists() and teste not in nomes_usados_sessao:
+                            nome_final = teste
+                            break
+                        contador += 1
+
+                nomes_usados_sessao.add(nome_final) # Adiciona ao conjunto de usados nesta sessão
+
+                row = {
+                    'Numero': cand.numero,
+                    'SARAM': cand.saram,
+                    'NOME COMPLETO': cand.nome_completo,
+                    'NOME DE GUERRA': nome_final
+                }
+                
+                data_rows.append(row)
+            
+            df = pd.DataFrame(data_rows)
+            
+            # 5. Retornar o arquivo Excel
+            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+            response['Content-Disposition'] = 'attachment; filename=sugestoes_nome_guerra.xlsx'
+            df.to_excel(response, index=False)
+            return response
+            
+        except Exception as e:
+            messages.error(request, f"Erro ao processar o arquivo: {str(e)}")
+            return redirect('Secao_pessoal:nome_de_guerra')
+
     return render(request, 'Secao_pessoal/nome_de_guerra.html')
+
+@s1_required
+def comunicacoes(request):
+    # View para a nova aba de Comunicações
+    return render(request, 'Secao_pessoal/comunicacoes.html')
 
 @s1_required
 def troca_de_setor(request):
