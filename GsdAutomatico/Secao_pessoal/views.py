@@ -329,11 +329,16 @@ def comunicacoes(request):
         else:
             form = NotificacaoForm()
 
-    # Listar notificações recebidas
-    notificacoes = Notificacao.objects.filter(destinatario=militar_logado).order_by('-data_criacao')
+    # Listar notificações (Caixa de Entrada ou Enviados)
+    box = request.GET.get('box', 'inbox')
+    
+    if box == 'sent':
+        notificacoes = Notificacao.objects.filter(remetente=militar_logado).order_by('-data_criacao')
+    else:
+        notificacoes = Notificacao.objects.filter(destinatario=militar_logado).order_by('-data_criacao')
     
     # Marcar como lida se solicitado via GET (simples) ou via AJAX (idealmente)
-    if request.GET.get('ler'):
+    if request.GET.get('ler') and box == 'inbox':
         try:
             notif_id = int(request.GET.get('ler'))
             notif = Notificacao.objects.get(id=notif_id, destinatario=militar_logado)
@@ -346,7 +351,8 @@ def comunicacoes(request):
     context = {
         'notificacoes': notificacoes,
         'form': form,
-        'is_s1': is_s1
+        'is_s1': is_s1,
+        'current_box': box
     }
     return render(request, 'Secao_pessoal/comunicacoes.html', context)
 

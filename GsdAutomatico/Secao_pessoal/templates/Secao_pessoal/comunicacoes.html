@@ -1,96 +1,353 @@
 {% extends 'Secao_pessoal/base.html' %}
 
-{% block title %}Comunicações{% endblock %}
+{% block title %}Caixa de Entrada{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+{% endblock %}
 
 {% block content %}
-<div class="container-fluid px-4">
-    <h1 class="mt-4">Comunicações</h1>
-    <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item active">Ferramentas / Comunicações</li>
-    </ol>
+<style>
+    /* Layout de Email */
+    .email-container {
+        display: flex;
+        height: calc(100vh - 140px); /* Ajusta altura para caber na tela */
+        background-color: var(--bg-content);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--box-shadow);
+        margin-top: 20px;
+        border: 1px solid var(--border-color);
+    }
+
+    /* Sidebar do Email */
+    .email-sidebar {
+        width: 260px;
+        background-color: var(--bg-main);
+        border-right: 1px solid var(--border-color);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .btn-compose {
+        width: 100%;
+        padding: 12px;
+        border-radius: 30px;
+        background-color: var(--accent-color);
+        color: white;
+        border: none;
+        font-weight: 600;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+    .btn-compose:hover {
+        background-color: var(--accent-hover);
+        transform: translateY(-1px);
+    }
+
+    .email-nav {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .email-nav li {
+        margin-bottom: 5px;
+    }
+    .email-nav a {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px;
+        border-radius: 0 20px 20px 0;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+        transition: background 0.2s;
+    }
+    .email-nav a:hover {
+        background-color: rgba(0,0,0,0.05);
+        color: var(--text-primary);
+    }
+    .email-nav a.active {
+        background-color: #e8f0fe;
+        color: var(--accent-color);
+        font-weight: 700;
+    }
+    .email-nav a svg {
+        width: 20px;
+        height: 20px;
+        margin-right: 12px;
+    }
+
+    /* Lista de Mensagens */
+    .email-list {
+        flex: 1;
+        overflow-y: auto;
+        background-color: var(--bg-content);
+    }
+
+    .email-item {
+        display: flex;
+        padding: 15px 20px;
+        border-bottom: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: background 0.1s;
+        align-items: center;
+    }
+    .email-item:hover {
+        background-color: var(--bg-main);
+        box-shadow: inset 1px 0 0 var(--border-color);
+    }
+    .email-item.unread {
+        background-color: #fff;
+        font-weight: 600;
+    }
+    .email-item.unread .email-subject {
+        color: var(--text-primary);
+    }
+    .email-item.read {
+        background-color: rgba(0,0,0,0.02);
+    }
     
-    <div class="row">
-        <!-- Coluna da Caixa de Entrada -->
-        <div class="col-lg-{% if is_s1 %}8{% else %}12{% endif %}">
-            <div class="card mb-4">
-                <div class="card-header">
-                    <i class="fas fa-inbox me-1"></i>
-                    Caixa de Entrada
-                </div>
-                <div class="card-body">
-                    {% if notificacoes %}
-                        <div class="list-group">
-                            {% for notif in notificacoes %}
-                            <div class="list-group-item list-group-item-action flex-column align-items-start {% if not notif.lida %}active{% endif %}" style="{% if not notif.lida %}background-color: var(--bg-main); border-left: 5px solid var(--accent-color);{% endif %}">
-                                <div class="d-flex w-100 justify-content-between">
-                                    <h5 class="mb-1">
-                                        {% if not notif.lida %}
-                                            <span class="badge bg-danger me-2">Novo</span>
-                                        {% endif %}
-                                        {{ notif.titulo }}
-                                    </h5>
-                                    <small class="text-muted">{{ notif.data_criacao|date:"d/m/Y H:i" }}</small>
-                                </div>
-                                <p class="mb-1 mt-2">{{ notif.mensagem|linebreaksbr }}</p>
-                                <div class="d-flex w-100 justify-content-between align-items-center mt-2">
-                                    <small>De: <strong>{{ notif.remetente.posto }} {{ notif.remetente.nome_guerra }}</strong> ({{ notif.remetente.setor }})</small>
-                                    
-                                    {% if not notif.lida %}
-                                        <a href="?ler={{ notif.id }}" class="btn btn-sm btn-outline-primary">Marcar como lida</a>
-                                    {% else %}
-                                        <span class="text-success"><i class="fas fa-check"></i> Lida</span>
-                                    {% endif %}
-                                </div>
-                            </div>
-                            {% endfor %}
-                        </div>
-                    {% else %}
-                        <div class="alert alert-info text-center">
-                            Nenhuma notificação recebida.
-                        </div>
-                    {% endif %}
-                </div>
-            </div>
+    .email-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 15px;
+        flex-shrink: 0;
+    }
+
+    .email-content {
+        flex: 1;
+        min-width: 0; /* Para o text-overflow funcionar */
+    }
+
+    .email-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+    .email-sender {
+        font-size: 0.95rem;
+        color: var(--text-primary);
+    }
+    .email-date {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        font-weight: normal;
+    }
+    .email-subject {
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .email-preview {
+        font-size: 0.85rem;
+        color: #888;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: normal;
+    }
+
+    /* Modal Customization */
+    .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+        background-color: var(--bg-main);
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    /* Z-Index Fix: Sidebar tem 1100, então o modal precisa ser maior para aparecer na frente */
+    .modal {
+        z-index: 2050 !important;
+    }
+    .modal-backdrop {
+        z-index: 2040 !important;
+    }
+</style>
+
+<div class="container-fluid px-4">
+    <div class="email-container">
+        <!-- Sidebar -->
+        <div class="email-sidebar">
+            {% if is_s1 %}
+            <button type="button" class="btn-compose" id="btnCompose">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Nova Mensagem
+            </button>
+            {% endif %}
+
+            <ul class="email-nav">
+                <li>
+                    <a href="?box=inbox" class="{% if current_box == 'inbox' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" /></svg>
+                        Caixa de Entrada
+                    </a>
+                </li>
+                <li>
+                    <a href="?box=sent" class="{% if current_box == 'sent' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+                        Enviados
+                    </a>
+                </li>
+            </ul>
         </div>
 
-        <!-- Coluna de Envio (Apenas S1) -->
-        {% if is_s1 %}
-        <div class="col-lg-4">
-            <div class="card mb-4">
-                <div class="card-header bg-primary text-white">
-                    <i class="fas fa-paper-plane me-1"></i>
-                    Enviar Notificação
-                </div>
-                <div class="card-body">
-                    <form method="post">
-                        {% csrf_token %}
-                        
-                        <div class="mb-3">
-                            <label for="{{ form.destinatario.id_for_label }}" class="form-label">Destinatário</label>
-                            {{ form.destinatario }}
-                            {% if form.destinatario.errors %}
-                                <div class="text-danger small">{{ form.destinatario.errors }}</div>
+        <!-- Lista de Emails -->
+        <div class="email-list">
+            {% if notificacoes %}
+                {% for notif in notificacoes %}
+                <div class="email-item {% if not notif.lida and current_box == 'inbox' %}unread{% else %}read{% endif %}" onclick="toggleMessage('msg-{{ notif.id }}')">
+                    <div class="email-avatar">
+                        {% if current_box == 'inbox' %}
+                            {{ notif.remetente.nome_guerra|slice:":1" }}
+                        {% else %}
+                            {{ notif.destinatario.nome_guerra|slice:":1" }}
+                        {% endif %}
+                    </div>
+                    <div class="email-content">
+                        <div class="email-header">
+                            <span class="email-sender">
+                                {% if current_box == 'inbox' %}
+                                    {{ notif.remetente.posto }} {{ notif.remetente.nome_guerra }}
+                                {% else %}
+                                    Para: {{ notif.destinatario.posto }} {{ notif.destinatario.nome_guerra }}
+                                {% endif %}
+                            </span>
+                            <span class="email-date">{{ notif.data_criacao|date:"d M" }}</span>
+                        </div>
+                        <div class="email-subject">
+                            {{ notif.titulo }}
+                            {% if not notif.lida and current_box == 'inbox' %}
+                                <span class="badge bg-danger rounded-pill ms-2" style="font-size: 0.6em;">NOVO</span>
                             {% endif %}
                         </div>
-
-                        <div class="mb-3">
-                            <label for="{{ form.titulo.id_for_label }}" class="form-label">Assunto</label>
-                            {{ form.titulo }}
+                        <div class="email-preview">
+                            {{ notif.mensagem|truncatechars:60 }}
                         </div>
-
-                        <div class="mb-3">
-                            <label for="{{ form.mensagem.id_for_label }}" class="form-label">Mensagem</label>
-                            {{ form.mensagem }}
+                        
+                        <!-- Conteúdo Expandido (Escondido por padrão) -->
+                        <div id="msg-{{ notif.id }}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd; color: var(--text-primary); cursor: default;" onclick="event.stopPropagation();">
+                            <p style="white-space: pre-line;">{{ notif.mensagem }}</p>
+                            
+                            <div class="d-flex justify-content-end mt-3">
+                                {% if current_box == 'inbox' and not notif.lida %}
+                                    <a href="?box=inbox&ler={{ notif.id }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-check me-1"></i> Marcar como lida
+                                    </a>
+                                {% endif %}
+                            </div>
                         </div>
-
-                        <div class="d-grid">
-                            <button type="submit" class="btn btn-primary">Enviar Aviso</button>
-                        </div>
-                    </form>
+                    </div>
                 </div>
-            </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5 mt-5">
+                    <div class="mb-3 opacity-25">
+                        <i class="fas fa-inbox fa-4x text-gray-400"></i>
+                    </div>
+                    <h5 class="text-muted fw-bold">Nenhuma mensagem encontrada</h5>
+                </div>
+            {% endif %}
         </div>
-        {% endif %}
     </div>
 </div>
+
+<!-- Modal de Nova Mensagem -->
+{% if is_s1 %}
+<div class="modal fade" id="composeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-paper-plane me-2"></i>Nova Mensagem</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form method="post">
+                    {% csrf_token %}
+                    
+                    <div class="mb-3">
+                        <label for="{{ form.destinatario.id_for_label }}" class="form-label fw-bold text-secondary small text-uppercase">Destinatário</label>
+                        {{ form.destinatario }}
+                        {% if form.destinatario.errors %}
+                            <div class="text-danger small mt-1">{{ form.destinatario.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.titulo.id_for_label }}" class="form-label fw-bold text-secondary small text-uppercase">Assunto</label>
+                        {{ form.titulo }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.mensagem.id_for_label }}" class="form-label fw-bold text-secondary small text-uppercase">Mensagem</label>
+                        {{ form.mensagem }}
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-4">Enviar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<script>
+    function toggleMessage(id) {
+        const content = document.getElementById(id);
+        if (content.style.display === 'none') {
+            content.style.display = 'block';
+        } else {
+            content.style.display = 'none';
+        }
+    }
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Adiciona Bootstrap JS para garantir que o modal funcione -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializa o modal manualmente
+        var modalElement = document.getElementById('composeModal');
+        if (modalElement) {
+            var myModal = new bootstrap.Modal(modalElement);
+            
+            // Adiciona evento de clique ao botão
+            var btn = document.getElementById('btnCompose');
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    myModal.show();
+                });
+            }
+
+        {% if form.errors %}
+            myModal.show();
+        {% endif %}
+        }
+    });
+</script>
 {% endblock %}

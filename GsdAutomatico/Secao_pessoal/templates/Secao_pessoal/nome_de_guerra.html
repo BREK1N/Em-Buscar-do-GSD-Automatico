@@ -3,11 +3,108 @@
 {% block title %}Gerador de Nome de Guerra{% endblock %}
 
 {% block content %}
+<style>
+    .generator-card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        box-shadow: var(--box-shadow);
+        overflow: hidden;
+    }
+    .generator-header {
+        background: linear-gradient(135deg, var(--accent-color) 0%, #224abe 100%);
+        color: white;
+        padding: 3rem 2rem;
+        text-align: center;
+    }
+    .generator-icon {
+        font-size: 3.5rem;
+        margin-bottom: 1rem;
+        opacity: 0.9;
+        text-shadow: 0 2px 10px rgba(0,0,0,0.2);
+    }
+    .generator-body {
+        padding: 3rem 2rem;
+        text-align: center;
+    }
+    .btn-generate {
+        padding: 15px 40px;
+        font-size: 1.1rem;
+        border-radius: 50px;
+        background-color: var(--accent-color);
+        border: none;
+        color: white;
+        font-weight: 600;
+        transition: all 0.3s ease;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        display: inline-flex;
+        align-items: center;
+        gap: 12px;
+    }
+    .btn-generate:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 25px rgba(0,0,0,0.2);
+        background-color: var(--accent-hover);
+    }
+    .info-text {
+        color: var(--text-secondary);
+        max-width: 600px;
+        margin: 0 auto 2.5rem auto;
+        line-height: 1.6;
+        font-size: 1.05rem;
+    }
+    
+    /* Estilo da Tabela de Resultados */
+    .results-container {
+        margin-top: 3rem;
+        text-align: left;
+        border-top: 1px solid var(--border-color);
+        padding-top: 2rem;
+    }
+    .custom-table {
+        width: 100%;
+        border-collapse: separate;
+        border-spacing: 0;
+    }
+    .custom-table th {
+        background-color: var(--bg-main);
+        padding: 15px;
+        font-weight: 600;
+        color: var(--text-secondary);
+        border-bottom: 2px solid var(--border-color);
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+    }
+    .custom-table td {
+        padding: 15px;
+        border-bottom: 1px solid var(--border-color);
+        vertical-align: middle;
+    }
+    .badge-suggestion {
+        background-color: #e8f0fe;
+        color: var(--accent-color);
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.9rem;
+        font-weight: 600;
+        margin-right: 5px;
+        display: inline-block;
+        border: 1px solid rgba(0,0,0,0.05);
+    }
+</style>
+
 <div class="container-fluid px-4">
     <h1 class="mt-4">Gerador de Nome de Guerra</h1>
     <ol class="breadcrumb mb-4">
         <li class="breadcrumb-item active">Ferramentas / Gerador de Nome de Guerra</li>
     </ol>
+    <div class="d-flex align-items-center justify-content-between mt-4 mb-4">
+        <div>
+            <h1 class="h2 mb-0 text-gray-800">Gerador de Nome de Guerra</h1>
+            <p class="text-muted mb-0">Ferramenta automática para definição de nomes de guerra.</p>
+        </div>
+    </div>
 
     <div class="card mb-4">
         <div class="card-header">
@@ -23,8 +120,30 @@
                     <button type="submit" class="btn btn-primary btn-lg">
                         <i class="fas fa-cogs"></i> Gerar Nomes para Recrutas do Efetivo
                     </button>
+    <div class="row justify-content-center">
+        <div class="col-lg-8">
+            <div class="generator-card">
+                <div class="generator-header">
+                    <div class="generator-icon">
+                        <i class="fas fa-id-card"></i>
+                    </div>
+                    <h2 class="fw-bold mb-2">Definição Automática</h2>
+                    <p class="mb-0 opacity-75">Gere nomes de guerra únicos para os recrutas baseados em seus nomes completos.</p>
                 </div>
             </form>
+                
+                <div class="generator-body">
+                    <p class="info-text">
+                        Este processo irá analisar todos os militares com posto <strong>REC (Recruta)</strong> que ainda não possuem nome de guerra definido. O sistema verifica conflitos de nomes existentes no efetivo para evitar duplicatas.
+                    </p>
+                    
+                    <form method="post">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-generate">
+                            <i class="fas fa-magic"></i>
+                            Gerar Nomes Agora
+                        </button>
+                    </form>
 
             {% if candidatos %}
             <hr>
@@ -54,6 +173,50 @@
                         {% endfor %}
                     </tbody>
                 </table>
+                    {% if candidatos %}
+                    <div class="results-container">
+                        <h5 class="mb-4 fw-bold text-success d-flex align-items-center">
+                            <i class="fas fa-check-circle me-2"></i>Resultados da Análise
+                        </h5>
+                        <div class="table-responsive">
+                            <table class="custom-table">
+                                <thead>
+                                    <tr>
+                                        <th>SARAM</th>
+                                        <th>Nome Completo</th>
+                                        <th>Sugestões Geradas</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for candidato in candidatos %}
+                                    <tr>
+                                        <td class="fw-bold text-secondary">{{ candidato.saram }}</td>
+                                        <td>{{ candidato.nome_completo }}</td>
+                                        <td>
+                                            {% for sugestao in candidato.sugestoes %}
+                                                <span class="badge-suggestion">{{ sugestao }}</span>
+                                            {% endfor %}
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    {% endif %}
+                    
+                    {% if erro %}
+                    <div class="alert alert-danger mt-4 text-start shadow-sm border-0" role="alert">
+                        <div class="d-flex align-items-center">
+                            <i class="fas fa-exclamation-triangle fa-2x me-3"></i>
+                            <div>
+                                <h6 class="fw-bold mb-1">Erro ao processar</h6>
+                                {{ erro }}
+                            </div>
+                        </div>
+                    </div>
+                    {% endif %}
+                </div>
             </div>
             {% endif %}
             
