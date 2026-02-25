@@ -1,5 +1,6 @@
 from django import forms
 from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor
+from .models import Notificacao, Efetivo
 
 class MilitarForm(forms.ModelForm):
     # Formulário para criar e atualizar registros de Militares.
@@ -56,3 +57,31 @@ class MilitarForm(forms.ModelForm):
     om = forms.ChoiceField(required=False)
     setor = forms.ChoiceField(required=False)
     subsetor = forms.ChoiceField(required=False)
+
+    # Adicione isso em Secao_pessoal/forms.py
+class NotificacaoForm(forms.ModelForm):
+    class Meta:
+        model = Notificacao
+        fields = ['destinatario', 'titulo', 'mensagem']
+        widgets = {
+            'destinatario': forms.Select(attrs={'class': 'form-select select2'}), # select2 se tiver, senão form-select
+            'titulo': forms.TextInput(attrs={'class': 'form-control', 'placeholder': 'Assunto do aviso'}),
+            'mensagem': forms.Textarea(attrs={'class': 'form-control', 'rows': 4, 'placeholder': 'Digite a mensagem...'}),
+        }
+    
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        
+        # Agrupa os destinatários por setor
+        efetivos = Efetivo.objects.all().order_by('setor', 'nome_guerra')
+        self.fields['destinatario'].queryset = efetivos
+        
+        choices_grouped = {}
+        for militar in efetivos:
+            setor = militar.setor if militar.setor else "Outros"
+            if setor not in choices_grouped:
+                choices_grouped[setor] = []
+            choices_grouped[setor].append((militar.id, f"{militar.posto} {militar.nome_guerra}"))
+            
+        choices = [('', '---------')] + [(setor, choices_grouped[setor]) for setor in sorted(choices_grouped.keys())]
+        self.fields['destinatario'].choices = choices

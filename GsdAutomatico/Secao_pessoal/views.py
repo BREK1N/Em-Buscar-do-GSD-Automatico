@@ -10,10 +10,11 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
-from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor
-from .forms import MilitarForm 
+from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, Notificacao
+from .forms import MilitarForm, NotificacaoForm
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
+import json
 
 def is_s1_member(user):
     """Check if the user is a member of the 'S1' group."""
@@ -301,10 +302,53 @@ def nome_de_guerra(request):
 
     return render(request, 'Secao_pessoal/nome_de_guerra.html')
 
-@s1_required
+@login_required
 def comunicacoes(request):
-    # View para a nova aba de Comunicações
-    return render(request, 'Secao_pessoal/comunicacoes.html')
+    """
+    View para listar notificações recebidas e, se for S1, enviar novas.
+    """
+    try:
+        militar_logado = request.user.profile.militar
+    except:
+        messages.error(request, "Seu usuário não está vinculado a um militar.")
+        return redirect('Secao_pessoal:index')
+
+    # Processar envio de notificação (Apenas S1)
+    form = None
+    is_s1 = is_s1_member(request.user)
+    
+    if is_s1:
+        if request.method == 'POST':
+            form = NotificacaoForm(request.POST)
+            if form.is_valid():
+                notificacao = form.save(commit=False)
+                notificacao.remetente = militar_logado
+                notificacao.save()
+                messages.success(request, f"Notificação enviada para {notificacao.destinatario.nome_guerra}.")
+                return redirect('Secao_pessoal:comunicacoes')
+        else:
+            form = NotificacaoForm()
+
+    # Listar notificações recebidas
+    notificacoes = Notificacao.objects.filter(destinatario=militar_logado).order_by('-data_criacao')
+    
+    # Marcar como lida se solicitado via GET (simples) ou via AJAX (idealmente)
+    if request.GET.get('ler'):
+        try:
+            notif_id = int(request.GET.get('ler'))
+            notif = Notificacao.objects.get(id=notif_id, destinatario=militar_logado)
+            notif.lida = True
+            notif.save()
+            return redirect('Secao_pessoal:comunicacoes')
+        except:
+            pass
+
+    context = {
+        'notificacoes': notificacoes,
+        'form': form,
+        'is_s1': is_s1
+    }
+    return render(request, 'Secao_pessoal/comunicacoes.html', context)
 
 @s1_required
 def troca_de_setor(request):
@@ -373,3 +417,29 @@ def gerenciar_opcoes(request):
         'selected_tipo': request.GET.get('tipo', 'posto'), # Pega da URL ou define um padrão
     }
     return render(request, 'Secao_pessoal/gerenciar_opcoes.html', context)
+
+@login_required
+def api_notificacoes_check(request):
+    """Retorna JSON com contagem de notificações não lidas para o header"""
+    try:
+        if hasattr(request.user, 'profile') and request.user.profile.militar:
+            militar = request.user.profile.militar
+            nao_lidas = Notificacao.objects.filter(destinatario=militar, lida=False)
+            count = nao_lidas.count()
+            
+            data = []
+            for n in nao_lidas[:5]: # Retorna as 5 mais recentes para o preview
+                data.append({
+                    'id': n.id,
+                    'titulo': n.titulo,
+                    'remetente': n.remetente.nome_guerra,
+                    'data': n.data_criacao.strftime('%d/%m %H:%M')
+                })
+            
+            return HttpResponse(json.dumps({'count': count, 'notifications': data}), content_type="application/json")
+    except Exception as e:
+        pass
+    
+    return HttpResponse(json.dumps({'count': 0, 'notifications': []}), content_type="application/json")
+
+# Nota: Você precisará adicionar 'import json' no topo do arquivo views.py se ainda não existir.

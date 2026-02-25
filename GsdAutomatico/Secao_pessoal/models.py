@@ -84,3 +84,21 @@ class Subsetor(models.Model):
         ordering = ['nome']
     def __str__(self):
         return self.nome
+
+# Adicione isso em Secao_pessoal/models.py
+
+class Notificacao(models.Model):
+    remetente = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='notificacoes_enviadas')
+    destinatario = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='notificacoes_recebidas')
+    titulo = models.CharField(max_length=200, verbose_name="Assunto")
+    mensagem = models.TextField(verbose_name="Mensagem")
+    lida = models.BooleanField(default=False)
+    data_criacao = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-data_criacao']
+        verbose_name = "Notificação"
+        verbose_name_plural = "Notificações"
+
+    def __str__(self):
+        return f"{self.titulo} - Para: {self.destinatario}"
