@@ -1,6 +1,7 @@
 from django import forms
 from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor
 from .models import Notificacao, Efetivo
+from django.contrib.auth import get_user_model
 
 class MilitarForm(forms.ModelForm):
     # Formulário para criar e atualizar registros de Militares.
@@ -72,8 +73,11 @@ class NotificacaoForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         
-        # Agrupa os destinatários por setor
-        efetivos = Efetivo.objects.all().order_by('setor', 'nome_guerra')
+        User = get_user_model()
+        # Filtra apenas efetivos que possuem usuário no sistema (vinculados a um Profile)
+        # Adiciona is_active=True para garantir que apenas usuários ativos recebam
+        efetivos_ids = User.objects.filter(is_active=True, profile__militar__isnull=False).values_list('profile__militar__id', flat=True)
+        efetivos = Efetivo.objects.filter(id__in=efetivos_ids).order_by('setor', 'nome_guerra')
         self.fields['destinatario'].queryset = efetivos
         
         choices_grouped = {}
