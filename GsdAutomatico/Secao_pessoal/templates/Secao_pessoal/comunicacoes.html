@@ -74,7 +74,7 @@
         color: var(--text-primary);
     }
     .email-nav a.active {
-        background-color: #e8f0fe;
+        background-color: var(--sidebar-active-bg);
         color: var(--accent-color);
         font-weight: 700;
     }
@@ -104,7 +104,7 @@
         box-shadow: inset 1px 0 0 var(--border-color);
     }
     .email-item.unread {
-        background-color: #fff;
+        background-color: var(--bg-content);
         font-weight: 600;
     }
     .email-item.unread .email-subject {
@@ -180,6 +180,37 @@
     }
     .modal-backdrop {
         z-index: 2040 !important;
+    }
+
+    /* Correções para conflitos do Bootstrap com o Modo Escuro */
+    body {
+        background-color: var(--bg-main) !important;
+        color: var(--text-primary) !important;
+    }
+    
+    .modal-content {
+        background-color: var(--bg-content);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+    .modal-header {
+        border-bottom: 1px solid var(--border-color);
+    }
+    body.dark-theme .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+    .form-control, .form-select {
+        background-color: var(--bg-main) !important;
+        border-color: var(--border-color);
+        color: var(--text-primary) !important;
+    }
+    .form-control:focus, .form-select:focus {
+        background-color: var(--bg-main) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--accent-color);
+    }
+    .form-control::placeholder {
+        color: var(--text-secondary);
     }
 </style>
 
