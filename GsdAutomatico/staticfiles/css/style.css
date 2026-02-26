@@ -14,6 +14,8 @@
     --success-color: #28a745;
     --warning-color: #ffc107;
     --danger-color: #dc3545;
+
+    --anexo: #212529;
 }
 
 body.dark-theme {
@@ -31,6 +33,15 @@ body.dark-theme {
     --success-color: #34c759;
     --warning-color: #ffc400;
     --danger-color: #ff3b30;
+
+    /* Correção para cor de heading no tema escuro */
+    --bs-heading-color: #fff;
+    --bs-heading-color: #fff;  
+    --anexo: #fff;  
+    
+
+    
+
 }
 
 body {

@@ -189,6 +189,7 @@ class PATD(models.Model):
     assinaturas_npd_reconsideracao = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas da NPD de Reconsideração (Base64)")
     relatorio_final = models.TextField(blank=True, null=True, verbose_name="Relatório Final")
     arquivado = models.BooleanField(default=False, verbose_name="Arquivado")
+    motivo_arquivamento = models.TextField(blank=True, null=True, verbose_name="Motivo do Arquivamento")
 
     # --- INÍCIO DAS MODIFICAÇÕES SOLICITADAS ---
     def calcular_e_atualizar_comportamento(self):

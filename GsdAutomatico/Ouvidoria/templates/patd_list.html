@@ -73,16 +73,35 @@
                 </td>
                 <td>{{ patd.get_status_display }}</td>
                 <td class="actions-cell">
-                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.432 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
-                        Ver Detalhes
-                    </a>
-                    <form method="post" action="{% url 'Ouvidoria:arquivar_patd' patd.pk %}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja arquivar esta PATD?');">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-warning">
-                            Arquivar
-                        </button>
-                    </form>
+                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver Detalhes</a>
+                    <button type="button" class="btn btn-sm btn-warning" data-bs-toggle="modal" data-bs-target="#archiveModal{{ patd.pk }}">
+                        Arquivar
+                    </button>
+
+                    <!-- Modal -->
+                    <div class="modal fade" id="archiveModal{{ patd.pk }}" tabindex="-1" aria-labelledby="archiveModalLabel{{ patd.pk }}" aria-hidden="true">
+                        <div class="modal-dialog">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="archiveModalLabel{{ patd.pk }}">Arquivar PATD Nº {{ patd.numero_patd }}</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <form method="post" action="{% url 'Ouvidoria:arquivar_patd' patd.pk %}">
+                                    {% csrf_token %}
+                                    <div class="modal-body">
+                                        <div class="mb-3">
+                                            <label for="motivo_arquivamento{{ patd.pk }}" class="form-label">Motivo do Arquivamento</label>
+                                            <textarea class="form-control" id="motivo_arquivamento{{ patd.pk }}" name="motivo_arquivamento" rows="3" required></textarea>
+                                        </div>
+                                    </div>
+                                    <div class="modal-footer">
+                                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                        <button type="submit" class="btn btn-danger">Confirmar Arquivamento</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
                 </td>
             </tr>
             {% empty %}

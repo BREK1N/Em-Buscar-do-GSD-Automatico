@@ -23,14 +23,14 @@
                 <th>N° PATD</th>
                 <th>Militar Acusado</th>
                 <th>Data da Ocorrência</th>
-                <th>Status</th>
+                <th>Motivo do Arquivamento</th>
                 <th>Ações</th>
             </tr>
         </thead>
         <tbody>
             {% for patd in patds %}
             <tr>
-                <td>{{ patd.numero_patd}}</td>
+                <td>{{ patd.numero_patd }}</td>
                 <td>
                     <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
                 </td>
@@ -41,14 +41,14 @@
                         -
                     {% endif %}
                 </td>
-                <td>{{ patd.get_status_display }}</td>
+                <td class="motivo-arquivamento" title="{{ patd.motivo_arquivamento|default:'Sem motivo especificado' }}">
+                    {{ patd.motivo_arquivamento|truncatewords:10|default:'N/A' }}
+                </td>
                 <td class="actions-cell">
+                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver Detalhes</a>
                     <form method="post" action="{% url 'Ouvidoria:desarquivar_patd' patd.pk %}" style="display: inline;" onsubmit="return confirm('Tem certeza que deseja desarquivar esta PATD?');">
                         {% csrf_token %}
                         <button type="submit" class="btn btn-sm btn-success">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
                             Desarquivar
                         </button>
                     </form>

@@ -21,12 +21,12 @@
         left: 0;
         right: 0;
         height: 2px;
-        background-color: var(--border-color);
+        background-color: var(--text-secondary);
         transform: translateY(-50%);
         z-index: 1;
     }
     .status-step {
-        position: relative;
+       position: relative;
         text-align: center;
         width: 100%;
         z-index: 2;
@@ -43,7 +43,7 @@
     .status-step.completed .status-dot,
     .status-step.active .status-dot {
         background-color: var(--accent-color);
-    }
+}
     .status-step .status-label {
         font-size: 12px;
         color: var(--text-secondary);
@@ -474,6 +474,8 @@
     </div>
 </div>
 
+
+
 <ul class="status-timeline">
     {% with current_status=patd.status %}
     <li class="status-step {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_nova_punicao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status != 'definicao_oficial' %}completed{% endif %}">
@@ -738,9 +740,9 @@
         <div class="card-body">
             <form action="{% url 'Ouvidoria:upload_ficha_individual' patd.pk %}" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
-                <div class="form-item">
+                <div class="form-item" style="color: var(--anexo)">
                     <label for="ficha_individual_file">Anexar Ficha Individual (PDF):</label>
-                    <input type="file" name="ficha_individual" id="ficha_individual_file" accept=".pdf" required style="width: 100%; padding: 10px;">
+                    <input  type="file" name="ficha_individual" id="ficha_individual_file" accept=".pdf" required style="width: 100%; padding: 10px;">
                 </div>
                 <div class="form-actions" style="justify-content: flex-start; margin-top: 15px;">
                     <button type="submit" class="btn btn-primary">Anexar</button>

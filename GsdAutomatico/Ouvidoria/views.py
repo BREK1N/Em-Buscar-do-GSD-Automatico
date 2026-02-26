@@ -1065,6 +1065,7 @@ def patd_atribuicoes_pendentes_json(request):
     return JsonResponse({'count': count})
 
 
+
 @login_required
 @comandante_redirect
 @ouvidoria_required
@@ -1090,6 +1091,7 @@ def index(request):
                 Q(saram__icontains=term)
             )[:10] # Limita a 10 resultados para não pesar
 
+
             results = []
             for m in militares:
                 results.append({
@@ -1099,6 +1101,7 @@ def index(request):
                     'nome_completo': m.nome_completo,
                     'saram': m.saram or 'N/A'
                 })
+
             
             return JsonResponse({'results': results})
 
@@ -1110,6 +1113,7 @@ def index(request):
             militar_id = post_data.get('militar_id')
             if not militar_id:
                 return JsonResponse({'status': 'error', 'message': 'ID do militar não fornecido.'}, status=400)
+
             
             militar = get_object_or_404(Efetivo, pk=militar_id)
             
@@ -1121,6 +1125,7 @@ def index(request):
             # --- Tratamento de Datas ---
             data_ocorrencia_str = post_data.get('data_ocorrencia')
             data_oficio_str = post_data.get('data_oficio', '')
+
 
             data_ocorrencia = None
             if data_ocorrencia_str:
@@ -3698,24 +3703,42 @@ class PatdArquivadoListView(ListView):
         return PATD.objects.filter(arquivado=True).select_related('militar').order_by('-data_inicio')
 
 @login_required
+@login_required
 @ouvidoria_required
 @require_POST
+
 def arquivar_patd(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+    motivo = request.POST.get('motivo_arquivamento', '')
+    
+    if not motivo:
+        messages.error(request, 'O motivo do arquivamento é obrigatório.')
+        # Redirect back to the PATD list or detail page
+        return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:patd_list'))
+    
+    if patd.arquivado:
+        messages.error(request, 'A PATD já está arquivada.')
+        return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:patd_list'))
+
     if patd.numero_patd > 0:
         patd.numero_patd = -patd.numero_patd
+    
     patd.arquivado = True
+    patd.motivo_arquivamento = motivo
     patd.save()
-    messages.success(request, f'A PATD Nº {-patd.numero_patd} foi arquivada com sucesso.')
+    
+    messages.success(request, f'A PATD Nº {abs(patd.numero_patd)} foi arquivada com sucesso. ')
+
     return redirect('Ouvidoria:patd_arquivado_list')
 
 @login_required
 @ouvidoria_required
 @require_POST
+
 def desarquivar_patd(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
     patd.arquivado = False
     patd.numero_patd = get_next_patd_number()
     patd.save()
-    messages.success(request, f'A PATD foi desarquivada e recebeu o novo número {patd.numero_patd}.')
+    messages.success(request, f'A PATD foi desarquivada e recebeu o novo número {patd.numero_patd}. ')
     return redirect('Ouvidoria:patd_arquivado_list')
