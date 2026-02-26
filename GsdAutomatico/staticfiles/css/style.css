@@ -36,11 +36,8 @@ body.dark-theme {
 
     /* Correção para cor de heading no tema escuro */
     --bs-heading-color: #fff;
-    --bs-heading-color: #fff;  
-    --anexo: #fff;  
     
-
-    
+    --anexo: #ffffff;
 
 }
 
