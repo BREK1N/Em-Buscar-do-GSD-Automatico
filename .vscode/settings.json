@@ -7,8 +7,8 @@
             "port": 5434,
             "driver": "PostgreSQL",
             "name": "gsd",
-            "database": "GsdAutomatico",
-            "username": "gsd",
+            "database": "gsd_automatico",
+            "username": "gsd_user",
             "password": "gsd_password"
         }
     ]

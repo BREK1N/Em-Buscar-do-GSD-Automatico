@@ -1558,6 +1558,16 @@ class PatdFinalizadoListView(ListView):
         return PATD.objects.filter(status='finalizado').select_related('militar').order_by('-data_inicio')
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
+class PATDTrashListView(ListView):
+    model = PATD
+    template_name = 'patd_trash_list.html'
+    context_object_name = 'patds'
+    paginate_by = 15
+
+    def get_queryset(self):
+        return PATD.all_objects.filter(deleted=True).select_related('militar').order_by('-deleted_at')
+
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
 class PATDDetailView(DetailView):
     model = PATD
     template_name = 'patd_detail.html'
@@ -1771,6 +1781,14 @@ class PATDDeleteView(UserPassesTestMixin, DeleteView):
         if self.kwargs.get('pk'):
             return redirect('Ouvidoria:patd_detail', pk=self.kwargs.get('pk'))
         return redirect('Ouvidoria:patd_list')
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.object.deleted = True
+        self.object.deleted_at = timezone.now()
+        self.object.save()
+        messages.success(request, f"A PATD Nº {self.object.numero_patd} foi movida para a lixeira.")
+        return redirect(self.get_success_url())
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarPATDListView(ListView):
@@ -3742,3 +3760,35 @@ def desarquivar_patd(request, pk):
     patd.save()
     messages.success(request, f'A PATD foi desarquivada e recebeu o novo número {patd.numero_patd}. ')
     return redirect('Ouvidoria:patd_arquivado_list')
+
+@method_decorator([login_required, ouvidoria_required], name='dispatch')
+class PATDTrashView(ListView):
+    model = PATD
+    template_name = 'patd_trash_list.html'
+    context_object_name = 'patds'
+    paginate_by = 15
+
+    def get_queryset(self):
+        return PATD.all_objects.filter(deleted=True).select_related('militar').order_by('-deleted_at')
+
+@login_required
+@ouvidoria_required
+@require_POST
+def patd_restore(request, pk):
+    patd = get_object_or_404(PATD.all_objects, pk=pk)
+    patd.deleted = False
+    patd.restored_at = timezone.now()
+    patd.restored_by = request.user.profile.militar
+    patd.save()
+    messages.success(request, f'A PATD Nº {patd.numero_patd} foi restaurada com sucesso.')
+    return redirect('Ouvidoria:patd_trash')
+
+@login_required
+@ouvidoria_required
+@require_POST
+def patd_permanently_delete(request, pk):
+    patd = get_object_or_404(PATD.all_objects, pk=pk)
+    patd.delete()
+    messages.success(request, f'A PATD Nº {patd.numero_patd} foi excluída permanentemente.')
+    return redirect('Ouvidoria:patd_trash')
+

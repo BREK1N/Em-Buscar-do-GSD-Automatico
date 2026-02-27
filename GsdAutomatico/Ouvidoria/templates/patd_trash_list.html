@@ -1,0 +1,62 @@
+{% extends "base.html" %}
+{% load static %}
+
+{% block title %}Lixeira de PATDs{% endblock %}
+
+{% block content %}
+<div class="container-fluid">
+    <h1 class="my-4">Lixeira de PATDs</h1>
+
+    {% if messages %}
+        {% for message in messages %}
+            <div class="alert alert-{{ message.tags }} alert-dismissible fade show" role="alert">
+                {{ message }}
+                <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+            </div>
+        {% endfor %}
+    {% endif %}
+
+    <div class="card shadow mb-4">
+        <div class="card-header py-3">
+            <h6 class="m-0 font-weight-bold text-primary">PATDs Excluídas</h6>
+        </div>
+        <div class="card-body">
+            <div class="table-responsive">
+                <table class="table table-bordered" id="dataTable" width="100%" cellspacing="0">
+                    <thead>
+                        <tr>
+                            <th>Nº PATD</th>
+                            <th>Militar</th>
+                            <th>Data de Exclusão</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for patd in patds %}
+                        <tr>
+                            <td>{{ patd.numero_patd }}</td>
+                            <td>{{ patd.militar.nome_guerra }}</td>
+                            <td>{{ patd.deleted_at|date:"d/m/Y H:i" }}</td>
+                            <td>
+                                <form action="{% url 'Ouvidoria:patd_restore' patd.pk %}" method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-success btn-sm">Restaurar</button>
+                                </form>
+                                <form action="{% url 'Ouvidoria:patd_permanently_delete' patd.pk %}" method="post" class="d-inline">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-danger btn-sm">Excluir Permanentemente</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="4" class="text-center">A lixeira está vazia.</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}

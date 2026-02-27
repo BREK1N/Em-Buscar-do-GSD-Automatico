@@ -76,6 +76,10 @@ class Anexo(models.Model):
         return f"Anexo para PATD {self.patd.numero_patd} - {os.path.basename(self.arquivo.name)}"
 
 
+class PATDManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted=False)
+
 class PATD(models.Model):
     
     STATUS_CHOICES = [
@@ -103,6 +107,9 @@ class PATD(models.Model):
         ('aguardando_publicacao', 'Aguardando publicação'),
         ('finalizado', 'Finalizado'),
     ]
+
+    objects = PATDManager()
+    all_objects = models.Manager()
 
     militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='patds', verbose_name="Militar Acusado")
     transgressao = models.TextField(verbose_name="Transgressão")
@@ -190,6 +197,10 @@ class PATD(models.Model):
     relatorio_final = models.TextField(blank=True, null=True, verbose_name="Relatório Final")
     arquivado = models.BooleanField(default=False, verbose_name="Arquivado")
     motivo_arquivamento = models.TextField(blank=True, null=True, verbose_name="Motivo do Arquivamento")
+    deleted = models.BooleanField(default=False, verbose_name="Excluído")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
+    restored_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Restauração")
+    restored_by = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, null=True, blank=True, related_name='restored_patds', verbose_name="Restaurado por")
 
     # --- INÍCIO DAS MODIFICAÇÕES SOLICITADAS ---
     def calcular_e_atualizar_comportamento(self):
