@@ -1557,7 +1557,7 @@ class PatdFinalizadoListView(ListView):
     def get_queryset(self):
         return PATD.objects.filter(status='finalizado').select_related('militar').order_by('-data_inicio')
 
-@method_decorator([login_required, ouvidoria_required], name='dispatch')
+@method_decorator([login_required, user_passes_test(lambda u: u.is_superuser)], name='dispatch')
 class PATDTrashListView(ListView):
     model = PATD
     template_name = 'patd_trash_list.html'
@@ -1591,7 +1591,8 @@ class PATDDetailView(DetailView):
         return super().dispatch(request, *args, **kwargs)
 
     def get_queryset(self):
-        return super().get_queryset().select_related(
+        # Mudamos de super().get_queryset() para PATD.all_objects
+        return PATD.all_objects.select_related(
             'militar', 'oficial_responsavel', 'testemunha1', 'testemunha2'
         ).prefetch_related('anexos')
 
@@ -1784,11 +1785,19 @@ class PATDDeleteView(UserPassesTestMixin, DeleteView):
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
+        numero_original = self.object.numero_patd
+        
         self.object.deleted = True
         self.object.deleted_at = timezone.now()
+        
+        # Salva o número original antes de apagar
+        self.object.numero_patd_anterior = numero_original
+        self.object.numero_patd = None 
+            
         self.object.save()
-        messages.success(request, f"A PATD Nº {self.object.numero_patd} foi movida para a lixeira.")
+        messages.success(request, f"A PATD (antigo Nº {numero_original}) foi movida para a lixeira.")
         return redirect(self.get_success_url())
+   
 
 @method_decorator([login_required, ouvidoria_required], name='dispatch')
 class MilitarPATDListView(ListView):
@@ -3720,48 +3729,57 @@ class PatdArquivadoListView(ListView):
     def get_queryset(self):
         return PATD.objects.filter(arquivado=True).select_related('militar').order_by('-data_inicio')
 
-@login_required
+
 @login_required
 @ouvidoria_required
 @require_POST
-
 def arquivar_patd(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
     motivo = request.POST.get('motivo_arquivamento', '')
     
     if not motivo:
         messages.error(request, 'O motivo do arquivamento é obrigatório.')
-        # Redirect back to the PATD list or detail page
         return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:patd_list'))
     
     if patd.arquivado:
         messages.error(request, 'A PATD já está arquivada.')
         return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:patd_list'))
 
-    if patd.numero_patd > 0:
-        patd.numero_patd = -patd.numero_patd
+    # Salva o número original e remove o número principal (igual na lixeira)
+    numero_original = patd.numero_patd
+    
+    # Tratamento caso haja alguma PATD antiga arquivada com número negativo
+    if numero_original and numero_original < 0:
+        numero_original = abs(numero_original)
+        
+    patd.numero_patd_anterior = numero_original
+    patd.numero_patd = None 
     
     patd.arquivado = True
     patd.motivo_arquivamento = motivo
     patd.save()
     
-    messages.success(request, f'A PATD Nº {abs(patd.numero_patd)} foi arquivada com sucesso. ')
+    messages.success(request, f'A PATD Nº {numero_original} foi arquivada com sucesso.')
 
     return redirect('Ouvidoria:patd_arquivado_list')
 
 @login_required
 @ouvidoria_required
 @require_POST
-
 def desarquivar_patd(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+    numero_antigo = patd.numero_patd_anterior
+
     patd.arquivado = False
+    # Gera um novo número limpo e tira o registro do número antigo
     patd.numero_patd = get_next_patd_number()
+    patd.numero_patd_anterior = None 
     patd.save()
-    messages.success(request, f'A PATD foi desarquivada e recebeu o novo número {patd.numero_patd}. ')
+    
+    messages.success(request, f'A PATD (antigo Nº {numero_antigo}) foi desarquivada e recebeu o novo número {patd.numero_patd}.')
     return redirect('Ouvidoria:patd_arquivado_list')
 
-@method_decorator([login_required, ouvidoria_required], name='dispatch')
+@method_decorator([login_required, user_passes_test(lambda u: u.is_superuser)], name='dispatch')
 class PATDTrashView(ListView):
     model = PATD
     template_name = 'patd_trash_list.html'
@@ -3772,23 +3790,29 @@ class PATDTrashView(ListView):
         return PATD.all_objects.filter(deleted=True).select_related('militar').order_by('-deleted_at')
 
 @login_required
-@ouvidoria_required
+@user_passes_test(lambda u: u.is_superuser) # Bloqueia para não-admins
 @require_POST
 def patd_restore(request, pk):
     patd = get_object_or_404(PATD.all_objects, pk=pk)
+    numero_antigo = patd.numero_patd_anterior
+
     patd.deleted = False
     patd.restored_at = timezone.now()
     patd.restored_by = request.user.profile.militar
+    
+    patd.numero_patd = get_next_patd_number()
+    patd.numero_patd_anterior = None
+    
     patd.save()
-    messages.success(request, f'A PATD Nº {patd.numero_patd} foi restaurada com sucesso.')
+    messages.success(request, f'A PATD (antigo Nº {numero_antigo}) foi restaurada com sucesso e recebeu o novo Nº {patd.numero_patd}.')
     return redirect('Ouvidoria:patd_trash')
 
 @login_required
-@ouvidoria_required
+@user_passes_test(lambda u: u.is_superuser) # Bloqueia para não-admins
 @require_POST
 def patd_permanently_delete(request, pk):
     patd = get_object_or_404(PATD.all_objects, pk=pk)
     patd.delete()
-    messages.success(request, f'A PATD Nº {patd.numero_patd} foi excluída permanentemente.')
+    messages.success(request, f'A PATD Nº {patd.numero_patd_anterior} foi excluída permanentemente.')
     return redirect('Ouvidoria:patd_trash')
 

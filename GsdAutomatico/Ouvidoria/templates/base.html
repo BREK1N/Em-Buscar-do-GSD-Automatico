@@ -52,6 +52,7 @@
                         <span>Arquivados</span>
                     </a>
                 </li>
+                {% if request.user.is_superuser %}
                 <li>
                     <a href="{% url 'Ouvidoria:patd_trash' %}" class="{% if 'patd_trash' in request.resolver_match.url_name %}active{% endif %}">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -60,6 +61,7 @@
                         <span>Lixeira</span>
                     </a>
                 </li>
+                {% endif %}
                 
                 {% if request.user.profile.militar.oficial %}
                 <li>

@@ -57,6 +57,7 @@ class Configuracao(models.Model):
         # Método de conveniência para obter a instância de configuração
         obj, created = cls.objects.get_or_create(pk=1)
         return obj
+    
 
     def __str__(self):
         return "Configurações Gerais"
@@ -114,7 +115,8 @@ class PATD(models.Model):
     militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='patds', verbose_name="Militar Acusado")
     transgressao = models.TextField(verbose_name="Transgressão")
     ocorrencia_reescrita = models.TextField(blank=True, null=True, verbose_name="Ocorrência Reescrita (Formal)")
-    numero_patd = models.IntegerField(unique=True, verbose_name="N° PATD")
+    numero_patd = models.IntegerField(unique=True, null=True, blank=True, verbose_name="N° PATD")
+    numero_patd_anterior = models.IntegerField(null=True, blank=True, verbose_name="N° PATD Original (Lixeira)") # <-- ADICIONE ESTA LINHA
     oficial_responsavel = models.ForeignKey(
         Efetivo,
         on_delete=models.SET_NULL,
@@ -310,7 +312,15 @@ class PATD(models.Model):
         else:
             # Se não houver punição definida, não altera a natureza
             pass
-
+        
+    @property
+    def dias_para_exclusao(self):
+        """Calcula quantos dias faltam para a exclusão permanente (30 dias)."""
+        if self.deleted and self.deleted_at:
+            delta = timezone.now() - self.deleted_at
+            dias_restantes = 30 - delta.days
+            return dias_restantes if dias_restantes > 0 else 0
+        return None
 
     def __str__(self):
         return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"
@@ -318,7 +328,9 @@ class PATD(models.Model):
     def save(self, *args, **kwargs):
         is_new = self.pk is None
         if not is_new:
-            orig = PATD.objects.get(pk=self.pk)
+            # CORREÇÃO: Usar all_objects em vez de objects para não dar erro ao restaurar
+            orig = PATD.all_objects.get(pk=self.pk)
+            
             # Se o oficial responsável mudou E um novo oficial foi definido
             if orig.oficial_responsavel != self.oficial_responsavel and self.oficial_responsavel:
                 self.status = 'aguardando_aprovacao_atribuicao'
