@@ -1,0 +1,98 @@
+<div class="row">
+    <div class="col-12">
+        <h5 class="text-primary mb-3">
+            <i class="fas fa-robot me-2"></i>Análise da Inteligência Artificial
+        </h5>
+
+        {% if patd.punicao_sugerida or patd.itens_enquadrados or patd.circunstancias %}
+            
+            <div class="alert {% if patd.justificado %}alert-success{% else %}alert-secondary{% endif %} shadow-sm mb-4">
+                <h6 class="alert-heading fw-bold">Conclusão da Análise</h6>
+                <hr>
+                <p class="mb-0">
+                    <strong>Sugestão:</strong> {{ patd.punicao_sugerida|default:"Sem sugestão definida" }}
+                </p>
+                {% if patd.justificado %}
+                    <p class="mb-0 mt-2 text-success fw-bold">
+                        <i class="fas fa-check-circle"></i> A IA identificou elementos de Justificativa.
+                    </p>
+                {% endif %}
+            </div>
+
+            <div class="row">
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100 border-left-primary shadow-sm">
+                        <div class="card-body">
+                            <h6 class="font-weight-bold text-primary text-uppercase mb-3">Itens Enquadrados (RDAER)</h6>
+                            {% if patd.itens_enquadrados %}
+                                <ul class="list-group list-group-flush">
+                                    {% for item in patd.itens_enquadrados %}
+                                        <li class="list-group-item bg-transparent border-0 py-1 px-0">
+                                            <i class="fas fa-gavel text-secondary me-2"></i>
+                                            {{ item }}
+                                        </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted small">Nenhum item específico identificado.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-6 mb-3">
+                    <div class="card h-100 border-left-warning shadow-sm">
+                        <div class="card-body">
+                            <h6 class="font-weight-bold text-warning text-uppercase mb-3">Circunstâncias</h6>
+                            
+                            <div class="mb-3">
+                                <strong class="d-block text-success mb-1">Atenuantes:</strong>
+                                {% if patd.circunstancias.atenuantes %}
+                                    {% for atenuante in patd.circunstancias.atenuantes %}
+                                        <span class="badge bg-success bg-opacity-75 me-1 mb-1">{{ atenuante }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted small">- Nenhuma atenuante identificada.</span>
+                                {% endif %}
+                            </div>
+
+                            <div>
+                                <strong class="d-block text-danger mb-1">Agravantes:</strong>
+                                {% if patd.circunstancias.agravantes %}
+                                    {% for agravante in patd.circunstancias.agravantes %}
+                                        <span class="badge bg-danger bg-opacity-75 me-1 mb-1">{{ agravante }}</span>
+                                    {% endfor %}
+                                {% else %}
+                                    <span class="text-muted small">- Nenhuma agravante identificada.</span>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            {% if patd.ocorrencia_reescrita %}
+            <div class="card mt-3 shadow-sm">
+                <div class="card-header bg-light">
+                    <h6 class="m-0 font-weight-bold text-secondary">Texto Formal Sugerido (Ocorrência Reescrita)</h6>
+                </div>
+                <div class="card-body bg-white text-dark">
+                    <p class="card-text fst-italic">"{{ patd.ocorrencia_reescrita }}"</p>
+                </div>
+            </div>
+            {% endif %}
+
+        {% else %}
+            <div class="text-center py-5 text-muted">
+                <i class="fas fa-robot fa-3x mb-3 text-gray-300"></i>
+                <p>Nenhuma análise de Inteligência Artificial foi gerada para esta PATD ainda.</p>
+                
+                {% if request.user.is_superuser or not request.user.profile.militar.oficial == False %}
+                    <button class="btn btn-outline-primary btn-sm mt-2" disabled title="Funcionalidade em desenvolvimento">
+                        <i class="fas fa-magic me-1"></i> Gerar Análise Agora
+                    </button>
+                {% endif %}
+            </div>
+        {% endif %}
+    </div>
+</div>

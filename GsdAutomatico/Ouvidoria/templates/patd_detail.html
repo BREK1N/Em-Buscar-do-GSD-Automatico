@@ -730,6 +730,7 @@
         </div>
     </div>
 
+    {% if request.user.is_superuser or not request.user|has_comandante_access %}
     <div class="card">
         <div class="card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -750,6 +751,7 @@
             </form>
         </div>
     </div>
+    {% endif %}
 
      {% if request.user.profile.militar == patd.oficial_responsavel and patd.status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}
     <div class="card" id="analise-disciplinar-card">

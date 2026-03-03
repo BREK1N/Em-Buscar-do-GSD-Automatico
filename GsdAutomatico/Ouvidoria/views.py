@@ -466,6 +466,7 @@ def _get_document_context(patd, for_docx=False):
 
         data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else ""
         data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else ""
+
         data_ciencia_fmt = patd.data_ciencia.strftime('%d/%m/%Y') if patd.data_ciencia else ""
         data_alegacao_fmt = patd.data_alegacao.strftime('%d/%m/%Y') if patd.data_alegacao else ""
         data_publicacao_fmt = patd.data_publicacao_punicao.strftime('%d/%m/%Y') if patd.data_publicacao_punicao else ""
@@ -490,8 +491,9 @@ def _get_document_context(patd, for_docx=False):
 
         ano_fmt = str(data_inicio.year)
     else:
-        data_ocorrencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ocorrencia" value="{patd.data_ocorrencia.strftime("%Y-%m-%d") if patd.data_ocorrencia else ""}" >'
-        data_oficio_fmt = f'<input type="date" class="editable-date" data-date-field="data_oficio" value="{patd.data_oficio.strftime("%Y-%m-%d") if patd.data_oficio else ""}" >'
+        data_ocorrencia_fmt = patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else "[Data não informada]"
+        data_oficio_fmt = patd.data_oficio.strftime('%d/%m/%Y') if patd.data_oficio else "[Data não informada]"
+
         data_ciencia_fmt = f'<input type="date" class="editable-date" data-date-field="data_ciencia" value="{patd.data_ciencia.strftime("%Y-%m-%d") if patd.data_ciencia else ""}" >'
         data_alegacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_alegacao" value="{patd.data_alegacao.strftime("%Y-%m-%d") if patd.data_alegacao else ""}" >'
         data_publicacao_fmt = f'<input type="date" class="editable-date" data-date-field="data_publicacao_punicao" value="{patd.data_publicacao_punicao.strftime("%Y-%m-%d") if patd.data_publicacao_punicao else ""}" >'
@@ -936,9 +938,14 @@ def atribuir_oficial(request, pk):
     return render(request, 'atribuir_oficial.html', {'form': form, 'patd': patd})
 
 @login_required
+@comandante_redirect
 def patd_atribuicoes_pendentes(request):
     if not hasattr(request.user, 'profile') or not request.user.profile.militar:
         messages.warning(request, "Seu usuário não está associado a um militar.")
+        return redirect('Ouvidoria:index')
+    
+    if not request.user.profile.militar.oficial:
+        messages.error(request, "Apenas Oficiais podem acessar a área de atribuições.")
         return redirect('Ouvidoria:index')
 
     militar_logado = request.user.profile.militar
@@ -2151,7 +2158,7 @@ def salvar_documento_patd(request, pk):
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
-@ouvidoria_required
+@user_passes_test(lambda u: u.is_superuser)
 @require_GET
 def lista_oficiais(request):
     query = request.GET.get('q', '')
@@ -2184,7 +2191,7 @@ def salvar_assinatura_padrao(request, pk):
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
 @login_required
-@ouvidoria_required
+@user_passes_test(lambda u: u.is_superuser)
 def gerenciar_configuracoes_padrao(request):
     config = Configuracao.load()
     if request.method == 'POST':
@@ -2233,6 +2240,7 @@ def gerenciar_configuracoes_padrao(request):
     return JsonResponse(data)
 
 @login_required
+@comandante_redirect
 @ouvidoria_required
 @require_POST
 def upload_ficha_individual(request, pk):
@@ -3676,18 +3684,10 @@ def exportar_patd_docx(request, pk):
 
                     p.add_run().add_break()
 
-        
-
+    
     response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-
-
     response['Content-Disposition'] = f'attachment; filename=PATD_{patd.numero_patd}.docx'
-
-
     document.save(response)
-
-
-
 
     return response
 
@@ -3719,7 +3719,8 @@ def update_document_dates(request, pk):
         logger.error(f"Erro ao atualizar as datas do documento da PATD {pk}: {e}")
         return JsonResponse({"status": "error", "message": str(e)}, status=500)
 
-@method_decorator([login_required, ouvidoria_required], name='dispatch')
+
+@method_decorator([login_required, comandante_redirect, ouvidoria_required], name='dispatch')
 class PatdArquivadoListView(ListView):
     model = PATD
     template_name = 'patd_arquivado_list.html'
@@ -3727,6 +3728,7 @@ class PatdArquivadoListView(ListView):
     paginate_by = 15
 
     def get_queryset(self):
+        # O resto permanece igual...
         return PATD.objects.filter(arquivado=True).select_related('militar').order_by('-data_inicio')
 
 

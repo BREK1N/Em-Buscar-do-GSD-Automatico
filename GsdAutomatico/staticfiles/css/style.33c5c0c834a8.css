@@ -1199,10 +1199,9 @@ body.dark-theme .filter-bar .filter-select {
 }
 
 /* ==========================================================================
-   CORREÇÕES AVANÇADAS PARA O TEMA ESCURO (BOOTSTRAP OVERRIDES) - V2
+   CORREÇÕES FORÇADAS PARA O TEMA ESCURO (BOOTSTRAP OVERRIDES)
    ========================================================================== */
 
-/* 1. ESTRUTURA BÁSICA (Cards, Modais, Dropdowns) */
 body.dark-theme .card,
 body.dark-theme .modal-content,
 body.dark-theme .dropdown-menu {
@@ -1211,68 +1210,70 @@ body.dark-theme .dropdown-menu {
     border-color: var(--border-color);
 }
 
-/* 2. TABELAS (Correção de Fundo e Texto) */
+/* Corrige Tabelas (Fundo e Texto) */
 body.dark-theme .table {
     color: var(--text-primary);
     border-color: var(--border-color);
 }
+
 body.dark-theme .table > :not(caption) > * > * {
-    background-color: transparent;
+    background-color: transparent; /* Remove o fundo branco padrão das células */
     color: var(--text-primary);
     border-bottom-color: var(--border-color);
 }
-/* Força os links de ordenação (th a) a serem brancos, não azuis */
-body.dark-theme th a {
-    color: var(--text-primary) !important;
-    text-decoration: none;
-}
-body.dark-theme th a:hover {
-    color: var(--accent-color) !important; /* Só fica azul ao passar o mouse */
+
+body.dark-theme .table-bordered td, 
+body.dark-theme .table-bordered th {
+    border-color: var(--border-color);
 }
 
-/* 3. NEGRITOS E TÍTULOS (Correção do Bug de Cor) */
-/* O !important aqui garante que o branco sobrescreva o padrão do Bootstrap */
-body.dark-theme h1, body.dark-theme h2, body.dark-theme h3, 
-body.dark-theme h4, body.dark-theme h5, body.dark-theme h6,
-body.dark-theme strong, 
-body.dark-theme b, 
-body.dark-theme .fw-bold {
-    color: var(--text-primary) !important;
+/* Corrige Modais (Pop-ups) */
+body.dark-theme .modal-header,
+body.dark-theme .modal-footer {
+    border-color: var(--border-color);
 }
 
-/* 4. LINKS GERAIS (Correção do Azul Excessivo) */
-/* Aplica azul apenas em links dentro do conteúdo de texto, ignorando sidebar e navbars */
-body.dark-theme p a:not(.btn), 
-body.dark-theme .card-body a:not(.btn):not(.card-link) {
-    color: var(--accent-color);
+body.dark-theme .btn-close {
+    filter: invert(1) grayscale(100%) brightness(200%); /* Torna o X de fechar branco */
 }
 
-/* Garante que o menu lateral use as cores corretas e não fique azul */
-body.dark-theme .sidebar a {
-    color: var(--text-secondary) !important;
-}
-body.dark-theme .sidebar a.active,
-body.dark-theme .sidebar a:hover {
-    color: var(--accent-color) !important;
-    background-color: var(--sidebar-active-bg);
-}
-
-/* 5. FORMULÁRIOS E BOTÕES */
+/* Corrige Inputs e Formulários */
 body.dark-theme .form-control,
 body.dark-theme .form-select {
-    background-color: var(--bg-main);
+    background-color: var(--bg-main); /* Fundo um pouco mais escuro que o card */
     color: var(--text-primary);
     border-color: var(--border-color);
 }
+
 body.dark-theme .form-control:focus,
 body.dark-theme .form-select:focus {
     background-color: var(--bg-sidebar);
     color: var(--text-primary);
     border-color: var(--accent-color);
 }
-body.dark-theme .btn-close {
-    filter: invert(1) grayscale(100%) brightness(200%);
+
+body.dark-theme .input-group-text {
+    background-color: var(--bg-sidebar);
+    color: var(--text-primary);
+    border-color: var(--border-color);
 }
+
+/* Corrige Títulos e Textos Específicos */
+body.dark-theme h1, body.dark-theme h2, body.dark-theme h3, 
+body.dark-theme h4, body.dark-theme h5, body.dark-theme h6,
+body.dark-theme strong, body.dark-theme b {
+    color: var(--text-primary);
+}
+
 body.dark-theme .text-muted {
     color: var(--text-secondary) !important;
+}
+
+/* Corrige Links que não são botões */
+body.dark-theme a:not(.btn) {
+    color: var(--accent-color);
+}
+
+body.dark-theme a:not(.btn):hover {
+    color: var(--accent-hover);
 }
