@@ -5,6 +5,7 @@ from uuid import uuid4
 import re
 from num2words import num2words
 from Secao_pessoal.models import Efetivo
+from django.core.exceptions import ValidationError
 
 def patd_anexo_path(instance, filename):
     patd_pk = instance.patd.pk
@@ -67,9 +68,15 @@ class Configuracao(models.Model):
         verbose_name_plural = "Configurações Gerais"
 
 
+def validate_file_size(value):
+    filesize = value.size
+    # Limite de 10MB (ajuste conforme necessário)
+    if filesize > 10485760: 
+        raise ValidationError("O tamanho máximo do arquivo é 10MB")
+
 class Anexo(models.Model):
     patd = models.ForeignKey('PATD', on_delete=models.CASCADE, related_name='anexos')
-    arquivo = models.FileField(upload_to=patd_anexo_path, verbose_name="Ficheiro")
+    arquivo = models.FileField(upload_to=patd_anexo_path, verbose_name="Ficheiro", validators=[validate_file_size])
     tipo = models.CharField(max_length=30, choices=[('defesa', 'Defesa'), ('reconsideracao', 'Reconsideração'), ('reconsideracao_oficial', 'Reconsideração Oficial'), ('assinatura_ciencia', 'Assinatura de Ciência'), ('oficio_lancamento', 'Ofício de Lançamento')])
     data_upload = models.DateTimeField(auto_now_add=True)
 
