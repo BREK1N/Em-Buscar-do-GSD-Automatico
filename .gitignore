@@ -180,3 +180,7 @@ cython_debug/
 .cursorignore
 .cursorindexingignore
 GsdAutomatico/logs/sistema.log.*
+GsdAutomatico/staticfiles/staticfiles.json
+GsdAutomatico/staticfiles/
+media/
+
