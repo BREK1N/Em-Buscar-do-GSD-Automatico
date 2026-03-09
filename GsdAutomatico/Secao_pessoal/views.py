@@ -112,35 +112,51 @@ def importar_excel(request):
             atualizados = 0
 
             for index, row in df.iterrows():
-                # Pega o SARAM e remove espaços extras
+                # Pega valores essenciais
                 saram_valor = str(row.get('SARAM', '')).strip()
-                
-                # Se não tiver SARAM, pula a linha
-                if not saram_valor:
+                nome_completo_valor = row.get('NOME COMPLETO', '').strip()
+
+                # Se não tem SARAM E não tem nome, aí sim a linha é inútil e pulamos
+                if not saram_valor and not nome_completo_valor:
                     continue
 
+                # Tratamento do SARAM para salvar no banco (IntegerField exige número ou None)
+                saram_db = None
+                if saram_valor:
+                    try:
+                        # Converte de "12345.0" para 12345 caso o pandas tenha lido como float
+                        saram_db = int(float(saram_valor)) 
+                    except ValueError:
+                        saram_db = None
+
                 # Dicionário com os dados a serem salvos/atualizados
-                # AJUSTE AQUI: O lado esquerdo é o campo do seu Modelo, o direito é a coluna do Excel
                 dados_militar = {
                     'posto': row.get('PST.', '').strip(),
                     'quad': row.get('QUAD.', '').strip(),
                     'especializacao': row.get('ESP.', '').strip(),
-                    'saram': row.get('SARAM', '').strip(),
-                    'nome_completo': row.get('NOME COMPLETO', '').strip(),
+                    'saram': saram_db, # Usando a variável tratada
+                    'nome_completo': nome_completo_valor,
                     'nome_guerra': row.get('NOME DE GUERRA', '').strip(),
                     'turma': row.get('TURMA', '').strip(),
                     'situacao': row.get('SITUAÇÃO', '').strip(),
                     'om': row.get('OM', '').strip(),
                     'setor': row.get('SETOR', '').strip(),
-                    'subsetor': row.get('SUBSETOR', '').strip()                    
+                    'subsetor': row.get('SUBSETOR', '').strip(),                
+                        }
 
-                }
-
-                # update_or_create busca pelo SARAM. Se achar, atualiza. Se não, cria.
-                obj, created = Efetivo.objects.update_or_create(
-                    saram=saram_valor,
-                    defaults=dados_militar
-                )
+                # LÓGICA DE SALVAMENTO INTELIGENTE:
+                if saram_db:
+                    # Se tem SARAM, a chave principal é o SARAM
+                    obj, created = Efetivo.objects.update_or_create(
+                        saram=saram_db,
+                        defaults=dados_militar
+                    )
+                else:
+                    # Se é um recruta sem SARAM, a chave principal para não duplicar é o Nome Completo
+                    obj, created = Efetivo.objects.update_or_create(
+                        nome_completo=nome_completo_valor,
+                        defaults=dados_militar
+                    )
 
                 if created:
                     criados += 1
