@@ -1,4 +1,7 @@
 import pandas as pd
+import openpyxl
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.utils import get_column_letter
 import os
 import tempfile
 import httpx
@@ -465,3 +468,92 @@ def api_notificacoes_check(request):
     return HttpResponse(json.dumps({'count': 0, 'notifications': []}), content_type="application/json")
 
 # Nota: Você precisará adicionar 'import json' no topo do arquivo views.py se ainda não existir.
+
+@s1_required
+def exportar_efetivo(request):
+    if request.method == 'POST':
+        filtro = request.POST.get('filtro')
+        
+        # Cria o Workbook e a planilha ativa
+        wb = openpyxl.Workbook()
+        ws = wb.active
+        ws.title = "Efetivo Exportado"
+
+        # Estilos
+        header_font = Font(bold=True, color="FFFFFF")
+        header_fill = PatternFill(start_color="4F81BD", end_color="4F81BD", fill_type="solid")
+        alignment_center = Alignment(horizontal="center", vertical="center")
+        thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+
+        # Define os cabeçalhos solicitados
+        headers = ["POSTO", "NOME DE GUERRA", "NOME COMPLETO", "SARAM"]
+        ws.append(headers)
+
+        # Aplica estilo ao cabeçalho
+        for cell in ws[1]:
+            cell.font = header_font
+            cell.fill = header_fill
+            cell.alignment = alignment_center
+
+        # Base da query com ordenação hierárquica (Mesma lógica da MilitarListView)
+        rank_order = Case(
+            When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+            When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+            default=Value(99), output_field=IntegerField(),
+        )
+        queryset = Efetivo.objects.annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_guerra')
+
+        # Aplica os filtros
+        if filtro == 'todos':
+            pass # Pega tudo
+        elif filtro == 'oficiais':
+            queryset = queryset.filter(oficial=True)
+        elif filtro == 'pracas':
+            queryset = queryset.filter(oficial=False)
+        elif filtro:
+            # Assume que é um posto específico (ex: 'CB', 'REC', '3S')
+            queryset = queryset.filter(posto=filtro)
+
+        # Preenche os dados
+        for militar in queryset:
+            ws.append([
+                str(militar.posto),
+                militar.nome_guerra,
+                militar.nome_completo,
+                militar.saram if militar.saram else ""
+            ])
+
+        # Aplica bordas e alinhamento em todas as células de dados
+        for row in ws.iter_rows(min_row=2, max_row=ws.max_row, min_col=1, max_col=4):
+            for cell in row:
+                cell.border = thin_border
+                cell.alignment = Alignment(vertical="center")
+        
+        # Ajuste automático de largura das colunas
+        for column_cells in ws.columns:
+            length = max(len(str(cell.value)) if cell.value else 0 for cell in column_cells)
+            ws.column_dimensions[get_column_letter(column_cells[0].column)].width = length + 2
+
+        # Configura a resposta HTTP para download do arquivo
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+        response['Content-Disposition'] = 'attachment; filename=efetivo_exportado.xlsx'
+        wb.save(response)
+        return response
+
+    # GET: Renderiza a página de seleção
+    postos_db = Efetivo.objects.values_list('posto', flat=True).distinct()
+    
+    hierarquia = {
+        'CL': 0, 'TC': 1, 'MJ': 2, 'CP': 3,
+        '1T': 4, '2T': 5, 'ASP': 6, 'SO': 7,
+        '1S': 8, '2S': 9, '3S': 10,
+        'CB': 11, 'S1': 12, 'S2': 13, 'REC': 14
+    }
+    
+    postos_existentes = sorted(postos_db, key=lambda x: hierarquia.get(x, 99))
+    
+    return render(request, 'Secao_pessoal/exportar_excel.html', {
+        'postos': postos_existentes
+    })

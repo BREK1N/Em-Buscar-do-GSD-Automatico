@@ -1,0 +1,83 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Exportar Efetivo{% endblock %}
+
+{% block content %}
+<style>
+    .card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: var(--box-shadow);
+        max-width: 600px;
+        margin: 20px auto;
+    }
+    .card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .card-header svg {
+        width: 24px;
+        height: 24px;
+        color: var(--accent-color);
+    }
+    .form-group {
+        margin-bottom: 20px;
+    }
+    select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+    }
+    .btn-export {
+        width: 100%;
+        padding: 12px;
+        background-color: #198754; /* Cor verde Excel */
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: bold;
+        cursor: pointer;
+        transition: background 0.3s;
+    }
+    .btn-export:hover { background-color: #157347; }
+</style>
+
+<h1>Exportar Dados do Efetivo</h1>
+<p style="text-align: center;">Selecione o grupo de militares que deseja exportar para Excel.</p>
+
+<div class="card">
+    <div class="card-header">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+        <h2>Configurar Exportação</h2>
+    </div>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label for="filtro" style="display: block; margin-bottom: 8px; font-weight: 500;">Filtrar por:</label>
+            <select name="filtro" id="filtro" required>
+                <option value="todos">Todos os Militares</option>
+                <option value="oficiais">Somente Oficiais</option>
+                <option value="pracas">Somente Praças/Graduados</option>
+                <optgroup label="Por Posto/Graduação Específica">
+                    {% for posto in postos %}
+                        <option value="{{ posto }}">{{ posto }}</option>
+                    {% endfor %}
+                </optgroup>
+            </select>
+        </div>
+        <button type="submit" class="btn-export">
+            Baixar Planilha (.xlsx)
+        </button>
+    </form>
+</div>
+{% endblock %}
