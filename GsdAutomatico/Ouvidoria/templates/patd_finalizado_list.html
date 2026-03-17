@@ -40,7 +40,13 @@
                 </td>
                 <td>
                     {% if patd.justificado %}
-                        Sem punição (Justificado)
+                        <span style="color: var(--info-color); font-weight: bold;">Transgressão Justificada</span>
+                        {% if patd.justificativa_texto %}
+                            <br>
+                            <small style="color: var(--text-secondary); font-style: italic;">
+                                Motivo: {{ patd.justificativa_texto|truncatechars:50 }}
+                            </small>
+                        {% endif %}
                     {% else %}
                         {{ patd.dias_punicao }} {{ patd.punicao|default:"Repreensão" }}
                     {% endif %}

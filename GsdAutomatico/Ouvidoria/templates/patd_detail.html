@@ -438,9 +438,13 @@
         </a>
 
         {% if user.is_superuser %}
-            <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
+            {% if patd.status != 'finalizado' %}
+                <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
+            {% else %}
+                <button class="btn btn-secondary" disabled title="Processo finalizado/justificado não pode ser editado.">Editar (Bloqueado)</button>
+            {% endif %}
         {% elif user|has_comandante_access %}
-            {% if patd.status not in locked_statuses_for_edit %}
+            {% if patd.status not in locked_statuses_for_edit and patd.status != 'finalizado' %}
                 <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
             {% else %}
                 <button class="btn btn-secondary" disabled title="O processo não pode ser editado nesta fase.">Editar</button>
@@ -710,6 +714,7 @@
         </div>
     </div>
 
+    {% if patd.status != 'finalizado' %}
     {% if request.user.is_superuser or not request.user|has_comandante_access %}
     <div class="card">
         <div class="card-header">
@@ -732,6 +737,9 @@
         </div>
     </div>
     {% endif %}
+    {% endif %}
+
+    {% if patd.status != 'finalizado' %}
     {% if request.user.is_superuser or not request.user|has_comandante_access %}
     <div class="card">
         <div class="card-header">
@@ -754,6 +762,7 @@
             </form>
         </div>
     </div>
+    {% endif %}
     {% endif %}
 
      {% if request.user.profile.militar == patd.oficial_responsavel and patd.status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}
@@ -1130,6 +1139,23 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="justificar-patd-modal">
+    <div class="modal-content">
+        <h3>Justificar Transgressão</h3>
+        <p>Explique abaixo o motivo pelo qual esta transgressão está sendo justificada. Esta ação finalizará o processo e não poderá ser desfeita.</p>
+        <form id="justificar-patd-form">
+            <div class="form-item">
+                <label for="motivo-justificativa">Motivo da Justificativa:</label>
+                <textarea id="motivo-justificativa" name="motivo_justificativa" rows="5" required style="width: 100%; padding: 10px;" placeholder="Ex: O militar comprovou que estava em serviço externo..."></textarea>
+            </div>
+            <div class="form-actions" style="justify-content: flex-end; margin-top: 15px;">
+                <button type="button" class="btn btn-secondary" id="cancel-justificar-btn">Cancelar</button>
+                <button type="submit" class="btn btn-info">Confirmar Justificativa</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1143,10 +1169,12 @@ const analiseData = {{ analise_data_json|default:'null'|safe }};
 const assinaturasMilitar = {{ assinaturas_militar_json|default:'[]'|safe }};
 let documentPages = {{ documento_texto_json|default:'[]'|safe }};
 const isSuperuser = {{ request.user.is_superuser|yesno:"true,false" }};
+// NOVO: Flag para indicar se o processo está finalizado
+const isFinalized = '{{ patd.status }}' === 'finalizado';
 
 function createSignatureHtml(signatureUrl, altText, signatureType, signatureIndex) {
     let html = `<img class="signature-image-embedded" src="${signatureUrl}" alt="${altText}">`;
-    if (isSuperuser) {
+    if (isSuperuser && !isFinalized) { // Bloqueia remoção se finalizado
         html += ` <button class="btn btn-sm btn-danger remove-signature-btn" data-signature-type="${signatureType}"`;
         if (signatureIndex !== undefined) {
             html += ` data-signature-index="${signatureIndex}"`;
@@ -1206,6 +1234,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         document.body.addEventListener('click', function(e) {
+            // Se estiver finalizado, não abre modal de assinatura
+            if (isFinalized) return;
+
             const btn = e.target.closest('.open-signature-modal');
             if (btn) {
                 const type = btn.dataset.type;
@@ -1834,6 +1865,12 @@ document.addEventListener('DOMContentLoaded', function() {
     let saveTimeout;
 
     function scheduleSave() {
+        // --- BLOQUEIO: Se finalizado, não salva nada ---
+        if (isFinalized) {
+            console.log("Processo finalizado. Alterações ignoradas.");
+            return;
+        }
+
         clearTimeout(saveTimeout);
         saveTimeout = setTimeout(() => {
             saveDocumentChanges();
@@ -2044,6 +2081,19 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
 
+        // --- BLOQUEIO DE EDIÇÃO NO FRONTEND ---
+        if (isFinalized) {
+            // Desabilita todos os inputs de data e áreas de texto editáveis
+            const inputs = pageContainer.querySelectorAll('input.editable-date, textarea.editable-text');
+            inputs.forEach(input => {
+                input.disabled = true;
+                input.style.backgroundColor = '#f0f0f0'; // Visualmente desabilitado
+                input.style.border = 'none'; // Opcional: remover borda para parecer texto estático
+                input.style.color = '#555';
+            });
+        }
+        // -------------------------------------
+
         // --- INÍCIO: Lógica de contagem e navegação de assinaturas ---
         const signatureButtons = pageContainer.querySelectorAll('.open-signature-modal');
         const signatureImages = pageContainer.querySelectorAll('.signature-image-embedded');
@@ -2091,6 +2141,12 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- LÓGICA PARA EXCLUIR ANEXOS ---
     document.body.addEventListener('click', function(e) {
+        // Bloqueia exclusão de anexo se finalizado
+        if (isFinalized && e.target.closest('.excluir-anexo-btn')) {
+            alert("Não é possível excluir anexos de um processo finalizado.");
+            return;
+        }
+
         const target = e.target.closest('.excluir-anexo-btn');
         if (target) {
             const anexoId = target.dataset.anexoId;
@@ -2123,6 +2179,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const removeBtn = e.target.closest('.remove-signature-btn');
         if (removeBtn) {
             e.preventDefault();
+            
+            // Bloqueio extra no frontend
+            if (isFinalized) {
+                alert("Não é possível remover assinaturas de um processo finalizado.");
+                return;
+            }
+
             if (!confirm('Tem certeza que deseja remover esta assinatura?')) {
                 return;
             }
@@ -2160,18 +2223,51 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- LÓGICA PARA JUSTIFICAR PATD ---
+    // --- LÓGICA PARA JUSTIFICAR PATD (ATUALIZADA COM MODAL) ---
     const btnJustificarPatd = document.getElementById('btn-justificar-patd');
-    if (btnJustificarPatd) {
+    const justificarModal = document.getElementById('justificar-patd-modal');
+    
+    if (btnJustificarPatd && justificarModal) {
+        const justificarForm = document.getElementById('justificar-patd-form');
+        const cancelJustificarBtn = document.getElementById('cancel-justificar-btn');
+
+        // Abrir Modal
         btnJustificarPatd.addEventListener('click', function() {
-            if (confirm('Tem a certeza de que deseja justificar esta transgressão? A PATD será movida para "Aguardando Publicação" e não poderá ser revertida.')) {
-                this.disabled = true;
-                this.textContent = 'A justificar...';
+            justificarModal.classList.add('active');
+        });
+
+        // Fechar Modal
+        if (cancelJustificarBtn) {
+            cancelJustificarBtn.addEventListener('click', function() {
+                justificarModal.classList.remove('active');
+            });
+        }
+        
+        // Fechar clicando fora
+        justificarModal.addEventListener('click', (e) => {
+            if (e.target === justificarModal) justificarModal.classList.remove('active');
+        });
+
+        // Enviar Formulário
+        if (justificarForm) {
+            justificarForm.addEventListener('submit', function(e) {
+                e.preventDefault();
+                
+                const motivo = document.getElementById('motivo-justificativa').value;
+                const submitBtn = justificarForm.querySelector('button[type="submit"]');
+                
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Processando...';
 
                 const url = `{% url 'Ouvidoria:justificar_patd' patd.pk %}`;
+                
                 fetch(url, {
                     method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken }
+                    headers: { 
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken 
+                    },
+                    body: JSON.stringify({ 'motivo_justificativa': motivo })
                 })
                 .then(response => response.json())
                 .then(data => {
@@ -2180,18 +2276,18 @@ document.addEventListener('DOMContentLoaded', function() {
                         window.location.reload();
                     } else {
                         alert('Erro ao justificar: ' + data.message);
-                        this.disabled = false;
-                        this.textContent = 'Justificar Transgressão';
+                        submitBtn.disabled = false;
+                        submitBtn.textContent = 'Confirmar Justificativa';
                     }
                 })
                 .catch(error => {
                     console.error('Erro:', error);
                     alert('Erro de comunicação ao justificar a transgressão.');
-                    this.disabled = false;
-                    this.textContent = 'Justificar Transgressão';
+                    submitBtn.disabled = false;
+                    submitBtn.textContent = 'Confirmar Justificativa';
                 });
-            }
-        });
+            });
+        }
     }
 
     // --- LÓGICA DO MODAL DE FINALIZAR PUBLICAÇÃO ---
@@ -2299,7 +2395,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px; height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
                             Abrir
                         </a>
+                        {% if not isFinalized %}
                         <button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>
+                        {% endif %}
                     </div>
                 `;
                 defesaList.appendChild(li);
@@ -2320,7 +2418,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px; height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
                             Abrir
                         </a>
+                         {% if not isFinalized %}
                         <button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>
+                        {% endif %}
                     </div>
                 `;
                 reconsideracaoList.appendChild(li);
@@ -2341,7 +2441,9 @@ document.addEventListener('DOMContentLoaded', function() {
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px; height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
                             Abrir
                         </a>
+                         {% if not isFinalized %}
                         <button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>
+                         {% endif %}
                     </div>
                 `;
                 reconsideracaoOficialList.appendChild(li);

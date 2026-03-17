@@ -206,6 +206,7 @@ class PATD(models.Model):
     relatorio_final = models.TextField(blank=True, null=True, verbose_name="Relatório Final")
     arquivado = models.BooleanField(default=False, verbose_name="Arquivado")
     motivo_arquivamento = models.TextField(blank=True, null=True, verbose_name="Motivo do Arquivamento")
+    justificativa_texto = models.TextField(blank=True, null=True, verbose_name="Texto da Justificativa")
     deleted = models.BooleanField(default=False, verbose_name="Excluído")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
     restored_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Restauração")

@@ -1727,7 +1727,7 @@ class PATDDetailView(DetailView):
 class PATDUpdateView(UserPassesTestMixin, UpdateView):
     model = PATD
     form_class = PATDForm
-    template_name = 'patd_form.html'
+    template_name = 'Ouvidoria/patd_form.html'
 
     def test_func(self):
         # Allow access if the user is a superuser or has 'comandante' access.
@@ -1742,6 +1742,11 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
     # --- INÍCIO DA MODIFICAÇÃO: Bloquear edição em status avançados ---
     def dispatch(self, request, *args, **kwargs):
         patd = self.get_object()
+        if patd.status == 'finalizado':
+            messages.error(request, "Processos finalizados não podem ser editados.")
+            return redirect('Ouvidoria:patd_detail', pk=patd.pk)
+        return super().dispatch(request, *args, **kwargs)
+
         locked_statuses = [
             'analise_comandante', 'aguardando_assinatura_npd', 'periodo_reconsideracao',
             'em_reconsideracao', 'aguardando_comandante_base', 
@@ -2118,28 +2123,45 @@ def extender_prazo(request, pk):
         logger.error(f"Erro ao estender prazo da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-@login_required
+login_required
 @ouvidoria_required
 @require_POST
 def salvar_documento_patd(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+
+    # --- BLOQUEIO DE SEGURANÇA ---
+    # Este bloco impede qualquer edição (Texto, Datas ou Localidade) se estiver finalizado.
+    if patd.status == 'finalizado':
+        return JsonResponse({
+            'status': 'error', 
+            'message': 'Este processo está finalizado e não permite mais edições no documento.'
+        }, status=403)
+        
     try:
-        patd = get_object_or_404(PATD, pk=pk)
         data = json.loads(request.body)
+        
+        # Obtém os dados
         texto_documento = data.get('texto_documento')
         dates = data.get('dates', {})
         texts = data.get('texts', {})
 
+        # Validação básica
         if texto_documento is None:
             return JsonResponse({'status': 'error', 'message': 'Nenhum texto recebido.'}, status=400)
 
+        # 1. Atualiza o texto do documento
         patd.documento_texto = texto_documento
         
+        # 2. Atualiza a Localidade (Manipulação segura de JSONField)
         if 'localidade' in texts:
-            if patd.circunstancias is None:
-                patd.circunstancias = {}
-            patd.circunstancias['localidade'] = texts['localidade']
+            # Garante que é um dicionário antes de editar
+            circunstancias = patd.circunstancias if isinstance(patd.circunstancias, dict) else {}
+            circunstancias['localidade'] = texts['localidade']
+            patd.circunstancias = circunstancias # Reatribuição força o Django a reconhecer a mudança
 
+        # 3. Atualiza as Datas dinamicamente
         for field_name, date_str in dates.items():
+            # Só atualiza se o campo existir no modelo PATD para evitar erros
             if hasattr(patd, field_name):
                 if date_str:
                     try:
@@ -2148,15 +2170,19 @@ def salvar_documento_patd(request, pk):
                     except (ValueError, TypeError):
                         logger.warning(f"Formato de data inválido para o campo {field_name}: {date_str}")
                 else:
+                    # Se vier vazio, define como None (null no banco)
                     setattr(patd, field_name, None)
 
         patd.save()
 
-        return JsonResponse({'status': 'success', 'message': 'Documento e datas salvos com sucesso.'})
+        return JsonResponse({'status': 'success', 'message': 'Documento, datas e localidade salvos com sucesso.'})
+        
+    except json.JSONDecodeError:
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
     except Exception as e:
         logger.error(f"Erro ao salvar documento da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
-
+        return JsonResponse({'status': 'error', 'message': 'Erro interno ao salvar.'}, status=500)
+        
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 @require_GET
@@ -2245,6 +2271,10 @@ def gerenciar_configuracoes_padrao(request):
 @require_POST
 def upload_ficha_individual(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+
+    if patd.status == 'finalizado':
+        messages.error(request, "Não é possível anexar arquivos em processos finalizados.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
     
     if 'ficha_individual' not in request.FILES:
         messages.error(request, "Nenhum arquivo enviado.")
@@ -2876,12 +2906,23 @@ def finalizar_publicacao(request, pk):
         messages.error(request, "Ocorreu um erro ao tentar finalizar o processo.")
         return redirect('Ouvidoria:patd_detail', pk=pk)
 
+# views.py
+
+# ... imports ...
+
 @login_required
 @oficial_responsavel_required
 @require_POST
 def justificar_patd(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
+
+        # Alterado para ler o JSON do corpo da requisição
+        data = json.loads(request.body)
+        motivo = data.get('motivo_justificativa')
+
+        if not motivo or not motivo.strip():
+             return JsonResponse({'status': 'error', 'message': 'É obrigatório informar o motivo da justificativa.'}, status=400)
 
         if patd.status not in ['em_apuracao', 'apuracao_preclusao']:
              return JsonResponse({'status': 'error', 'message': 'A PATD não está na fase correta para ser justificada.'}, status=400)
@@ -2890,22 +2931,22 @@ def justificar_patd(request, pk):
         if not patd.testemunha1 or not patd.testemunha2:
             return JsonResponse({'status': 'error', 'message': 'É necessário definir as duas testemunhas antes de justificar o processo.'}, status=400)
         
-        # --- INÍCIO DA MODIFICAÇÃO: Limpar dados de punição ---
-        # Garante que, ao justificar, os campos de punição sejam limpos
-        # para evitar inconsistências em documentos ou no histórico.
+        # Limpar dados de punição
         patd.punicao = ""
         patd.dias_punicao = ""
-        # --- FIM DA MODIFICAÇÃO ---
 
         patd.justificado = True
-        patd.status = 'finalizado' # Altera o status para finalizado
-        patd.data_termino = timezone.now() # Define a data de término
+        patd.justificativa_texto = motivo  # Salva o motivo personalizado
+        patd.status = 'finalizado'
+        patd.data_termino = timezone.now()
 
         patd.punicao_sugerida = "Transgressão Justificada"
-        patd.punicao = ""
-        patd.dias_punicao = ""
-
-        patd.texto_relatorio = """Após análise dos fatos, alegações e circunstâncias, este Oficial Apurador conclui que a transgressão disciplinar imputada ao militar está JUSTIFICADA, nos termos do Art. 13, item 1 do RDAER."""
+        
+        # Atualiza o relatório com o motivo digitado pelo usuário
+        patd.texto_relatorio = f"""Após análise dos fatos, alegações e circunstâncias, este Oficial Apurador conclui que a transgressão disciplinar imputada ao militar está JUSTIFICADA, nos termos do Art. 13, item 1 do RDAER.
+        
+        Motivo da Justificativa:
+        {motivo}"""
 
         patd.save()
         return JsonResponse({'status': 'success', 'message': 'A transgressão foi justificada e o processo finalizado com sucesso.'})
@@ -3824,6 +3865,10 @@ def patd_permanently_delete(request, pk):
 def upload_oficio_lancamento(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
     
+    if patd.status == 'finalizado':
+        messages.error(request, "Não é possível anexar arquivos em processos finalizados.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
     if 'oficio_lancamento' not in request.FILES:
         messages.error(request, "Nenhum arquivo enviado.")
         return redirect('Ouvidoria:patd_detail', pk=pk)
