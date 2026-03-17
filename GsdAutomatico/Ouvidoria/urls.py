@@ -39,6 +39,7 @@ urlpatterns = [
     path('patd/<int:pk>/aceitar_atribuicao/', views.aceitar_atribuicao, name='aceitar_atribuicao'),
     path('patd/<int:pk>/justificar/', views.justificar_patd, name='justificar_patd'),
     path('patd/<int:pk>/finalizar/', views.finalizar_publicacao, name='finalizar_publicacao'),
+    path('patd/<int:pk>/finalizar_completa/', views.finalizar_patd_completa, name='finalizar_patd_completa'),
     path('patd/<int:pk>/salvar_nova_punicao/', views.salvar_nova_punicao, name='salvar_nova_punicao'),
 
     path('patds/<int:pk>/regenerar-ocorrencia/', views.regenerar_ocorrencia, name='regenerar_ocorrencia'),

@@ -3895,3 +3895,80 @@ def upload_oficio_lancamento(request, pk):
         
     return redirect('Ouvidoria:patd_detail', pk=pk)
 
+
+@login_required
+@ouvidoria_required
+@require_POST
+def finalizar_patd_completa(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        
+        # 1. Validação de Senha do usuário logado (Ouvidoria)
+        senha = request.POST.get('senha')
+        user = authenticate(username=request.user.username, password=senha)
+        if user is None:
+            messages.error(request, "Senha incorreta. A PATD não foi finalizada.")
+            return redirect('Ouvidoria:patd_detail', pk=pk)
+
+        # 2. Resgate de Dados do Formulário
+        documento = request.FILES.get('documento_final')
+        tipo_punicao = request.POST.get('tipo_punicao')
+        dias = request.POST.get('dias_punicao', 0)
+        motivo = request.POST.get('motivo_justificativa')
+        boletim = request.POST.get('boletim_publicacao')
+
+        if not boletim or not tipo_punicao or not documento:
+            messages.error(request, "Preencha todos os campos obrigatórios (Boletim, Punição e Documento Final).")
+            return redirect('Ouvidoria:patd_detail', pk=pk)
+
+        # 3. Processamento do Resultado e Punição
+        if tipo_punicao == 'justificada':
+            if not motivo or not motivo.strip():
+                messages.error(request, "O motivo da justificativa é obrigatório para transgressões justificadas.")
+                return redirect('Ouvidoria:patd_detail', pk=pk)
+            
+            patd.justificado = True
+            patd.justificativa_texto = motivo
+            patd.punicao = ""
+            patd.dias_punicao = ""
+            patd.punicao_sugerida = "Transgressão Justificada"
+            patd.texto_relatorio = f"Transgressão JUSTIFICADA. Motivo: {motivo}"
+        else:
+            patd.justificado = False
+            if tipo_punicao in ['repreensão por escrito', 'repreensão verbal']:
+                patd.punicao = tipo_punicao
+                patd.dias_punicao = ""
+            else:
+                patd.punicao = tipo_punicao
+                try:
+                    dias_int = int(dias)
+                    dias_texto = num2words(dias_int, lang='pt_BR')
+                    patd.dias_punicao = f"{dias_texto} ({dias_int:02d}) dias"
+                except ValueError:
+                    patd.dias_punicao = "0 dias"
+            
+            patd.punicao_sugerida = f"{patd.dias_punicao} de {patd.punicao}" if patd.dias_punicao else patd.punicao
+
+        # Salva o número do boletim
+        patd.boletim_publicacao = boletim
+
+        # 4. Anexar o Documento Final Completo
+        Anexo.objects.create(patd=patd, arquivo=documento, tipo='documento_final')
+
+        # 5. Fechamento e Atualização de Histórico Militar
+        patd.definir_natureza_transgressao()
+        patd.calcular_e_atualizar_comportamento() # Altera para "Mau comportamento" se necessário
+
+        patd.status = 'finalizado'
+        patd.data_termino = timezone.now()
+
+        patd.save()
+
+        messages.success(request, f"PATD Nº {patd.numero_patd} de {patd.militar.nome_guerra} foi finalizada, documentada e arquivada com sucesso!")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    except Exception as e:
+        logger.error(f"Erro ao finalizar PATD Completa {pk}: {e}", exc_info=True)
+        messages.error(request, "Ocorreu um erro ao tentar finalizar o processo.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+

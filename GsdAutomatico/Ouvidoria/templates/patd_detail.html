@@ -58,13 +58,13 @@
         justify-content: space-between;
         align-items: flex-start;
         margin-bottom: 20px;
-        flex-wrap: wrap; /* Permite que os botões quebrem em telas menores */
+        flex-wrap: wrap;
     }
 
     .patd-header h1 {
         border-bottom: none;
         padding-bottom: 0;
-        margin-right: 20px; /* Espaço entre o título e os botões */
+        margin-right: 20px;
         font-size: 1.75rem;
     }
 
@@ -72,7 +72,7 @@
         display: flex;
         gap: 10px;
         flex-shrink: 0;
-        align-items: center; /* Alinha os botões verticalmente */
+        align-items: center;
     }
 
     .card {
@@ -114,17 +114,16 @@
         letter-spacing: 0.5px;
     }
      .card-body .detail-item p, .card-body .detail-item .detail-value,
-     /* Estilo para as listas de atenuantes/agravantes */
      .card-body .detail-item ul {
         margin: 0;
         color: var(--text-primary);
         font-weight: 500;
-        padding-left: 20px; /* Adiciona indentação para a lista */
-        list-style-type: none; /* Remove marcadores padrão */
+        padding-left: 20px;
+        list-style-type: none;
         font-size: 0.9rem;
     }
     .card-body .detail-item ul li {
-        margin-bottom: 5px; /* Espaçamento entre itens */
+        margin-bottom: 5px;
     }
 
 
@@ -145,10 +144,9 @@
     .feedback-message.error { background-color: #f8d7da; border-left: 4px solid var(--danger-color); color: #721c24; }
     #apuracao-form { display: none; margin-top: 15px; }
     #apuracao-form .form-grid { grid-template-columns: 1fr 1fr; gap: 20px; }
-    #apuracao-form textarea, #apuracao-form input, #apuracao-form select { width: 100%; box-sizing: border-box; } /* Adicionado select */
+    #apuracao-form textarea, #apuracao-form input, #apuracao-form select { width: 100%; box-sizing: border-box; }
     #apuracao-form .form-item-full { grid-column: 1 / -1; }
 
-    /* Animação do Spinner */
     @keyframes spin { to { transform: rotate(360deg); } }
     .spinner {
         width: 16px;
@@ -157,12 +155,11 @@
         border-top-color: #fff;
         border-radius: 50%;
         animation: spin 1s linear infinite;
-        display: none; /* Oculto por padrão */
+        display: none;
     }
     .btn.loading .spinner { display: inline-block; }
     .btn.loading .btn-text { display: none; }
 
-    /* Estilos para o histórico */
     .historico-list {
         list-style-type: none;
         padding-left: 0;
@@ -185,10 +182,8 @@
         display: block;
     }
 
-    /* ESTILOS REFINADOS PARA VISUALIZADOR - FIXO (PAPEL BRANCO) */
     .document-preview-container {
         flex-grow: 1;
-        /* Fundo externo cinza escuro (estilo Adobe Reader) para destacar o papel */
         background-color: #525659 !important; 
         padding: 30px;
         border-radius: 8px;
@@ -197,18 +192,15 @@
     }
 
     .page {
-        /* Garante que a folha seja sempre BRANCA */
         background-color: #ffffff !important;
-        /* Garante que a cor base da fonte seja PRETA */
         color: #000000 !important;
         width: 21cm;
-        min-height: 29.7cm; /* Altura mínima A4 */
+        min-height: 29.7cm;
         margin: 0 auto 20px auto;
         padding-top: 1.5cm;
         padding-bottom: 2.54cm;
         padding-left: 2.15cm;
         padding-right: 2.5cm;
-        /* Sombra forte para destacar o papel do fundo cinza */
         box-shadow: 0 5px 15px rgba(0,0,0,0.5) !important; 
         box-sizing: border-box;
         font-family: 'Times New Roman', Times, serif;
@@ -223,11 +215,9 @@
         right: 2.5cm;
         font-family: 'Times New Roman', Times, serif;
         font-size: 10pt;
-        /* Numeração sempre preta */
         color: #000000 !important; 
     }
 
-    /* Zera margens e paddings de TODOS os elementos diretos dentro de page-content */
     .page-content > * {
         margin-top: 0 !important;
         margin-bottom: 0 !important;
@@ -235,20 +225,17 @@
         padding-bottom: 0 !important;
     }
 
-    /* --- FORÇA BRUTA SUPREMA PARA TEXTO PRETO --- */
-    /* Garante preto sólido em QUALQUER elemento dentro da página, matando transparências */
     .page-content, 
     .page-content * {
         color: #000000 !important;
         background-color: transparent !important;
-        opacity: 1 !important; /* Remove translucidez */
-        filter: none !important; /* Remove filtros de inversão */
-        mix-blend-mode: normal !important; /* Remove mesclagem */
+        opacity: 1 !important;
+        filter: none !important;
+        mix-blend-mode: normal !important;
         text-shadow: none !important;
-        -webkit-text-fill-color: #000000 !important; /* Garante preenchimento preto no Webkit */
+        -webkit-text-fill-color: #000000 !important;
     }
 
-    /* Aplica espaçamento padrão APENAS a parágrafos com conteúdo */
     .page-content p:not(:empty) {
        margin-bottom: 0.5em !important;
        line-height: 1.5;
@@ -256,17 +243,14 @@
        widows: 3;
     }
 
-    /* --- NOVA REGRA: INDENTAÇÃO DE PARÁGRAFO --- */
-    /* Aplica recuo de primeira linha (tabulação) para parágrafos justificados (texto do corpo) */
     .page-content p[style*="text-align: justify"] {
         text-indent: 1.5cm;
     }
 
-    /* --- ESTILOS PARA ANEXOS EMBUTIDOS (CORRIGIDO PARA TEMA CLARO FIXO) --- */
     .embedded-anexo-container {
         margin-top: 20px;
         margin-bottom: 20px;
-        border-top: 2px dashed #000 !important; /* Tracejado preto */
+        border-top: 2px dashed #000 !important;
         border-bottom: 2px dashed #000 !important;
         padding: 20px 0;
         color: #000 !important;
@@ -275,7 +259,7 @@
     .embedded-anexo-header {
         font-size: 1.2rem;
         font-weight: bold;
-        color: #000 !important; /* Título preto */
+        color: #000 !important;
         margin-bottom: 15px;
         text-align: center;
     }
@@ -283,7 +267,7 @@
     .embedded-anexo-item h4 {
         font-size: 1rem;
         font-weight: bold;
-        color: #333 !important; /* Cinza muito escuro */
+        color: #333 !important;
         margin-bottom: 10px;
         text-align: center;
     }
@@ -291,7 +275,6 @@
     .embedded-anexo-link {
         padding: 10px;
         text-align: center;
-        /* Fundo cinza claro fixo, independente do tema */
         background-color: #f8f9fa !important; 
         border: 1px solid #ccc !important;
         border-radius: 6px;
@@ -300,22 +283,17 @@
 
     .embedded-anexo-link p {
         font-size: 1rem;
-        color: #000 !important; /* Texto preto */
+        color: #000 !important;
         margin-bottom: 15px !important;
     }
     
-    /* Garante que o botão de download dentro do anexo tenha contraste */
     .embedded-anexo-link .btn-download {
         background-color: #007bff !important;
         color: #fff !important;
         border: none !important;
-        /* Reverte a cor do texto do botão para branco, pois a regra universal forçou preto */
-        color: #fff !important;
         -webkit-text-fill-color: #fff !important;
     }
 
-    /* --- OUTROS ESTILOS --- */
-    /* Trata especificamente a imagem do brasão */
     .page-content img[alt*="Brasão da República"] {
         display: block;
         width: 3cm !important;
@@ -335,15 +313,12 @@
         max-width: 350px;
         vertical-align: middle;
     }
-    /* --- FIM DOS NOVOS ESTILOS --- */
 
     @media print {
-        /* Oculta tudo que não for o visualizador de documento */
         .sidebar, .main-header, .patd-header, .status-timeline, .tabs-nav, #tab-detalhes, .patd-actions, .modal-overlay {
             display: none !important;
         }
 
-        /* Garante que o visualizador e seu container ocupem o espaço */
         #tab-visualizador, .document-preview-container {
             display: block !important;
             padding: 0 !important;
@@ -351,59 +326,54 @@
             overflow: visible !important;
         }
 
-        /* Estilo da página para impressão */
         .page {
-            overflow: visible !important; /* ESSENCIAL: para não cortar conteúdo */
+            overflow: visible !important;
             box-shadow: none;
             border: none;
             margin: 0;
-            width: 100%; /* Ocupa a largura da área de impressão */
+            width: 100%;
             height: auto;
             min-height: 0;
-            padding: 0; /* A margem é controlada pelo @page */
-            page-break-after: always; /* Quebra a página depois de cada div .page */
+            padding: 0;
+            page-break-after: always;
         }
 
         .page:last-of-type {
-            page-break-after: auto; /* Não quebra depois da última página */
+            page-break-after: auto;
         }
 
-        /* Controla as margens da página impressa */
         @page {
             size: A4;
             margin: 2.5cm;
         }
 
-        /* Evita quebras de página dentro de elementos importantes */
         .page-content p,
         .page-content ul,
         .page-content ol,
         .page-content img,
         .embedded-anexo-container,
-        .signature-block { /* Adicionar se tiver um container de assinatura */
+        .signature-block {
             page-break-inside: avoid;
         }
 
-        /* Oculta a numeração de página customizada para usar a do navegador */
         .page-number {
             display: none;
         }
     }
 
-    /* --- INÍCIO: Estilos para o botão de navegação de assinatura --- */
     #signature-nav-button {
-        position: fixed; /* Fixo na tela */
+        position: fixed;
         right: 40px;
         bottom: 40px;
-        z-index: 1050; /* Acima de outros elementos */
-        display: none; /* Oculto por padrão */
+        z-index: 1050;
+        display: none;
         flex-direction: column;
         align-items: center;
         gap: 8px;
         background-color: var(--accent-color);
         color: white;
         padding: 12px;
-        border-radius: 50%; /* Círculo */
+        border-radius: 50%;
         cursor: pointer;
         box-shadow: 0 4px 12px rgba(0,0,0,0.2);
         transition: background-color 0.3s, transform 0.2s;
@@ -412,7 +382,7 @@
         justify-content: center;
     }
     #signature-nav-button:hover {
-        background-color: #0056b3; /* Um tom mais escuro de azul */
+        background-color: #0056b3;
         transform: scale(1.05);
     }
     #signature-counter {
@@ -423,13 +393,19 @@
         width: 24px;
         height: 24px;
     }
-    /* --- FIM: Estilos para o botão de navegação de assinatura --- */
 
 </style>
 
 <div class="patd-header">
     <h1>PATD Nº {{ patd.numero_patd }}</h1>
     <div class="patd-actions">
+        {% if user|has_ouvidoria_access and patd.status != 'finalizado' %}
+        <button type="button" class="btn btn-danger" id="btn-finalizar-completa-modal" style="box-shadow: 0 4px 6px rgba(220, 53, 69, 0.3);">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px; height:16px; margin-right:5px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z" /></svg>
+            Finalizar (Ouvidoria)
+        </button>
+        {% endif %}
+
         <a href="{% url 'Ouvidoria:exportar_patd_docx' patd.pk %}" class="btn btn-secondary">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 18px; height: 18px;">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
@@ -535,7 +511,7 @@
             </div>
             {% endif %}
 
-             <div class="form-actions" id="form-actions-container">
+             <div class="form-actions" id="form-actions-container" style="flex-wrap: wrap;">
                 {% if patd.status == 'aguardando_justificativa' and not patd.alegacao_defesa %}
                 <button type="button" class="btn btn-primary" id="add-defesa-btn">Adicionar Alegação de Defesa</button>
                 {% endif %}
@@ -556,12 +532,6 @@
                 Aprovar e Finalizar
                 </button>
                 <button type="button" class="btn btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
-                {% endif %}
-                {% if patd.status == 'aguardando_publicacao' and user|has_ouvidoria_access %}
-                <button type="button" class="btn btn-success" id="btn-finalizar-modal">Finalizar Publicação</button>
-                {% endif %}
-                {% if patd.status == 'aguardando_nova_punicao' and request.user.profile.militar == patd.oficial_responsavel %}
-                <button type="button" class="btn btn-primary" id="btn-nova-punicao-modal">Definir Nova Punição</button>
                 {% endif %}
             </div>
         </div>
@@ -796,11 +766,11 @@
                     </div>
                     
                     <div class="form-item-full" style="display: grid; grid-template-columns: 120px 1fr; gap: 20px; align-items: flex-end;">
-                         <div class"form-item">
+                         <div class="form-item">
                             <label for="id_punicao_dias">Dias:</label>
                             <input type="number" id="id_punicao_dias" name="punicao_dias" min="0" value="0">
                         </div>
-                        <div class"form-item">
+                        <div class="form-item">
                             <label for="id_punicao_tipo">Tipo de Punição:</label>
                             <select id="id_punicao_tipo" name="punicao_tipo">
                                 <option value="">Selecione...</option>
@@ -915,6 +885,64 @@
     @keyframes pulse-border { 0%, 100% { box-shadow: 0 0 0 0 rgba(0, 123, 255, 0.7); } 50% { box-shadow: 0 0 0 10px rgba(0, 123, 255, 0); } }
     .signature-focus { animation: pulse-border 1.5s ease-out; border-radius: 8px; }
 </style>
+
+<div class="modal-overlay" id="finalizar-completa-modal">
+    <div class="modal-content">
+        <h3>Finalizar Processo Definitivo (Ouvidoria)</h3>
+        <p style="color: var(--danger-color); font-weight: bold;">Militar Acusado: {{ patd.militar.nome_guerra }}</p>
+        <p>Preencha os dados finais do processo e anexe o documento final. Esta ação é irreversível.</p>
+        
+        <form id="finalizar-completa-form" method="post" action="{% url 'Ouvidoria:finalizar_patd_completa' patd.pk %}" enctype="multipart/form-data" class="model-form">
+            {% csrf_token %}
+            
+            <div class="form-grid" style="grid-template-columns: 1fr; gap: 15px;">
+                <div class="form-item">
+                    <label for="id_doc_final">Documento Final da PATD (Completo):</label>
+                    <input type="file" name="documento_final" accept=".pdf,.doc,.docx" required id="id_doc_final" style="width: 100%; padding: 10px;">
+                </div>
+
+                <div class="form-item" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+                    <div>
+                        <label for="id_tipo_punicao_final">Decisão/Punição Aplicada:</label>
+                        <select name="tipo_punicao" id="id_tipo_punicao_final" required style="width: 100%; padding: 10px;">
+                            <option value="">Selecione...</option>
+                            <option value="detenção">Detenção</option>
+                            <option value="prisão">Prisão</option>
+                            <option value="repreensão por escrito">Repreensão por Escrito</option>
+                            <option value="repreensão verbal">Repreensão Verbal</option>
+                            <option value="justificada">Transgressão Justificada</option>
+                        </select>
+                    </div>
+                    
+                    <div id="div_dias_final" style="display: none;">
+                        <label for="id_dias_final">Quantidade de Dias:</label>
+                        <input type="number" name="dias_punicao" id="id_dias_final" min="1" value="1" style="width: 100%; padding: 10px;">
+                    </div>
+                </div>
+
+                <div class="form-item" id="div_motivo_final" style="display: none;">
+                    <label for="id_motivo_final">Motivo da Justificativa (Obrigatório se justificada):</label>
+                    <textarea name="motivo_justificativa" id="id_motivo_final" rows="3" style="width: 100%; padding: 10px;" placeholder="Explique por que foi justificada..."></textarea>
+                </div>
+
+                <div class="form-item">
+                    <label for="id_boletim_final">Boletim de Publicação:</label>
+                    <input type="text" name="boletim_publicacao" required id="id_boletim_final" placeholder="Ex: BCA Nº 123 - 25/12/2025" style="width: 100%; padding: 10px;">
+                </div>
+
+                <div class="form-item" style="background-color: var(--bg-main); padding: 15px; border-radius: 6px; border-left: 4px solid var(--danger-color);">
+                    <label for="id_senha_ouvidoria">Sua Senha (Assinatura Eletrônica):</label>
+                    <input type="password" name="senha" required id="id_senha_ouvidoria" style="width: 100%; padding: 10px;">
+                </div>
+            </div>
+            
+            <div class="form-actions" style="justify-content: flex-end; margin-top: 20px;">
+                <button type="button" class="btn btn-secondary" id="cancel-finalizar-completa-btn">Cancelar</button>
+                <button type="submit" class="btn btn-danger">Confirmar e Finalizar</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
@@ -1159,8 +1187,6 @@
 {% endblock %}
 
 {% block extra_js %}
-{# Removidos os json_script dos mapeamentos daqui #}
-
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
 
 <script>
@@ -1174,7 +1200,7 @@ const isFinalized = '{{ patd.status }}' === 'finalizado';
 
 function createSignatureHtml(signatureUrl, altText, signatureType, signatureIndex) {
     let html = `<img class="signature-image-embedded" src="${signatureUrl}" alt="${altText}">`;
-    if (isSuperuser && !isFinalized) { // Bloqueia remoção se finalizado
+    if (isSuperuser && !isFinalized) { 
         html += ` <button class="btn btn-sm btn-danger remove-signature-btn" data-signature-type="${signatureType}"`;
         if (signatureIndex !== undefined) {
             html += ` data-signature-index="${signatureIndex}"`;
@@ -1184,7 +1210,6 @@ function createSignatureHtml(signatureUrl, altText, signatureType, signatureInde
     return html;
 }
 
-// Dados das assinaturas específicas
 const hasDefesaSig = '{{ patd.assinatura_alegacao_defesa|yesno:"true,false" }}' === 'true';
 const defesaSigData = '{% if patd.assinatura_alegacao_defesa.name %}{{ patd.assinatura_alegacao_defesa.url }}{% endif %}';
 const hasReconSig = '{{ patd.assinatura_reconsideracao|yesno:"true,false" }}' === 'true';
@@ -1194,13 +1219,19 @@ const testemunha2SigData = '{% if patd.assinatura_testemunha2.name %}{{ patd.ass
 const oficialSigData = '{% if patd.assinatura_oficial.name %}{{ patd.assinatura_oficial.url }}{% endif %}';
 const comandanteSigData = '{{ comandante_assinatura|default:"" }}';
 
-// --- MODIFICAÇÃO: anexosDefesa, anexosReconsideracao, etc, agora contêm 'tipo_arquivo' e não 'content_html' ---
 let anexosDefesa = {{ anexos_defesa_json|default:'[]'|safe }};
 let anexosReconsideracao = {{ anexos_reconsideracao_json|default:'[]'|safe }};
 let anexosReconsideracaoOficial = {{ anexos_reconsideracao_oficial_json|default:'[]'|safe }};
 
+// --- VERIFICAÇÃO SE EXISTE DOCUMENTO FINAL ---
+let documentoFinalUrl = "";
+{% for anexo in patd.anexos.all %}
+    {% if anexo.tipo == 'documento_final' %}
+        documentoFinalUrl = "{{ anexo.arquivo.url }}";
+    {% endif %}
+{% endfor %}
 
-let signatureIndex = 0; // Contador de assinaturas movido para o escopo externo
+let signatureIndex = 0;
 
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]').value;
@@ -1215,6 +1246,52 @@ document.addEventListener('DOMContentLoaded', function() {
         deleteModal.addEventListener('click', (e) => {
             if (e.target === deleteModal) deleteModal.classList.remove('active');
         });
+    }
+
+    // --- LÓGICA DO MODAL DE FINALIZAÇÃO DA OUVIDORIA ---
+    const finalizarCompletaModal = document.getElementById('finalizar-completa-modal');
+    if (finalizarCompletaModal) {
+        const openBtn = document.getElementById('btn-finalizar-completa-modal');
+        const cancelBtn = document.getElementById('cancel-finalizar-completa-btn');
+        const selectPunicao = document.getElementById('id_tipo_punicao_final');
+        const divDias = document.getElementById('div_dias_final');
+        const inputDias = document.getElementById('id_dias_final');
+        const divMotivo = document.getElementById('div_motivo_final');
+        const inputMotivo = document.getElementById('id_motivo_final');
+
+        if(openBtn) {
+            openBtn.addEventListener('click', () => finalizarCompletaModal.classList.add('active'));
+        }
+        if(cancelBtn) {
+            cancelBtn.addEventListener('click', () => finalizarCompletaModal.classList.remove('active'));
+        }
+        finalizarCompletaModal.addEventListener('click', e => {
+            if (e.target === finalizarCompletaModal) finalizarCompletaModal.classList.remove('active');
+        });
+
+        if(selectPunicao) {
+            selectPunicao.addEventListener('change', (e) => {
+                const val = e.target.value;
+                
+                // Lógica para Dias de Punição
+                if (val === 'detenção' || val === 'prisão') {
+                    divDias.style.display = 'block';
+                    inputDias.required = true;
+                } else {
+                    divDias.style.display = 'none';
+                    inputDias.required = false;
+                }
+                
+                // Lógica para Justificativa
+                if (val === 'justificada') {
+                    divMotivo.style.display = 'block';
+                    inputMotivo.required = true;
+                } else {
+                    divMotivo.style.display = 'none';
+                    inputMotivo.required = false;
+                }
+            });
+        }
     }
 
     // --- LÓGICA DO MODAL GENÉRICO DE ASSINATURA ---
@@ -1234,7 +1311,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         document.body.addEventListener('click', function(e) {
-            // Se estiver finalizado, não abre modal de assinatura
             if (isFinalized) return;
 
             const btn = e.target.closest('.open-signature-modal');
@@ -1317,7 +1393,6 @@ document.addEventListener('DOMContentLoaded', function() {
             .catch(error => console.error('Erro:', error));
         });
 
-        // --- INÍCIO: Lógica para importar e colar assinatura ---
         const importSignatureBtn = document.getElementById('import-signature-btn');
         const pasteSignatureBtn = document.getElementById('paste-signature-btn');
         const signatureFileInput = document.getElementById('signature-file-input');
@@ -1341,7 +1416,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     alert('Por favor, selecione um ficheiro de imagem válido.');
                 }
-                // Limpa o valor para permitir selecionar o mesmo ficheiro novamente
                 signatureFileInput.value = '';
             });
         }
@@ -1377,7 +1451,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 }
             });
         }
-        // --- FIM: Lógica para importar e colar assinatura ---
     }
 
     const aceitarAtribuicaoModal = document.getElementById('aceitar-atribuicao-modal');
@@ -1393,11 +1466,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // *******************************************************************
-    // *** INÍCIO DO CÓDIGO ADICIONADO PARA CORREÇÃO ***
-    // *******************************************************************
-
-    // --- LÓGICA DO MODAL DE AVANÇAR PARA COMANDANTE ---
     const avancarModal = document.getElementById('avancar-modal');
     if (avancarModal) {
         const openBtn = document.getElementById('btn-avancar-comandante');
@@ -1412,16 +1480,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target === avancarModal) avancarModal.classList.remove('active');
         });
         
-        // Tratar alerta de erro vindo da view (query param)
         const urlParams = new URLSearchParams(window.location.search);
         if (urlParams.has('erro') && urlParams.get('erro') === 'testemunhas') {
             alert('Erro: Não é possível avançar. As duas testemunhas devem ser definidas na aba "Editar".');
-            // Limpa o parâmetro da URL para não mostrar o alerta ao recarregar
             window.history.replaceState({}, document.title, window.location.pathname);
         }
     }
 
-    // --- LÓGICA DO MODAL DE RETORNAR PATD (COMANDANTE) ---
     const retornarModal = document.getElementById('retornar-patd-modal');
     if (retornarModal) {
         const cancelBtn = document.getElementById('cancel-retornar-btn');
@@ -1449,7 +1514,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- LÓGICA DOS MODAIS DE RECONSIDERAÇÃO ---
     const reconsideracaoModal = document.getElementById('reconsideracao-modal');
     const reconsideracaoTextoModal = document.getElementById('reconsideracao-texto-modal');
 
@@ -1461,7 +1525,6 @@ document.addEventListener('DOMContentLoaded', function() {
         const cancelTextoBtn = document.getElementById('cancel-reconsideracao-texto-btn');
         const submitTextoBtn = document.getElementById('submit-reconsideracao-texto-btn');
 
-        // Modal 1: Confirmação
         if(openBtn) {
             openBtn.addEventListener('click', () => reconsideracaoModal.classList.add('active'));
         }
@@ -1488,12 +1551,10 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
 
-        // Modal 2: Texto e Anexos
         if(cancelTextoBtn) {
             cancelTextoBtn.addEventListener('click', () => reconsideracaoTextoModal.classList.remove('active'));
         }
 
-        // Listener para o botão de dentro do documento
         document.body.addEventListener('click', e => {
             if (e.target && e.target.id === 'add-reconsideracao-texto-btn-doc') {
                 reconsideracaoTextoModal.classList.add('active');
@@ -1523,11 +1584,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
-
-    // *******************************************************************
-    // *** FIM DO CÓDIGO ADICIONADO PARA CORREÇÃO ***
-    // *******************************************************************
-
 
     const defesaModal = document.getElementById('defesa-modal');
     if (defesaModal) {
@@ -1669,12 +1725,11 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 1000);
     }
 
-    // --- INÍCIO DA NOVA LÓGICA PARA O TIMER DE RECONSIDERAÇÃO ---
     const reconsideracaoCountdownTimer = document.getElementById('reconsideracao-countdown-timer');
     const reconsideracaoPrazoBox = document.getElementById('reconsideracao-prazo-box');
     if (reconsideracaoCountdownTimer && '{{ patd.data_publicacao_punicao }}') {
         const dataPublicacao = new Date('{{ patd.data_publicacao_punicao|date:"c" }}');
-        const prazoDias = 15; // O prazo de reconsideração é fixo em 15 dias corridos.
+        const prazoDias = 15;
         const deadline = new Date(dataPublicacao.getTime() + prazoDias * 24 * 60 * 60 * 1000);
 
         const interval = setInterval(() => {
@@ -1685,14 +1740,13 @@ document.addEventListener('DOMContentLoaded', function() {
                 reconsideracaoCountdownTimer.textContent = "Prazo expirado.";
                 if(reconsideracaoPrazoBox) reconsideracaoPrazoBox.classList.add('expirado');
                 clearInterval(interval);
-                // Opcional: Atualizar status da PATD via AJAX se o prazo expirou
                 fetch('{% url "Ouvidoria:verificar_e_atualizar_prazos" %}', {
                     method: 'POST',
                     headers: {
                         'Content-Type': 'application/json',
                         'X-CSRFToken': csrfToken
                     },
-                    body: JSON.stringify({}) // Corpo vazio, pois a função no servidor verifica todas as PATDs
+                    body: JSON.stringify({})
                 });
                 return;
             }
@@ -1744,30 +1798,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (targetPanel) {
                  targetPanel.classList.add('active');
 
-                // --- INÍCIO DA CORREÇÃO: Lógica de exibição do botão de navegação ---
                 const sigNavButton = document.getElementById('signature-nav-button');
                 if (link.dataset.target === 'tab-visualizador') {
-                    renderVisualizador(); // A função renderVisualizador irá decidir se mostra o botão.
+                    renderVisualizador();
                 } else {
-                    // Se a aba NÃO for o visualizador, garante que o botão esteja oculto.
                     if (sigNavButton) sigNavButton.style.display = 'none';
                 }
-                // --- FIM DA CORREÇÃO ---
             }
             localStorage.setItem('activePatdTab-{{ patd.pk }}', link.dataset.target);
         });
     });
 
-    // --- INÍCIO DA NOVA LÓGICA DE ANEXOS (MODIFICADA) ---
-
-    /**
-     * Gera o HTML para um único anexo embutido (link de download).
-     */
     function generateEmbeddedAnexoHTML(anexo) {
         const fileType = anexo.tipo_arquivo;
-        
-        // --- ALTERAÇÃO: Tentar <iframe> para PDF/Imagens, fallback para link ---
-        // (Revertido para link simples para máxima compatibilidade)
         return `
             <div class="embedded-anexo-item">
                 <div class="embedded-anexo-link">
@@ -1782,9 +1825,6 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
 
-    /**
-     * Gera um contêiner de grupo para múltiplos anexos. (Modificado)
-     */
     function generateEmbeddedAnexosGroup(anexos, title) {
         if (!anexos || anexos.length === 0) return '';
         let itemsHtml = anexos.map(generateEmbeddedAnexoHTML).join('');
@@ -1796,35 +1836,24 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
 
-    // --- FIM DA NOVA LÓGICA DE ANEXOS ---
-
-
     function processPlaceholders(text) {
         let processedHtml = text;
         
         processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
 
-        // --- MODIFICAÇÃO: Injeta o HTML do visualizador de anexo embutido ---
-        processedHtml = processedHtml.replace(/{ANEXOS_DEFESA_PLACEHOLDER}/g, 
-            generateEmbeddedAnexosGroup(anexosDefesa, "Anexos da Alegação de Defesa"));
-        processedHtml = processedHtml.replace(/{ANEXOS_RECONSIDERACAO_PLACEHOLDER}/g, 
-            generateEmbeddedAnexosGroup(anexosReconsideracao, "Anexos da Reconsideração"));
-        processedHtml = processedHtml.replace(/{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}/g, 
-            generateEmbeddedAnexosGroup(anexosReconsideracaoOficial, "Anexo do Oficial (Reconsideração)"));
-        // --- FIM DA MODIFICAÇÃO ---
+        processedHtml = processedHtml.replace(/{ANEXOS_DEFESA_PLACEHOLDER}/g, generateEmbeddedAnexosGroup(anexosDefesa, "Anexos da Alegação de Defesa"));
+        processedHtml = processedHtml.replace(/{ANEXOS_RECONSIDERACAO_PLACEHOLDER}/g, generateEmbeddedAnexosGroup(anexosReconsideracao, "Anexos da Reconsideração"));
+        processedHtml = processedHtml.replace(/{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}/g, generateEmbeddedAnexosGroup(anexosReconsideracaoOficial, "Anexo do Oficial (Reconsideração)"));
 
-        // Assinaturas que podem ter imagem ou botão
         processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? createSignatureHtml(defesaSigData, 'Assinatura da Defesa', 'defesa') : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? createSignatureHtml(reconSigData, 'Assinatura da Reconsideração', 'reconsideracao') : `<button class="btn btn-sm btn-success open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
 
-        // Assinaturas que SEMPRE são imagens (se existirem)
         processedHtml = processedHtml.replace(/{Assinatura_Imagem_Oficial_Apurador}/g, oficialSigData ? createSignatureHtml(oficialSigData, 'Assinatura do Oficial Apurador', 'oficial') : '[Sem assinatura]');
         processedHtml = processedHtml.replace(/{Assinatura_Imagem_Comandante_GSD}/g, comandanteSigData ? `<img class="signature-image-embedded" src="${comandanteSigData}" alt="Assinatura do Comandante">` : '[Sem assinatura]');
         processedHtml = processedHtml.replace(/{Assinatura_Imagem_Testemunha_1}/g, testemunha1SigData ? createSignatureHtml(testemunha1SigData, 'Assinatura da Testemunha 1', 'testemunha1') : '[Sem assinatura]');
         processedHtml = processedHtml.replace(/{Assinatura_Imagem_Testemunha_2}/g, testemunha2SigData ? createSignatureHtml(testemunha2SigData, 'Assinatura da Testemunha 2', 'testemunha2') : '[Sem assinatura]');
 
-        // Assinatura do militar (pode ser várias)
         processedHtml = processedHtml.replace(/{Assinatura Militar Arrolado}/g, () => {
             const index = signatureIndex++;
             if (assinaturasMilitar[index]) {
@@ -1834,19 +1863,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        // Botões de assinatura restantes
         processedHtml = processedHtml.replace(/{Botao Assinar Oficial}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="oficial">Assinar</button>`);
         processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 1}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
         processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 2}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
 
-
-        // Formatação final
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
         processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
         return processedHtml;
     }
 
-    // --- LÓGICA DO VISUALIZADOR DE DOCUMENTO ---
     const pageContainer = document.getElementById('document-preview-container');
     pageContainer.addEventListener('change', function(e) {
         if (e.target.classList.contains('editable-date')) {
@@ -1858,14 +1883,12 @@ document.addEventListener('DOMContentLoaded', function() {
             scheduleSave();
         }
     });
-    // --- INÍCIO: Lógica de navegação de assinatura ---
+    
     let pendingSignatureElements = [];
     let currentSignatureIndex = -1;
-    // --- FIM: Lógica de navegação de assinatura ---
     let saveTimeout;
 
     function scheduleSave() {
-        // --- BLOQUEIO: Se finalizado, não salva nada ---
         if (isFinalized) {
             console.log("Processo finalizado. Alterações ignoradas.");
             return;
@@ -1883,17 +1906,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const dates = {};
         pageContainer.querySelectorAll('.editable-date').forEach(input => {
             const fieldName = input.dataset.dateField;
-            if (fieldName) {
-                dates[fieldName] = input.value;
-            }
+            if (fieldName) dates[fieldName] = input.value;
         });
 
         const texts = {};
         pageContainer.querySelectorAll('.editable-text').forEach(input => {
             const fieldName = input.dataset.textField;
-            if (fieldName) {
-                texts[fieldName] = input.value;
-            }
+            if (fieldName) texts[fieldName] = input.value;
         });
 
         const tempContainer = pageContainer.cloneNode(true);
@@ -1965,7 +1984,6 @@ document.addEventListener('DOMContentLoaded', function() {
             container.replaceWith(document.createTextNode(placeholder));
         });
 
-
         const pageDelimiter = 'PATD Nº {{ patd.numero_patd }}/BAGL-GSDGL/{{ patd.data_inicio|date:"dmy" }}';
         let fullContent = [];
 
@@ -1988,7 +2006,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         const newDocumentText = fullContent.join(`\n${pageDelimiter}\n`);
-        rawDocumentText = newDocumentText;
 
         const url = `{% url 'Ouvidoria:salvar_documento_patd' patd.pk %}`;
         fetch(url, {
@@ -2013,88 +2030,93 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- LÓGICA DE RENDERIZAR VISUALIZADOR (MODIFICADA) ---
     function renderVisualizador() {
         if (!pageContainer) return;
-        pageContainer.innerHTML = ''; // Limpa o container
-        signatureIndex = 0; // Reseta o contador de assinaturas do militar
-        let pageCounter = 1; // Zera o contador de página
+
+        // --- SE EXISTE DOCUMENTO FINAL COMPLETO DA OUVIDORIA ---
+        if (documentoFinalUrl) {
+            pageContainer.style.padding = '0';
+            pageContainer.style.backgroundColor = 'transparent';
+            pageContainer.style.boxShadow = 'none';
+
+            // Checa se é PDF para renderizar no iframe, se for DOCX, fornece botão de download
+            if (documentoFinalUrl.toLowerCase().endsWith('.pdf')) {
+                pageContainer.innerHTML = `<iframe src="${documentoFinalUrl}#view=FitH" width="100%" height="800px" style="border:none; border-radius: 8px;"></iframe>`;
+            } else {
+                pageContainer.innerHTML = `
+                    <div style="display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100%; min-height: 400px; color: var(--text-primary); text-align: center; background-color: var(--bg-content); border-radius: 8px; border: 1px solid var(--border-color);">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 64px; height: 64px; color: var(--accent-color); margin-bottom: 20px;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12.75h.008M8.25 15h.008M8.25 18h.008m3.75-12h.008m2.25-3h.008M12 6h.008m-2.25 6h.008m2.25 6h.008M12 18h.008m-3.75-6h.008m2.25-6h.008" />
+                        </svg>
+                        <h3>Documento Final Anexado (.docx/.doc)</h3>
+                        <p style="color: var(--text-secondary); margin-bottom: 20px;">O arquivo final foi salvo em formato Word e não pode ser renderizado nativamente no navegador.</p>
+                        <a href="${documentoFinalUrl}" class="btn btn-primary" target="_blank" download>
+                            Baixar Documento Final
+                        </a>
+                    </div>
+                `;
+            }
+            
+            const sigNavButton = document.getElementById('signature-nav-button');
+            if (sigNavButton) sigNavButton.style.display = 'none';
+            return;
+        }
+
+        pageContainer.innerHTML = '';
+        signatureIndex = 0; 
+        let pageCounter = 1;
 
         if (!documentPages || documentPages.length === 0) {
             pageContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">O conteúdo do documento está vazio ou não pôde ser carregado.</p>';
             return;
         }
 
-        // Itera sobre cada 'documento' (ex: PATD_Coringa, PRECLUSAO, etc.)
         documentPages.forEach((docHtml, docIndex) => {
-            
-            // Divide o HTML do documento pelo marcador de quebra de página
             const logicalPages = docHtml.split('<div class="manual-page-break"></div>');
 
-            // Itera sobre cada página lógica resultante da divisão
             logicalPages.forEach((pageHtml, logicalPageIndex) => {
-                // Não renderiza páginas lógicas vazias (resultantes de quebras no final)
                 if (pageHtml.trim() === "") return;
 
                 const pageDiv = document.createElement('div');
-                pageDiv.className = 'page'; // Aplica a classe CSS de página
+                pageDiv.className = 'page';
 
-                // Adiciona o número da página
                 const pageNumberDiv = document.createElement('div');
                 pageNumberDiv.className = 'page-number';
                 pageNumberDiv.textContent = `Página ${pageCounter}`;
                 
-                // Cria o container do conteúdo
                 const contentDiv = document.createElement('div');
                 contentDiv.className = 'page-content';
 
-                // Processa os placeholders (agora incluindo os de anexo)
                 let processedHtml = processPlaceholders(pageHtml);
                 
-                // --- INÍCIO DA CORREÇÃO DE TABULAÇÃO ---
-                // Substitui caracteres de tabulação invisíveis (\t) por espaços visíveis (&emsp;)
-                // Isso garante que indentações manuais do Word sejam renderizadas.
                 processedHtml = processedHtml.replace(/\t/g, '&emsp;&emsp;');
-                // --- FIM DA CORREÇÃO DE TABULAÇÃO ---
-
-                // Limpa o HTML (lógica de limpeza existente)
                 processedHtml = processedHtml.replace(/<p>(<br\s*\/?>|\s|&nbsp;)*<\/p>/gi, ''); 
                 processedHtml = processedHtml.replace(/<p>(<br\s*\/?>\s*)+/gi, '<p>'); 
                 processedHtml = processedHtml.replace(/(<br\s*\/?>\s*)+<\/p>/gi, '</p>');
-                
-                // NOVO: Reduz múltiplos <br> para apenas um, garantindo no máximo uma linha de espaço.
                 processedHtml = processedHtml.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
-
                 processedHtml = processedHtml.replace(/\s{2,}/g, ' '); 
                 processedHtml = processedHtml.replace(/(&nbsp;){2,}/g, '&nbsp;');
 
-                contentDiv.innerHTML = processedHtml; // Insere o HTML processado
+                contentDiv.innerHTML = processedHtml;
 
-                // Adiciona o conteúdo e o número da página à div da página
                 pageDiv.appendChild(contentDiv);
                 pageDiv.appendChild(pageNumberDiv); 
-                
-                // Adiciona a página completa ao container principal
                 pageContainer.appendChild(pageDiv);
 
-                pageCounter++; // Incrementa o contador de página
+                pageCounter++; 
             });
         });
 
-        // --- BLOQUEIO DE EDIÇÃO NO FRONTEND ---
         if (isFinalized) {
-            // Desabilita todos os inputs de data e áreas de texto editáveis
             const inputs = pageContainer.querySelectorAll('input.editable-date, textarea.editable-text');
             inputs.forEach(input => {
                 input.disabled = true;
-                input.style.backgroundColor = '#f0f0f0'; // Visualmente desabilitado
-                input.style.border = 'none'; // Opcional: remover borda para parecer texto estático
+                input.style.backgroundColor = '#f0f0f0';
+                input.style.border = 'none';
                 input.style.color = '#555';
             });
         }
-        // -------------------------------------
 
-        // --- INÍCIO: Lógica de contagem e navegação de assinaturas ---
         const signatureButtons = pageContainer.querySelectorAll('.open-signature-modal');
         const signatureImages = pageContainer.querySelectorAll('.signature-image-embedded');
         
@@ -2110,17 +2132,12 @@ document.addEventListener('DOMContentLoaded', function() {
         const sigNavButton = document.getElementById('signature-nav-button');
 
         if (pendingSignatureElements.length > 0) {
-            sigNavButton.style.display = 'flex'; // Mostra o botão
+            sigNavButton.style.display = 'flex';
         } else {
-            sigNavButton.style.display = 'none'; // Oculta se não houver pendentes
+            sigNavButton.style.display = 'none';
         }
-        // --- FIM: Lógica de contagem e navegação de assinaturas ---
     }
 
-    // --- INÍCIO DA CORREÇÃO: Mover a configuração dos botões para o final ---
-    // Adiciona os listeners DEPOIS que a função renderVisualizador está definida.
-
-    // --- INÍCIO: Listener do botão de navegação ---
     const sigNavButton = document.getElementById('signature-nav-button');
     if (sigNavButton) {
         sigNavButton.addEventListener('click', () => {
@@ -2128,7 +2145,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
             currentSignatureIndex++;
             if (currentSignatureIndex >= pendingSignatureElements.length) {
-                currentSignatureIndex = 0; // Volta para o início
+                currentSignatureIndex = 0;
             }
 
             const nextSignature = pendingSignatureElements[currentSignatureIndex];
@@ -2139,9 +2156,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- LÓGICA PARA EXCLUIR ANEXOS ---
     document.body.addEventListener('click', function(e) {
-        // Bloqueia exclusão de anexo se finalizado
         if (isFinalized && e.target.closest('.excluir-anexo-btn')) {
             alert("Não é possível excluir anexos de um processo finalizado.");
             return;
@@ -2159,12 +2174,10 @@ document.addEventListener('DOMContentLoaded', function() {
                 .then(response => response.json())
                 .then(data => {
                     if (data.status === 'success') {
-                        // Remove o anexo dos dados JS e re-renderiza a lista de anexos
                         anexosDefesa = anexosDefesa.filter(a => a.id != anexoId);
                         anexosReconsideracao = anexosReconsideracao.filter(a => a.id != anexoId);
                         anexosReconsideracaoOficial = anexosReconsideracaoOficial.filter(a => a.id != anexoId);
                         renderAnexosGeral();
-                        // --- ADICIONADO: Re-renderiza o visualizador principal ---
                         renderVisualizador();
                     } else {
                         alert('Erro ao excluir anexo: ' + data.message);
@@ -2180,7 +2193,6 @@ document.addEventListener('DOMContentLoaded', function() {
         if (removeBtn) {
             e.preventDefault();
             
-            // Bloqueio extra no frontend
             if (isFinalized) {
                 alert("Não é possível remover assinaturas de um processo finalizado.");
                 return;
@@ -2223,7 +2235,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    // --- LÓGICA PARA JUSTIFICAR PATD (ATUALIZADA COM MODAL) ---
     const btnJustificarPatd = document.getElementById('btn-justificar-patd');
     const justificarModal = document.getElementById('justificar-patd-modal');
     
@@ -2231,24 +2242,20 @@ document.addEventListener('DOMContentLoaded', function() {
         const justificarForm = document.getElementById('justificar-patd-form');
         const cancelJustificarBtn = document.getElementById('cancel-justificar-btn');
 
-        // Abrir Modal
         btnJustificarPatd.addEventListener('click', function() {
             justificarModal.classList.add('active');
         });
 
-        // Fechar Modal
         if (cancelJustificarBtn) {
             cancelJustificarBtn.addEventListener('click', function() {
                 justificarModal.classList.remove('active');
             });
         }
         
-        // Fechar clicando fora
         justificarModal.addEventListener('click', (e) => {
             if (e.target === justificarModal) justificarModal.classList.remove('active');
         });
 
-        // Enviar Formulário
         if (justificarForm) {
             justificarForm.addEventListener('submit', function(e) {
                 e.preventDefault();
@@ -2290,7 +2297,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- LÓGICA DO MODAL DE FINALIZAR PUBLICAÇÃO ---
     const finalizarModal = document.getElementById('finalizar-publicacao-modal');
     if (finalizarModal) {
         const openBtn = document.getElementById('btn-finalizar-modal');
@@ -2307,25 +2313,20 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- LÓGICA PARA MOSTRAR/OCULTAR ANÁLISE DISCIPLINAR NO NOVO STATUS ---
     const patdStatus = '{{ patd.status }}';
     const isOficialResponsavel = '{{ request.user.profile.militar.pk }}' === '{{ patd.oficial_responsavel.pk }}';
 
-    // --- INÍCIO DA MODIFICAÇÃO: Inverte a lógica de exibição ---
     if (patdStatus === 'aguardando_nova_punicao' && isOficialResponsavel) {
         const analiseCard = document.getElementById('analise-disciplinar-card');
         const resumoCard = document.getElementById('resumo-analise-card');
         if (analiseCard) {
-            analiseCard.style.display = 'none'; // Oculta o card de edição
+            analiseCard.style.display = 'none'; 
         }
         if (resumoCard) {
-            resumoCard.style.display = 'block'; // Mostra o card de resumo
+            resumoCard.style.display = 'block'; 
         }
     }
-    // --- ****** LÓGICA DO MODAL VISUALIZADOR DE ANEXO (REMOVIDA) ****** ---
-    // (Toda a lógica do anexo-viewer-modal foi removida)
 
-    // --- INÍCIO: Lógica do Modal de Nova Punição ---
     const novaPunicaoModal = document.getElementById('nova-punicao-modal');
     if (novaPunicaoModal) {
         const openBtn = document.getElementById('btn-nova-punicao-modal');
@@ -2366,9 +2367,7 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     }
-    // --- FIM: Lógica do Modal de Nova Punição ---
 
-    // --- MODIFICADO: renderAnexosGeral (agora usa links <a>) ---
     function renderAnexosGeral() {
         const anexosCard = document.getElementById('anexos-card-geral');
         const defesaContainer = document.getElementById('anexos-defesa-container-geral');
@@ -2457,14 +2456,12 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
 
-    // --- LÓGICA DE APURAÇÃO (Botão #btn-apurar e formulário) ---
     const btnApurar = document.getElementById('btn-apurar');
     const apuracaoForm = document.getElementById('apuracao-form');
     const btnSalvarApuracao = document.getElementById('btn-salvar-apuracao');
     const btnReanalisar = document.getElementById('btn-reanalisar-apuracao');
     const btnCancelarApuracao = document.getElementById('btn-cancelar-apuracao');
 
-    // --- LÓGICA DA PUNIÇÃO (DIAS/TIPO) ---
     const punicaoDiasInput = document.getElementById('id_punicao_dias');
     const punicaoTipoSelect = document.getElementById('id_punicao_tipo');
 
@@ -2480,14 +2477,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Função para preencher o formulário de apuração com dados
     function preencherFormApuracao(data) {
         if (!data) {
             console.warn("Nenhum dado de análise recebido para preencher o formulário.");
             return;
         }
         
-        // Preenche Itens Enquadrados
         const itensTextarea = document.getElementById('itens_enquadrados');
         if (data.itens && Array.isArray(data.itens)) {
             itensTextarea.value = data.itens.map(item => `${item.numero}: ${item.descricao}`).join('\n');
@@ -2495,7 +2490,6 @@ document.addEventListener('DOMContentLoaded', function() {
             itensTextarea.value = "Não foi possível extrair os itens.";
         }
 
-        // Preenche Atenuantes e Agravantes
         const atenuantesInput = document.getElementById('atenuantes');
         const agravantesInput = document.getElementById('agravantes');
         if (data.circunstancias) {
@@ -2506,34 +2500,29 @@ document.addEventListener('DOMContentLoaded', function() {
             agravantesInput.value = "Erro na análise";
         }
 
-        // Preenche Punição Sugerida (NOVOS CAMPOS)
         const punicaoString = data.punicao || "";
-        document.getElementById('punicao_sugerida_original_llm').value = punicaoString; // Salva a string original
+        document.getElementById('punicao_sugerida_original_llm').value = punicaoString; 
         
         const punicaoDiasInputJS = document.getElementById('id_punicao_dias');
         const punicaoTipoSelectJS = document.getElementById('id_punicao_tipo');
 
-        // Tenta extrair dias e tipo da string
         const match = punicaoString.match(/(\d+)\s+dias\s+de\s+(.+)/i);
         if (match) {
             const dias = parseInt(match[1], 10);
             let tipo = match[2].toLowerCase().trim();
 
-            // Ajusta "repreensão" para "repreensão por escrito" se for o caso
             if (tipo === "repreensão") {
                 tipo = "repreensão por escrito";
             }
             
             punicaoDiasInputJS.value = dias;
-            // Verifica se o tipo existe nas opções
             if ([...punicaoTipoSelectJS.options].some(opt => opt.value === tipo)) {
                 punicaoTipoSelectJS.value = tipo;
             } else {
-                punicaoTipoSelectJS.value = ''; // Valor não reconhecido
+                punicaoTipoSelectJS.value = ''; 
             }
 
         } else if (punicaoString.toLowerCase().includes('repreensão')) {
-            // Caso seja só "Repreensão"
             punicaoDiasInputJS.value = 0;
             if (punicaoString.toLowerCase().includes('verbal')) {
                  punicaoTipoSelectJS.value = 'repreensão verbal';
@@ -2541,22 +2530,18 @@ document.addEventListener('DOMContentLoaded', function() {
                  punicaoTipoSelectJS.value = 'repreensão por escrito';
             }
         } else if (punicaoString) {
-            // Fallback para tipos não reconhecidos (ex: "Erro...")
             punicaoDiasInputJS.value = 0;
-            punicaoTipoSelectJS.value = ''; // Reseta para "Selecione"
+            punicaoTipoSelectJS.value = ''; 
         }
         
-        // Dispara o evento change para garantir que a lógica de "disabled" seja aplicada
         if (punicaoTipoSelectJS) {
             punicaoTipoSelectJS.dispatchEvent(new Event('change'));
         }
 
-        // Exibe o formulário e oculta o botão de apurar
         if(apuracaoForm) apuracaoForm.style.display = 'block';
         if(btnApurar) btnApurar.style.display = 'none';
     }
 
-    // Função para buscar e analisar a punição
     function fetchAnalisePunicao(forceReanalyze = false) {
         if(btnApurar) btnApurar.classList.add('loading');
         if(btnReanalisar) btnReanalisar.classList.add('loading');
@@ -2577,7 +2562,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 preencherFormApuracao(data.analise_data);
             } else {
                 alert('Erro ao buscar análise: ' + (data.message || 'Erro desconhecido.'));
-                // Se já existiam dados (analiseData), preenche com eles
                 if (analiseData && !forceReanalyze) {
                     preencherFormApuracao(analiseData);
                 }
@@ -2593,11 +2577,8 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Listener para o botão "Visualizar Apuração"
     if (btnApurar) {
         btnApurar.addEventListener('click', () => {
-            // Se os dados já foram pré-carregados (analiseData), usa-os.
-            // Senão, faz o fetch.
             if (analiseData) {
                 preencherFormApuracao(analiseData);
             } else {
@@ -2606,16 +2587,14 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Listener para o botão "Analisar Novamente"
     if (btnReanalisar) {
         btnReanalisar.addEventListener('click', () => {
             if (confirm('Tem certeza que deseja re-analisar? Isso pode sobrescrever os dados atuais.')) {
-                fetchAnalisePunicao(true); // Força a re-análise
+                fetchAnalisePunicao(true); 
             }
         });
     }
 
-    // Listener para o botão "Ocultar"
     if (btnCancelarApuracao) {
         btnCancelarApuracao.addEventListener('click', () => {
             if(apuracaoForm) apuracaoForm.style.display = 'none';
@@ -2623,12 +2602,10 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Listener para o botão "Salvar Apuração e Concluir" (MODIFICADO)
     if (btnSalvarApuracao) {
         btnSalvarApuracao.addEventListener('click', () => {
             const btnSpinner = btnSalvarApuracao.querySelector('.spinner');
             
-            // Coleta os dados dos novos campos
             const punicaoDias = document.getElementById('id_punicao_dias').value;
             const punicaoTipo = document.getElementById('id_punicao_tipo').value;
             
@@ -2640,7 +2617,6 @@ document.addEventListener('DOMContentLoaded', function() {
             if(btnSpinner) btnSpinner.style.display = 'inline-block';
             btnSalvarApuracao.disabled = true;
 
-            // Gera a string de punição sugerida para compatibilidade
             let punicaoSugeridaString = "";
             if (punicaoTipo === 'repreensão por escrito' || punicaoTipo === 'repreensão verbal') {
                 punicaoSugeridaString = punicaoTipo;
@@ -2659,9 +2635,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     atenuantes: document.getElementById('atenuantes').value.split(',').map(s => s.trim()).filter(s => s && s !== "Nenhuma"),
                     agravantes: document.getElementById('agravantes').value.split(',').map(s => s.trim()).filter(s => s && s !== "Nenhuma")
                 },
-                // Envia a string formatada para o campo antigo (fallback)
                 punicao_sugerida: punicaoSugeridaString,
-                // Envia os campos estruturados (preferenciais)
                 punicao_dias: parseInt(punicaoDias, 10),
                 punicao_tipo: punicaoTipo
             };
@@ -2694,83 +2668,73 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         });
     }
-    // --- FIM DA LÓGICA DE APURAÇÃO ---
     
-    
-    // CHAMADAS INICIAIS
-    renderAnexosGeral(); // Agora apenas renderiza a lista na Visão Geral
+    renderAnexosGeral(); 
 
     const activeTabId = localStorage.getItem('activePatdTab-{{ patd.pk }}') || 'tab-detalhes';
     document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
     document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
     
-    // Adiciona verificação para caso o seletor não encontre o elemento
     const activeLink = document.querySelector(`.tab-link[data-target="${activeTabId}"]`);
     const activePanel = document.getElementById(activeTabId);
     
     if (activeLink) {
         activeLink.classList.add('active');
     } else {
-        // Fallback se a aba salva não existir mais
         document.querySelector('.tab-link[data-target="tab-detalhes"]').classList.add('active');
     }
 
     if (activePanel) {
         activePanel.classList.add('active');
     } else {
-        // Fallback se o painel salvo não existir mais
         document.getElementById('tab-detalhes').classList.add('active');
     }
-
 
     if (activeTabId === 'tab-visualizador' && activePanel) {
         renderVisualizador();
     } else if (!activePanel && activeTabId === 'tab-visualizador') {
-         // Fallback se a aba era 'visualizador' mas o painel não foi encontrado
         renderVisualizador();
     }
 
-// --- NOVA Lógica do Modal de Aprovação ---
-const aprovarModal = document.getElementById('aprovar-patd-modal');
-const aprovarForm = document.getElementById('aprovar-patd-form');
-const aprovarModalTitle = document.getElementById('aprovar-modal-title');
-const cancelAprovarBtn = document.getElementById('cancel-aprovar-btn');
+    const aprovarModal = document.getElementById('aprovar-patd-modal');
+    const aprovarForm = document.getElementById('aprovar-patd-form');
+    const aprovarModalTitle = document.getElementById('aprovar-modal-title');
+    const cancelAprovarBtn = document.getElementById('cancel-aprovar-btn');
 
-document.body.addEventListener('click', function(e) {
-    if (e.target.classList.contains('open-aprovar-modal-btn')) {
-        const patdPk = e.target.dataset.patdPk;
-        const patdNumero = e.target.dataset.patdNumero;
-        // A action do form agora aponta para a URL de aprovação correta
-        const url = `/Ouvidoria/patd/${patdPk}/aprovar/`;
-        aprovarForm.action = url;
-        aprovarModalTitle.textContent = `Aprovar PATD Nº ${patdNumero}`;
-        aprovarModal.classList.add('active');
-    }
-});
-
-if (cancelAprovarBtn) {
-    cancelAprovarBtn.addEventListener('click', () => {
-        aprovarModal.classList.remove('active');
-    });
-}
-
-if (aprovarModal) {
-    aprovarModal.addEventListener('click', (e) => {
-        if (e.target === aprovarModal) {
-            aprovarModal.classList.remove('active');
+    document.body.addEventListener('click', function(e) {
+        if (e.target.classList.contains('open-aprovar-modal-btn')) {
+            const patdPk = e.target.dataset.patdPk;
+            const patdNumero = e.target.dataset.patdNumero;
+            const url = `/Ouvidoria/patd/${patdPk}/aprovar/`;
+            aprovarForm.action = url;
+            aprovarModalTitle.textContent = `Aprovar PATD Nº ${patdNumero}`;
+            aprovarModal.classList.add('active');
         }
     });
-}
+
+    if (cancelAprovarBtn) {
+        cancelAprovarBtn.addEventListener('click', () => {
+            aprovarModal.classList.remove('active');
+        });
+    }
+
+    if (aprovarModal) {
+        aprovarModal.addEventListener('click', (e) => {
+            if (e.target === aprovarModal) {
+                aprovarModal.classList.remove('active');
+            }
+        });
+    }
 
 });
 
 document.querySelectorAll('.file-input-check').forEach(input => {
     input.addEventListener('change', function() {
-        const maxSize = 10 * 1024 * 1024; // 10MB
+        const maxSize = 10 * 1024 * 1024; 
         if (this.files && this.files[0]) {
             if (this.files[0].size > maxSize) {
                 alert("O arquivo selecionado é muito grande (Máximo 10MB). Por favor, reduza o tamanho do arquivo ou escolha outro.");
-                this.value = ''; // Limpa o campo
+                this.value = ''; 
             }
         }
     });
