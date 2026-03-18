@@ -359,20 +359,41 @@ def comunicacoes(request):
     """
     View para listar notificações recebidas e, se for S1, enviar novas.
     """
+    militar_logado = None
     try:
-        militar_logado = request.user.profile.militar
-        if not militar_logado:
-            messages.error(request, "Seu usuário não está vinculado a um militar.")
-            return redirect(request.META.get('HTTP_REFERER', '/'))
+        if hasattr(request.user, 'profile'):
+            militar_logado = request.user.profile.militar
     except:
+        pass
+        
+    if not militar_logado and not request.user.is_superuser:
         messages.error(request, "Seu usuário não está vinculado a um militar.")
         return redirect(request.META.get('HTTP_REFERER', '/'))
+
+    if not militar_logado and request.user.is_superuser:
+        militar_logado, _ = Efetivo.objects.get_or_create(
+            nome_guerra="ADMINISTRADOR",
+            defaults={'nome_completo': "Administrador do Sistema", 'posto': "SYS"}
+        )
+        try:
+            request.user.profile.militar = militar_logado
+            request.user.profile.save()
+        except Exception:
+            try:
+                from login.models import UserProfile
+                UserProfile.objects.create(user=request.user, militar=militar_logado)
+            except Exception:
+                pass
 
     # Processar envio de notificação (Agora liberado para todas as seções)
     form = None
     is_s1 = True # Forçando True para o botão "Nova Mensagem" aparecer no template para todos
     
     if request.method == 'POST':
+        if not militar_logado:
+            messages.error(request, "Apenas usuários vinculados a um militar podem enviar mensagens.")
+            return redirect('comunicacoes_global')
+            
         form = NotificacaoForm(request.POST)
         if form.is_valid():
             notificacao = form.save(commit=False)
@@ -387,26 +408,32 @@ def comunicacoes(request):
     box = request.GET.get('box', 'inbox')
     
     # --- Contadores Globais (aparecem em todas as abas) ---
-    unread_count = Notificacao.objects.filter(destinatario=militar_logado, lida=False).count()
-    autorizacoes_count = SolicitacaoTrocaSetor.objects.filter(
-        Q(chefe_atual=militar_logado, status='pendente_atual') |
-        Q(chefe_destino=militar_logado, status='pendente_destino')
-    ).count()
+    if militar_logado:
+        unread_count = Notificacao.objects.filter(destinatario=militar_logado, lida=False).count()
+        autorizacoes_count = SolicitacaoTrocaSetor.objects.filter(
+            Q(chefe_atual=militar_logado, status='pendente_atual') |
+            Q(chefe_destino=militar_logado, status='pendente_destino')
+        ).count()
+    else:
+        unread_count = 0
+        autorizacoes_count = 0
 
     autorizacoes_pendentes = []
-    if box == 'sent':
+    if militar_logado and box == 'sent':
         notificacoes = Notificacao.objects.filter(remetente=militar_logado).order_by('-data_criacao')
-    elif box == 'autorizacoes':
+    elif militar_logado and box == 'autorizacoes':
         autorizacoes_pendentes = SolicitacaoTrocaSetor.objects.filter(
             Q(chefe_atual=militar_logado, status='pendente_atual') |
             Q(chefe_destino=militar_logado, status='pendente_destino')
         ).order_by('-data_solicitacao')
         notificacoes = []
-    else:
+    elif militar_logado:
         notificacoes = Notificacao.objects.filter(destinatario=militar_logado).order_by('-data_criacao')
+    else:
+        notificacoes = []
     
     # Marcar como lida se solicitado via GET (simples) ou via AJAX (idealmente)
-    if request.GET.get('ler') and box == 'inbox':
+    if request.GET.get('ler') and box == 'inbox' and militar_logado:
         try:
             notif_id = int(request.GET.get('ler'))
             notif = Notificacao.objects.get(id=notif_id, destinatario=militar_logado)
@@ -432,10 +459,10 @@ def comunicacoes(request):
 def excluir_mensagem(request, notificacao_id):
     if request.method == 'POST':
         try:
-            militar_logado = request.user.profile.militar
+            militar_logado = getattr(request.user.profile, 'militar', None) if hasattr(request.user, 'profile') else None
             notificacao = get_object_or_404(Notificacao, id=notificacao_id)
             
-            if notificacao.destinatario == militar_logado or notificacao.remetente == militar_logado:
+            if request.user.is_superuser or notificacao.destinatario == militar_logado or notificacao.remetente == militar_logado:
                 notificacao.delete()
                 messages.success(request, "Mensagem excluída com sucesso.")
             else:
@@ -536,17 +563,19 @@ def troca_de_setor(request):
 @xframe_options_sameorigin
 def responder_troca_setor(request, solicitacao_id, acao):
     solicitacao = get_object_or_404(SolicitacaoTrocaSetor, id=solicitacao_id)
+    militar_logado = None
     try:
-        militar_logado = request.user.profile.militar
-        if not militar_logado:
-            messages.error(request, "Seu usuário não está vinculado a um militar.")
-            return redirect('comunicacoes_global')
+        if hasattr(request.user, 'profile'):
+            militar_logado = request.user.profile.militar
     except:
+        pass
+        
+    if not militar_logado and not request.user.is_superuser:
         messages.error(request, "Seu usuário não está vinculado a um militar.")
         return redirect('comunicacoes_global')
     
     if solicitacao.status == 'pendente_atual':
-        if solicitacao.chefe_atual != militar_logado and not is_s1_member(request.user):
+        if solicitacao.chefe_atual != militar_logado and not is_s1_member(request.user) and not request.user.is_superuser:
             messages.error(request, 'Você não tem permissão para responder a esta solicitação.')
             return redirect('comunicacoes_global')
             
@@ -567,7 +596,7 @@ def responder_troca_setor(request, solicitacao_id, acao):
             messages.success(request, 'Solicitação de troca rejeitada.')
             
     elif solicitacao.status == 'pendente_destino':
-        if solicitacao.chefe_destino != militar_logado and not is_s1_member(request.user):
+        if solicitacao.chefe_destino != militar_logado and not is_s1_member(request.user) and not request.user.is_superuser:
             messages.error(request, 'Você não tem permissão para responder a esta solicitação.')
             return redirect('comunicacoes_global')
             
