@@ -8,11 +8,13 @@ import httpx
 import random
 import unicodedata
 from django.http import HttpResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
+from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.contrib.auth.models import Group
 from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, Notificacao, SolicitacaoTrocaSetor
 from .forms import MilitarForm, NotificacaoForm
 from django.contrib import messages
@@ -359,29 +361,38 @@ def comunicacoes(request):
     """
     try:
         militar_logado = request.user.profile.militar
+        if not militar_logado:
+            messages.error(request, "Seu usuário não está vinculado a um militar.")
+            return redirect(request.META.get('HTTP_REFERER', '/'))
     except:
         messages.error(request, "Seu usuário não está vinculado a um militar.")
-        return redirect('Secao_pessoal:index')
+        return redirect(request.META.get('HTTP_REFERER', '/'))
 
-    # Processar envio de notificação (Apenas S1)
+    # Processar envio de notificação (Agora liberado para todas as seções)
     form = None
-    is_s1 = is_s1_member(request.user)
+    is_s1 = True # Forçando True para o botão "Nova Mensagem" aparecer no template para todos
     
-    if is_s1:
-        if request.method == 'POST':
-            form = NotificacaoForm(request.POST)
-            if form.is_valid():
-                notificacao = form.save(commit=False)
-                notificacao.remetente = militar_logado
-                notificacao.save()
-                messages.success(request, f"Notificação enviada para {notificacao.destinatario.nome_guerra}.")
-                return redirect('Secao_pessoal:comunicacoes')
-        else:
-            form = NotificacaoForm()
+    if request.method == 'POST':
+        form = NotificacaoForm(request.POST)
+        if form.is_valid():
+            notificacao = form.save(commit=False)
+            notificacao.remetente = militar_logado
+            notificacao.save()
+            messages.success(request, f"Notificação enviada para {notificacao.destinatario.nome_guerra}.")
+            return redirect('comunicacoes_global')
+    else:
+        form = NotificacaoForm()
 
     # Listar notificações (Caixa de Entrada ou Enviados)
     box = request.GET.get('box', 'inbox')
     
+    # --- Contadores Globais (aparecem em todas as abas) ---
+    unread_count = Notificacao.objects.filter(destinatario=militar_logado, lida=False).count()
+    autorizacoes_count = SolicitacaoTrocaSetor.objects.filter(
+        Q(chefe_atual=militar_logado, status='pendente_atual') |
+        Q(chefe_destino=militar_logado, status='pendente_destino')
+    ).count()
+
     autorizacoes_pendentes = []
     if box == 'sent':
         notificacoes = Notificacao.objects.filter(remetente=militar_logado).order_by('-data_criacao')
@@ -401,7 +412,7 @@ def comunicacoes(request):
             notif = Notificacao.objects.get(id=notif_id, destinatario=militar_logado)
             notif.lida = True
             notif.save()
-            return redirect('Secao_pessoal:comunicacoes')
+            return redirect('comunicacoes_global')
         except:
             pass
 
@@ -410,9 +421,28 @@ def comunicacoes(request):
         'autorizacoes_pendentes': autorizacoes_pendentes,
         'form': form,
         'is_s1': is_s1,
-        'current_box': box
+        'current_box': box,
+        'unread_count': unread_count,
+        'autorizacoes_count': autorizacoes_count
     }
     return render(request, 'Secao_pessoal/comunicacoes.html', context)
+
+@login_required
+@xframe_options_sameorigin
+def excluir_mensagem(request, notificacao_id):
+    if request.method == 'POST':
+        try:
+            militar_logado = request.user.profile.militar
+            notificacao = get_object_or_404(Notificacao, id=notificacao_id)
+            
+            if notificacao.destinatario == militar_logado or notificacao.remetente == militar_logado:
+                notificacao.delete()
+                messages.success(request, "Mensagem excluída com sucesso.")
+            else:
+                messages.error(request, "Você não tem permissão para excluir esta mensagem.")
+        except Exception as e:
+            messages.error(request, "Erro ao excluir a mensagem.")
+    return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
 
 @s1_required
 def troca_de_setor(request):
@@ -427,15 +457,31 @@ def troca_de_setor(request):
             militar = get_object_or_404(Efetivo, id=militar_id)
             setor_atual_str = militar.setor or ''
             
-            # Busca automática dos chefes na tabela Setor
-            setor_atual_obj = Setor.objects.filter(nome=setor_atual_str).first()
-            chefe_atual = setor_atual_obj.chefe if setor_atual_obj else None
+            def get_chefe_por_grupo(nome_setor):
+                if not nome_setor:
+                    return None
+                nome_grupo = f"Chefe - {nome_setor}"
+                try:
+                    grupo = Group.objects.get(name__iexact=nome_grupo)
+                    user_chefe = grupo.user_set.filter(is_active=True, profile__militar__isnull=False).first()
+                    if user_chefe:
+                        return user_chefe.profile.militar
+                except Group.DoesNotExist:
+                    pass
+                return None
             
-            setor_destino_obj = Setor.objects.filter(nome=setor_destino).first()
-            chefe_destino = setor_destino_obj.chefe if setor_destino_obj else None
+            chefe_atual = get_chefe_por_grupo(setor_atual_str)
+            if not chefe_atual:
+                setor_atual_obj = Setor.objects.filter(nome=setor_atual_str).first()
+                chefe_atual = setor_atual_obj.chefe if setor_atual_obj else None
+            
+            chefe_destino = get_chefe_por_grupo(setor_destino)
+            if not chefe_destino:
+                setor_destino_obj = Setor.objects.filter(nome=setor_destino).first()
+                chefe_destino = setor_destino_obj.chefe if setor_destino_obj else None
             
             if not chefe_destino:
-                messages.error(request, f'O setor de destino ({setor_destino}) não possui um chefe configurado no sistema. Por favor, defina um chefe para este setor na página de Administração.')
+                messages.error(request, f'O setor de destino ({setor_destino}) não possui um chefe configurado no sistema (Grupo "Chefe - {setor_destino}"). Por favor, defina um chefe para este setor na página de Administração.')
                 return redirect('Secao_pessoal:troca_de_setor')
                 
             status_inicial = 'pendente_atual' if chefe_atual else 'pendente_destino'
@@ -451,6 +497,8 @@ def troca_de_setor(request):
             
             try:
                 S1_militar = request.user.profile.militar
+                if not S1_militar:
+                    S1_militar = chefe_destino
             except:
                 S1_militar = chefe_destino
 
@@ -485,18 +533,22 @@ def troca_de_setor(request):
     return render(request, 'Secao_pessoal/troca_de_setor.html', context)
 
 @login_required
+@xframe_options_sameorigin
 def responder_troca_setor(request, solicitacao_id, acao):
     solicitacao = get_object_or_404(SolicitacaoTrocaSetor, id=solicitacao_id)
     try:
         militar_logado = request.user.profile.militar
+        if not militar_logado:
+            messages.error(request, "Seu usuário não está vinculado a um militar.")
+            return redirect('comunicacoes_global')
     except:
         messages.error(request, "Seu usuário não está vinculado a um militar.")
-        return redirect('Secao_pessoal:comunicacoes')
+        return redirect('comunicacoes_global')
     
     if solicitacao.status == 'pendente_atual':
         if solicitacao.chefe_atual != militar_logado and not is_s1_member(request.user):
             messages.error(request, 'Você não tem permissão para responder a esta solicitação.')
-            return redirect('Secao_pessoal:comunicacoes')
+            return redirect('comunicacoes_global')
             
         if acao == 'aprovar':
             solicitacao.status = 'pendente_destino'
@@ -517,7 +569,7 @@ def responder_troca_setor(request, solicitacao_id, acao):
     elif solicitacao.status == 'pendente_destino':
         if solicitacao.chefe_destino != militar_logado and not is_s1_member(request.user):
             messages.error(request, 'Você não tem permissão para responder a esta solicitação.')
-            return redirect('Secao_pessoal:comunicacoes')
+            return redirect('comunicacoes_global')
             
         if acao == 'aprovar':
             solicitacao.status = 'aprovado'
@@ -533,7 +585,7 @@ def responder_troca_setor(request, solicitacao_id, acao):
             solicitacao.save()
             messages.success(request, 'Solicitação de troca rejeitada.')
             
-    return redirect(request.META.get('HTTP_REFERER', 'Secao_pessoal:comunicacoes'))
+    return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
 
 @s1_required
 def ata(request):

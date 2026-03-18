@@ -135,6 +135,13 @@
                         </strong>
                     </span>
                 {% endif %}
+            
+            <a href="{% url 'comunicacoes_global' %}" target="_blank" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                </svg>
+            </a>
+
                 <div class="notifications-container">
                     <button class="notifications-button" id="notifications-toggle-btn" title="Notificações">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -849,6 +856,16 @@
                     loadExpiradosNotifications();
                 }
             }
+        
+        // DICA 5: Checagem global contínua
+        function verificarMensagensGlobal() {
+            fetch('{% url "api_notificacoes_check_global" %}')
+                .then(response => response.json())
+                .then(data => {
+                    if (data.count > 0) console.log("Você tem " + data.count + " novas mensagens globais!");
+                }).catch(e => console.error(e));
+        }
+        setInterval(verificarMensagensGlobal, 60000); // Polling a cada 1 min
             // --- FIM DA LÓGICA DE OTIMIZAÇÃO ---
             
         });

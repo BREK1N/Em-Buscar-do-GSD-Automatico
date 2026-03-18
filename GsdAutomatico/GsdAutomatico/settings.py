@@ -60,6 +60,9 @@ MIDDLEWARE = [
     'GsdAutomatico.middleware.RequestLogMiddleware',
 ]
 
+# Permite o uso de iframes dentro do próprio sistema (necessário para o painel de comunicações)
+X_FRAME_OPTIONS = 'SAMEORIGIN'
+
 # settings.py
 
 CSRF_TRUSTED_ORIGINS = [

@@ -4,6 +4,13 @@
 
 {% block extra_head %}
 <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    /* Torna a página de Comunicações 100% Global e Neutra (Esconde elementos da Seção de Pessoal) */
+    #sidebar { display: none !important; }
+    .main-wrapper { margin-left: 0 !important; width: 100% !important; }
+    #mobile-nav-toggle { display: none !important; }
+    .main-header { padding-left: 30px !important; }
+</style>
 {% endblock %}
 
 {% block content %}
@@ -11,12 +18,12 @@
     /* Layout de Email */
     .email-container {
         display: flex;
-        height: calc(100vh - 140px); /* Ajusta altura para caber na tela */
+        height: calc(100vh - 180px); /* Ajusta altura para caber na tela */
         background-color: var(--bg-content);
         border-radius: 12px;
         overflow: hidden;
         box-shadow: var(--box-shadow);
-        margin-top: 20px;
+        margin-top: 10px;
         border: 1px solid var(--border-color);
     }
 
@@ -215,6 +222,17 @@
 </style>
 
 <div class="container-fluid px-4">
+    <!-- Header com botão voltar -->
+    <div class="d-flex align-items-center mt-4 mb-2">
+        <button type="button" onclick="fecharOuVoltar()" class="btn btn-secondary me-3" style="display: flex; align-items: center; gap: 8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="18" height="18">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+            </svg>
+            Voltar
+        </button>
+        <h2 class="mb-0 fw-bold" style="color: var(--text-primary);">Comunicações</h2>
+    </div>
+
     <div class="email-container">
         <!-- Sidebar -->
         <div class="email-sidebar">
@@ -232,6 +250,9 @@
                     <a href="?box=inbox" class="{% if current_box == 'inbox' %}active{% endif %}">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" /></svg>
                         Caixa de Entrada
+                        {% if unread_count > 0 %}
+                        <span class="badge bg-danger rounded-pill ms-2" style="font-size: 0.7em;">{{ unread_count }}</span>
+                        {% endif %}
                     </a>
                 </li>
                 <li>
@@ -244,8 +265,8 @@
                     <a href="?box=autorizacoes" class="{% if current_box == 'autorizacoes' %}active{% endif %}">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
                         Autorizações
-                        {% if autorizacoes_pendentes %}
-                        <span class="badge bg-danger rounded-pill ms-2" style="font-size: 0.7em;">{{ autorizacoes_pendentes|length }}</span>
+                        {% if autorizacoes_count > 0 %}
+                        <span class="badge bg-danger rounded-pill ms-2" style="font-size: 0.7em;">{{ autorizacoes_count }}</span>
                         {% endif %}
                     </a>
                 </li>
@@ -277,14 +298,8 @@
                                 {% endif %}
                             </div>
                             <div class="d-flex gap-2 mt-3 justify-content-end">
-                                <form method="post" action="{% url 'Secao_pessoal:responder_troca_setor' solicitacao.id 'rejeitar' %}" onsubmit="return confirm('Tem certeza que deseja REJEITAR esta movimentação?');" style="margin: 0;">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-outline-danger px-3">Rejeitar</button>
-                                </form>
-                                <form method="post" action="{% url 'Secao_pessoal:responder_troca_setor' solicitacao.id 'aprovar' %}" onsubmit="return confirm('Tem certeza que deseja APROVAR esta movimentação?');" style="margin: 0;">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-success px-3">Autorizar</button>
-                                </form>
+                                <button type="button" class="btn btn-sm btn-outline-danger px-3" onclick="openConfirmModal('{% url 'responder_troca_setor_global' solicitacao.id 'rejeitar' %}', 'rejeitar')">Rejeitar</button>
+                                <button type="button" class="btn btn-sm btn-success px-3" onclick="openConfirmModal('{% url 'responder_troca_setor_global' solicitacao.id 'aprovar' %}', 'aprovar')">Autorizar</button>
                             </div>
                         </div>
                     </div>
@@ -329,10 +344,15 @@
                         </div>
                         
                         <!-- Conteúdo Expandido (Escondido por padrão) -->
-                        <div id="msg-{{ notif.id }}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #ddd; color: var(--text-primary); cursor: default;" onclick="event.stopPropagation();">
+                        <div id="msg-{{ notif.id }}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); color: var(--text-primary); cursor: default;" onclick="event.stopPropagation();">
                             <p style="white-space: pre-line;">{{ notif.mensagem }}</p>
                             
-                            <div class="d-flex justify-content-end mt-3">
+                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                <button type="button" class="btn btn-sm btn-outline-danger" title="Excluir Mensagem" onclick="openDeleteModal('{% url 'excluir_mensagem_global' notif.id %}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16" style="vertical-align: text-bottom; margin-right: 2px;">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                    </svg> Excluir
+                                </button>
                                 {% if current_box == 'inbox' and not notif.lida %}
                                     <a href="?box=inbox&ler={{ notif.id }}" class="btn btn-sm btn-outline-primary">
                                         <i class="fas fa-check me-1"></i> Marcar como lida
@@ -397,6 +417,52 @@
 </div>
 {% endif %}
 
+<!-- Modal de Confirmação de Transferência -->
+<div class="modal fade" id="confirmTransferModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="confirmTransferTitle">Confirmar</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p id="confirmTransferMessage" class="fs-5 mb-0" style="color: var(--text-primary);"></p>
+            </div>
+            <div class="modal-footer justify-content-center border-0 pt-0 pb-4">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="confirmTransferForm" method="post" style="margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" id="confirmTransferBtn">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-danger" style="display: flex; align-items: center; gap: 8px;">
+                    Excluir Mensagem
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-0" style="color: var(--text-primary);">Tem certeza que deseja excluir esta mensagem permanentemente?</p>
+            </div>
+            <div class="modal-footer justify-content-center border-0 pt-0 pb-4">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="confirmDeleteForm" method="post" style="margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger px-4">Sim, Excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
 <script>
     function toggleMessage(id) {
         const content = document.getElementById(id);
@@ -405,6 +471,41 @@
         } else {
             content.style.display = 'none';
         }
+    }
+
+    function openConfirmModal(actionUrl, actionType) {
+        var modalElement = document.getElementById('confirmTransferModal');
+        var modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        
+        document.getElementById('confirmTransferForm').action = actionUrl;
+        
+        if (actionType === 'aprovar') {
+            document.getElementById('confirmTransferTitle').innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>Autorizar Movimentação';
+            document.getElementById('confirmTransferMessage').textContent = 'Tem certeza que deseja APROVAR a movimentação deste militar?';
+            document.getElementById('confirmTransferBtn').className = 'btn btn-success px-4';
+            document.getElementById('confirmTransferBtn').textContent = 'Sim, Autorizar';
+        } else {
+            document.getElementById('confirmTransferTitle').innerHTML = '<i class="fas fa-times-circle text-danger me-2"></i>Rejeitar Movimentação';
+            document.getElementById('confirmTransferMessage').textContent = 'Tem certeza que deseja REJEITAR a movimentação deste militar?';
+            document.getElementById('confirmTransferBtn').className = 'btn btn-danger px-4';
+            document.getElementById('confirmTransferBtn').textContent = 'Sim, Rejeitar';
+        }
+        
+        modal.show();
+    }
+
+    function openDeleteModal(actionUrl) {
+        var modalElement = document.getElementById('confirmDeleteModal');
+        var modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        document.getElementById('confirmDeleteForm').action = actionUrl;
+        modal.show();
+    }
+
+    function fecharOuVoltar() {
+        window.close(); // Tenta fechar a aba
+        setTimeout(function() {
+            window.location.href = "{% url 'login:go_home' %}"; // Se não for possível fechar, redireciona para a home
+        }, 150);
     }
 </script>
 {% endblock %}
