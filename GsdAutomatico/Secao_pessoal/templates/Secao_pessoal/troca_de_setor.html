@@ -2,21 +2,225 @@
 
 {% block title %}Troca de Setor{% endblock %}
 
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Select2 custom styling matching your theme */
+    .select2-container .select2-selection--single {
+        height: 45px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        border-radius: 8px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 45px;
+        color: var(--text-primary);
+        padding-left: 15px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 43px;
+        right: 10px;
+    }
+    .select2-dropdown {
+        background-color: var(--bg-main);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        border-radius: 8px;
+        overflow: hidden;
+    }
+    .select2-search input {
+        background-color: var(--bg-content);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+    }
+    .status-badge {
+        padding: 6px 12px;
+        border-radius: 20px;
+        font-size: 0.8em;
+        font-weight: 700;
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+    }
+    .status-pendente_atual { background-color: rgba(255, 193, 7, 0.15); color: #d39e00; border: 1px solid rgba(255, 193, 7, 0.3); }
+    .status-pendente_destino { background-color: rgba(0, 123, 255, 0.15); color: #0056b3; border: 1px solid rgba(0, 123, 255, 0.3); }
+    .status-aprovado { background-color: rgba(40, 167, 69, 0.15); color: #1e7e34; border: 1px solid rgba(40, 167, 69, 0.3); }
+    .status-rejeitado { background-color: rgba(220, 53, 69, 0.15); color: #bd2130; border: 1px solid rgba(220, 53, 69, 0.3); }
+
+    body.dark-theme .status-pendente_atual { color: #ffc107; }
+    body.dark-theme .status-pendente_destino { color: #4fa4ff; }
+    body.dark-theme .status-aprovado { color: #34c759; }
+    body.dark-theme .status-rejeitado { color: #ff5252; }
+
+    .transfer-card {
+        background-color: var(--bg-content); 
+        border: 1px solid var(--border-color); 
+        border-radius: 16px; 
+        overflow: hidden;
+        box-shadow: 0 8px 30px rgba(0,0,0,0.05);
+        margin-bottom: 30px;
+    }
+    body.dark-theme .transfer-card {
+        box-shadow: 0 8px 30px rgba(0,0,0,0.2);
+    }
+    .transfer-header {
+        background: linear-gradient(135deg, var(--accent-color), #4fa4ff);
+        padding: 20px 30px;
+        color: white;
+    }
+    .transfer-body {
+        padding: 35px 30px;
+    }
+    .flex-arrow {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        color: var(--text-secondary);
+        padding-bottom: 5px;
+    }
+    @media (max-width: 768px) {
+        .flex-arrow {
+            transform: rotate(90deg);
+            margin: 15px 0;
+        }
+    }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="container-fluid px-4">
-    <h1 class="mt-4">Troca de Setor</h1>
-    <ol class="breadcrumb mb-4">
-        <li class="breadcrumb-item active">Controle / Troca de Setor</li>
-    </ol>
-    
-    <div class="card mb-4">
-        <div class="card-header">
-            <i class="fas fa-exchange-alt me-1"></i>
-            Movimentação Interna
+<div class="content-column">
+    <div class="table-header" style="margin-bottom: 10px;">
+        <div>
+            <h1 style="border: none; margin-bottom: 5px;">Troca de Setor</h1>
+            <p style="margin-top: 0;">Inicie fluxos de transferência interna. O sistema automatizará os pedidos de autorização.</p>
         </div>
-        <div class="card-body">
-            <p>Elyandro é antigão e o H. Cerqueira é viado.</p>
+    </div>
+
+    <div class="alert alert-info" style="background-color: rgba(76, 141, 255, 0.05); border-left: 4px solid var(--accent-color); padding: 15px; border-radius: 8px; margin-bottom: 25px; color: var(--text-primary); display: flex; align-items: flex-start; gap: 12px; border-top: 1px solid var(--border-color); border-right: 1px solid var(--border-color); border-bottom: 1px solid var(--border-color);">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="var(--accent-color)" style="width: 24px; height: 24px; flex-shrink: 0; margin-top: 2px;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" />
+        </svg>
+        <div style="font-size: 0.95rem; line-height: 1.5;">
+            <strong style="display: block; margin-bottom: 4px; color: var(--text-primary);">Automação de Chefias</strong>
+            O sistema identifica automaticamente os chefes que autorizarão a movimentação. Para que isso funcione corretamente, os chefes devem estar configurados na página de <strong>Administração &gt; Setores</strong>.
+        </div>
+    </div>
+
+    <div class="transfer-card">
+        <div class="transfer-header">
+            <h3 style="margin: 0; font-size: 1.25rem; display: flex; align-items: center; gap: 10px; font-weight: 600;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 24px; height: 24px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" />
+                </svg>
+                Nova Solicitação de Transferência
+            </h3>
+        </div>
+        
+        <div class="transfer-body">
+            <form method="post">
+                {% csrf_token %}
+                <div style="display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-end;">
+                    <div style="flex: 1; min-width: 250px;">
+                        <label for="militar_id" style="font-weight: 600; margin-bottom: 10px; display: block; color: var(--text-primary); font-size: 0.95rem;">Militar a ser transferido:</label>
+                        <select name="militar_id" id="militar_id" class="form-select select2" required>
+                            <option value="">--- Selecione o militar ---</option>
+                            {% for militar in militares %}
+                                <option value="{{ militar.id }}">{{ militar.posto }} {{ militar.nome_guerra }} (Setor: {{ militar.setor|default:"Nenhum" }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    
+                    <div class="flex-arrow">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 32px; height: 32px; opacity: 0.6;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.25 8.25L21 12m0 0l-3.75 3.75M21 12H3" />
+                        </svg>
+                    </div>
+
+                    <div style="flex: 1; min-width: 250px;">
+                        <label for="setor_destino" style="font-weight: 600; margin-bottom: 10px; display: block; color: var(--text-primary); font-size: 0.95rem;">Setor de Destino:</label>
+                        <select name="setor_destino" id="setor_destino" class="form-select select2" required>
+                            <option value="">--- Selecione o novo setor ---</option>
+                            {% for setor in setores %}
+                                <option value="{{ setor.nome }}">{{ setor.nome }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                </div>
+                
+                <div style="margin-top: 35px; display: flex; justify-content: flex-end; border-top: 1px solid var(--border-color); padding-top: 25px;">
+                    <button type="submit" class="btn btn-primary" style="padding: 10px 25px; font-size: 1rem; border-radius: 8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" />
+                        </svg>
+                        Iniciar Fluxo de Troca
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <div class="card" style="background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px; box-shadow: var(--box-shadow);">
+        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Solicitações em Andamento / Histórico</h3>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Data</th>
+                        <th>Militar</th>
+                        <th>Movimentação</th>
+                        <th>Chefe Atual</th>
+                        <th>Chefe Destino</th>
+                        <th>Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for sol in solicitacoes %}
+                    <tr>
+                        <td>{{ sol.data_solicitacao|date:"d/m/Y H:i" }}</td>
+                        <td style="font-weight: 500;">{{ sol.militar.posto }} {{ sol.militar.nome_guerra }}</td>
+                        <td>
+                            <div style="display: flex; align-items: center; gap: 8px;">
+                                <span style="color: var(--text-secondary);">{{ sol.setor_atual|default:"Nenhum" }}</span>
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px; color: var(--accent-color);"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                                <span>{{ sol.setor_destino }}</span>
+                            </div>
+                        </td>
+                        <td>{{ sol.chefe_atual.posto|default:"" }} {{ sol.chefe_atual.nome_guerra|default:"N/A" }}</td>
+                        <td>{{ sol.chefe_destino.posto|default:"" }} {{ sol.chefe_destino.nome_guerra|default:"N/A" }}</td>
+                        <td>
+                            <span class="status-badge status-{{ sol.status }}">
+                                {% if sol.status == 'pendente_atual' or sol.status == 'pendente_destino' %}
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                {% elif sol.status == 'aprovado' %}
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                                {% elif sol.status == 'rejeitado' %}
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 14px; height: 14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>
+                                {% endif %}
+                                {{ sol.get_status_display }}
+                            </span>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="6" style="text-align: center; padding: 20px;">Nenhuma solicitação de troca de setor registrada.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
         </div>
     </div>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('.select2').select2({
+            width: '100%'
+        });
+    });
+</script>
 {% endblock %}

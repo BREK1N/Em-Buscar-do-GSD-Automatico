@@ -31,7 +31,8 @@ class OMAdmin(admin.ModelAdmin):
 
 @admin.register(Setor)
 class SetorAdmin(admin.ModelAdmin):
-    search_fields = ['nome']
+    list_display = ('nome', 'chefe')
+    search_fields = ['nome', 'chefe__nome_guerra']
 
 @admin.register(Subsetor)
 class SubsetorAdmin(admin.ModelAdmin):

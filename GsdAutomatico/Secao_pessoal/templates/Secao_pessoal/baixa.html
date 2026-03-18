@@ -1,0 +1,84 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Baixa de Militar - Seção de Pessoal{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Ajustes para o Select2 combinar com o tema do projeto */
+    .select2-container .select2-selection--single {
+        height: 38px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        border-radius: 6px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+        color: var(--text-primary);
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+    .select2-dropdown {
+        background-color: var(--bg-main);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+    .select2-search input {
+        background-color: var(--bg-content);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: var(--accent-color);
+        color: #fff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-column">
+    <div class="table-header">
+        <h1>Baixa de Militar do Efetivo</h1>
+    </div>
+
+    <form method="post" class="model-form">
+        {% csrf_token %}
+        <div class="form-grid">
+            <p>
+                <label for="militar_baixa">Militar a ser Desligado:</label>
+                <select name="militar_baixa" id="militar_baixa" class="form-select" required>
+                    <option value="">--- Selecione o militar ---</option>
+                    {% for militar in militares %}
+                        <option value="{{ militar.id }}">{{ militar.posto }} {{ militar.nome_guerra }} ({{ militar.nome_completo }})</option>
+                    {% endfor %}
+                </select>
+            </p>
+            <p>
+                <label for="data_baixa">Data da Baixa:</label>
+                <input type="date" name="data_baixa" id="data_baixa" required>
+            </p>
+            <p>
+                <label for="motivo_baixa">Motivo:</label>
+                <textarea name="motivo_baixa" id="motivo_baixa" rows="4" placeholder="Ex: Licenciamento do serviço ativo, Transferência para outra OM, etc."></textarea>
+            </p>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-danger">Registrar Baixa</button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('#militar_baixa').select2({
+            placeholder: "--- Selecione o militar ---",
+            width: '100%'
+        });
+    });
+</script>
+{% endblock %}

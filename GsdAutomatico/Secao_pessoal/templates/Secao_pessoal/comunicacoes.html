@@ -240,12 +240,64 @@
                         Enviados
                     </a>
                 </li>
+                <li>
+                    <a href="?box=autorizacoes" class="{% if current_box == 'autorizacoes' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        Autorizações
+                        {% if autorizacoes_pendentes %}
+                        <span class="badge bg-danger rounded-pill ms-2" style="font-size: 0.7em;">{{ autorizacoes_pendentes|length }}</span>
+                        {% endif %}
+                    </a>
+                </li>
             </ul>
         </div>
 
         <!-- Lista de Emails -->
         <div class="email-list">
-            {% if notificacoes %}
+            {% if current_box == 'autorizacoes' %}
+                {% if autorizacoes_pendentes %}
+                    {% for solicitacao in autorizacoes_pendentes %}
+                    <div class="email-item unread" style="cursor: default; align-items: flex-start;">
+                        <div class="email-avatar" style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); font-size: 1.2rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
+                        </div>
+                        <div class="email-content">
+                            <div class="email-header">
+                                <span class="email-sender">Troca de Setor: {{ solicitacao.militar.posto }} {{ solicitacao.militar.nome_guerra }}</span>
+                                <span class="email-date">{{ solicitacao.data_solicitacao|date:"d M H:i" }}</span>
+                            </div>
+                            <div class="email-subject mb-2" style="color: var(--text-primary); font-weight: normal;">
+                                Movimentação do <strong>{{ solicitacao.setor_atual|default:"Nenhum" }}</strong> para o <strong>{{ solicitacao.setor_destino }}</strong>
+                            </div>
+                            <div class="email-preview" style="color: var(--text-secondary); white-space: normal;">
+                                {% if solicitacao.status == 'pendente_atual' %}
+                                    Você é o chefe do setor <strong>atual</strong>. Deseja autorizar a <strong>SAÍDA</strong> deste militar da sua seção?
+                                {% elif solicitacao.status == 'pendente_destino' %}
+                                    Você é o chefe do setor <strong>de destino</strong>. Deseja autorizar a <strong>ENTRADA</strong> deste militar na sua seção?
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-2 mt-3 justify-content-end">
+                                <form method="post" action="{% url 'Secao_pessoal:responder_troca_setor' solicitacao.id 'rejeitar' %}" onsubmit="return confirm('Tem certeza que deseja REJEITAR esta movimentação?');" style="margin: 0;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-outline-danger px-3">Rejeitar</button>
+                                </form>
+                                <form method="post" action="{% url 'Secao_pessoal:responder_troca_setor' solicitacao.id 'aprovar' %}" onsubmit="return confirm('Tem certeza que deseja APROVAR esta movimentação?');" style="margin: 0;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn btn-sm btn-success px-3">Autorizar</button>
+                                </form>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% else %}
+                    <div class="text-center py-5 mt-5">
+                        <div class="mb-3 opacity-25">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 64px; height: 64px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <h5 class="text-muted fw-bold">Nenhuma autorização pendente</h5>
+                    </div>
+                {% endif %}
+            {% elif notificacoes %}
                 {% for notif in notificacoes %}
                 <div class="email-item {% if not notif.lida and current_box == 'inbox' %}unread{% else %}read{% endif %}" onclick="toggleMessage('msg-{{ notif.id }}')">
                     <div class="email-avatar">

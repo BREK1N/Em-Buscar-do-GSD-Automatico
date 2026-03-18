@@ -1,0 +1,38 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Gerador de ATA - Seção de Pessoal{% endblock %}
+
+{% block content %}
+<div class="content-column">
+    <div class="table-header">
+        <h1>Gerador de ATA</h1>
+    </div>
+
+    <form method="post" class="model-form">
+        {% csrf_token %}
+        <div class="form-grid">
+            <p>
+                <label for="militar_substituido">Militar Substituído:</label>
+                <select name="militar_substituido" id="militar_substituido" class="form-select" required>
+                    <option value="">--- Selecione o militar que está saindo ---</option>
+                    {% for militar in militares %}
+                        <option value="{{ militar.id }}">{{ militar.posto }} {{ militar.nome_guerra }} ({{ militar.nome_completo }})</option>
+                    {% endfor %}
+                </select>
+            </p>
+            <p>
+                <label for="militar_substituto">Militar Substituto:</label>
+                <select name="militar_substituto" id="militar_substituto" class="form-select" required>
+                    <option value="">--- Selecione o militar que está assumindo ---</option>
+                    {% for militar in militares %}
+                        <option value="{{ militar.id }}">{{ militar.posto }} {{ militar.nome_guerra }} ({{ militar.nome_completo }})</option>
+                    {% endfor %}
+                </select>
+            </p>
+        </div>
+        <div class="form-actions">
+            <button type="submit" class="btn btn-primary">Gerar ATA</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

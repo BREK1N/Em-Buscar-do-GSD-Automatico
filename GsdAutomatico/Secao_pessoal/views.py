@@ -13,7 +13,7 @@ from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
-from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, Notificacao
+from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, Notificacao, SolicitacaoTrocaSetor
 from .forms import MilitarForm, NotificacaoForm
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
@@ -55,7 +55,7 @@ class MilitarListView(ListView):
             When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
             default=Value(99), output_field=IntegerField(),
         )
-        qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        qs = super().get_queryset().exclude(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
         if query:
             qs = qs.filter(
                 Q(nome_completo__icontains=query) |
@@ -94,6 +94,37 @@ class MilitarDeleteView(DeleteView):
     model = Efetivo
     template_name = 'Secao_pessoal/militar_confirm_delete.html'
     success_url = reverse_lazy('Secao_pessoal:militar_list')
+
+@method_decorator(s1_required, name='dispatch')
+class MilitarBaixadoListView(ListView):
+    model = Efetivo
+    template_name = 'Secao_pessoal/militar_baixado_list.html'
+    context_object_name = 'militares'
+    paginate_by = 20
+
+    def get_template_names(self):
+        if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return ['Secao_pessoal/militar_list_partial.html']
+        return ['Secao_pessoal/militar_baixado_list.html']
+
+    def get_queryset(self):
+        query = self.request.GET.get('q')
+        rank_order = Case(
+            When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+            When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+            default=Value(99), output_field=IntegerField(),
+        )
+        qs = super().get_queryset().filter(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        if query:
+            qs = qs.filter(
+                Q(nome_completo__icontains=query) |
+                Q(nome_guerra__icontains=query) |
+                Q(saram__icontains=query) |
+                Q(posto__icontains=query)
+            )
+        return qs
 
 #EFETIVO IMPORT EXCEL
 @s1_required
@@ -252,7 +283,7 @@ def nome_de_guerra(request):
     if request.method == 'POST':
         try:
             # 1. Buscar Recrutas no Banco de Dados
-            recrutas = Efetivo.objects.filter(posto='REC')
+            recrutas = Efetivo.objects.filter(posto='REC').exclude(situacao__iexact='Baixado')
             
             if not recrutas.exists():
                 messages.warning(request, "Nenhum militar com posto 'REC' encontrado no efetivo.")
@@ -351,8 +382,15 @@ def comunicacoes(request):
     # Listar notificações (Caixa de Entrada ou Enviados)
     box = request.GET.get('box', 'inbox')
     
+    autorizacoes_pendentes = []
     if box == 'sent':
         notificacoes = Notificacao.objects.filter(remetente=militar_logado).order_by('-data_criacao')
+    elif box == 'autorizacoes':
+        autorizacoes_pendentes = SolicitacaoTrocaSetor.objects.filter(
+            Q(chefe_atual=militar_logado, status='pendente_atual') |
+            Q(chefe_destino=militar_logado, status='pendente_destino')
+        ).order_by('-data_solicitacao')
+        notificacoes = []
     else:
         notificacoes = Notificacao.objects.filter(destinatario=militar_logado).order_by('-data_criacao')
     
@@ -369,6 +407,7 @@ def comunicacoes(request):
 
     context = {
         'notificacoes': notificacoes,
+        'autorizacoes_pendentes': autorizacoes_pendentes,
         'form': form,
         'is_s1': is_s1,
         'current_box': box
@@ -377,8 +416,195 @@ def comunicacoes(request):
 
 @s1_required
 def troca_de_setor(request):
-    # Lembre-se de criar o arquivo: templates/Secao_pessoal/troca_de_setor.html
-    return render(request, 'Secao_pessoal/troca_de_setor.html')
+    militares = Efetivo.objects.exclude(situacao__iexact='Baixado').order_by('nome_guerra')
+    setores = Setor.objects.all().order_by('nome')
+
+    if request.method == 'POST':
+        militar_id = request.POST.get('militar_id')
+        setor_destino = request.POST.get('setor_destino')
+
+        if militar_id and setor_destino:
+            militar = get_object_or_404(Efetivo, id=militar_id)
+            setor_atual_str = militar.setor or ''
+            
+            # Busca automática dos chefes na tabela Setor
+            setor_atual_obj = Setor.objects.filter(nome=setor_atual_str).first()
+            chefe_atual = setor_atual_obj.chefe if setor_atual_obj else None
+            
+            setor_destino_obj = Setor.objects.filter(nome=setor_destino).first()
+            chefe_destino = setor_destino_obj.chefe if setor_destino_obj else None
+            
+            if not chefe_destino:
+                messages.error(request, f'O setor de destino ({setor_destino}) não possui um chefe configurado no sistema. Por favor, defina um chefe para este setor na página de Administração.')
+                return redirect('Secao_pessoal:troca_de_setor')
+                
+            status_inicial = 'pendente_atual' if chefe_atual else 'pendente_destino'
+            
+            solicitacao = SolicitacaoTrocaSetor.objects.create(
+                militar=militar,
+                setor_atual=setor_atual_str or 'Não definido',
+                setor_destino=setor_destino,
+                chefe_atual=chefe_atual,
+                chefe_destino=chefe_destino,
+                status=status_inicial
+            )
+            
+            try:
+                S1_militar = request.user.profile.militar
+            except:
+                S1_militar = chefe_destino
+
+            if chefe_atual:
+                Notificacao.objects.create(
+                    remetente=S1_militar,
+                    destinatario=chefe_atual,
+                    titulo=f"Autorização de Saída de Setor - {militar.nome_guerra}",
+                    mensagem=f"Solicito autorização para a saída do militar {militar.posto} {militar.nome_guerra} do seu setor ({solicitacao.setor_atual}) para o setor {setor_destino}.\n\nVerifique a aba 'Autorizações' na sua Caixa de Entrada."
+                )
+                messages.success(request, f'Solicitação criada. Aguardando autorização do chefe atual ({chefe_atual.posto} {chefe_atual.nome_guerra}).')
+            else:
+                Notificacao.objects.create(
+                    remetente=S1_militar,
+                    destinatario=chefe_destino,
+                    titulo=f"Autorização de Entrada no Setor - {militar.nome_guerra}",
+                    mensagem=f"O militar {militar.posto} {militar.nome_guerra} deseja ingressar no setor {setor_destino} (atualmente sem setor/chefe definido).\n\nVerifique a aba 'Autorizações' na sua Caixa de Entrada."
+                )
+                messages.success(request, f'Militar sem chefe atual. Solicitação enviada diretamente para autorização do chefe de destino ({chefe_destino.posto} {chefe_destino.nome_guerra}).')
+                
+            return redirect('Secao_pessoal:troca_de_setor')
+        else:
+            messages.error(request, 'Preencha todos os campos corretamente.')
+
+    solicitacoes = SolicitacaoTrocaSetor.objects.all()
+
+    context = {
+        'militares': militares,
+        'setores': setores,
+        'solicitacoes': solicitacoes
+    }
+    return render(request, 'Secao_pessoal/troca_de_setor.html', context)
+
+@login_required
+def responder_troca_setor(request, solicitacao_id, acao):
+    solicitacao = get_object_or_404(SolicitacaoTrocaSetor, id=solicitacao_id)
+    try:
+        militar_logado = request.user.profile.militar
+    except:
+        messages.error(request, "Seu usuário não está vinculado a um militar.")
+        return redirect('Secao_pessoal:comunicacoes')
+    
+    if solicitacao.status == 'pendente_atual':
+        if solicitacao.chefe_atual != militar_logado and not is_s1_member(request.user):
+            messages.error(request, 'Você não tem permissão para responder a esta solicitação.')
+            return redirect('Secao_pessoal:comunicacoes')
+            
+        if acao == 'aprovar':
+            solicitacao.status = 'pendente_destino'
+            solicitacao.save()
+            
+            Notificacao.objects.create(
+                remetente=solicitacao.chefe_atual,
+                destinatario=solicitacao.chefe_destino,
+                titulo=f"Autorização de Entrada no Setor - {solicitacao.militar.nome_guerra}",
+                mensagem=f"O militar {solicitacao.militar.posto} {solicitacao.militar.nome_guerra} foi autorizado a sair do setor {solicitacao.setor_atual} e deseja ingressar no setor {solicitacao.setor_destino}.\n\nVerifique a aba 'Autorizações' na sua Caixa de Entrada."
+            )
+            messages.success(request, 'Saída autorizada com sucesso. Aguardando autorização do setor de destino.')
+        elif acao == 'rejeitar':
+            solicitacao.status = 'rejeitado'
+            solicitacao.save()
+            messages.success(request, 'Solicitação de troca rejeitada.')
+            
+    elif solicitacao.status == 'pendente_destino':
+        if solicitacao.chefe_destino != militar_logado and not is_s1_member(request.user):
+            messages.error(request, 'Você não tem permissão para responder a esta solicitação.')
+            return redirect('Secao_pessoal:comunicacoes')
+            
+        if acao == 'aprovar':
+            solicitacao.status = 'aprovado'
+            solicitacao.save()
+            
+            militar = solicitacao.militar
+            militar.setor = solicitacao.setor_destino
+            militar.save()
+            
+            messages.success(request, 'Entrada autorizada com sucesso. O militar foi transferido de setor.')
+        elif acao == 'rejeitar':
+            solicitacao.status = 'rejeitado'
+            solicitacao.save()
+            messages.success(request, 'Solicitação de troca rejeitada.')
+            
+    return redirect(request.META.get('HTTP_REFERER', 'Secao_pessoal:comunicacoes'))
+
+@s1_required
+def ata(request):
+    rank_order = Case(
+        When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+        When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+        When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+        When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+        default=Value(99), output_field=IntegerField(),
+    )
+    militares = Efetivo.objects.exclude(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+    
+    if request.method == 'POST':
+        militar_substituido_id = request.POST.get('militar_substituido')
+        militar_substituto_id = request.POST.get('militar_substituto')
+        
+        # Aqui você pode implementar a lógica de geração de arquivo no futuro (ex: reportlab, docx)
+        messages.success(request, 'ATA gerada com sucesso! (Geração de arquivo a implementar)')
+        return redirect('Secao_pessoal:ata')
+
+    context = {
+        'militares': militares
+    }
+    return render(request, 'Secao_pessoal/ata.html', context)
+
+@s1_required
+def baixa(request):
+    rank_order = Case(
+        When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+        When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+        When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+        When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+        default=Value(99), output_field=IntegerField(),
+    )
+    militares = Efetivo.objects.exclude(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+    
+    if request.method == 'POST':
+        militar_id = request.POST.get('militar_baixa')
+        data_baixa = request.POST.get('data_baixa')
+        motivo_baixa = request.POST.get('motivo_baixa')
+        
+        if militar_id:
+            try:
+                militar = Efetivo.objects.get(id=militar_id)
+                militar.situacao = 'Baixado' # Ao invés de deletar, apenas altera a situação
+                militar.observacao = motivo_baixa # Salva o motivo da baixa
+                militar.save()
+                messages.success(request, f'Militar {militar.posto} {militar.nome_guerra} desligado do efetivo com sucesso.')
+            except Efetivo.DoesNotExist:
+                messages.error(request, 'Erro: Militar não encontrado.')
+                
+        return redirect('Secao_pessoal:baixa')
+
+    context = {
+        'militares': militares
+    }
+    return render(request, 'Secao_pessoal/baixa.html', context)
+
+@s1_required
+def reintegrar_militar(request, pk):
+    if request.method == 'POST':
+        try:
+            militar = Efetivo.objects.get(id=pk)
+            militar.situacao = 'Ativo' # Retorna a situação para Ativo
+            militar.observacao = '' # Limpa o motivo da baixa
+            militar.save()
+            messages.success(request, f'Militar {militar.posto} {militar.nome_guerra} reintegrado ao efetivo ativo com sucesso.')
+        except Efetivo.DoesNotExist:
+            messages.error(request, 'Erro: Militar não encontrado.')
+            
+    return redirect('Secao_pessoal:militar_baixado_list')
 
 @s1_required
 def gerenciar_opcoes(request):
@@ -503,7 +729,7 @@ def exportar_efetivo(request):
             When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
             default=Value(99), output_field=IntegerField(),
         )
-        queryset = Efetivo.objects.annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_guerra')
+        queryset = Efetivo.objects.exclude(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_guerra')
 
         # Aplica os filtros
         if filtro == 'todos':

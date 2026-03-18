@@ -9,6 +9,7 @@ class Efetivo(models.Model):
     nome_guerra = models.CharField(max_length=100,blank=True, verbose_name="Nome de Guerra")
     turma = models.CharField(max_length=100, blank=True, verbose_name="Turma")
     situacao = models.CharField(max_length=50, blank=True, verbose_name="Situação")
+    observacao = models.TextField(blank=True, null=True, verbose_name="Observações / Motivo da Baixa")
     om = models.CharField(max_length=100, blank=True, verbose_name="OM")
     setor = models.CharField(max_length=100, blank=True, verbose_name="Setor")
     subsetor = models.CharField(max_length=100, blank=True, verbose_name="Subsetor")
@@ -73,6 +74,8 @@ class OM(models.Model):
 
 class Setor(models.Model):
     nome = models.CharField(max_length=100, unique=True)
+    chefe = models.ForeignKey('Efetivo', on_delete=models.SET_NULL, null=True, blank=True, related_name='setores_chefiados', verbose_name="Chefe do Setor")
+    
     class Meta:
         ordering = ['nome']
     def __str__(self):
@@ -102,3 +105,22 @@ class Notificacao(models.Model):
 
     def __str__(self):
         return f"{self.titulo} - Para: {self.destinatario}"
+
+class SolicitacaoTrocaSetor(models.Model):
+    militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='solicitacoes_troca', verbose_name="Militar")
+    setor_atual = models.CharField(max_length=100, blank=True, verbose_name="Setor Atual")
+    setor_destino = models.CharField(max_length=100, verbose_name="Setor Destino")
+    chefe_atual = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, null=True, blank=True, related_name='autorizacoes_saida', verbose_name="Chefe Atual")
+    chefe_destino = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, null=True, blank=True, related_name='autorizacoes_entrada', verbose_name="Chefe Destino")
+    
+    STATUS_CHOICES = [
+        ('pendente_atual', 'Aguardando Chefe Atual'),
+        ('pendente_destino', 'Aguardando Chefe Destino'),
+        ('aprovado', 'Aprovado'),
+        ('rejeitado', 'Rejeitado'),
+    ]
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='pendente_atual', verbose_name="Status")
+    data_solicitacao = models.DateTimeField(auto_now_add=True, verbose_name="Data da Solicitação")
+
+    class Meta:
+        ordering = ['-data_solicitacao']
