@@ -1348,12 +1348,13 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('cancel-signature-btn-generic').addEventListener('click', () => signatureModal.classList.remove('active'));
         document.getElementById('clear-signature-btn-generic').addEventListener('click', () => signaturePad.clear());
         document.getElementById('save-signature-btn-generic').addEventListener('click', () => {
-            if (signaturePad.isEmpty()) {
-                alert("Por favor, forneça a assinatura.");
-                return;
-            }
-            let url, body;
-            const signatureData = signaturePad.toDataURL('image/png');
+        if (signaturePad.isEmpty()) {
+            alert("Por favor, forneça a assinatura.");
+            return;
+        }
+        let url, body;
+        // Compressão em JPEG
+        const signatureData = signaturePad.toDataURL('image/jpeg', 0.5);
 
             switch (currentSignatureConfig.type) {
                 case 'ciencia':

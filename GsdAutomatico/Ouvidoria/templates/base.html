@@ -535,7 +535,8 @@
 
                 document.getElementById('save-signature-btn-pessoal').addEventListener('click', () => {
                     if (!currentOficialId) return;
-                    const signatureData = signaturePadPessoal.isEmpty() ? "" : signaturePadPessoal.toDataURL('image/png');
+                    // O '0.5' aplica uma compressão de 50%, deixando o arquivo minúsculo com qualidade perfeita
+                    const signatureData = signaturePadPessoal.isEmpty() ? "" : signaturePadPessoal.toDataURL('image/jpeg', 0.5);    
                     const url = `/Ouvidoria/militar/${currentOficialId}/salvar_assinatura_padrao/`;
 
                     fetch(url, {

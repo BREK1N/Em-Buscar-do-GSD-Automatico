@@ -35,6 +35,16 @@ class Efetivo(models.Model):
             # Caso queira desmarcar automaticamente se não for oficial:
             self.oficial = False
 
+        # --- INÍCIO DA PROTEÇÃO DE ASSINATURA ---
+        if self.assinatura:
+            # 1. Limpa quebras de linha ou espaços que o HTML ou JSON possam ter injetado
+            self.assinatura = self.assinatura.strip().replace('\n', '').replace('\r', '').replace(' ', '+')
+            
+            # 2. Se a assinatura chegar apenas com o código puro (sem o prefixo), o Django adiciona!
+            if not self.assinatura.startswith('data:image'):
+                self.assinatura = f'data:image/jpeg;base64,{self.assinatura}'
+        # --- FIM DA PROTEÇÃO DE ASSINATURA ---
+
         super(Efetivo, self).save(*args, **kwargs)
 
     def __str__(self):
