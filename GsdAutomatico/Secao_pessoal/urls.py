@@ -18,6 +18,7 @@ urlpatterns = [
     path('controle/troca-de-setor/<int:solicitacao_id>/<str:acao>/', views.responder_troca_setor, name='responder_troca_setor'),
     path('controle/ata/', views.ata, name='ata'),
     path('controle/baixa/', views.baixa, name='baixa'),
+    path('controle/ferias/', views.ferias, name='ferias'),
     path('gerenciar-opcoes/', views.gerenciar_opcoes, name='gerenciar_opcoes'),
     path('ferramentas/comunicacoes/', views.comunicacoes, name='comunicacoes'),
     path('api/notificacoes/', views.api_notificacoes_check, name='api_notificacoes_check'),

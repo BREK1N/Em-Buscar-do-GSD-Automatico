@@ -12,6 +12,16 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    <script>
+        // Previne o flash de tela branca (clarão) ao carregar a página no modo escuro
+        (function() {
+            var theme = localStorage.getItem('theme');
+            if (!theme) {
+                theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme';
+            }
+            document.body.classList.add(theme);
+        })();
+    </script>
     <div class="sidebar" id="sidebar">
         <div class="sidebar-content">
             <h2>Ouvidoria</h2>
@@ -136,7 +146,7 @@
                     </span>
                 {% endif %}
             
-            <a href="{% url 'comunicacoes_global' %}" target="_blank" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center;">
+            <a href="{% url 'comunicacoes_global' %}" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center;">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
@@ -699,40 +709,98 @@
                 }
             }
             
-            function loadExpiradosNotifications(forceOpen = false) {
-                fetch("{% url 'Ouvidoria:patds_expirados_json' %}")
-                    .then(response => response.json())
-                    .then(data => {
-                        const numeroAtual = data ? data.length : 0;
-                        sessionStorage.setItem('expiradosCount', numeroAtual);
-                        updateExpiradosBadgeUI(numeroAtual);
-                        
-                        ultimoNumeroNotificacoes = numeroAtual;
-                        
-                        if (notificationsPanel.classList.contains('active') || forceOpen) {
-                            notificacoesListContainer.innerHTML = '';
-                            if (numeroAtual > 0) {
-                                data.forEach(patd => {
-                                    const listItem = document.createElement('li');
-                                    listItem.className = 'notificacao-item';
-                                    listItem.innerHTML = `
-                                        <div class="notificacao-info">
-                                            <span><b>PATD Nº ${patd.numero_patd}</b> (${patd.militar_nome}) - Prazo expirado.</span>
-                                        </div>
-                                        <div class="notificacao-actions">
-                                            <a href="/Ouvidoria/patd/${patd.id}/" class="btn btn-sm btn-secondary">Ver</a>
-                                            <button class="btn btn-sm btn-warning extender-prazo-individual-btn" data-patd-id="${patd.id}" data-patd-numero="${patd.numero_patd}">Estender</button>
-                                            <button class="btn btn-sm btn-danger prosseguir-sem-alegacao-btn" data-patd-id="${patd.id}">Prosseguir</button>
-                                        </div>
-                                    `;
-                                    notificacoesListContainer.appendChild(listItem);
-                                });
-                            } else {
-                                notificacoesListContainer.innerHTML = '<li style="padding: 15px; text-align: center; border: none;">Nenhuma notificação no momento.</li>';
-                            }
+            async function loadAllNotifications(forceOpen = false) {
+                let dataOuvidoria = [];
+                let dataGeral = { count: 0, notifications: [] };
+
+                try {
+                    const respOuvidoria = await fetch("{% url 'Ouvidoria:patds_expirados_json' %}");
+                    if (respOuvidoria.ok) {
+                        const textOuvidoria = await respOuvidoria.text();
+                        try { dataOuvidoria = JSON.parse(textOuvidoria); } catch (e) { }
+                    }
+                } catch (error) {}
+                
+                try {
+                    const respGeral = await fetch("{% url 'Secao_pessoal:api_notificacoes_check' %}"); 
+                    if (respGeral.ok) {
+                        const textGeral = await respGeral.text();
+                        try { dataGeral = JSON.parse(textGeral); } catch (e) { }
+                    }
+                } catch (error) {}
+
+                const countOuvidoria = Array.isArray(dataOuvidoria) ? dataOuvidoria.length : 0;
+                const countGeral = dataGeral ? dataGeral.count : 0;
+                totalNotificacoes = countOuvidoria + countGeral;
+
+                if (totalNotificacoes < seenNotificacoesCount) {
+                    seenNotificacoesCount = totalNotificacoes;
+                    sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
+                }
+
+                updateExpiradosBadgeUI(totalNotificacoes, seenNotificacoesCount);
+                
+                try {
+                    if (!notificationsPanel) return;
+
+                    if (notificationsPanel.classList.contains('active') || forceOpen) {
+                        notificacoesListContainer.innerHTML = '';
+
+                        if (totalNotificacoes === 0) {
+                            notificacoesListContainer.innerHTML = '<li style="padding: 15px; text-align: center; border: none; color: var(--text-secondary);">Nenhuma notificação no momento.</li>';
+                            return;
                         }
-                    })
-                    .catch(error => console.error('Erro ao carregar notificações de expirados:', error));
+
+                        if (dataOuvidoria && dataOuvidoria.length > 0) {
+                            dataOuvidoria.forEach(patd => {
+                                const listItem = document.createElement('li');
+                                listItem.className = 'notificacao-item';
+                                listItem.style.borderLeft = '4px solid #dc3545';
+                                listItem.innerHTML = `
+                                    <div class="notificacao-info">
+                                        <span><b>PATD Nº ${patd.numero_patd}</b> (${patd.militar_nome}) - Prazo expirado.</span>
+                                    </div>
+                                    <div class="notificacao-actions">
+                                        <a href="/Ouvidoria/patd/${patd.id}/" class="btn btn-sm btn-secondary">Ver</a>
+                                        <button class="btn btn-sm btn-warning extender-prazo-individual-btn" data-patd-id="${patd.id}" data-patd-numero="${patd.numero_patd}">Estender</button>
+                                        <button class="btn btn-sm btn-danger prosseguir-sem-alegacao-btn" data-patd-id="${patd.id}">Prosseguir</button>
+                                    </div>
+                                `;
+                                notificacoesListContainer.appendChild(listItem);
+                            });
+                        }
+
+                        if (dataGeral && dataGeral.notifications && dataGeral.notifications.length > 0) {
+                            dataGeral.notifications.forEach(notif => {
+                                const listItem = document.createElement('li');
+                                listItem.className = 'notificacao-item';
+                                let linkAcao = `{% url 'comunicacoes_global' %}?ler=${notif.id}`;
+                                let textoAcao = 'Ler';
+                                
+                                if (notif.is_autorizacao) {
+                                    linkAcao = `{% url 'comunicacoes_global' %}?box=autorizacoes`;
+                                    textoAcao = 'Ver';
+                                    listItem.style.borderLeft = '4px solid var(--warning-color)';
+                                } else {
+                                    listItem.style.borderLeft = '4px solid var(--accent-color)';
+                                }
+                                
+                                listItem.innerHTML = `
+                                    <div class="notificacao-info">
+                                        <span><b>${notif.remetente}:</b> ${notif.titulo}</span>
+                                        <br><small style="color:#888">${notif.data}</small>
+                                    </div>
+                                    <div class="notificacao-actions">
+                                        <a href="${linkAcao}" class="btn btn-sm btn-primary">${textoAcao}</a>
+                                    </div>
+                                `;
+                                notificacoesListContainer.appendChild(listItem);
+                            });
+                        }
+                    }
+                } catch (error) {
+                    console.error('Erro ao carregar notificações:', error);
+                }
             }
 
             function prosseguirSemAlegacaoFromNotificacao(patdId) {
@@ -745,7 +813,7 @@
                     .then(response => response.json())
                     .then(data => {
                         if (data.status === 'success') {
-                            loadExpiradosNotifications(true);
+                            loadAllNotifications(true);
                             if (window.location.pathname.includes(`/patd/${patdId}`)) {
                                 window.location.reload();
                             }
@@ -761,7 +829,10 @@
                 e.stopPropagation();
                 const isActive = notificationsPanel.classList.toggle('active');
                 if (isActive) {
-                    loadExpiradosNotifications(true);
+                    seenNotificacoesCount = totalNotificacoes;
+                    sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
+                    updateExpiradosBadgeUI(totalNotificacoes, seenNotificacoesCount);
+                    loadAllNotifications(true);
                 }
             });
 
@@ -811,7 +882,7 @@
                 .then(data => {
                     if (data.status === 'success') {
                         extenderIndividualModal.classList.remove('active');
-                        loadExpiradosNotifications();
+                        loadAllNotifications(false);
                         if (window.location.pathname.includes('/patd_list/')) {
                             window.location.reload();
                         }
@@ -844,29 +915,16 @@
                 })
                 .then(response => response.json())
                 .then(data => {
-                    loadExpiradosNotifications();
+                    loadAllNotifications(false);
                 })
                 .catch(error => console.error('Erro ao verificar prazos no backend:', error));
                 sessionStorage.setItem('prazosVerificadosNestaSessao', 'true'); 
             } else {
-                console.log("Sessão já iniciada. Restaurando contagem de expirados do cache da sessão.");
-                const cachedCount = sessionStorage.getItem('expiradosCount');
-                if (cachedCount !== null) {
-                    updateExpiradosBadgeUI(parseInt(cachedCount, 10));
-                } else {
-                    loadExpiradosNotifications();
-                }
+                loadAllNotifications(false);
             }
         
-        // DICA 5: Checagem global contínua
-        function verificarMensagensGlobal() {
-            fetch('{% url "api_notificacoes_check_global" %}')
-                .then(response => response.json())
-                .then(data => {
-                    if (data.count > 0) console.log("Você tem " + data.count + " novas mensagens globais!");
-                }).catch(e => console.error(e));
-        }
-        setInterval(verificarMensagensGlobal, 60000); // Polling a cada 1 min
+        // Atualização global contínua
+        setInterval(() => loadAllNotifications(false), 5000); // Polling a cada 5 segundos
             // --- FIM DA LÓGICA DE OTIMIZAÇÃO ---
             
         });

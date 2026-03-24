@@ -82,6 +82,16 @@
     {% block extra_head %}{% endblock %}
 </head>
 <body>
+    <script>
+        // Previne o flash de tela branca (clarão) ao carregar a página no modo escuro
+        (function() {
+            var theme = localStorage.getItem('theme');
+            if (!theme) {
+                theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme';
+            }
+            document.body.classList.add(theme);
+        })();
+    </script>
     <div class="sidebar" id="sidebar">
         <div class="sidebar-content">
             <h2>Seção de Pessoal</h2>
@@ -114,7 +124,7 @@
                 </li>
                 
                 <li>
-                    <a href="javascript:void(0);" class="submenu-toggle {% if 'controle' in request.path or 'baixados' in request.path %}active{% endif %}">
+                    <a href="javascript:void(0);" class="submenu-toggle {% if 'controle' in request.path or 'baixados' in request.path or 'ferias' in request.path %}active{% endif %}">
                         <div class="menu-item-content">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
@@ -126,7 +136,16 @@
                         </svg>
                     </a>
                     
-                    <ul class="submenu {% if 'controle' in request.path or 'baixados' in request.path %}open{% endif %}">
+                    <ul class="submenu {% if 'controle' in request.path or 'baixados' in request.path or 'ferias' in request.path %}open{% endif %}">
+                        
+                        <li>
+                            <a href="{% url 'Secao_pessoal:ferias' %}" class="{% if 'ferias' in request.path %}active{% endif %}">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
+                                </svg>
+                                <span>Férias</span>
+                            </a>
+                        </li>
                         
                         <li>
                             <a href="{% url 'Secao_pessoal:troca_de_setor' %}" class="{% if 'troca-de-setor' in request.path %}active{% endif %}">
@@ -241,7 +260,7 @@
                     </span>
                 {% endif %}
 
-                <a href="{% url 'comunicacoes_global' %}" target="_blank" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center;">
+                <a href="{% url 'comunicacoes_global' %}" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center;">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                     </svg>
@@ -302,11 +321,12 @@
             const notificacoesListContainer = document.getElementById('notificacoes-list-container');
             const notificacaoBadge = document.getElementById('notificacao-badge');
             let totalNotificacoes = 0;
+            let seenNotificacoesCount = parseInt(sessionStorage.getItem('seenNotificacoesCount') || '0');
 
-            function updateExpiradosBadgeUI(count) {
+            function updateExpiradosBadgeUI(total, seen) {
                 if (notificacaoBadge) {
-                    if (count > 0) {
-                        notificacaoBadge.textContent = count;
+                    if (total > seen && total > 0) {
+                        notificacaoBadge.textContent = total;
                         notificacaoBadge.style.display = 'flex';
                     } else {
                         notificacaoBadge.style.display = 'none';
@@ -316,21 +336,40 @@
 
             // Função unificada para carregar notificações
             async function loadAllNotifications(forceOpen = false) {
+                let dataOuvidoria = [];
+                let dataGeral = { count: 0, notifications: [] };
+
+                // 1. Busca Ouvidoria (Isolado para não quebrar se houver erro de permissão)
                 try {
-                    // 1. Busca Ouvidoria
                     const respOuvidoria = await fetch("{% url 'Ouvidoria:patds_expirados_json' %}");
-                    const dataOuvidoria = await respOuvidoria.json();
-                    
-                    // 2. Busca Notificações Gerais (S1)
-                    // Nota: Você precisa adicionar esta URL no urls.py: path('api/notificacoes/', views.api_notificacoes_check, name='api_notificacoes')
-                    const respGeral = await fetch("/Secao_pessoal/api/notificacoes/"); 
-                    const dataGeral = await respGeral.json();
+                    if (respOuvidoria.ok) {
+                        const textOuvidoria = await respOuvidoria.text();
+                        try { dataOuvidoria = JSON.parse(textOuvidoria); } catch (e) { /* Redirecionado */ }
+                    }
+                } catch (error) { console.warn("Erro ao buscar notificações da Ouvidoria", error); }
+                
+                // 2. Busca Notificações Gerais (S1)
+                try {
+                    const respGeral = await fetch("{% url 'Secao_pessoal:api_notificacoes_check' %}"); 
+                    if (respGeral.ok) {
+                        const textGeral = await respGeral.text();
+                        try { dataGeral = JSON.parse(textGeral); } catch (e) { /* Redirecionado */ }
+                    }
+                } catch (error) { console.warn("Erro ao buscar notificações gerais", error); }
 
-                    const countOuvidoria = dataOuvidoria ? dataOuvidoria.length : 0;
-                    const countGeral = dataGeral ? dataGeral.count : 0;
-                    totalNotificacoes = countOuvidoria + countGeral;
+                const countOuvidoria = Array.isArray(dataOuvidoria) ? dataOuvidoria.length : 0;
+                const countGeral = dataGeral ? dataGeral.count : 0;
+                totalNotificacoes = countOuvidoria + countGeral;
 
-                    updateExpiradosBadgeUI(totalNotificacoes);
+                // Se o número de notificações diminuiu (ex: o utilizador leu uma), atualizamos as "vistas"
+                if (totalNotificacoes < seenNotificacoesCount) {
+                    seenNotificacoesCount = totalNotificacoes;
+                    sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
+                }
+
+                updateExpiradosBadgeUI(totalNotificacoes, seenNotificacoesCount);
+                
+                try {
 
                     if (!notificationsPanel) return;
 
@@ -339,7 +378,7 @@
                         notificacoesListContainer.innerHTML = '';
 
                         if (totalNotificacoes === 0) {
-                            notificacoesListContainer.innerHTML = '<li style="padding: 15px; text-align: center; border: none;">Nenhuma notificação no momento.</li>';
+                            notificacoesListContainer.innerHTML = '<li style="padding: 15px; text-align: center; border: none; color: var(--text-secondary);">Nenhuma notificação no momento.</li>';
                             return;
                         }
 
@@ -366,14 +405,25 @@
                             dataGeral.notifications.forEach(notif => {
                                 const listItem = document.createElement('li');
                                 listItem.className = 'notificacao-item';
-                                listItem.style.borderLeft = '4px solid var(--accent-color)';
+                                
+                                let linkAcao = `{% url 'comunicacoes_global' %}?ler=${notif.id}`;
+                                let textoAcao = 'Ler';
+                                
+                                if (notif.is_autorizacao) {
+                                    linkAcao = `{% url 'comunicacoes_global' %}?box=autorizacoes`;
+                                    textoAcao = 'Ver';
+                                    listItem.style.borderLeft = '4px solid var(--warning-color)';
+                                } else {
+                                    listItem.style.borderLeft = '4px solid var(--accent-color)';
+                                }
+                                
                                 listItem.innerHTML = `
                                     <div class="notificacao-info">
                                         <span><b>${notif.remetente}:</b> ${notif.titulo}</span>
                                         <br><small style="color:#888">${notif.data}</small>
                                     </div>
                                     <div class="notificacao-actions">
-                                        <a href="{% url 'comunicacoes_global' %}?ler=${notif.id}" class="btn btn-sm btn-primary">Ler</a>
+                                        <a href="${linkAcao}" class="btn btn-sm btn-primary">${textoAcao}</a>
                                     </div>
                                 `;
                                 notificacoesListContainer.appendChild(listItem);
@@ -390,13 +440,20 @@
                 notificationsBtn.addEventListener('click', (e) => {
                     e.preventDefault();
                     if (notificationsPanel) notificationsPanel.classList.toggle('active');
+                    
+                    if (notificationsPanel && notificationsPanel.classList.contains('active')) {
+                        seenNotificacoesCount = totalNotificacoes;
+                        sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
+                        updateExpiradosBadgeUI(totalNotificacoes, seenNotificacoesCount);
+                    }
+                    
                     loadAllNotifications(true);
                 });
             }
 
             // Carrega inicialmente as notificações (badge)
             try { loadAllNotifications(false); } catch (e) { /* ignore */ }
-            setInterval(() => loadAllNotifications(false), 60000); // Polling a cada 1 min
+            setInterval(() => loadAllNotifications(false), 5000); // Polling a cada 05 segundos
 
             // --- Lógica do Dropdown ---
             const submenuToggles = document.querySelectorAll('.submenu-toggle');

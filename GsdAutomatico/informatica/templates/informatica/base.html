@@ -13,7 +13,17 @@
     <link rel="stylesheet" href="{% static 'css/style.css' %}">
     {% block extra_head %}{% endblock %}
 </head>
-<body class="light-theme">
+<body>
+<script>
+    // Previne o flash de tela branca (clarão) ao carregar a página no modo escuro
+    (function() {
+        var theme = localStorage.getItem('theme');
+        if (!theme) {
+            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme';
+        }
+        document.body.classList.add(theme);
+    })();
+</script>
     <div class="sidebar" id="sidebar">
         <div class="sidebar-content">
             <h2>Informática</h2>
@@ -96,6 +106,12 @@
                         Olá, <strong>{{ user.username }}</strong>
                     </span>
                 {% endif %}
+
+                <a href="{% url 'comunicacoes_global' %}" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
+                    </svg>
+                </a>
                 {# Botão Tema #}
                 <button class="theme-switcher" id="theme-toggle" title="Alterar tema">
                     <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>

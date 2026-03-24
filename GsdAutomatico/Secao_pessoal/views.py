@@ -443,6 +443,14 @@ def comunicacoes(request):
         except:
             pass
 
+    base_template = 'Secao_pessoal/base.html'
+    if request.user.is_authenticated and not request.user.is_superuser:
+        user_groups = request.user.groups.values_list('name', flat=True)
+        if 'Ouvidoria' in user_groups:
+            base_template = 'base.html'
+        elif 'Informatica' in user_groups:
+            base_template = 'informatica/base.html'
+
     context = {
         'notificacoes': notificacoes,
         'autorizacoes_pendentes': autorizacoes_pendentes,
@@ -450,7 +458,8 @@ def comunicacoes(request):
         'is_s1': is_s1,
         'current_box': box,
         'unread_count': unread_count,
-        'autorizacoes_count': autorizacoes_count
+        'autorizacoes_count': autorizacoes_count,
+        'base_template': base_template
     }
     return render(request, 'Secao_pessoal/comunicacoes.html', context)
 
@@ -530,20 +539,8 @@ def troca_de_setor(request):
                 S1_militar = chefe_destino
 
             if chefe_atual:
-                Notificacao.objects.create(
-                    remetente=S1_militar,
-                    destinatario=chefe_atual,
-                    titulo=f"Autorização de Saída de Setor - {militar.nome_guerra}",
-                    mensagem=f"Solicito autorização para a saída do militar {militar.posto} {militar.nome_guerra} do seu setor ({solicitacao.setor_atual}) para o setor {setor_destino}.\n\nVerifique a aba 'Autorizações' na sua Caixa de Entrada."
-                )
                 messages.success(request, f'Solicitação criada. Aguardando autorização do chefe atual ({chefe_atual.posto} {chefe_atual.nome_guerra}).')
             else:
-                Notificacao.objects.create(
-                    remetente=S1_militar,
-                    destinatario=chefe_destino,
-                    titulo=f"Autorização de Entrada no Setor - {militar.nome_guerra}",
-                    mensagem=f"O militar {militar.posto} {militar.nome_guerra} deseja ingressar no setor {setor_destino} (atualmente sem setor/chefe definido).\n\nVerifique a aba 'Autorizações' na sua Caixa de Entrada."
-                )
                 messages.success(request, f'Militar sem chefe atual. Solicitação enviada diretamente para autorização do chefe de destino ({chefe_destino.posto} {chefe_destino.nome_guerra}).')
                 
             return redirect('Secao_pessoal:troca_de_setor')
@@ -583,12 +580,6 @@ def responder_troca_setor(request, solicitacao_id, acao):
             solicitacao.status = 'pendente_destino'
             solicitacao.save()
             
-            Notificacao.objects.create(
-                remetente=solicitacao.chefe_atual,
-                destinatario=solicitacao.chefe_destino,
-                titulo=f"Autorização de Entrada no Setor - {solicitacao.militar.nome_guerra}",
-                mensagem=f"O militar {solicitacao.militar.posto} {solicitacao.militar.nome_guerra} foi autorizado a sair do setor {solicitacao.setor_atual} e deseja ingressar no setor {solicitacao.setor_destino}.\n\nVerifique a aba 'Autorizações' na sua Caixa de Entrada."
-            )
             messages.success(request, 'Saída autorizada com sucesso. Aguardando autorização do setor de destino.')
         elif acao == 'rejeitar':
             solicitacao.status = 'rejeitado'
@@ -674,18 +665,64 @@ def baixa(request):
     return render(request, 'Secao_pessoal/baixa.html', context)
 
 @s1_required
+def ferias(request):
+    militares = Efetivo.objects.exclude(situacao__iexact='Baixado').exclude(situacao__iexact='Férias').order_by('nome_guerra')
+    militares_ferias = Efetivo.objects.filter(situacao__iexact='Férias').order_by('nome_guerra')
+    
+    if request.method == 'POST':
+        militar_id = request.POST.get('militar')
+        data_inicio = request.POST.get('data_inicio')
+        data_fim = request.POST.get('data_fim')
+        
+        if militar_id and data_inicio and data_fim:
+            try:
+                militar = Efetivo.objects.get(id=militar_id)
+                
+                militar.situacao = 'Férias'
+                
+                # Converte o formato do calendário para exibir bonitinho DD/MM/AAAA
+                from datetime import datetime
+                try:
+                    inicio_fmt = datetime.strptime(data_inicio, '%Y-%m-%d').strftime('%d/%m/%Y')
+                    fim_fmt = datetime.strptime(data_fim, '%Y-%m-%d').strftime('%d/%m/%Y')
+                    militar.observacao = f"Férias: {inicio_fmt} até {fim_fmt}"
+                except ValueError:
+                    militar.observacao = f"Férias: {data_inicio} até {data_fim}"
+                    
+                militar.save()
+                messages.success(request, f'Férias registradas. O militar {militar.posto} {militar.nome_guerra} consta agora como indisponível no cadastro.')
+            except Efetivo.DoesNotExist:
+                messages.error(request, 'Erro: Militar não encontrado.')
+        else:
+            messages.error(request, 'Preencha todos os campos corretamente.')
+            
+        return redirect('Secao_pessoal:ferias')
+
+    context = {
+        'militares': militares,
+        'militares_ferias': militares_ferias
+    }
+    return render(request, 'Secao_pessoal/ferias.html', context)
+
+@s1_required
 def reintegrar_militar(request, pk):
     if request.method == 'POST':
         try:
             militar = Efetivo.objects.get(id=pk)
+            was_ferias = militar.situacao and militar.situacao.lower() in ['férias', 'ferias']
+            
             militar.situacao = 'Ativo' # Retorna a situação para Ativo
-            militar.observacao = '' # Limpa o motivo da baixa
+            militar.observacao = '' # Limpa o histórico de período/motivo
             militar.save()
-            messages.success(request, f'Militar {militar.posto} {militar.nome_guerra} reintegrado ao efetivo ativo com sucesso.')
+            
+            if was_ferias:
+                messages.success(request, f'Militar {militar.posto} {militar.nome_guerra} retornou das férias e está novamente disponível.')
+            else:
+                messages.success(request, f'Militar {militar.posto} {militar.nome_guerra} reintegrado ao efetivo ativo com sucesso.')
         except Efetivo.DoesNotExist:
             messages.error(request, 'Erro: Militar não encontrado.')
             
-    return redirect('Secao_pessoal:militar_baixado_list')
+    return redirect(request.META.get('HTTP_REFERER', 'Secao_pessoal:militar_list'))
 
 @s1_required
 def gerenciar_opcoes(request):
@@ -757,20 +794,40 @@ def api_notificacoes_check(request):
         if hasattr(request.user, 'profile') and request.user.profile.militar:
             militar = request.user.profile.militar
             nao_lidas = Notificacao.objects.filter(destinatario=militar, lida=False)
-            count = nao_lidas.count()
+            count_notificacoes = nao_lidas.count()
+            
+            autorizacoes_pendentes = SolicitacaoTrocaSetor.objects.filter(
+                Q(chefe_atual=militar, status='pendente_atual') |
+                Q(chefe_destino=militar, status='pendente_destino')
+            )
+            count_autorizacoes = autorizacoes_pendentes.count()
+            
+            total_count = count_notificacoes + count_autorizacoes
             
             data = []
-            for n in nao_lidas[:5]: # Retorna as 5 mais recentes para o preview
+            for a in autorizacoes_pendentes[:5]:
                 data.append({
-                    'id': n.id,
-                    'titulo': n.titulo,
-                    'remetente': n.remetente.nome_guerra,
-                    'data': n.data_criacao.strftime('%d/%m %H:%M')
+                    'id': a.id,
+                    'titulo': f"Autorização Pendente: {a.militar.nome_guerra}",
+                    'remetente': "Sistema",
+                    'data': a.data_solicitacao.strftime('%d/%m %H:%M'),
+                    'is_autorizacao': True
                 })
+                
+            remaining_slots = 5 - len(data)
+            if remaining_slots > 0:
+                for n in nao_lidas[:remaining_slots]:
+                    data.append({
+                        'id': n.id,
+                        'titulo': n.titulo,
+                        'remetente': n.remetente.nome_guerra if n.remetente else "Sistema",
+                        'data': n.data_criacao.strftime('%d/%m %H:%M') if n.data_criacao else "",
+                        'is_autorizacao': False
+                    })
             
-            return HttpResponse(json.dumps({'count': count, 'notifications': data}), content_type="application/json")
+            return HttpResponse(json.dumps({'count': total_count, 'notifications': data}), content_type="application/json")
     except Exception as e:
-        pass
+        print(f"Erro ao carregar API de Notificacoes: {e}")
     
     return HttpResponse(json.dumps({'count': 0, 'notifications': []}), content_type="application/json")
 

@@ -38,7 +38,7 @@
                 <td>{{ patd.oficial_responsavel|default:"-" }}</td>
                 <td class="actions-cell">
                     {# Link para a view de detalhes da Ouvidoria #}
-                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary" target="_blank">Ver Detalhes</a>
+                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver Detalhes</a>
                 </td>
             </tr>
             {% empty %}

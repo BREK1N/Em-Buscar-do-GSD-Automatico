@@ -6,6 +6,7 @@
                 <th>Nome de Guerra</th>
                 <th>Nome Completo</th>
                 <th>Especialização</th>
+                <th>Situação</th>
                 <th>OM</th>
                 <th>Ações</th>
             </tr>
@@ -17,6 +18,15 @@
                 <td>{{ militar.nome_guerra }}</td>
                 <td>{{ militar.nome_completo }}</td>
                 <td>{{ militar.especializacao }}</td>
+                <td>
+                    {% if militar.situacao|lower == 'férias' or militar.situacao|lower == 'ferias' %}
+                        <span style="background-color: var(--warning-color); color: #000; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;" title="{{ militar.observacao|default:'' }}">Férias</span>
+                    {% elif militar.situacao|lower == 'baixado' %}
+                        <span style="background-color: var(--danger-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;">Baixado</span>
+                    {% else %}
+                        <span style="background-color: var(--success-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;">{{ militar.situacao|default:"Ativo" }}</span>
+                    {% endif %}
+                </td>
                 <td>{{ militar.om }}</td>
                 <td class="actions-cell">
                     {% if 'baixados' not in request.path %}
