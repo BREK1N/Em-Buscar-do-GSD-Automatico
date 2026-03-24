@@ -1,0 +1,52 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}INSPSAU - Inspeção de Saúde{% endblock %}
+
+{% block content %}
+<div class="content-column">
+    <div class="table-header">
+        <div>
+            <h1 style="border: none; margin-bottom: 5px;">INSPSAU</h1>
+            <p style="margin-top: 0; color: var(--text-secondary);">Painel de Controle de Inspeções de Saúde e Militares Baixados.</p>
+        </div>
+    </div>
+
+    <div class="card" style="background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; box-shadow: var(--box-shadow); margin-top: 20px;">
+        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px; display: flex; align-items: center; gap: 10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 24px; height: 24px; color: var(--danger-color);">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12 7.5v9m-4.5-4.5h9" />
+            </svg>
+            Militares Atualmente Baixados
+        </h3>
+        
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Militar</th>
+                        <th>Situação</th>
+                        <th>Motivo / Observação</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for militar in militares_baixados %}
+                    <tr>
+                        <td style="font-weight: 500;">{{ militar.posto }} {{ militar.nome_guerra }}</td>
+                        <td><span style="background-color: var(--danger-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700;">{{ militar.situacao }}</span></td>
+                        <td style="color: var(--text-secondary);">{{ militar.observacao|default:"Não especificado" }}</td>
+                        <td>
+                            <a href="{% url 'Secao_pessoal:militar_update' militar.pk %}" class="btn btn-sm btn-primary">Atualizar Ficha</a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum militar baixado no momento.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+{% endblock %}

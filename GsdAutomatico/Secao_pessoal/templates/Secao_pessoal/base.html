@@ -124,6 +124,15 @@
                 </li>
                 
                 <li>
+                    <a href="{% url 'Secao_pessoal:inspsau' %}" class="{% if 'inspsau' in request.resolver_match.url_name %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25c-5.385 0-9.75 4.365-9.75 9.75s4.365 9.75 9.75 9.75 9.75-4.365 9.75-9.75S17.385 2.25 12 2.25zM12 7.5v9m-4.5-4.5h9" />
+                        </svg>
+                        <span>INSPSAU</span>
+                    </a>
+                </li>
+
+                <li>
                     <a href="javascript:void(0);" class="submenu-toggle {% if 'controle' in request.path or 'baixados' in request.path or 'ferias' in request.path %}active{% endif %}">
                         <div class="menu-item-content">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

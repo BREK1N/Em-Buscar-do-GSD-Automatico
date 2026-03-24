@@ -33,6 +33,13 @@ s1_required = user_passes_test(is_s1_member)
 def index(request):
     return render(request, 'Secao_pessoal/index.html')
 
+@s1_required
+def inspsau(request):
+    # Dashboard básico: Lista militares que estão "Baixados"
+    militares_baixados = Efetivo.objects.filter(situacao__iexact='Baixado').order_by('nome_guerra')
+    context = {'militares_baixados': militares_baixados}
+    return render(request, 'Secao_pessoal/inspsau.html', context)
+
 #Efetivo
 
 @method_decorator(s1_required, name='dispatch')

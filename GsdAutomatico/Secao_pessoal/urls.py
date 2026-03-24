@@ -22,6 +22,5 @@ urlpatterns = [
     path('gerenciar-opcoes/', views.gerenciar_opcoes, name='gerenciar_opcoes'),
     path('ferramentas/comunicacoes/', views.comunicacoes, name='comunicacoes'),
     path('api/notificacoes/', views.api_notificacoes_check, name='api_notificacoes_check'),
-
-
+    path('inspsau/', views.inspsau, name='inspsau'),
 ]
