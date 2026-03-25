@@ -1,31 +1,54 @@
 {% extends 'informatica/base.html' %}
-
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block content %}
-{# Adapte os estilos do militar_confirm_delete.html #}
 <style>
-    .card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; margin-top: 20px; box-shadow: var(--box-shadow); }
-    .card-header { display: flex; align-items: center; gap: 10px; padding-bottom: 15px; margin-bottom: 20px; }
-    .card-header svg { width: 24px; height: 24px; color: var(--danger-color); }
-    .card-header h1 { margin: 0; font-size: 1.2rem; border: none; padding: 0; }
-    .warning-text { font-weight: 500; color: var(--text-primary); }
+    .delete-card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--danger-color);
+        border-radius: 16px;
+        padding: 40px 30px;
+        margin-top: 40px;
+        max-width: 600px;
+        margin-left: auto;
+        margin-right: auto;
+        box-shadow: 0 10px 15px -3px rgba(239, 68, 68, 0.1);
+        text-align: center;
+    }
+    
+    .delete-icon-wrapper {
+        width: 80px; height: 80px;
+        background: rgba(239, 68, 68, 0.1);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        margin: 0 auto 20px auto;
+    }
+    
+    .delete-card h1 { margin: 0 0 15px 0; font-size: 1.5rem; color: var(--text-primary); }
+    .warning-text { font-size: 1.1rem; color: var(--text-secondary); margin-bottom: 30px; line-height: 1.6;}
+    .warning-text strong { color: var(--text-primary); background: var(--bg-main); padding: 2px 8px; border-radius: 4px;}
 </style>
 
-<div class="card">
-    <div class="card-header">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
-        <h1>{{ page_title }}</h1>
+<div class="delete-card">
+    <div class="delete-icon-wrapper">
+        <i class="fas fa-exclamation-triangle fa-2x" style="color: var(--danger-color);"></i>
     </div>
-
-    <p class="warning-text">Você tem certeza que deseja excluir o utilizador <strong>{{ object.username }}</strong>?</p>
-    <p><strong>Atenção:</strong> Esta ação não pode ser desfeita.</p>
+    
+    <h1>{{ page_title }}</h1>
+    
+    <p class="warning-text">
+        Você está prestes a excluir permanentemente o utilizador <br>
+        <strong>{{ object.username }}</strong>. <br><br>
+        <span style="color: var(--danger-color); font-size: 0.9rem;">Esta ação não pode ser desfeita e os dados de acesso serão perdidos.</span>
+    </p>
 
     <form method="post">
         {% csrf_token %}
-        <div class="form-actions">
-            <button type="submit" class="btn btn-delete">Sim, Excluir</button>
-            <a href="{% url 'informatica:user_list' %}" class="btn btn-secondary">Cancelar</a>
+        <div class="d-flex gap-3 justify-content-center">
+            <a href="{% url 'informatica:user_list' %}" class="btn btn-secondary px-4 py-2" style="border-radius: 8px;">Cancelar e Voltar</a>
+            <button type="submit" class="btn px-4 py-2" style="background: var(--danger-color); color: white; border: none; border-radius: 8px; font-weight: 500;">
+                <i class="fas fa-trash-alt me-2"></i> Sim, Excluir Definitivamente
+            </button>
         </div>
     </form>
 </div>

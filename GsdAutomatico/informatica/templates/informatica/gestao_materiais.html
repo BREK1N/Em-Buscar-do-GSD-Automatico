@@ -1,0 +1,1108 @@
+{% extends 'informatica/base.html' %}
+{% load static %}
+
+{% block title %}Gestão de Materiais e Cautelas{% endblock %}
+
+{% block extra_head %}
+<!-- Select2 CSS para pesquisas nos Selects -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* --- Estilos baseados no padrão SaaS --- */
+    .form-card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px 30px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .form-card-header { border-bottom: 1px solid var(--bg-main); padding-bottom: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; justify-content: space-between;}
+    .form-card-header h2 { margin: 0; font-size: 1.25rem; color: var(--text-primary); display: flex; align-items: center; gap: 10px;}
+    
+    .form-item label { font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block; font-size: 0.9rem;}
+    .form-item input, .form-item select, .form-item textarea { width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); transition: all 0.2s; }
+    .form-item input:focus, .form-item select:focus, .form-item textarea:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); outline: none; }
+    
+    /* Customização Select2 para o Dark Mode e Tema Moderno */
+    .select2-container--default .select2-selection--single { height: 46px; background-color: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; display: flex; align-items: center; }
+    .select2-container--default .select2-selection--single .select2-selection__rendered { color: var(--text-primary); padding-left: 15px; }
+    .select2-container--default .select2-selection--single .select2-selection__arrow { height: 44px; right: 10px; }
+    .select2-dropdown { background-color: var(--bg-content); border-color: var(--border-color); color: var(--text-primary); }
+    .select2-container--default .select2-results__option--selected { background-color: var(--bg-main); }
+    .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable { background-color: var(--accent-color); color: white; }
+    .select2-search--dropdown .select2-search__field { background-color: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px;}
+
+    /* Abas Principais */
+    .tabs-nav { display: flex; gap: 10px; margin-bottom: 25px; background: var(--bg-content); padding: 8px; border-radius: 12px; border: 1px solid var(--border-color); width: max-content; flex-wrap: wrap;}
+    .tabs-nav a { padding: 8px 20px; text-decoration: none; color: var(--text-secondary); border-radius: 8px; font-weight: 500; transition: all 0.2s ease; cursor: pointer; }
+    .tabs-nav a:hover { background: var(--bg-main); }
+    .tabs-nav a.active { background: var(--accent-color); color: white; box-shadow: 0 4px 6px -1px rgba(59,130,246,0.3); }
+    
+    /* Abas Secundárias (Grupos de Materiais) */
+    .subtabs-nav { display: flex; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; border-bottom: 2px solid var(--bg-main); padding-bottom: 10px;}
+    .subtabs-nav a { padding: 6px 15px; text-decoration: none; color: var(--text-secondary); border-radius: 20px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: 0.2s;}
+    .subtabs-nav a.active { background: var(--bg-main); color: var(--accent-color); border: 1px solid var(--border-color); }
+    
+    .tab-panel, .subtab-panel { display: none; animation: fadeIn 0.3s ease-in-out; }
+    .tab-panel.active, .subtab-panel.active { display: block; }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(5px); } to { opacity: 1; transform: translateY(0); } }
+
+    /* Tabelas e Tags */
+    .table-pro { width: 100%; border-collapse: collapse; }
+    .table-pro th { text-align: left; padding: 12px 15px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--border-color); text-transform: uppercase;}
+    .table-pro td { padding: 15px; color: var(--text-primary); border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .table-pro tbody tr:hover { background-color: var(--bg-main); }
+
+    .badge-status { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;}
+    .bg-disponivel { background: rgba(34, 197, 94, 0.1); color: var(--success-color); border: 1px solid rgba(34, 197, 94, 0.2); }
+    .bg-cautela { background: rgba(59, 130, 246, 0.1); color: var(--accent-color); border: 1px solid rgba(59, 130, 246, 0.2); }
+    .bg-defeito { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); border: 1px solid rgba(239, 68, 68, 0.2); }
+    
+    .attr-tag { font-size: 0.75rem; background: var(--bg-main); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 6px; display: inline-block; margin: 3px 3px 0 0; color: var(--text-secondary); }
+
+    /* Carrinho e Canvas */
+    .cautela-items-list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;}
+    .cautela-items-list li { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--bg-main); border-bottom: 1px solid var(--border-color); }
+    .cautela-items-list li .remove-item { color: var(--danger-color); cursor: pointer; padding: 5px; border-radius: 4px;}
+    
+    .canvas-container { border: 2px dashed var(--border-color); border-radius: 12px; background-color: #ffffff; overflow: hidden; width: 100%; margin-bottom: 10px; }
+    canvas { display: block; width: 100%; height: 200px; cursor: crosshair; }
+
+    /* Modais Customizados */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
+    .modal-overlay.active { opacity: 1; visibility: visible; }
+    .modal-content { background-color: var(--bg-content); padding: 30px; border-radius: 16px; width: 90%; max-width: 600px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); transform: scale(0.9); transition: transform 0.3s; max-height: 90vh; overflow-y: auto;}
+    .modal-overlay.active .modal-content { transform: scale(1); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 style="margin-bottom: 5px;">Gestão de Materiais</h1>
+    <p style="color: var(--text-secondary);">Controle de acervo com pesquisa, categorias dinâmicas e emissão de cautelas.</p>
+</div>
+
+<!-- NAVEGAÇÃO ABAS -->
+<nav class="tabs-nav">
+    <a class="tab-link active" data-target="tab-nova-cautela"><i class="fas fa-file-contract me-2"></i> Nova Cautela</a>
+    <a class="tab-link" data-target="tab-cautelas-ativas"><i class="fas fa-clipboard-list me-2"></i> Cautelas Ativas</a>
+    <a class="tab-link" data-target="tab-historico-cautelas"><i class="fas fa-history me-2"></i> Histórico</a>
+    <a class="tab-link" data-target="tab-acervo"><i class="fas fa-boxes me-2"></i> Acervo / Inventário</a>
+</nav>
+
+<!-- ABA: NOVA CAUTELA -->
+<div id="tab-nova-cautela" class="tab-panel active">
+    <div class="form-card">
+        <div class="form-card-header">
+            <h2><i class="fas fa-shopping-cart text-primary"></i> Seleção de Material e Militares</h2>
+            <button type="button" class="btn btn-primary px-4 py-2" id="btn-pre-finalizar" style="border-radius: 8px; font-weight: 600;">
+                Seguir para Assinaturas <i class="fas fa-arrow-right ms-2"></i>
+            </button>
+        </div>
+        
+        <div class="row g-3">
+            <div class="col-md-6 form-item">
+                <label>Militar de Sobreaviso (Emitente) <span class="text-danger">*</span></label>
+                <select id="cautela-sobreaviso" class="select2-search">
+                    <option value="">-- Apenas Militares de TI --</option>
+                    {% for mil in militares_info %}
+                        <option value="{{ mil.id }}">{{ mil.posto }} {{ mil.nome_guerra }} - {{ mil.nome_completo }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 form-item">
+                <label>Militar Recebedor <span class="text-danger">*</span></label>
+                <select id="cautela-recebedor" class="select2-search">
+                    <option value="">-- Buscar em todo efetivo --</option>
+                    {% for mil in militares %}
+                        <option value="{{ mil.id }}">{{ mil.posto }} {{ mil.nome_guerra }} (SARAM: {{ mil.saram|default:"-" }})</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <!-- Campos Extras -->
+            <div class="col-md-6 form-item mt-3">
+                <label>Telefone de Contato do Recebedor</label>
+                <input type="text" id="cautela-telefone" placeholder="(00) 90000-0000">
+            </div>
+            <div class="col-md-6 form-item mt-3">
+                <label>Missão / Motivo Opcional (Ex: Formatura)</label>
+                <input type="text" id="cautela-missao" placeholder="Nome da Missão / Motivo">
+            </div>
+
+            <div class="col-12 form-item mt-4 pt-3" style="border-top: 1px dashed var(--border-color);">
+                <label>1. Selecione a Categoria (Grupo)</label>
+                <select id="cautela-grupo-select" class="form-select" style="height: 46px;">
+                    <option value="">-- Filtrar por Grupo --</option>
+                    {% for g in grupos %}
+                        <option value="{{ g.id }}">{{ g.nome }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="col-12 form-item mt-1">
+                <label>2. Escolha o Material Disponível</label>
+                <div class="d-flex gap-2">
+                    <div style="flex-grow: 1;">
+                        <select id="cautela-material-select" class="select2-search" disabled>
+                            <option value="">-- Selecione o Grupo Primeiro --</option>
+                        </select>
+                    </div>
+                    <button type="button" class="btn btn-secondary px-3" id="btn-add-material" title="Adicionar à Cautela"><i class="fas fa-plus"></i></button>
+                </div>
+                <!-- Preview do material selecionado -->
+                <div id="material-details-preview" class="mt-2 p-3" style="background: var(--bg-main); border-radius: 8px; display: none; border: 1px solid var(--border-color); font-size: 0.9rem;">
+                </div>
+            </div>
+            
+            <div class="col-12 mt-3">
+                <h6 style="color: var(--text-secondary); font-weight: 600; text-transform: uppercase; font-size: 0.8rem; margin-bottom: 10px;">Itens no Carrinho</h6>
+                <ul class="cautela-items-list" id="cautela-cart">
+                    <li class="text-muted" id="cart-empty-msg" style="justify-content: center; height: 60px;">Nenhum material selecionado.</li>
+                </ul>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ABA: CAUTELAS ATIVAS -->
+<div id="tab-cautelas-ativas" class="tab-panel">
+    <div class="form-card">
+        <div class="form-card-header">
+            <h2>Materiais atualmente em Cautela</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="table-pro">
+                <thead>
+                    <tr>
+                        <th>Cód. Cautela</th>
+                        <th>Missão / Emissão</th>
+                        <th>Recebedor / Emitente</th>
+                        <th>Itens e Status</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cautela in cautelas_ativas %}
+                    <tr>
+                        <td><strong>#{{ cautela.id }}</strong></td>
+                        <td>
+                            {{ cautela.data_emissao|date:"d/m/Y H:i" }}<br>
+                            {% if cautela.nome_missao %}<span class="badge-status bg-info text-white" style="margin-top:4px;">{{ cautela.nome_missao }}</span>{% endif %}
+                        </td>
+                        <td>
+                            <span style="color: var(--accent-color); font-weight: 600;">Rec: {{ cautela.recebedor.posto }} {{ cautela.recebedor.nome_guerra }} ({{ cautela.recebedor.saram|default:"-" }})</span><br>
+                            <span class="text-muted" style="font-size: 0.85rem;">Tel: {{ cautela.telefone_contato|default:"S/N" }}</span><br>
+                            <span class="text-muted" style="font-size: 0.85rem;">Em: {{ cautela.sobreaviso.posto }} {{ cautela.sobreaviso.nome_guerra }}</span>
+                        </td>
+                        <td>
+                            <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem;">
+                            {% for item in cautela.itens.all %}
+                                <li style="margin-bottom: 8px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: start;">
+                                    <div>
+                                        <strong>{% if item.quantidade > 1 %}{{ item.quantidade }}x {% endif %}{{ item.material.nome }}</strong> <span class="text-muted">{% if item.material.serial %}(S/N: {{ item.material.serial }}){% endif %}</span>
+                                        
+                                        {% if item.devolvido %}
+                                            <span class="badge bg-success text-white" style="font-size: 0.65rem; margin-left: 5px; padding: 3px 6px; border-radius: 4px;">Devolvido ({{ item.data_devolucao|date:"d/m" }})</span>
+                                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">
+                                                Recebido por: {{ item.recebedor_devolucao.posto }} {{ item.recebedor_devolucao.nome_guerra }}
+                                                {% if item.assinatura_devolucao %}
+                                                <br><img src="{{ item.assinatura_devolucao }}" style="height: 25px; border: 1px solid #ccc; background: white; margin-top: 2px; border-radius: 4px;">
+                                                {% endif %}
+                                            </div>
+                                        {% endif %}
+                                        
+                                        {% if item.material.atributos_extras %}
+                                            <div style="margin-top: 4px;">
+                                                {% for k, v in item.material.atributos_extras.items %}
+                                                    <span class="attr-tag" style="background: var(--bg-content);"><b>{{ k }}:</b> {{ v }}</span>
+                                                {% endfor %}
+                                            </div>
+                                        {% endif %}
+                                    </div>
+                                    {% if not item.devolvido %}
+                                        <button class="btn btn-sm btn-outline-success py-0 px-2 mt-1" style="font-size: 0.7rem; border: 1px solid var(--success-color);" onclick="iniciarDevolucao('item', {{ item.id }})" title="Devolver apenas este material"><i class="fas fa-undo"></i> Devolver</button>
+                                    {% endif %}
+                                </li>
+                            {% endfor %}
+                            </ul>
+                        </td>
+                        <td style="vertical-align: top;">
+                            <div class="d-flex gap-2 flex-column">
+                                <a href="{% url 'informatica:imprimir_cautela' cautela.id %}" target="_blank" class="btn btn-sm btn-secondary" title="Imprimir Comprovativo">
+                                    <i class="fas fa-print"></i> Imprimir
+                                </a>
+                                <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalAddItem({{ cautela.id }})" title="Adicionar mais materiais">
+                                    <i class="fas fa-plus"></i> Add Item
+                                </button>
+                                <button type="button" class="btn btn-sm btn-success" onclick="iniciarDevolucao('total', {{ cautela.id }})" title="Devolve TODOS os itens pendentes">
+                                    <i class="fas fa-undo-alt"></i> Baixar Tudo
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="5" class="text-center text-muted py-4">Nenhuma cautela ativa no momento.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ABA: HISTÓRICO DE CAUTELAS -->
+<div id="tab-historico-cautelas" class="tab-panel">
+    <div class="form-card">
+        <div class="form-card-header">
+            <h2>Histórico Completo de Cautelas Encerradas</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="table-pro">
+                <thead>
+                    <tr>
+                        <th>Cód.</th>
+                        <th>Missão / Emissão</th>
+                        <th>Data Devolução Total</th>
+                        <th>Recebedor / Emitente</th>
+                        <th>Itens Historico</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for cautela in cautelas_historico %}
+                    <tr style="opacity: 0.85;">
+                        <td><strong>#{{ cautela.id }}</strong></td>
+                        <td>
+                            {{ cautela.data_emissao|date:"d/m/Y H:i" }}<br>
+                            {% if cautela.nome_missao %}<span class="badge-status bg-info text-white" style="margin-top:4px;">{{ cautela.nome_missao }}</span>{% endif %}
+                        </td>
+                        <td><span class="text-success">{{ cautela.data_devolucao|date:"d/m/Y H:i" }}</span></td>
+                        <td>
+                            <span style="font-weight: 600;">Rec: {{ cautela.recebedor.posto }} {{ cautela.recebedor.nome_guerra }}</span><br>
+                            <span class="text-muted" style="font-size: 0.85rem;">Em: {{ cautela.sobreaviso.posto }} {{ cautela.sobreaviso.nome_guerra }}</span>
+                        </td>
+                        <td>
+                            <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem;">
+                            {% for item in cautela.itens.all %}
+                                <li>- {% if item.quantidade > 1 %}{{ item.quantidade }}x {% endif %}{{ item.material.nome }} {% if item.material.serial %}(S/N: {{ item.material.serial }}){% endif %}</li>
+                            {% endfor %}
+                            </ul>
+                        </td>
+                        <td>
+                            <a href="{% url 'informatica:imprimir_cautela' cautela.id %}" target="_blank" class="btn btn-sm btn-secondary">
+                                <i class="fas fa-print"></i> Ver Recibo
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center text-muted py-4">O histórico está vazio.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ABA: ACERVO GERAL (Com Edição e Exclusão) -->
+<div id="tab-acervo" class="tab-panel">
+    <div class="form-card">
+        <div class="form-card-header">
+            <h2>Acervo de Informática</h2>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-danger" onclick="document.getElementById('modal-gerenciar-categorias').classList.add('active')"><i class="fas fa-cog me-1"></i> Categorias</button>
+                <button class="btn btn-sm btn-secondary" onclick="document.getElementById('modal-grupo').classList.add('active')">+ Grupo</button>
+                <button class="btn btn-sm btn-secondary" onclick="document.getElementById('modal-subgrupo').classList.add('active')">+ Subgrupo</button>
+                <button class="btn btn-sm btn-primary" onclick="abrirModalNovoMaterial()"><i class="fas fa-plus me-1"></i> Adicionar Material</button>
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-between align-items-center mb-3">
+            <nav class="subtabs-nav" id="grupos-subtabs">
+                <a class="subtab-link active" data-target="subtab-all">Todos os Itens</a>
+                {% for g in grupos %}
+                    <a class="subtab-link" data-target="subtab-g{{ g.id }}">{{ g.nome }}</a>
+                {% endfor %}
+            </nav>
+            <select class="form-select form-select-sm" id="filtro-status" style="width: auto;" onchange="filtrarAcervo()">
+                <option value="all">Filtrar: Todos os Status</option>
+                <option value="ok">Apenas Funcionando</option>
+                <option value="defeito">Com Defeito</option>
+            </select>
+        </div>
+
+        <div class="table-responsive">
+            <table class="table-pro" id="tabela-acervo">
+                <thead>
+                    <tr>
+                        <th>Grupo / Subgrupo</th>
+                        <th>Material e Especificações</th>
+                        <th>Serial / Código</th>
+                        <th>Status Operacional</th>
+                        <th>Disponibilidade</th>
+                        <th style="width: 110px;">Ações</th> <!-- NOVA COLUNA -->
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for mat in materiais %}
+                    <tr class="acervo-row" data-grupo="subtab-g{{ mat.subgrupo.grupo.id }}" data-funciona="{% if mat.funcionando %}ok{% else %}defeito{% endif %}">
+                        <td><span class="text-muted">{{ mat.subgrupo.grupo.nome }} /</span><br><strong>{{ mat.subgrupo.nome }}</strong></td>
+                        <td>
+                            <strong style="font-size: 1.05rem;">{{ mat.nome }}</strong><br>
+                            {% if mat.atributos_extras %}
+                                <div class="mt-1">
+                                    {% for key, val in mat.atributos_extras.items %}
+                                        <span class="attr-tag"><b>{{ key }}:</b> {{ val }}</span>
+                                    {% endfor %}
+                                </div>
+                            {% endif %}
+                        </td>
+                        <td><span style="color: var(--accent-color);">S/N: {{ mat.serial|default:"N/A" }}</span><br><small class="text-muted">Cód: {{ mat.codigo|default:"-" }}</small></td>
+                        <td>
+                            {% if mat.funcionando %}
+                                <span class="badge-status bg-disponivel"><i class="fas fa-check"></i> Funcionando</span>
+                            {% else %}
+                                <span class="badge-status bg-defeito" title="{{ mat.motivo_defeito }}"><i class="fas fa-times"></i> Defeito</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            {% if not mat.funcionando %}
+                                <span class="badge-status bg-defeito">Inoperante</span>
+                            {% elif mat.quantidade_disponivel > 0 %}
+                                <span class="badge-status bg-disponivel" title="De um total de {{ mat.quantidade }}">Livre ({{ mat.quantidade_disponivel }})</span>
+                            {% else %}
+                                <span class="badge-status bg-cautela">Em Cautela</span>
+                            {% endif %}
+                        </td>
+                        <td>
+                            <!-- BOTÕES DE EDIÇÃO E EXCLUSÃO AQUI -->
+                            <div class="d-flex gap-2">
+                                <button class="btn btn-sm btn-outline-primary py-1 px-2" onclick="editarMaterial({{ mat.id }})" title="Editar"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="confirmarDelecaoMaterial({{ mat.id }}, '{{ mat.nome|escapejs }}')" title="Excluir"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum material cadastrado.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAIS DE ASSINATURA EM CASCATA -->
+<!-- ============================================== -->
+
+<div class="modal-overlay" id="modal-assinatura-recebedor">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3><i class="fas fa-pen-nib text-primary me-2"></i> Assinatura: Recebedor</h3>
+        <p class="text-muted small">O militar que está a receber o material deve assinar no quadro abaixo.</p>
+        <div class="canvas-container"><canvas id="pad-recebedor"></canvas></div>
+        <div class="d-flex justify-content-between mt-3">
+            <button type="button" class="btn btn-sm btn-light" onclick="padRecebedor.clear()">Limpar</button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-assinatura-recebedor')">Cancelar</button>
+                <button class="btn btn-primary" onclick="avancarParaSobreaviso()">Próximo Passo <i class="fas fa-arrow-right"></i></button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-assinatura-sobreaviso">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3><i class="fas fa-check-double text-success me-2"></i> Assinatura: Sobreaviso</h3>
+        <p class="text-muted small">Assinatura final do emitente da Informática.</p>
+        
+        <div id="btn-usar-assinatura-salva-container" style="display: none; margin-bottom: 15px;">
+            <button class="btn btn-outline-primary w-100" onclick="finalizarCautelaComAssinaturaSalva()"><i class="fas fa-file-signature me-2"></i> Usar Minha Assinatura Padrão</button>
+            <div class="text-center my-2 text-muted">-- OU ASSINE ABAIXO --</div>
+        </div>
+        
+        <div class="canvas-container"><canvas id="pad-sobreaviso"></canvas></div>
+        
+        <div class="form-check mt-2 mb-3">
+            <input class="form-check-input" type="checkbox" id="salvar_assinatura_padrao">
+            <label class="form-check-label text-secondary small" for="salvar_assinatura_padrao">Salvar assinatura como minha padrão para o futuro</label>
+        </div>
+
+        <div class="d-flex justify-content-between mt-3">
+            <button type="button" class="btn btn-sm btn-light" onclick="padSobreaviso.clear()">Limpar</button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-secondary" onclick="fecharModal('modal-assinatura-sobreaviso'); document.getElementById('modal-assinatura-recebedor').classList.add('active');">Voltar</button>
+                <button class="btn btn-success" onclick="finalizarCautelaDesenhada()" id="btn-finalizar-real"><i class="fas fa-save me-1"></i> Emitir Oficialmente</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-assinatura-devolucao">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3><i class="fas fa-undo-alt text-success me-2"></i> Registrar Devolução</h3>
+        <p class="text-muted small">Selecione o Sobreaviso da Informática que está recebendo o equipamento de volta e assine.</p>
+        
+        <input type="hidden" id="dev-action-type"> 
+        <input type="hidden" id="dev-action-id"> 
+        
+        <div class="form-item mb-3">
+            <label>Sobreaviso que recebe:</label>
+            <select id="dev-sobreaviso" class="form-select" onchange="verificarAssinaturaDevolucao()">
+                <option value="">-- Selecione o Militar --</option>
+                {% for mil in militares_info %}
+                    <option value="{{ mil.id }}">{{ mil.posto }} {{ mil.nome_guerra }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div id="btn-dev-assinatura-salva-container" style="display: none; margin-bottom: 15px;">
+            <button class="btn btn-outline-success w-100" onclick="processarDevolucao(true)"><i class="fas fa-check-circle me-2"></i> Usar Minha Assinatura Salva e Confirmar</button>
+            <div class="text-center my-2 text-muted">-- OU ASSINE ABAIXO --</div>
+        </div>
+
+        <div class="canvas-container"><canvas id="pad-devolucao"></canvas></div>
+
+        <div class="d-flex justify-content-between mt-3">
+            <button type="button" class="btn btn-sm btn-light" onclick="padDevolucao.clear()">Limpar</button>
+            <div class="d-flex gap-2">
+                <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-assinatura-devolucao')">Cancelar</button>
+                <button class="btn btn-success" onclick="processarDevolucao(false)" id="btn-dev-confirmar"><i class="fas fa-check"></i> Confirmar Baixa</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- ============================================== -->
+<!-- MODAIS DO ACERVO (EDICAO / EXCLUSAO / CADASTRO) -->
+<!-- ============================================== -->
+<div class="modal-overlay" id="modal-delete-material">
+    <div class="modal-content" style="max-width: 450px;">
+        <h3><i class="fas fa-exclamation-triangle text-danger me-2"></i> Excluir Material</h3>
+        <p>Você está prestes a excluir: <strong id="del-mat-nome" class="text-primary"></strong></p>
+        <p class="text-muted small">Esta ação apagará o item do acervo. Confirme com a sua senha de acesso.</p>
+        
+        <input type="hidden" id="del-mat-id">
+        <div class="form-item mt-3">
+            <input type="password" id="del-mat-password" placeholder="Digite sua senha...">
+        </div>
+        
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-delete-material')">Cancelar</button>
+            <button class="btn btn-danger" id="btn-confirm-delete" onclick="executarDelecaoMaterial()"><i class="fas fa-trash me-1"></i> Excluir Definitivamente</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-add-item-cautela">
+    <div class="modal-content">
+        <h3>Adicionar Item Extra à Cautela #<span id="add-item-cautela-id-text"></span></h3>
+        <input type="hidden" id="add-item-cautela-id">
+        <div class="form-item mt-3">
+            <label>1. Selecione a Categoria</label>
+            <select id="add-item-grupo" class="form-select">
+                <option value="">-- Filtrar por Grupo --</option>
+                {% for g in grupos %}<option value="{{ g.id }}">{{ g.nome }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-item mt-3">
+            <label>2. Selecione o Material</label>
+            <select id="add-item-material" class="select2-search" style="width: 100%;">
+                <option value="">-- Selecione o Grupo Primeiro --</option>
+            </select>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-add-item-cautela')">Cancelar</button>
+            <button class="btn btn-primary" onclick="salvarNovoItemCautela()"><i class="fas fa-plus"></i> Adicionar Material</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-gerenciar-categorias">
+    <div class="modal-content">
+        <h3><i class="fas fa-cogs text-danger me-2"></i> Gerenciar Categorias</h3>
+        <p class="text-muted" style="font-size: 0.85rem;">Atenção: A exclusão de um grupo apagará todos os seus subgrupos.</p>
+        <div style="max-height: 400px; overflow-y: auto; margin-top: 15px;">
+            <ul class="list-group" style="list-style: none; padding: 0;">
+                {% for g in grupos %}
+                    <li style="background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; padding: 15px;">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <strong style="font-size: 1.1rem; color: var(--text-primary);">{{ g.nome }}</strong>
+                            <button class="btn btn-sm btn-danger py-1 px-2" onclick="deletarGrupo({{ g.id }})"><i class="fas fa-trash"></i></button>
+                        </div>
+                        <ul style="list-style: none; padding-left: 15px; margin-top: 15px; border-left: 2px solid var(--border-color);">
+                            {% for sg in g.subgrupos.all %}
+                                <li class="d-flex justify-content-between align-items-center mb-2">
+                                    <span style="font-size: 0.95rem; color: var(--text-secondary);">{{ sg.nome }}</span>
+                                    <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deletarSubgrupo({{ sg.id }})"><i class="fas fa-times"></i></button>
+                                </li>
+                            {% endfor %}
+                        </ul>
+                    </li>
+                {% endfor %}
+            </ul>
+        </div>
+        <div class="d-flex justify-content-end mt-4">
+            <button class="btn btn-secondary px-4 btn-cancelar-modal" onclick="fecharModal('modal-gerenciar-categorias')">Fechar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-grupo">
+    <div class="modal-content">
+        <h3>Adicionar Grupo</h3>
+        <div class="form-item mt-3"><input type="text" id="novo_grupo_nome" placeholder="Nome do Grupo"></div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-grupo')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-grupo">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-subgrupo">
+    <div class="modal-content">
+        <h3>Adicionar Subgrupo</h3>
+        <div class="form-item mt-3">
+            <select id="novo_subgrupo_grupo_id" class="form-select">
+                {% for g in grupos %}<option value="{{ g.id }}">{{ g.nome }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-item mt-3"><input type="text" id="novo_subgrupo_nome" placeholder="Nome do Subgrupo"></div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-subgrupo')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-subgrupo">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Unificado para Criar E Editar Material -->
+<div class="modal-overlay" id="modal-material">
+    <div class="modal-content">
+        <h3 id="titulo-modal-material">Novo Equipamento / Material</h3>
+        <input type="hidden" id="edit_mat_id"> <!-- ID para Editar -->
+        <div class="row g-3 mt-1">
+            <div class="col-12 form-item">
+                <label>Categoria (Subgrupo)</label>
+                <select id="novo_mat_subgrupo" style="width: 100%;">
+                    <option value="">Selecione...</option>
+                    {% for sg in subgrupos %}<option value="{{ sg.id }}">{{ sg.grupo.nome }} -> {{ sg.nome }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-5 form-item"><label>Nome / Modelo</label><input type="text" id="novo_mat_nome"></div>
+            <div class="col-md-3 form-item"><label>Qtd Total</label><input type="number" id="novo_mat_quantidade" value="1" min="1"></div>
+            <div class="col-md-4 form-item"><label>Nº Série</label><input type="text" id="novo_mat_serial" placeholder="S/N"></div>
+            
+            <div class="col-md-6 form-item"><label>Cód. Interno</label><input type="text" id="novo_mat_codigo"></div>
+            <div class="col-md-6 form-item">
+                <label>Status</label>
+                <select id="novo_mat_status">
+                    <option value="1">Funcionando (OK)</option>
+                    <option value="0">Com Defeito</option>
+                </select>
+            </div>
+            <div class="col-12 form-item" id="motivo-container" style="display: none;">
+                <label class="text-danger">Motivo</label>
+                <textarea id="novo_mat_motivo" rows="2"></textarea>
+            </div>
+
+            <div class="col-12 mt-3 pt-3" style="border-top: 1px dashed var(--border-color);">
+                <label class="d-flex justify-content-between align-items-center">
+                    <span>Atributos Técnicos</span>
+                    <button type="button" class="btn btn-sm btn-secondary py-1" onclick="addAtributoRow()"><i class="fas fa-plus"></i> Linha</button>
+                </label>
+                <div id="atributos-container" class="d-flex flex-column gap-2 mt-2"></div>
+            </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-material')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-material">Salvar Alterações</button>
+        </div>
+    </div>
+</div>
+
+{% csrf_token %}
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
+    
+    let materiaisDisponiveis = []; let militaresTelefones = []; let militaresInfoDados = []; let acervoGeral = [];
+    try {
+        const matJsonStr = '{{ materiais_json|escapejs }}';
+        const milJsonStr = '{{ militares_dados_json|escapejs }}';
+        const milInfoStr = '{{ militares_info_json|escapejs }}';
+        const acervoJsonStr = '{{ acervo_json|escapejs }}';
+        
+        materiaisDisponiveis = matJsonStr ? JSON.parse(matJsonStr) : [];
+        militaresTelefones = milJsonStr ? JSON.parse(milJsonStr) : [];
+        militaresInfoDados = milInfoStr ? JSON.parse(milInfoStr) : [];
+        acervoGeral = acervoJsonStr ? JSON.parse(acervoJsonStr) : [];
+    } catch(e) { console.error("Falha ao carregar dados", e); }
+
+    const hasJQuery = (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined');
+    let isEditingMat = false;
+    
+    if (hasJQuery) {
+        $('.select2-search').select2({ width: '100%' });
+        $('#novo_mat_subgrupo').select2({ width: '100%', dropdownParent: $('#modal-material') });
+        $('#add-item-material').select2({ width: '100%', dropdownParent: $('#modal-add-item-cautela') });
+        
+        $('#cautela-recebedor').on('select2:select', function (e) { preencherTelefone(e.params.data.id); });
+        
+        $('#novo_mat_subgrupo').on('select2:select', function (e) { 
+            if(!isEditingMat) gerarAtributosDinamicos(e.params.data.text); 
+        });
+    } else {
+        document.getElementById('cautela-recebedor').addEventListener('change', function() { preencherTelefone(this.value); });
+        document.getElementById('novo_mat_subgrupo').addEventListener('change', function() {
+            if(!isEditingMat && this.selectedIndex >= 0) gerarAtributosDinamicos(this.options[this.selectedIndex].text);
+        });
+    }
+
+    function preencherTelefone(milId) {
+        const mil = militaresTelefones.find(m => m.id == milId);
+        document.getElementById('cautela-telefone').value = (mil && mil.telefone) ? mil.telefone : '';
+    }
+
+    window.fecharModal = function(id) { document.getElementById(id).classList.remove('active'); };
+    document.querySelectorAll('.modal-overlay').forEach(modal => {
+        modal.addEventListener('click', e => { if(e.target === modal) modal.classList.remove('active'); });
+    });
+
+    document.querySelectorAll('.tab-link').forEach(link => {
+        link.addEventListener('click', (e) => {
+            document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            link.classList.add('active');
+            document.getElementById(link.getAttribute('data-target')).classList.add('active');
+        });
+    });
+
+    let grupoAtivo = 'subtab-all';
+    document.querySelectorAll('.subtab-link').forEach(link => {
+        link.addEventListener('click', () => {
+            document.querySelectorAll('.subtab-link').forEach(l => l.classList.remove('active'));
+            link.classList.add('active');
+            grupoAtivo = link.getAttribute('data-target');
+            filtrarAcervo();
+        });
+    });
+
+    window.filtrarAcervo = function() {
+        const statusFiltro = document.getElementById('filtro-status').value;
+        document.querySelectorAll('.acervo-row').forEach(row => {
+            const matchGrupo = (grupoAtivo === 'subtab-all' || row.getAttribute('data-grupo') === grupoAtivo);
+            const matchStatus = (statusFiltro === 'all' || row.getAttribute('data-funciona') === statusFiltro);
+            row.style.display = (matchGrupo && matchStatus) ? '' : 'none';
+        });
+    };
+
+    let padRecebedor = null; let padSobreaviso = null; let padDevolucao = null;
+    if (typeof SignaturePad !== 'undefined') {
+        padRecebedor = new SignaturePad(document.getElementById('pad-recebedor'), { backgroundColor: 'rgb(255, 255, 255)' });
+        padSobreaviso = new SignaturePad(document.getElementById('pad-sobreaviso'), { backgroundColor: 'rgb(255, 255, 255)' });
+        padDevolucao = new SignaturePad(document.getElementById('pad-devolucao'), { backgroundColor: 'rgb(255, 255, 255)' });
+    }
+
+    window.resizeCanvas = function(canvas, pad) {
+        if(!canvas || !canvas.offsetWidth || !pad) return;
+        const ratio = Math.max(window.devicePixelRatio || 1, 1);
+        canvas.width = canvas.offsetWidth * ratio;
+        canvas.height = canvas.offsetHeight * ratio;
+        canvas.getContext("2d").scale(ratio, ratio);
+        pad.clear();
+    };
+
+    let cart = [];
+    const grupoSelect = document.getElementById('cautela-grupo-select');
+    const materialSelect = document.getElementById('cautela-material-select');
+    const cartList = document.getElementById('cautela-cart');
+    const emptyMsg = document.getElementById('cart-empty-msg');
+    const previewDiv = document.getElementById('material-details-preview');
+
+    grupoSelect.addEventListener('change', function() {
+        const groupId = this.value;
+        materialSelect.innerHTML = '';
+        previewDiv.style.display = 'none';
+        
+        if(!groupId) {
+            materialSelect.innerHTML = '<option value="">-- Selecione o Grupo --</option>';
+            materialSelect.disabled = true; return;
+        }
+        
+        materialSelect.disabled = false;
+        materialSelect.innerHTML = '<option value="">-- Selecione o Material --</option>';
+        const filtrados = materiaisDisponiveis.filter(m => m.grupo_id == groupId && !cart.find(c => c.id == m.id));
+        filtrados.forEach(m => {
+            const disp = m.quantidade_disponivel > 1 ? ` [${m.quantidade_disponivel} unid. disp.]` : '';
+            const serial = m.serial ? `(S/N: ${m.serial})` : '';
+            materialSelect.innerHTML += `<option value="${m.id}">${m.nome} ${serial}${disp}</option>`;
+        });
+        if(hasJQuery) $(materialSelect).trigger('change');
+    });
+
+    const triggerMaterialPreview = function() {
+        const matId = materialSelect.value;
+        if(!matId) { previewDiv.style.display = 'none'; return; }
+        const mat = materiaisDisponiveis.find(m => m.id.toString() === matId);
+        if(mat) {
+            let attrHtml = '';
+            if(mat.atributos && Object.keys(mat.atributos).length > 0) {
+                attrHtml = '<div class="mt-2 pt-2" style="border-top: 1px dashed var(--border-color);">';
+                for (const [key, value] of Object.entries(mat.atributos)) attrHtml += `<span class="attr-tag" style="background: var(--bg-content);"><b>${key}:</b> ${value}</span>`;
+                attrHtml += '</div>';
+            }
+            const snText = mat.serial ? `<span style="color: var(--accent-color); font-weight: 600;">[S/N: ${mat.serial}]</span>` : '';
+            previewDiv.innerHTML = `<strong style="color: var(--text-primary); font-size: 1.05rem;">${mat.nome}</strong> ${snText}${attrHtml}`;
+            previewDiv.style.display = 'block';
+        }
+    };
+
+    if(hasJQuery) $(materialSelect).on('change', triggerMaterialPreview);
+    else materialSelect.addEventListener('change', triggerMaterialPreview);
+
+    document.getElementById('btn-add-material').addEventListener('click', () => {
+        const val = materialSelect.value;
+        if(!val) return;
+        if(cart.find(i => i.id == val)) return;
+
+        const mat = materiaisDisponiveis.find(m => m.id.toString() === val);
+        let qtd = 1;
+        if(mat.quantidade_disponivel > 1) {
+            let inputQtd = prompt(`O item possui ${mat.quantidade_disponivel} unidades disponíveis.\nQuantas deseja adicionar?`, "1");
+            if (inputQtd === null) return; 
+            qtd = parseInt(inputQtd);
+            if (isNaN(qtd) || qtd < 1 || qtd > mat.quantidade_disponivel) { alert(`Quantidade inválida.`); return; }
+        }
+
+        cart.push({ id: val, qtd: qtd });
+        if(emptyMsg) emptyMsg.style.display = 'none';
+
+        let attrHtmlText = '';
+        if(mat.atributos && Object.keys(mat.atributos).length > 0) {
+            attrHtmlText = '<div style="margin-top: 5px;">';
+            for (const [key, value] of Object.entries(mat.atributos)) attrHtmlText += `<span class="attr-tag" style="font-size: 0.7rem; background: var(--bg-content);">${key}: ${value}</span>`;
+            attrHtmlText += '</div>';
+        }
+
+        const snDisplay = mat.serial ? `(S/N: ${mat.serial})` : '';
+        const qtdDisplay = qtd > 1 ? `<span class="badge bg-primary me-2">${qtd}x</span>` : '';
+
+        const li = document.createElement('li');
+        li.id = `cart-item-${val}`;
+        li.innerHTML = `
+            <div>
+                <span>${qtdDisplay} <strong style="color: var(--text-primary);">${mat.nome}</strong> <span class="text-muted">${snDisplay}</span></span>
+                ${attrHtmlText}
+            </div>
+            <i class="fas fa-trash remove-item" onclick="removeFromCart('${val}')" style="cursor:pointer;"></i>
+        `;
+        cartList.appendChild(li);
+        if(hasJQuery) $(grupoSelect).trigger('change');
+    });
+
+    window.removeFromCart = function(id) {
+        cart = cart.filter(item => item.id != id);
+        const itemEl = document.getElementById(`cart-item-${id}`);
+        if(itemEl) itemEl.remove();
+        if(cart.length === 0 && emptyMsg) emptyMsg.style.display = 'flex';
+        if(hasJQuery) $(grupoSelect).trigger('change');
+    };
+
+    // --- FLUXO DE ASSINATURA EM CASCATA ---
+    document.getElementById('btn-pre-finalizar').addEventListener('click', () => {
+        if(!document.getElementById('cautela-sobreaviso').value || !document.getElementById('cautela-recebedor').value) { alert("Selecione o Sobreaviso e o Recebedor."); return; }
+        if(cart.length === 0) { alert("Adicione pelo menos um material ao carrinho."); return; }
+        
+        document.getElementById('modal-assinatura-recebedor').classList.add('active');
+        setTimeout(() => resizeCanvas(document.getElementById('pad-recebedor'), padRecebedor), 250);
+    });
+
+    window.avancarParaSobreaviso = function() {
+        if(padRecebedor.isEmpty()) { alert("O recebedor precisa assinar para prosseguir."); return; }
+        fecharModal('modal-assinatura-recebedor');
+        
+        const sobreavisoId = document.getElementById('cautela-sobreaviso').value;
+        const sob = militaresInfoDados.find(m => m.id == sobreavisoId);
+        
+        if (sob && sob.assinatura) {
+            document.getElementById('btn-usar-assinatura-salva-container').style.display = 'block';
+            window.assinaturaSobreavisoCache = sob.assinatura;
+        } else {
+            document.getElementById('btn-usar-assinatura-salva-container').style.display = 'none';
+        }
+
+        document.getElementById('modal-assinatura-sobreaviso').classList.add('active');
+        setTimeout(() => resizeCanvas(document.getElementById('pad-sobreaviso'), padSobreaviso), 250);
+    };
+
+    window.finalizarCautelaDesenhada = function() {
+        if(padSobreaviso.isEmpty()) { alert("O Sobreaviso precisa assinar o quadro!"); return; }
+        executarEmissao(padSobreaviso.toDataURL(), document.getElementById('salvar_assinatura_padrao').checked);
+    };
+
+    window.finalizarCautelaComAssinaturaSalva = function() { executarEmissao(window.assinaturaSobreavisoCache, false); };
+
+    function executarEmissao(assinaturaSobreaviso, salvarPadrao) {
+        const btn = document.getElementById('btn-finalizar-real');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Processando...'; btn.disabled = true;
+
+        const payload = {
+            sobreaviso_id: document.getElementById('cautela-sobreaviso').value,
+            recebedor_id: document.getElementById('cautela-recebedor').value,
+            telefone_contato: document.getElementById('cautela-telefone').value,
+            nome_missao: document.getElementById('cautela-missao').value,
+            materiais: cart,
+            assinatura_recebedor: padRecebedor.toDataURL(),
+            assinatura_sobreaviso: assinaturaSobreaviso,
+            salvar_padrao: salvarPadrao
+        };
+
+        fetch("{% url 'informatica:api_salvar_cautela' %}", {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: JSON.stringify(payload)
+        }).then(r => r.json()).then(res => {
+            if(res.status === 'success') {
+                window.open(`/informatica/cautelas/${res.cautela_id}/imprimir/`, '_blank'); 
+                window.location.reload(); 
+            } else { alert("Erro: " + res.message); btn.innerHTML = 'Emitir Oficialmente'; btn.disabled = false; }
+        });
+    }
+
+    // --- FLUXO DE DEVOLUÇÃO (COM ASSINATURA) ---
+    window.iniciarDevolucao = function(tipo, id) {
+        document.getElementById('dev-action-type').value = tipo;
+        document.getElementById('dev-action-id').value = id;
+        document.getElementById('modal-assinatura-devolucao').classList.add('active');
+        document.getElementById('dev-sobreaviso').value = '';
+        document.getElementById('btn-dev-assinatura-salva-container').style.display = 'none';
+        setTimeout(() => resizeCanvas(document.getElementById('pad-devolucao'), padDevolucao), 250);
+    };
+
+    window.verificarAssinaturaDevolucao = function() {
+        const sobId = document.getElementById('dev-sobreaviso').value;
+        if(!sobId) { document.getElementById('btn-dev-assinatura-salva-container').style.display = 'none'; return; }
+        const sob = militaresInfoDados.find(m => m.id == sobId);
+        if (sob && sob.assinatura) {
+            document.getElementById('btn-dev-assinatura-salva-container').style.display = 'block';
+            window.assinaturaDevolucaoCache = sob.assinatura;
+        } else {
+            document.getElementById('btn-dev-assinatura-salva-container').style.display = 'none';
+        }
+    };
+
+    window.processarDevolucao = function(usarSalva) {
+        const tipo = document.getElementById('dev-action-type').value; 
+        const objId = document.getElementById('dev-action-id').value;
+        const sobId = document.getElementById('dev-sobreaviso').value;
+        
+        if(!sobId) { alert("Selecione quem está recebendo!"); return; }
+        if(!usarSalva && padDevolucao.isEmpty()) { alert("Assine o quadro!"); return; }
+
+        const assinatura = usarSalva ? window.assinaturaDevolucaoCache : padDevolucao.toDataURL();
+        const url = tipo === 'total' ? `/informatica/api/cautelas/${objId}/devolver/` : `/informatica/api/cautelas/item/${objId}/devolver/`;
+        
+        document.getElementById('btn-dev-confirmar').disabled = true;
+        fetch(url, { 
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken }, 
+            body: JSON.stringify({ sobreaviso_id: sobId, assinatura_devolucao: assinatura })
+        }).then(r => r.json()).then(res => { 
+            if(res.status === 'success') window.location.reload(); 
+            else { alert("Erro: " + res.message); document.getElementById('btn-dev-confirmar').disabled = false; } 
+        });
+    };
+
+    // --- ADICIONAR ITEM EXTRA EM CAUTELA ABERTA ---
+    const addItemGrupo = document.getElementById('add-item-grupo');
+    const addItemMaterial = document.getElementById('add-item-material');
+
+    addItemGrupo.addEventListener('change', function() {
+        const groupId = this.value;
+        addItemMaterial.innerHTML = '';
+        if(!groupId) {
+            addItemMaterial.innerHTML = '<option value="">-- Selecione o Grupo --</option>'; return;
+        }
+        addItemMaterial.innerHTML = '<option value="">-- Selecione o Material --</option>';
+        const filtrados = materiaisDisponiveis.filter(m => m.grupo_id == groupId);
+        filtrados.forEach(m => {
+            const snText = m.serial ? `(S/N: ${m.serial})` : '';
+            const disp = m.quantidade_disponivel > 1 ? `[${m.quantidade_disponivel} unid.]` : '';
+            addItemMaterial.innerHTML += `<option value="${m.id}">${m.nome} ${snText} ${disp}</option>`;
+        });
+        if (hasJQuery) $(addItemMaterial).trigger('change');
+    });
+
+    window.abrirModalAddItem = function(cautelaId) {
+        document.getElementById('add-item-cautela-id').value = cautelaId;
+        document.getElementById('add-item-cautela-id-text').innerText = cautelaId;
+        document.getElementById('modal-add-item-cautela').classList.add('active');
+    };
+
+    window.salvarNovoItemCautela = function() {
+        const cautelaId = document.getElementById('add-item-cautela-id').value;
+        const matId = addItemMaterial.value;
+        if(!matId) { alert("Selecione um material!"); return; }
+        
+        const mat = materiaisDisponiveis.find(m => m.id == matId);
+        let qtd = 1;
+        if(mat.quantidade_disponivel > 1) {
+            let inputQtd = prompt(`Quantas unidades deseja adicionar? (Máximo: ${mat.quantidade_disponivel})`, "1");
+            if (inputQtd === null) return;
+            qtd = parseInt(inputQtd);
+            if (isNaN(qtd) || qtd < 1 || qtd > mat.quantidade_disponivel) { alert("Quantidade inválida!"); return; }
+        }
+        fetch(`/informatica/api/cautelas/${cautelaId}/add-item/`, {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: JSON.stringify({ material_id: matId, quantidade: qtd })
+        }).then(r => r.json()).then(res => {
+            if(res.status === 'success') window.location.reload(); else alert("Erro: " + res.message);
+        });
+    };
+
+    // --- ACERVO GERAL: EXCLUSÕES E ATRIBUTOS DINÂMICOS ---
+    window.deletarGrupo = function(id) {
+        if(!confirm("Apagar Grupo e TODOS os Subgrupos associados?")) return;
+        fetch(`/informatica/api/materiais/delete-grupo/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }})
+        .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert(res.message); });
+    };
+
+    window.deletarSubgrupo = function(id) {
+        if(!confirm("Excluir Subgrupo?")) return;
+        fetch(`/informatica/api/materiais/delete-subgrupo/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }})
+        .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert(res.message); });
+    };
+
+    window.addAtributoRow = function(key='', val='') {
+        const div = document.createElement('div');
+        div.className = 'd-flex gap-2 align-items-center atributo-row';
+        div.innerHTML = `
+            <input type="text" class="form-control attr-key" placeholder="Nome" value="${key}" style="width: 45%; background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-primary);">
+            <input type="text" class="form-control attr-val" placeholder="Valor" value="${val}" style="width: 55%; background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-primary);">
+            <i class="fas fa-times text-danger p-2" style="cursor:pointer;" onclick="this.parentElement.remove()"></i>
+        `;
+        document.getElementById('atributos-container').appendChild(div);
+    };
+
+    function gerarAtributosDinamicos(textRaw) {
+        const text = textRaw.toLowerCase();
+        document.getElementById('atributos-container').innerHTML = ''; 
+        if(text.includes('computador') || text.includes('notebook') || text.includes('servidor')) {
+            addAtributoRow('Processador', ''); addAtributoRow('Memória RAM', ''); addAtributoRow('Endereço IP', '');
+        } else if(text.includes('radio') || text.includes('rádio')) {
+            addAtributoRow('Frequência', ''); addAtributoRow('Antena', 'Possui');
+        }
+    }
+
+    document.getElementById('novo_mat_status').addEventListener('change', function() {
+        document.getElementById('motivo-container').style.display = this.value === '0' ? 'block' : 'none';
+    });
+
+    function postApi(url, bodyData) {
+        fetch(url, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: JSON.stringify(bodyData) })
+        .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert("Erro: " + res.message); });
+    }
+
+    document.getElementById('btn-save-grupo').addEventListener('click', () => {
+        postApi("{% url 'informatica:api_add_grupo' %}", { nome: document.getElementById('novo_grupo_nome').value });
+    });
+    document.getElementById('btn-save-subgrupo').addEventListener('click', () => {
+        postApi("{% url 'informatica:api_add_subgrupo' %}", { grupo_id: document.getElementById('novo_subgrupo_grupo_id').value, nome: document.getElementById('novo_subgrupo_nome').value });
+    });
+
+    // --- ACERVO: EDITAR E EXCLUIR MATERIAL (Novo) ---
+    window.abrirModalNovoMaterial = function() {
+        isEditingMat = false;
+        document.getElementById('edit_mat_id').value = '';
+        document.getElementById('titulo-modal-material').innerHTML = 'Novo Equipamento / Material';
+        document.getElementById('novo_mat_nome').value = '';
+        document.getElementById('novo_mat_serial').value = '';
+        document.getElementById('novo_mat_codigo').value = '';
+        document.getElementById('novo_mat_quantidade').value = '1';
+        document.getElementById('novo_mat_status').value = '1';
+        document.getElementById('novo_mat_motivo').value = '';
+        document.getElementById('motivo-container').style.display = 'none';
+        document.getElementById('atributos-container').innerHTML = '';
+        
+        if(hasJQuery) $('#novo_mat_subgrupo').val('').trigger('change.select2');
+        
+        document.getElementById('modal-material').classList.add('active');
+    };
+
+    window.editarMaterial = function(id) {
+        const mat = acervoGeral.find(m => m.id == id);
+        if(!mat) return;
+        
+        isEditingMat = true; 
+        document.getElementById('edit_mat_id').value = mat.id; 
+        document.getElementById('titulo-modal-material').innerHTML = '<i class="fas fa-edit text-primary me-2"></i> Editar Equipamento';
+
+        document.getElementById('novo_mat_nome').value = mat.nome;
+        document.getElementById('novo_mat_serial').value = mat.serial;
+        document.getElementById('novo_mat_codigo').value = mat.codigo;
+        document.getElementById('novo_mat_quantidade').value = mat.quantidade;
+        document.getElementById('novo_mat_status').value = mat.funcionando;
+        document.getElementById('novo_mat_motivo').value = mat.motivo_defeito;
+        document.getElementById('motivo-container').style.display = mat.funcionando === 0 ? 'block' : 'none';
+
+        if(hasJQuery) $('#novo_mat_subgrupo').val(mat.subgrupo_id).trigger('change.select2'); 
+        else document.getElementById('novo_mat_subgrupo').value = mat.subgrupo_id;
+
+        document.getElementById('atributos-container').innerHTML = '';
+        if(mat.atributos) {
+            for (const [key, value] of Object.entries(mat.atributos)) {
+                addAtributoRow(key, value);
+            }
+        }
+
+        document.getElementById('modal-material').classList.add('active');
+        setTimeout(() => { isEditingMat = false; }, 300);
+    };
+
+    document.getElementById('btn-save-material').addEventListener('click', () => {
+        const atributos = {};
+        document.querySelectorAll('.atributo-row').forEach(row => {
+            const key = row.querySelector('.attr-key').value.trim();
+            const val = row.querySelector('.attr-val').value.trim();
+            if(key && val) atributos[key] = val;
+        });
+
+        const matSubgrupoId = document.getElementById('novo_mat_subgrupo').value;
+        if (!matSubgrupoId) { alert("Escolha um Subgrupo."); return; }
+
+        const matId = document.getElementById('edit_mat_id').value;
+        const endpoint = matId ? `/informatica/api/materiais/edit-material/${matId}/` : "{% url 'informatica:api_add_material' %}";
+
+        postApi(endpoint, {
+            subgrupo_id: matSubgrupoId,
+            nome: document.getElementById('novo_mat_nome').value,
+            serial: document.getElementById('novo_mat_serial').value,
+            codigo: document.getElementById('novo_mat_codigo').value,
+            quantidade: document.getElementById('novo_mat_quantidade').value,
+            funcionando: document.getElementById('novo_mat_status').value === '1',
+            motivo_defeito: document.getElementById('novo_mat_motivo').value,
+            atributos_extras: atributos 
+        });
+    });
+
+    window.confirmarDelecaoMaterial = function(id, nome) {
+        document.getElementById('del-mat-id').value = id;
+        document.getElementById('del-mat-nome').innerText = nome;
+        document.getElementById('del-mat-password').value = '';
+        document.getElementById('modal-delete-material').classList.add('active');
+    };
+
+    window.executarDelecaoMaterial = function() {
+        const id = document.getElementById('del-mat-id').value;
+        const pwd = document.getElementById('del-mat-password').value;
+        if(!pwd) { alert("A senha de acesso é obrigatória!"); return; }
+
+        const btn = document.getElementById('btn-confirm-delete');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Excluindo...';
+        btn.disabled = true;
+
+        fetch(`/informatica/api/materiais/delete-material/${id}/`, {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ password: pwd })
+        }).then(r => r.json()).then(res => {
+            if(res.status === 'success') { window.location.reload(); } 
+            else { alert(res.message); btn.innerHTML = '<i class="fas fa-trash me-1"></i> Excluir Definitivamente'; btn.disabled = false; }
+        });
+    };
+});
+</script>
+{% endblock %}

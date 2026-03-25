@@ -1,219 +1,143 @@
 {% extends 'informatica/base.html' %}
 {% block title %}Logs do Sistema{% endblock %}
 
-{% block content %}
+{% block extra_head %}
 <style>
-    /* --- VARIÁVEIS DE CORES --- */
-    :root {
-        --bg-body: #f4f6f9;
-        --bg-card: #ffffff;
-        --text-main: #212529;
-        --border-color: #000000; /* Borda preta forte no tema claro */
-        
-        /* Cores do Terminal (Tema Claro) */
-        --term-bg: #ffffff;
-        --term-text: #212529;
-        --term-border: #000000;
-        --line-hover: #f1f1f1;
-        --line-num: #999;
-    }
-
-    body.dark-theme {
-        --bg-body: #343a40;
-        --bg-card: #454d55;
-        --text-main: #ffffff;
-        --border-color: #6c757d;
-
-        /* Cores do Terminal (Tema Escuro) */
-        --term-bg: #1e1e1e; /* Fundo escuro */
-        --term-text: #d4d4d4; /* Texto claro */
-        --term-border: #444;
-        --line-hover: #2d2d2d;
-        --line-num: #555;
-    }
-
-    .log-wrapper {
-        padding: 20px;
-        max-width: 100%;
-        margin: 0 auto;
-        height: 85vh; /* Ocupa quase toda altura */
-        display: flex;
-        flex-direction: column;
-    }
-
-    /* Card Principal */
     .log-card {
-        background: var(--bg-card);
+        background: var(--bg-content);
         border: 1px solid var(--border-color);
-        border-radius: 4px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border-radius: 12px;
+        box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05);
         display: flex;
         flex-direction: column;
-        flex: 1; /* Cresce para ocupar espaço */
+        height: 75vh;
         overflow: hidden;
+        margin-top: 20px;
     }
 
-    /* Cabeçalho do Log */
     .log-header {
-        padding: 12px 20px;
+        padding: 15px 20px;
         border-bottom: 1px solid var(--border-color);
-        background-color: rgba(0,0,0,0.03);
+        background-color: var(--bg-main);
         display: flex;
         justify-content: space-between;
         align-items: center;
-        flex-wrap: wrap;
-        gap: 10px;
     }
 
-    .log-title {
-        font-weight: 800;
-        font-size: 1.2rem;
-        color: var(--text-main);
-        text-transform: uppercase;
-        letter-spacing: 0.5px;
-    }
+    .log-title { font-weight: 600; font-size: 1.1rem; color: var(--text-primary); display: flex; align-items: center; gap: 10px;}
 
-    /* Área de Texto do Log */
+    /* Terminal UI - Sincronizado com o Dashboard */
     .terminal-window {
         flex: 1;
-        background-color: var(--term-bg);
-        color: var(--term-text);
-        font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+        background-color: #0f172a; /* Fundo sempre escuro */
+        color: #e2e8f0;
+        font-family: 'Consolas', 'Monaco', monospace;
         font-size: 0.85rem;
         overflow-y: auto;
-        padding: 10px 0;
+        padding: 15px 0;
     }
 
-    /* Linhas de Log */
-    .log-row {
-        display: flex;
-        padding: 2px 15px;
-        line-height: 1.5;
-        border-bottom: 1px solid transparent;
-    }
-    .log-row:hover {
-        background-color: var(--line-hover);
-    }
+    .log-row { display: flex; padding: 2px 15px; line-height: 1.6; border-bottom: 1px solid transparent; }
+    .log-row:hover { background-color: rgba(255,255,255,0.05); }
 
     .line-number {
-        color: var(--line-num);
-        min-width: 40px;
+        color: #64748b;
+        min-width: 45px;
         text-align: right;
         margin-right: 15px;
         user-select: none;
         font-size: 0.75rem;
-        border-right: 1px solid var(--term-border);
+        border-right: 1px solid #334155;
         padding-right: 10px;
-        opacity: 0.7;
     }
 
-    .log-msg {
-        white-space: pre-wrap;
-        word-break: break-all;
-    }
+    .log-msg { white-space: pre-wrap; word-break: break-all; }
 
-    /* Scrollbar */
-    .terminal-window::-webkit-scrollbar { width: 12px; }
-    .terminal-window::-webkit-scrollbar-track { background: var(--term-bg); }
-    .terminal-window::-webkit-scrollbar-thumb { background: #888; border: 2px solid var(--term-bg); border-radius: 10px; }
-    .terminal-window::-webkit-scrollbar-thumb:hover { background: #555; }
+    /* Scrollbar Terminal */
+    .terminal-window::-webkit-scrollbar { width: 8px; }
+    .terminal-window::-webkit-scrollbar-track { background: #0f172a; }
+    .terminal-window::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 
-    /* Destaques de Sintaxe */
-    .hl-error { color: #dc3545; font-weight: bold; }
-    .hl-success { color: #28a745; font-weight: bold; }
-    .hl-warn { color: #ffc107; font-weight: bold; }
-    .hl-info { color: #17a2b8; font-weight: bold; }
+    /* Highlights no Terminal Escuro */
+    .hl-error { color: #ef4444; font-weight: bold; }
+    .hl-success { color: #22c55e; font-weight: bold; }
+    .hl-warn { color: #eab308; font-weight: bold; }
+    .hl-info { color: #3b82f6; font-weight: bold; }
     
     /* Controles */
-    .controls {
-        display: flex;
-        align-items: center;
-        gap: 20px;
-        font-size: 0.9rem;
-        color: var(--text-main);
-    }
+    .controls { display: flex; align-items: center; gap: 15px; }
     
     .status-pill {
-        padding: 4px 10px;
-        border-radius: 20px;
-        background: rgba(0,0,0,0.1);
-        font-weight: 600;
-        font-size: 0.8rem;
+        padding: 6px 12px;
+        border-radius: 8px;
+        background: var(--bg-content);
+        border: 1px solid var(--border-color);
+        font-weight: 500;
+        font-size: 0.85rem;
+        color: var(--text-primary);
     }
-    
-    /* Switch Checkbox */
-    .switch-label {
-        display: flex;
-        align-items: center;
-        cursor: pointer;
-        user-select: none;
-    }
-    .switch-input { margin-right: 8px; transform: scale(1.2); }
-
 </style>
+{% endblock %}
 
-<div class="log-wrapper">
-    
-    <div class="log-card">
-        <div class="log-header">
-            <div class="log-title">
-                <i class="fas fa-terminal me-2"></i> Monitor de Logs
+{% block content %}
+<div>
+    <h1 style="margin-bottom: 5px;">Monitor de Logs</h1>
+    <p style="color: var(--text-secondary); margin: 0;">Acompanhamento em tempo real das rotinas de backup_sender.log.</p>
+</div>
+
+<div class="log-card">
+    <div class="log-header">
+        <div class="log-title">
+            <i class="fas fa-terminal" style="color: var(--accent-color);"></i> Terminal Output
+        </div>
+        
+        <div class="controls">
+            <div class="form-check form-switch d-flex align-items-center gap-2">
+                <input class="form-check-input mt-0" type="checkbox" id="pauseUpdate" style="cursor: pointer;">
+                <label class="form-check-label" for="pauseUpdate" style="color: var(--text-secondary); cursor: pointer; user-select: none; font-size: 0.9rem;">Pausar Rolar</label>
             </div>
             
-            <div class="controls">
-                <label class="switch-label" title="Marque para parar de rolar a tela">
-                    <input type="checkbox" id="pauseUpdate" class="switch-input">
-                    <span>Pausar Atualização</span>
-                </label>
-                
-                <span class="status-pill">
-                    <i class="fas fa-sync-alt fa-spin" id="spinner" style="display:none;"></i>
-                    Atualizando em: <span id="timer" style="color:var(--primary);">5</span>s
+            <span class="status-pill">
+                <i class="fas fa-sync-alt fa-spin" id="spinner" style="display:none; color: var(--accent-color); margin-right: 5px;"></i>
+                Atualiza em: <strong id="timer" style="color: var(--accent-color);">5</strong>s
+            </span>
+
+            <a href="{% url 'informatica:logs_backup' %}" class="btn btn-sm" style="background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-primary);">
+                <i class="fas fa-redo"></i>
+            </a>
+        </div>
+    </div>
+
+    <div class="terminal-window" id="terminalWindow">
+        {% for linha in logs %}
+            <div class="log-row">
+                <span class="line-number">{{ forloop.counter }}</span>
+                <span class="log-msg">
+                    {% if "ERRO" in linha or "CRÍTICO" in linha or "Falha" in linha %}
+                        <span class="hl-error"><i class="fas fa-times-circle me-1"></i> {{ linha }}</span>
+                    {% elif "SUCESSO" in linha or "ONLINE" in linha %}
+                        <span class="hl-success"><i class="fas fa-check me-1"></i> {{ linha }}</span>
+                    {% elif "AVISO" in linha or "Tentativa" in linha %}
+                        <span class="hl-warn"><i class="fas fa-exclamation me-1"></i> {{ linha }}</span>
+                    {% elif "INICIANDO" in linha or "FINALIZADO" in linha %}
+                        <span class="hl-info">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span><br>
+                        <span class="hl-info">{{ linha }}</span><br>
+                        <span class="hl-info">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
+                    {% else %}
+                        {{ linha }}
+                    {% endif %}
                 </span>
-
-                <a href="{% url 'informatica:logs_backup' %}" class="btn btn-sm btn-dark">
-                    <i class="fas fa-redo"></i> Refresh
-                </a>
             </div>
-        </div>
-
-        <div class="terminal-window" id="terminalWindow">
-            {% for linha in logs %}
-                <div class="log-row">
-                    <span class="line-number">{{ forloop.counter }}</span>
-                    <span class="log-msg">
-                        {% if "ERRO" in linha or "CRÍTICO" in linha or "Falha" in linha %}
-                            <span class="hl-error"><i class="fas fa-times-circle"></i> {{ linha }}</span>
-                        {% elif "SUCESSO" in linha or "ONLINE" in linha %}
-                            <span class="hl-success"><i class="fas fa-check"></i> {{ linha }}</span>
-                        {% elif "AVISO" in linha or "Tentativa" in linha %}
-                            <span class="hl-warn"><i class="fas fa-exclamation"></i> {{ linha }}</span>
-                        {% elif "INICIANDO" in linha or "FINALIZADO" in linha %}
-                            <span class="hl-info">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span><br>
-                            <span class="hl-info">{{ linha }}</span>
-                            <span class="hl-info">━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━</span>
-                        {% else %}
-                            {{ linha }}
-                        {% endif %}
-                    </span>
-                </div>
-            {% empty %}
-                <div class="log-row">
-                    <span class="line-number">!</span>
-                    <span class="hl-error" style="padding: 20px;">
-                        ARQUIVO DE LOG NÃO ENCONTRADO.<br>
-                        Verifique se o volume foi montado no docker-compose.yml:<br>
-                        <code>volumes: - /home/admin-gsd/logs:/logs_do_host</code>
-                    </span>
-                </div>
-            {% endfor %}
-        </div>
+        {% empty %}
+            <div class="log-row">
+                <span class="line-number">!</span>
+                <span class="hl-error" style="padding: 10px;">
+                    ARQUIVO DE LOG NÃO ENCONTRADO.<br>
+                    Verifique se o volume foi montado corretamente.
+                </span>
+            </div>
+        {% endfor %}
     </div>
-    
-    <div class="text-right mt-2 text-muted small">
-        Visualizando <b>backup_sender.log</b> (Últimas 100 linhas).
-    </div>
-
 </div>
 
 <script>
@@ -221,20 +145,13 @@
     const pauseCheckbox = document.getElementById('pauseUpdate');
     const spinner = document.getElementById('spinner');
     const terminal = document.getElementById('terminalWindow');
-    
     let timeLeft = 5;
 
-    // Recupera estado salvo
     window.onload = function() {
-        if(localStorage.getItem('logPaused') === 'true') {
-            pauseCheckbox.checked = true;
-        }
-        
-        // Rola para o fim apenas se não estiver pausado ou se for o primeiro load
+        if(localStorage.getItem('logPaused') === 'true') pauseCheckbox.checked = true;
         if (!pauseCheckbox.checked) {
             terminal.scrollTop = terminal.scrollHeight;
         } else {
-            // Se estiver pausado, tenta manter a posição antiga (se salvou)
             const savedPos = localStorage.getItem('logScrollPos');
             if(savedPos) terminal.scrollTop = savedPos;
         }
@@ -244,19 +161,13 @@
         localStorage.setItem('logPaused', this.checked);
     });
 
-    // Loop de atualização
     setInterval(() => {
-        if (pauseCheckbox.checked) {
-            timerElem.innerText = "--";
-            return;
-        }
-
+        if (pauseCheckbox.checked) { timerElem.innerText = "--"; return; }
         timeLeft--;
         timerElem.innerText = timeLeft;
-
         if (timeLeft <= 0) {
             spinner.style.display = 'inline-block';
-            localStorage.setItem('logScrollPos', terminal.scrollTop); // Salva onde estava
+            localStorage.setItem('logScrollPos', terminal.scrollTop);
             window.location.reload();
         }
     }, 1000);

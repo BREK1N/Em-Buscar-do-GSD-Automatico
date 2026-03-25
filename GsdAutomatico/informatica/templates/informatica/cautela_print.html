@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <title>Comprovativo de Cautela #{{ cautela.id }}</title>
+    <style>
+        body { font-family: 'Arial', sans-serif; padding: 40px; color: #000; background: #fff; }
+        .header { text-align: center; border-bottom: 2px solid #000; padding-bottom: 20px; margin-bottom: 30px; }
+        .header h1 { margin: 0; font-size: 24px; text-transform: uppercase; }
+        .header p { margin: 5px 0 0 0; font-size: 14px; color: #555; }
+        
+        .info-grid { display: flex; justify-content: space-between; margin-bottom: 25px; }
+        .info-box { border: 1px solid #000; padding: 15px; width: 45%; }
+        .info-box strong { display: block; font-size: 12px; text-transform: uppercase; color: #555; margin-bottom: 5px; }
+        
+        .mission-box { background-color: #f8f9fa; padding: 12px 15px; border-left: 4px solid #4a5568; margin-bottom: 30px; font-size: 14px;}
+        
+        table { width: 100%; border-collapse: collapse; margin-bottom: 40px; }
+        th, td { border: 1px solid #000; padding: 10px; text-align: left; font-size: 14px; vertical-align: top;}
+        th { background-color: #f0f0f0; }
+
+        .attr-text { display: block; font-size: 11px; color: #444; margin-top: 4px; }
+        .devolvido-tag { color: #28a745; font-weight: bold; font-size: 12px;}
+
+        .signatures { display: flex; justify-content: space-around; margin-top: 60px; }
+        .sig-box { text-align: center; width: 250px; }
+        .sig-box img { max-width: 100%; max-height: 80px; border-bottom: 1px solid #000; display: block; margin: 0 auto 10px auto; }
+        .sig-box p { margin: 0; font-weight: bold; font-size: 14px; }
+        .sig-box span { font-size: 12px; color: #555; }
+        
+        @media print {
+            body { padding: 0; }
+            button { display: none; }
+        }
+    </style>
+</head>
+<body>
+
+    <button onclick="window.print()" style="position: absolute; top: 20px; right: 20px; padding: 10px 20px; cursor: pointer;">🖨️ Imprimir / Guardar PDF</button>
+
+    <div class="header">
+        <h1>Termo de Responsabilidade e Cautela</h1>
+        <p>Documento Oficial de Rastreio - Seção de Informática</p>
+        <p><strong>Nº de Registo:</strong> #{{ cautela.id }} | <strong>Data da Emissão:</strong> {{ cautela.data_emissao|date:"d/m/Y às H:i" }}</p>
+    </div>
+
+    <div class="info-grid">
+        <div class="info-box">
+            <strong>Militar Emitente (Sobreaviso da Informática)</strong>
+            {{ cautela.sobreaviso.posto }} {{ cautela.sobreaviso.nome_guerra }} <br>
+            Nome: {{ cautela.sobreaviso.nome_completo }} <br>
+            SARAM: {{ cautela.sobreaviso.saram|default:"-" }}
+        </div>
+        <div class="info-box">
+            <strong>Militar Recebedor (Responsável pela Guarda)</strong>
+            {{ cautela.recebedor.posto }} {{ cautela.recebedor.nome_guerra }} <br>
+            SARAM: {{ cautela.recebedor.saram|default:"-" }} <br>
+            Setor: {{ cautela.recebedor.setor|default:"-" }} <br>
+            Telefone Pessoal: {{ cautela.telefone_contato|default:"Não Informado" }}
+        </div>
+    </div>
+
+    {% if cautela.nome_missao %}
+    <div class="mission-box">
+        <strong>Missão / Motivo da Cautela:</strong> {{ cautela.nome_missao }}
+    </div>
+    {% endif %}
+
+    <p style="font-size: 14px; text-align: justify; margin-bottom: 20px;">
+        O(a) militar recebedor(a) declara que recebeu da Seção de Informática os materiais listados abaixo, todos em perfeito estado de funcionamento. Assume total responsabilidade pela guarda e conservação, devendo devolvê-los no término da sua escala/missão.
+    </p>
+
+    <table>
+        <thead>
+            <tr>
+                <th style="width: 50px;">Qtd</th>
+                <th>Item e Especificações Técnicas</th>
+                <th>S/N (Série)</th>
+                <th style="width: 200px;">Status da Devolução (Recebido por)</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in cautela.itens.all %}
+            <tr {% if item.devolvido %}style="background-color: #f8fff9;"{% endif %}>
+                <td style="text-align: center; font-weight: bold;">{{ item.quantidade }}x</td>
+                <td>
+                    <strong>[{{ item.material.subgrupo.nome }}] {{ item.material.nome }}</strong>
+                    {% if item.material.codigo %}<small>(Cód: {{ item.material.codigo }})</small>{% endif %}
+                    
+                    {% if item.material.atributos_extras %}
+                        <span class="attr-text">
+                        {% for k, v in item.material.atributos_extras.items %}
+                            [{{ k }}: {{ v }}] &nbsp;
+                        {% endfor %}
+                        </span>
+                    {% endif %}
+                </td>
+                <td>{{ item.material.serial|default:"-" }}</td>
+                <td>
+                    {% if item.devolvido %}
+                        <span class="devolvido-tag">Devolvido em {{ item.data_devolucao|date:"d/m/y" }}</span><br>
+                        <span style="font-size: 11px; color: #555;">Recebido por: {{ item.recebedor_devolucao.posto }} {{ item.recebedor_devolucao.nome_guerra }}</span>
+                        {% if item.assinatura_devolucao %}
+                            <img src="{{ item.assinatura_devolucao }}" style="height: 35px; display: block; margin-top: 5px; border-bottom: 1px solid #ccc;">
+                        {% endif %}
+                    {% else %}
+                        Pendente
+                    {% endif %}
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    <div class="signatures">
+        <div class="sig-box">
+            <img src="{{ cautela.assinatura_recebedor }}" alt="Assinatura Recebedor">
+            <p>{{ cautela.recebedor.posto }} {{ cautela.recebedor.nome_guerra }}</p>
+            <span>Militar Recebedor (Retirada)</span>
+        </div>
+        <div class="sig-box">
+            <img src="{{ cautela.assinatura_sobreaviso }}" alt="Assinatura Emitente">
+            <p>{{ cautela.sobreaviso.posto }} {{ cautela.sobreaviso.nome_guerra }}</p>
+            <span>Sobreaviso Emitente</span>
+        </div>
+    </div>
+    
+    {% if not cautela.ativa and cautela.assinatura_devolucao %}
+    <div style="margin-top: 40px; text-align: center; border-top: 1px dashed #ccc; padding-top: 20px;">
+        <h4 style="margin: 0 0 15px 0;">Baixa Total / Encerramento</h4>
+        <img src="{{ cautela.assinatura_devolucao }}" style="height: 60px; border-bottom: 1px solid #000; margin-bottom: 5px;">
+        <p style="margin: 0; font-weight: bold; font-size: 14px;">{{ cautela.recebedor_devolucao.posto }} {{ cautela.recebedor_devolucao.nome_guerra }}</p>
+        <span style="font-size: 12px; color: #555;">Sobreaviso que recebeu a devolução final</span>
+    </div>
+    {% endif %}
+
+</body>
+</html>

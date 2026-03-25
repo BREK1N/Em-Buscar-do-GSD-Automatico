@@ -14,44 +14,40 @@ from .forms import (
     MilitarForm, InformaticaUserCreationForm, InformaticaUserChangeForm,
     GroupForm, UserProfileForm, ConfiguracaoForm
 )
-from django.db.models import Q
+from .models import GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem
+from django.db.models import Q, ProtectedError
 import logging
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib import messages
-
-# --- Imports Adicionados para os Logs do Docker ---
+from django.utils import timezone
+import json
 import datetime
 import docker
-# --------------------------------------------------
 import requests
 import os
-from django.shortcuts import render
 from django.contrib.auth.decorators import login_required, permission_required
-
+from django.contrib.auth import authenticate # Importação para validar senha
 
 logger = logging.getLogger(__name__)
 
-# Função helper para verificar se é staff
 def is_staff(user):
     return user.is_staff
 
 class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
     login_url = reverse_lazy('login:login')
-    def test_func(self):
-        return is_staff(self.request.user)
+    def test_func(self): return is_staff(self.request.user)
+    def handle_no_permission(self): return super().handle_no_permission()
 
-    def handle_no_permission(self):
-        return super().handle_no_permission()
-
-# --- View do Dashboard (Atualizada) ---
+# ==========================================
+# VIEWS DE DASHBOARD E CRUD BÁSICO
+# ==========================================
 @staff_member_required
 def dashboard(request):
     general_models_info = [
         ('auth', 'user', 'Utilizadores', 'Utilizador'),
         ('auth', 'group', 'Grupos de Permissão', 'Grupo'),
     ]
-    
     ouvidoria_models_info = [
         ('Secao_pessoal', 'efetivo', 'Efetivo (Militares)', 'Militar'),
         ('Ouvidoria', 'patd', 'Processos (PATD)', 'PATD'),
@@ -76,18 +72,16 @@ def dashboard(request):
                         item_data['edit_config_url'] = reverse(edit_config_url_name)
                         item_data['list_url'] = item_data['edit_config_url']
                         item_data['add_url'] = item_data['edit_config_url']
-                    except NoReverseMatch:
-                        logger.warning(f"URL '{edit_config_url_name}' ainda não definida.")
+                    except NoReverseMatch: pass
                 else:
                     try: item_data['list_url'] = reverse(list_url_name)
-                    except NoReverseMatch: logger.warning(f"URL '{list_url_name}' ainda não definida.")
+                    except NoReverseMatch: pass
                     try: item_data['add_url'] = reverse(add_url_name)
-                    except NoReverseMatch: logger.warning(f"URL '{add_url_name}' ainda não definida.")
+                    except NoReverseMatch: pass
                     item_data['count'] = model.objects.count()
 
                 processed_list.append(item_data)
-            except LookupError: logger.warning(f"Modelo {app_label}.{model_name} não encontrado.")
-            except Exception as e: logger.error(f"Erro ao processar modelo {app_label}.{model_name}: {e}")
+            except Exception as e: logger.error(f"Erro: {e}")
         return processed_list
 
     general_admin_apps = get_model_admin_links(general_models_info)
@@ -100,47 +94,33 @@ def dashboard(request):
         'militares_count': Efetivo.objects.count(),
     }
 
-    # --- Lógica para Logs do Docker ---
     terminal_logs = []
     try:
-        # Tenta conectar ao socket do Docker
         client = docker.from_env()
         containers = client.containers.list()
-        
         terminal_logs.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Conectado ao Daemon do Docker.")
-        
         for container in containers:
-            # Pega as últimas 5 linhas de log de cada container
             logs = container.logs(tail=5, timestamps=True).decode('utf-8', errors='replace')
-            log_entries = logs.split('\n')
-            
-            for entry in log_entries:
+            for entry in logs.split('\n'):
                 if entry.strip():
-                    # Limita o tamanho da linha para não quebrar o layout CSS
                     clean_entry = entry[:150] + '...' if len(entry) > 150 else entry
                     terminal_logs.append(f"[{container.name}] {clean_entry}")
-                    
     except Exception as e:
-        # Fallback caso não consiga conectar (ex: desenvolvimento local sem Docker ou socket não montado)
         terminal_logs.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ERRO: Não foi possível ler logs do Docker.")
         terminal_logs.append(f"Detalhe: {str(e)}")
-        terminal_logs.append("Dica: Verifique se '/var/run/docker.sock' está montado no docker-compose.yml")
         
-    # Se a lista estiver vazia após a tentativa (sem containers rodando?), adiciona msg padrão
     if not terminal_logs:
          terminal_logs.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Nenhum container ativo ou logs vazios.")
-    # ----------------------------------
 
     context = {
         'page_title': 'Dashboard da Informática', 
         'general_admin_apps': general_admin_apps,
         'ouvidoria_apps': ouvidoria_apps, 
         'quick_stats': quick_stats,
-        'terminal_logs': terminal_logs, # Adicionado ao contexto
+        'terminal_logs': terminal_logs,
     }
     return render(request, 'informatica/dashboard.html', context)
 
-# --- VIEWS CRUD PARA MILITAR ---
 class MilitarListView(StaffRequiredMixin, ListView):
     model = Efetivo
     template_name = 'informatica/militar_list.html'
@@ -187,7 +167,6 @@ class MilitarDeleteView(StaffRequiredMixin, DeleteView):
         context['page_title'] = f"Confirmar Exclusão de {self.object}"
         return context
 
-# --- VIEWS CRUD PARA User ---
 class UserListView(StaffRequiredMixin, ListView):
     model = User
     template_name = 'informatica/user_list.html'
@@ -214,12 +193,10 @@ class UserCreateView(StaffRequiredMixin, CreateView):
         context = super().get_context_data(**kwargs)
         context['page_title'] = "Adicionar Utilizador"
         return context
-
     def form_valid(self, form):
         user = form.save()
         messages.success(self.request, f"Utilizador '{user.username}' criado com senha padrão '12345678'.")
         return redirect(self.success_url)
-
 
 class UserUpdateView(StaffRequiredMixin, UpdateView):
     model = User
@@ -240,7 +217,6 @@ class UserDeleteView(StaffRequiredMixin, DeleteView):
         context['page_title'] = f"Confirmar Exclusão de {self.object.username}"
         return context
 
-# --- VIEW PARA RESETAR SENHA ---
 @staff_member_required
 @require_POST
 def reset_user_password(request, pk):
@@ -250,11 +226,8 @@ def reset_user_password(request, pk):
         user_to_reset.save()
         return JsonResponse({'status': 'success', 'message': f"Senha do utilizador '{user_to_reset.username}' redefinida."})
     except Exception as e:
-        logger.error(f"Erro ao redefinir senha para user {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': 'Não foi possível redefinir a senha.'}, status=500)
 
-
-# --- VIEWS CRUD PARA Group ---
 class GroupListView(StaffRequiredMixin, ListView):
     model = Group
     template_name = 'informatica/group_list.html'
@@ -263,12 +236,11 @@ class GroupListView(StaffRequiredMixin, ListView):
     def get_queryset(self):
         queryset = super().get_queryset().order_by('name')
         query = self.request.GET.get('q')
-        if query:
-            queryset = queryset.filter(name__icontains=query)
+        if query: queryset = queryset.filter(name__icontains=query)
         return queryset
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
-        context['page_title'] = "Gerenciar Grupos de Permissão"
+        context['page_title'] = "Gerenciar Grupos"
         context['search_query'] = self.request.GET.get('q', '')
         return context
 
@@ -277,260 +249,410 @@ class GroupCreateView(StaffRequiredMixin, CreateView):
     form_class = GroupForm
     template_name = 'informatica/group_form.html'
     success_url = reverse_lazy('informatica:group_list')
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = "Adicionar Grupo de Permissão"
-        return context
 
 class GroupUpdateView(StaffRequiredMixin, UpdateView):
     model = Group
     form_class = GroupForm
     template_name = 'informatica/group_form.html'
     success_url = reverse_lazy('informatica:group_list')
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = f"Editar Grupo: {self.object.name}"
-        return context
 
 class GroupDeleteView(StaffRequiredMixin, DeleteView):
     model = Group
     template_name = 'informatica/group_confirm_delete.html'
     success_url = reverse_lazy('informatica:group_list')
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = f"Confirmar Exclusão de {self.object.name}"
-        return context
 
-# --- VIEWS CRUD PARA UserProfile ---
 class UserProfileListView(StaffRequiredMixin, ListView):
     model = UserProfile
     template_name = 'informatica/userprofile_list.html'
     context_object_name = 'profiles'
     paginate_by = 20
-    def get_queryset(self):
-        queryset = super().get_queryset().select_related('user', 'militar').order_by('user__username')
-        query = self.request.GET.get('q')
-        if query:
-            queryset = queryset.filter(Q(user__username__icontains=query) | Q(militar__nome_guerra__icontains=query))
-        return queryset
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = "Gerenciar Perfis de Utilizador"
-        context['search_query'] = self.request.GET.get('q', '')
-        return context
 
 class UserProfileUpdateView(StaffRequiredMixin, UpdateView):
     model = UserProfile
     form_class = UserProfileForm
     template_name = 'informatica/userprofile_form.html'
     success_url = reverse_lazy('informatica:userprofile_list')
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = f"Editar Perfil de: {self.object.user.username}"
-        return context
 
-# --- VIEW LIST PARA PATD ---
 class PATDListView(StaffRequiredMixin, ListView):
     model = PATD
     template_name = 'informatica/patd_list.html'
     context_object_name = 'patds'
     paginate_by = 20
-    def get_queryset(self):
-        queryset = super().get_queryset().select_related('militar').order_by('-data_inicio')
-        query = self.request.GET.get('q')
-        if query:
-            queryset = queryset.filter(Q(numero_patd__icontains=query) | Q(militar__nome_guerra__icontains=query) | Q(militar__nome_completo__icontains=query))
-        return queryset
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = "Visualizar Processos (PATD)"
-        context['search_query'] = self.request.GET.get('q', '')
-        return context
 
-# --- VIEW UPDATE PARA Configuracao ---
 class ConfiguracaoUpdateView(StaffRequiredMixin, UpdateView):
     model = Configuracao
     form_class = ConfiguracaoForm
     template_name = 'informatica/configuracao_form.html'
     success_url = reverse_lazy('informatica:dashboard')
-
     def get_object(self, queryset=None):
-        # Configuracao é um singleton, sempre pega ou cria o objeto com pk=1
         obj, created = Configuracao.objects.get_or_create(pk=1)
         return obj
 
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = "Gerenciar Configurações Gerais"
-        return context
-    
-# ... (mantenha os imports existentes)
 
-@staff_member_required
+# ==========================================
+# LOGS E MONITORAMENTO
+# ==========================================
 @staff_member_required
 def system_logs_api(request):
     logs_data = []
-    
-    # Lista de termos para ignorar (mantendo a limpeza de logs técnicos)
-    ignored_terms = [
-        '/static/', 
-        '/media/', 
-        'GET /api/logs/', # Ignora o próprio polling do terminal
-        '/informatica/api/logs/',
-        'favicon.ico',
-        'POST /jsi18n/', 
-        '/admin/jsi18n/',
-        'Auto-reloading', 
-        'Watching for file changes',
-        'http://www.gsd-sys.br/admin/login/?next=/informatica/',
-    ]
-
+    ignored_terms = ['/static/', '/media/', '/favicon.ico', '/api/logs/', 'POST /jsi18n/', 'Auto-reloading', 'Watching for file changes', '/admin/login/']
     try:
         client = docker.from_env()
         containers = client.containers.list()
-        
         for container in containers:
             name = container.name.lower()
-            
-            # --- NOVO FILTRO DE CONTAINERS ---
-            # Se o nome do container não contiver 'web', ignoramos.
-            # Isso remove automaticamente: nginx, db (postgres), etc.
-            if 'web' not in name:
-                continue
-            # ----------------------------------
-
-            # Pega um buffer maior de logs (100 linhas) para garantir histórico
+            if 'db' in name or 'postgres' in name: continue
+            if not ('web' in name or 'nginx' in name): continue
             log_output = container.logs(tail=100, timestamps=True).decode('utf-8', errors='replace')
-            entries = log_output.split('\n')
-            
-            for entry in entries:
-                if not entry.strip():
-                    continue
-                
-                # Aplica os filtros de termos ignorados
-                if any(term in entry for term in ignored_terms):
-                    continue
-                
-                # Formatação de timestamp (limpeza visual)
-                display_text = entry 
-                # Detecta formato padrão Docker/ISO e remove data para economizar espaço
-                if len(entry) > 30 and entry[4] == '-' and entry[19] == 'T':
-                     display_text = entry[31:] if len(entry) > 31 else entry
-
-                logs_data.append({
-                    'container': container.name, 
-                    'text': display_text[:300] # Limite de caracteres por linha
-                })
-
-    except Exception as e:
-        logs_data.append({'container': 'system', 'text': f"Erro leitura logs: {str(e)}"})
-
-    return JsonResponse({'logs': logs_data})
-    logs_data = []
-    
-    # Lista expandida de termos para ignorar nos logs do Docker
-    ignored_terms = [
-        '/static/',                  # Ignora arquivos CSS/JS/Imagens
-        '/media/',                   # Ignora uploads
-        '/favicon.ico',              # Ignora ícone do navegador
-        '/api/logs/',                # Ignora a própria requisição de log
-        'POST /jsi18n/',             # Ignora internacionalização
-        '/admin/jsi18n/',
-        'Auto-reloading',            # Logs de sistema
-        'Watching for file changes',
-        'http://www.gsd-sys.br/admin/login/?next=/informatica/', # Ignora redirecionamentos internos de login repetidos
-    ]
-
-    try:
-        client = docker.from_env()
-        containers = client.containers.list()
-        
-        for container in containers:
-            name = container.name.lower()
-            
-            # Filtra containers: Ignora banco de dados, foca em web e nginx
-            if 'db' in name or 'postgres' in name:
-                continue
-            if not ('web' in name or 'nginx' in name):
-                continue
-
-            # Pega os logs
-            log_output = container.logs(tail=100, timestamps=True).decode('utf-8', errors='replace')
-            entries = log_output.split('\n')
-            
-            for entry in entries:
+            for entry in log_output.split('\n'):
                 if not entry.strip(): continue
-                
-                # Se qualquer termo ignorado estiver na linha, pula
-                if any(term in entry for term in ignored_terms):
-                    continue
-                
-                # Formatação opcional para logs do Nginx (remove IP e data longa se desejar)
-                display_text = entry
-                # Tenta limpar o timestamp padrão do Docker para ficar mais curto
-                if len(entry) > 30 and entry[4] == '-' and entry[19] == 'T':
-                     display_text = entry[31:] if len(entry) > 31 else entry
-
-                logs_data.append({
-                    'container': container.name, 
-                    'text': display_text[:300] # Limita o comprimento da linha
-                })
-
+                if any(term in entry for term in ignored_terms): continue
+                display_text = entry[31:] if len(entry) > 31 and entry[4] == '-' and entry[19] == 'T' else entry
+                logs_data.append({'container': container.name, 'text': display_text[:300]})
     except Exception as e:
-        logs_data.append({'container': 'system', 'text': f"Erro leitura logs: {str(e)}"})
-
+        logs_data.append({'container': 'system', 'text': f"Erro: {str(e)}"})
     return JsonResponse({'logs': logs_data})
 
-# --- CONFIGURAÇÕES ---
 URL_MONITOR = "http://10.52.18.29:5000"
 LOG_FILE_PATH = "/logs_do_host/backup_sender.log"
 
 @login_required
 @permission_required('informatica.view_configuracao', raise_exception=True)
 def monitoramento_backup(request):
-    """
-    Interface gráfica para o Código 1 (Status do PC de Backup)
-    """
     context = {}
     try:
         response = requests.get(URL_MONITOR, timeout=5)
-        
         if response.status_code == 200:
             dados = response.json()
             context['online'] = True
             context['dados'] = dados
-            # Processa alertas para definir cor
-            context['status_color'] = "text-danger" if dados.get('alerta') else "text-success"
-            context['status_icon'] = "fa-exclamation-triangle" if dados.get('alerta') else "fa-check-circle"
         else:
             context['online'] = False
             context['erro'] = f"Erro HTTP: {response.status_code}"
-
-    except requests.exceptions.ConnectionError:
-        context['online'] = False
-        context['erro'] = "Não foi possível conectar ao PC de Backup (10.52.18.29). Verifique se está ligado."
     except Exception as e:
         context['online'] = False
-        context['erro'] = f"Erro inesperado: {str(e)}"
-
+        context['erro'] = str(e)
     return render(request, 'informatica/monitoramento.html', context)
 
 @login_required
 @permission_required('informatica.view_configuracao', raise_exception=True)
 def visualizar_logs_backup(request):
-    """
-    Interface gráfica para visualizar os logs do Código 2
-    """
     logs = []
     try:
         if os.path.exists(LOG_FILE_PATH):
-            with open(LOG_FILE_PATH, 'r') as f:
-                # Lê as últimas 100 linhas para não pesar
-                logs = f.readlines()[-100:]
-                #logs.reverse() # Mostra o mais recente primeiro
-        else:
-            logs = [f"Arquivo de log não encontrado em: {LOG_FILE_PATH}"]
-    except Exception as e:
-        logs = [f"Erro ao ler log: {str(e)}"]
-
+            with open(LOG_FILE_PATH, 'r') as f: logs = f.readlines()[-100:]
+        else: logs = [f"Arquivo não encontrado: {LOG_FILE_PATH}"]
+    except Exception as e: logs = [str(e)]
     return render(request, 'informatica/logs_backup.html', {'logs': logs})
+
+
+# ==========================================
+# MÓDULO GESTÃO DE MATERIAIS E CAUTELAS
+# ==========================================
+@staff_member_required
+def gestao_materiais_view(request):
+    militares = Efetivo.objects.all().order_by('posto', 'nome_guerra')
+    
+    militares_info = Efetivo.objects.filter(
+        Q(setor__icontains='informática') | Q(subsetor__icontains='informática') |
+        Q(setor__icontains='informatica') | Q(subsetor__icontains='informatica')
+    ).order_by('posto', 'nome_guerra')
+
+    grupos = GrupoMaterial.objects.all().order_by('nome')
+    subgrupos = SubgrupoMaterial.objects.all().select_related('grupo').order_by('grupo__nome', 'nome')
+    materiais = Material.objects.all().select_related('subgrupo__grupo').order_by('nome')
+    
+    cautelas_ativas = Cautela.objects.filter(ativa=True).select_related('sobreaviso', 'recebedor').order_by('-data_emissao')
+    cautelas_historico = Cautela.objects.filter(ativa=False).select_related('sobreaviso', 'recebedor').order_by('-data_emissao')
+
+    materiais_disponiveis = materiais.filter(quantidade_disponivel__gt=0, funcionando=True)
+    
+    materiais_json = [{
+        'id': mat.id, 'grupo_id': mat.subgrupo.grupo.id, 'grupo_nome': mat.subgrupo.grupo.nome,
+        'nome': mat.nome, 'serial': mat.serial or '', 'quantidade_disponivel': mat.quantidade_disponivel,
+        'atributos': mat.atributos_extras or {}
+    } for mat in materiais_disponiveis]
+    
+    # Adicionado para a edição de materiais no Painel Acervo
+    acervo_json = [{
+        'id': mat.id, 'subgrupo_id': mat.subgrupo.id, 'nome': mat.nome,
+        'codigo': mat.codigo or '', 'serial': mat.serial or '',
+        'quantidade': mat.quantidade, 'quantidade_disponivel': mat.quantidade_disponivel,
+        'funcionando': 1 if mat.funcionando else 0,
+        'motivo_defeito': mat.motivo_defeito or '',
+        'atributos': mat.atributos_extras or {}
+    } for mat in materiais]
+
+    militares_dados_json = []
+    for m in militares:
+        last_cautela = Cautela.objects.filter(recebedor=m).order_by('-data_emissao').first()
+        telefone = last_cautela.telefone_contato if last_cautela and last_cautela.telefone_contato else ''
+        militares_dados_json.append({'id': m.id, 'telefone': telefone, 'saram': getattr(m, 'saram', '')})
+
+    militares_info_json = []
+    for m in militares_info:
+        militares_info_json.append({
+            'id': m.id,
+            'assinatura': getattr(m, 'assinatura', None)
+        })
+
+    context = {
+        'page_title': 'Gestão de Materiais e Cautelas',
+        'militares': militares,
+        'militares_info': militares_info,
+        'grupos': grupos, 'subgrupos': subgrupos, 'materiais': materiais,
+        'cautelas_ativas': cautelas_ativas, 'cautelas_historico': cautelas_historico,
+        'materiais_json': json.dumps(materiais_json),
+        'acervo_json': json.dumps(acervo_json),
+        'militares_dados_json': json.dumps(militares_dados_json),
+        'militares_info_json': json.dumps(militares_info_json),
+    }
+    return render(request, 'informatica/gestao_materiais.html', context)
+
+
+@staff_member_required
+@require_POST
+def api_add_grupo(request):
+    data = json.loads(request.body)
+    try:
+        GrupoMaterial.objects.create(nome=data.get('nome'))
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_add_subgrupo(request):
+    data = json.loads(request.body)
+    try:
+        grupo = GrupoMaterial.objects.get(id=data.get('grupo_id'))
+        SubgrupoMaterial.objects.create(grupo=grupo, nome=data.get('nome'))
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_add_material(request):
+    data = json.loads(request.body)
+    try:
+        subgrupo = SubgrupoMaterial.objects.get(id=data.get('subgrupo_id'))
+        serial = data.get('serial')
+        qtd = int(data.get('quantidade', 1))
+        
+        if serial and Material.objects.filter(subgrupo__grupo=subgrupo.grupo, serial=serial).exists():
+            return JsonResponse({'status': 'error', 'message': f"O serial '{serial}' já está em uso nesta categoria."})
+
+        Material.objects.create(
+            subgrupo=subgrupo,
+            nome=data.get('nome'),
+            codigo=data.get('codigo'),
+            serial=serial,
+            quantidade=qtd,
+            quantidade_disponivel=qtd,
+            funcionando=data.get('funcionando', True),
+            motivo_defeito=data.get('motivo_defeito', ''),
+            atributos_extras=data.get('atributos_extras', {})
+        )
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_edit_material(request, pk):
+    data = json.loads(request.body)
+    try:
+        material = Material.objects.get(pk=pk)
+        subgrupo = SubgrupoMaterial.objects.get(id=data.get('subgrupo_id'))
+        serial = data.get('serial')
+        qtd = int(data.get('quantidade', 1))
+        
+        if serial and serial != material.serial and Material.objects.filter(subgrupo__grupo=subgrupo.grupo, serial=serial).exists():
+            return JsonResponse({'status': 'error', 'message': f"O serial '{serial}' já está em uso nesta categoria."})
+
+        diff = qtd - material.quantidade
+        nova_disp = material.quantidade_disponivel + diff
+        
+        if nova_disp < 0:
+            return JsonResponse({'status': 'error', 'message': 'A quantidade total não pode ser menor que a quantidade que já está emprestada!'})
+            
+        material.subgrupo = subgrupo
+        material.nome = data.get('nome')
+        material.codigo = data.get('codigo')
+        material.serial = serial
+        material.quantidade = qtd
+        material.quantidade_disponivel = nova_disp
+        material.funcionando = data.get('funcionando', True)
+        material.motivo_defeito = data.get('motivo_defeito', '')
+        material.atributos_extras = data.get('atributos_extras', {})
+        
+        if material.quantidade_disponivel == 0:
+            material.disponivel = False
+        else:
+            material.disponivel = True
+            
+        material.save()
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_delete_material(request, pk):
+    data = json.loads(request.body)
+    password = data.get('password')
+    
+    # Autenticação dupla para excluir materiais
+    user = authenticate(username=request.user.username, password=password)
+    if user is None:
+        return JsonResponse({'status': 'error', 'message': 'Senha incorreta. A exclusão não foi autorizada.'})
+        
+    try:
+        material = Material.objects.get(pk=pk)
+        material.delete()
+        return JsonResponse({'status': 'success'})
+    except ProtectedError:
+        return JsonResponse({'status': 'error', 'message': 'Este material não pode ser excluído pois faz parte do histórico de uma ou mais cautelas. Sugestão: Marque-o como "Com Defeito" ou Inoperante.'})
+    except Exception as e: 
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_delete_grupo(request, pk):
+    try:
+        grupo = GrupoMaterial.objects.get(pk=pk)
+        if Material.objects.filter(subgrupo__grupo=grupo).exists():
+            return JsonResponse({'status': 'error', 'message': 'Existem materiais cadastrados neste grupo.'})
+        grupo.delete()
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_delete_subgrupo(request, pk):
+    try:
+        subgrupo = SubgrupoMaterial.objects.get(pk=pk)
+        if subgrupo.materiais.exists():
+            return JsonResponse({'status': 'error', 'message': 'Existem materiais cadastrados neste subgrupo.'})
+        subgrupo.delete()
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+
+@staff_member_required
+@require_POST
+def api_salvar_cautela(request):
+    data = json.loads(request.body)
+    try:
+        sobreaviso = Efetivo.objects.get(id=data.get('sobreaviso_id'))
+        recebedor = Efetivo.objects.get(id=data.get('recebedor_id'))
+        materiais_list = data.get('materiais', [])
+        
+        if not materiais_list: return JsonResponse({'status': 'error', 'message': 'Nenhum material selecionado.'})
+
+        if data.get('salvar_padrao') and data.get('assinatura_sobreaviso'):
+            sobreaviso.assinatura = data.get('assinatura_sobreaviso')
+            sobreaviso.save()
+
+        cautela = Cautela.objects.create(
+            sobreaviso=sobreaviso,
+            recebedor=recebedor,
+            assinatura_sobreaviso=data.get('assinatura_sobreaviso'),
+            assinatura_recebedor=data.get('assinatura_recebedor'),
+            nome_missao=data.get('nome_missao', ''),
+            telefone_contato=data.get('telefone_contato', '')
+        )
+        
+        for mat_data in materiais_list:
+            material = Material.objects.get(id=mat_data['id'])
+            qtd = int(mat_data['qtd'])
+            if material.quantidade_disponivel < qtd:
+                raise ValueError(f"Material {material.nome} só tem {material.quantidade_disponivel} disponíveis!")
+                
+            CautelaItem.objects.create(cautela=cautela, material=material, quantidade=qtd)
+            material.quantidade_disponivel -= qtd
+            if material.quantidade_disponivel == 0: material.disponivel = False
+            material.save()
+            
+        return JsonResponse({'status': 'success', 'cautela_id': cautela.id})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_devolver_cautela(request, pk):
+    data = json.loads(request.body)
+    try:
+        cautela = Cautela.objects.get(id=pk)
+        sobreaviso_devolucao = Efetivo.objects.get(id=data.get('sobreaviso_id'))
+        
+        cautela.ativa = False
+        cautela.data_devolucao = timezone.now()
+        cautela.recebedor_devolucao = sobreaviso_devolucao
+        cautela.assinatura_devolucao = data.get('assinatura_devolucao')
+        cautela.save()
+        
+        for item in cautela.itens.filter(devolvido=False):
+            item.devolvido = True
+            item.data_devolucao = timezone.now()
+            item.recebedor_devolucao = sobreaviso_devolucao
+            item.assinatura_devolucao = data.get('assinatura_devolucao')
+            item.save()
+            item.material.quantidade_disponivel += item.quantidade
+            item.material.disponivel = True
+            item.material.save()
+            
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_devolver_item_cautela(request, item_id):
+    data = json.loads(request.body)
+    try:
+        item = CautelaItem.objects.get(id=item_id)
+        sobreaviso_devolucao = Efetivo.objects.get(id=data.get('sobreaviso_id'))
+        
+        item.devolvido = True
+        item.data_devolucao = timezone.now()
+        item.recebedor_devolucao = sobreaviso_devolucao
+        item.assinatura_devolucao = data.get('assinatura_devolucao')
+        item.save()
+        
+        item.material.quantidade_disponivel += item.quantidade
+        item.material.disponivel = True
+        item.material.save()
+        
+        cautela = item.cautela
+        if not cautela.itens.filter(devolvido=False).exists():
+            cautela.ativa = False
+            cautela.data_devolucao = timezone.now()
+            cautela.recebedor_devolucao = sobreaviso_devolucao
+            cautela.assinatura_devolucao = data.get('assinatura_devolucao')
+            cautela.save()
+            
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_add_item_cautela(request, cautela_id):
+    data = json.loads(request.body)
+    try:
+        cautela = Cautela.objects.get(id=cautela_id)
+        material = Material.objects.get(id=data.get('material_id'))
+        qtd = int(data.get('quantidade', 1))
+        
+        if material.quantidade_disponivel < qtd:
+            return JsonResponse({'status': 'error', 'message': f'Estoque insuficiente. Apenas {material.quantidade_disponivel} disponíveis.'})
+            
+        CautelaItem.objects.create(cautela=cautela, material=material, quantidade=qtd)
+        
+        material.quantidade_disponivel -= qtd
+        if material.quantidade_disponivel == 0:
+            material.disponivel = False
+        material.save()
+        
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+def imprimir_cautela(request, pk):
+    cautela = get_object_or_404(Cautela, id=pk)
+    return render(request, 'informatica/cautela_print.html', {'cautela': cautela})

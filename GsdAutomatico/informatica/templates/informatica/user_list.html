@@ -1,59 +1,95 @@
 {% extends 'informatica/base.html' %}
-
 {% block title %}{{ page_title }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Estilos modernos para Cabeçalho e Tabelas (Pode mover pro style.css depois) */
+    .table-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+    .table-header h1 { margin: 0; font-size: 1.8rem; color: var(--text-primary); }
+    
+    .actions-bar { display: flex; gap: 15px; align-items: center; flex-wrap: wrap; }
+    
+    .search-form { display: flex; align-items: center; background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; }
+    .search-form input { border: none !important; padding: 10px 15px; background: transparent !important; box-shadow: none !important; color: var(--text-primary); outline: none; width: 250px;}
+    .search-form button { background: transparent; border: none; padding: 10px 15px; color: var(--text-secondary); cursor: pointer; transition: color 0.2s; }
+    .search-form button:hover { color: var(--accent-color); }
+
+    .table-card { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); overflow: hidden; }
+    
+    .data-table { width: 100%; border-collapse: collapse; }
+    .data-table th { background: var(--bg-main); color: var(--text-secondary); font-weight: 600; text-align: left; padding: 15px 20px; font-size: 0.85rem; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid var(--border-color); }
+    .data-table td { padding: 15px 20px; color: var(--text-primary); border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .data-table tbody tr { transition: background-color 0.2s; }
+    .data-table tbody tr:hover { background-color: var(--bg-main); }
+    .data-table tbody tr:last-child td { border-bottom: none; }
+
+    /* Badges para Status */
+    .status-badge { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-block; }
+    .status-yes { background: rgba(34, 197, 94, 0.1); color: var(--success-color); border: 1px solid rgba(34, 197, 94, 0.2); }
+    .status-no { background: var(--bg-main); color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+    .btn-action-group { display: flex; gap: 8px; }
+    .btn-icon { width: 32px; height: 32px; display: flex; align-items: center; justify-content: center; border-radius: 6px; color: var(--text-secondary); border: 1px solid var(--border-color); background: var(--bg-main); transition: all 0.2s; }
+    .btn-icon:hover.edit { color: var(--accent-color); border-color: var(--accent-color); }
+    .btn-icon:hover.delete { color: var(--danger-color); border-color: var(--danger-color); }
+</style>
+{% endblock %}
 
 {% block content %}
 <div class="table-header">
-    <h1>{{ page_title }}</h1>
-    <div class="actions">
+    <div>
+        <h1>{{ page_title }}</h1>
+        <p style="color: var(--text-secondary); margin: 5px 0 0 0;">Gerencie os acessos e permissões do sistema.</p>
+    </div>
+    <div class="actions-bar">
         <form method="get" class="search-form">
             <input type="text" name="q" placeholder="Pesquisar utilizador..." value="{{ search_query }}">
-            <button type="submit" class="search-btn" title="Pesquisar">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
-            </button>
+            <button type="submit" title="Pesquisar"><i class="fas fa-search"></i></button>
         </form>
-        <a href="{% url 'informatica:user_add' %}" class="btn btn-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            Adicionar Utilizador
+        <a href="{% url 'informatica:user_add' %}" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px; border-radius: 8px; padding: 10px 20px;">
+            <i class="fas fa-plus"></i> Novo Utilizador
         </a>
     </div>
 </div>
 
-<div class="table-responsive">
+<div class="table-card table-responsive">
     <table class="data-table">
         <thead>
             <tr>
                 <th>Username</th>
-                <th>Nome</th>
+                <th>Nome Completo</th>
                 <th>Email</th>
                 <th>Ativo</th>
-                <th>Staff</th>
-                <th>Superuser</th>
-                <th>Ações</th>
+                <th>Acesso Staff</th>
+                <th style="text-align: right;">Ações</th>
             </tr>
         </thead>
         <tbody>
             {% for user in users %}
             <tr>
-                <td>{{ user.username }}</td>
+                <td><strong>{{ user.username }}</strong></td>
                 <td>{{ user.get_full_name|default:"-" }}</td>
-                <td>{{ user.email|default:"-" }}</td>
-                <td>{% if user.is_active %}Sim{% else %}Não{% endif %}</td>
-                <td>{% if user.is_staff %}Sim{% else %}Não{% endif %}</td>
-                <td>{% if user.is_superuser %}Sim{% else %}Não{% endif %}</td>
-                <td class="actions-cell">
-                    <a href="{% url 'informatica:user_edit' user.pk %}" class="btn btn-sm btn-edit">Editar</a>
-                    <a href="{% url 'informatica:user_delete' user.pk %}" class="btn btn-sm btn-delete">Excluir</a>
+                <td style="color: var(--text-secondary);">{{ user.email|default:"-" }}</td>
+                <td><span class="status-badge {% if user.is_active %}status-yes{% else %}status-no{% endif %}">{% if user.is_active %}Sim{% else %}Não{% endif %}</span></td>
+                <td><span class="status-badge {% if user.is_staff %}status-yes{% else %}status-no{% endif %}">{% if user.is_staff %}Sim{% else %}Não{% endif %}</span></td>
+                <td>
+                    <div class="btn-action-group" style="justify-content: flex-end;">
+                        <a href="{% url 'informatica:user_edit' user.pk %}" class="btn-icon edit" title="Editar"><i class="fas fa-edit"></i></a>
+                        <a href="{% url 'informatica:user_delete' user.pk %}" class="btn-icon delete" title="Excluir"><i class="fas fa-trash-alt"></i></a>
+                    </div>
                 </td>
             </tr>
             {% empty %}
             <tr>
-                <td colspan="7" style="text-align: center; padding: 20px;">Nenhum utilizador encontrado.</td>
+                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                    <i class="fas fa-users fa-3x mb-3" style="opacity: 0.2;"></i><br>
+                    Nenhum utilizador encontrado.
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-{% include 'informatica/includes/pagination.html' %} {# Reutilizar paginação #}
+{% include 'informatica/includes/pagination.html' %}
 {% endblock %}

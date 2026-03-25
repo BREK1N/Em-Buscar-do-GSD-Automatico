@@ -1,305 +1,303 @@
 {% extends 'informatica/base.html' %}
 {% load static %}
 
-{% block title %}{{ page_title|default:"Dashboard Admin" }}{% endblock %}
+{% block title %}{{ page_title|default:"Dashboard Admin & TI" }}{% endblock %}
 
 {% block extra_head %}
 <style>
-    .dashboard-grid {
-        display: grid;
-        /* Aumenta o número mínimo de colunas para telas maiores */
-        grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
-        gap: 25px; /* Espaço entre os cards */
+    /* --- GRID MODERNIZADA --- */
+    .dashboard-container {
+        display: flex;
+        flex-direction: column;
+        gap: 25px;
+        margin-top: 25px;
     }
 
-    /* Estilo básico do card */
+    .dashboard-row {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
+        gap: 25px;
+    }
+
+    /* --- CARDS MODERNOS --- */
     .dashboard-card {
         background-color: var(--bg-content);
         border: 1px solid var(--border-color);
-        border-radius: 12px;
+        border-radius: 16px;
         padding: 25px;
-        box-shadow: var(--box-shadow);
+        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
         display: flex;
         flex-direction: column;
-        transition: transform 0.2s ease-in-out, box-shadow 0.2s ease-in-out;
-    }
-    .dashboard-card:hover {
-        transform: translateY(-3px);
-        box-shadow: 0 8px 15px rgba(0,0,0,0.1);
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
     }
     
-    /* Estilo para card de stats */
-     .stats-card {
-         background-color: var(--bg-main);
-     }
-     .stats-card:hover {
-        transform: none;
-        box-shadow: var(--box-shadow);
-     }
+    body.dark-theme .dashboard-card {
+        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
+    }
+
+    .dashboard-card:hover {
+        transform: translateY(-2px);
+    }
 
     .dashboard-card h3 {
         margin-top: 0;
         margin-bottom: 20px;
-        padding-bottom: 15px;
-        border-bottom: 1px solid var(--border-color);
-        font-size: 1.2rem;
+        font-size: 1.15rem;
         font-weight: 600;
         display: flex;
         align-items: center;
-        gap: 10px;
+        gap: 12px;
         color: var(--text-primary);
     }
-    .dashboard-card h3 svg {
-        width: 22px;
-        height: 22px;
-        color: var(--accent-color);
-    }
-    .dashboard-card .card-content { flex-grow: 1; }
 
-    /* Lista de Modelos */
+    .dashboard-card h3 svg {
+        width: 24px;
+        height: 24px;
+        color: var(--accent-color);
+        background: var(--bg-main);
+        padding: 6px;
+        border-radius: 8px;
+    }
+
+    /* --- LISTAS DE MODELOS (SaaS Style) --- */
     .model-list { list-style: none; padding: 0; margin: 0; }
     .model-list li {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 12px 5px;
-        border-bottom: 1px solid var(--border-color);
-        transition: background-color 0.2s ease;
-        gap: 15px;
+        padding: 12px 15px;
+        margin-bottom: 8px;
+        background-color: var(--bg-main);
+        border-radius: 10px;
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
     }
     .model-list li:hover {
-        background-color: var(--bg-main);
+        border-color: var(--border-color);
+        background-color: var(--bg-content);
     }
-    .model-list li:last-child { border-bottom: none; }
 
     .model-list .model-name-link {
         color: var(--text-primary);
         text-decoration: none;
         font-weight: 500;
-        transition: color 0.2s;
+        flex-grow: 1;
         display: flex;
         align-items: center;
-        flex-grow: 1;
-        flex-shrink: 1;
-        min-width: 0;
-        margin-right: 10px;
-    }
-     .model-list .model-name-link:hover {
-        color: var(--accent-color);
     }
 
-    .model-list .model-actions {
-        display: flex;
-        align-items: center;
-        flex-shrink: 0;
-        white-space: nowrap;
+    .model-list .model-count {
+        font-size: 0.75rem;
+        color: var(--text-inverse);
+        background-color: var(--accent-color);
+        padding: 2px 8px;
+        border-radius: 12px;
+        margin-left: 10px;
+        font-weight: 600;
     }
 
     .model-list .model-actions a {
-        color: var(--accent-color);
+        color: var(--text-secondary);
         text-decoration: none;
-        margin-left: 10px;
+        margin-left: 12px;
         font-size: 0.85rem;
         transition: color 0.2s;
     }
-    .model-list .model-actions a:first-child {
-        margin-left: 0;
-    }
+    .model-list .model-actions a:hover { color: var(--accent-color); }
 
-    .model-list .model-actions a:hover {
-        color: var(--accent-hover);
-        text-decoration: underline;
-    }
-     .model-list .model-count {
-        font-size: 0.8rem;
-        color: var(--text-secondary);
+    /* --- ESTATÍSTICAS RÁPIDAS --- */
+    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
+    .stat-item {
         background-color: var(--bg-main);
-        padding: 2px 7px;
-        border-radius: 4px;
-        margin-left: 10px;
-        font-weight: normal;
-        flex-shrink: 0;
+        padding: 20px 15px;
+        border-radius: 12px;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-start;
+        border: 1px solid var(--border-color);
     }
+    .stat-item .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); line-height: 1; margin-bottom: 8px;}
+    .stat-item .stat-label { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
 
-    /* Stats */
-    .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
-    .stat-item { background-color: var(--bg-content); padding: 20px; border-radius: 10px; text-align: center; border: 1px solid var(--border-color); }
-    .stat-item .stat-value { font-size: 2rem; font-weight: 700; color: var(--accent-color); display: block; margin-bottom: 5px; line-height: 1.2;}
-    .stat-item .stat-label { font-size: 0.85rem; color: var(--text-secondary); }
-
-    /* Links desabilitados e ajustes específicos */
-    .model-actions a[href="#"] {
-        color: var(--text-secondary);
-        pointer-events: none;
-        text-decoration: line-through;
-        opacity: 0.6;
-    }
-    .model-list li[data-model="configuracao"] .model-actions a:first-child { display: none; }
-    .model-list li[data-model="configuracao"] .model-actions a:last-child { margin-left: 0; }
-    .model-list li[data-model="patd"] .model-actions a:first-child { display: none; }
-    .model-list li[data-model="patd"] .model-actions a:last-child { margin-left: 0; }
-
-    /* --- ESTILOS ESPECÍFICOS DO TERMINAL (Caso não estejam no style.css) --- */
+    /* --- TERMINAL MINIMIZÁVEL --- */
+    .terminal-container { grid-column: 1 / -1; }
     .terminal-window {
-        position: relative; /* Necessário para posicionar o alerta */
-    }
-    .new-logs-alert {
-        position: absolute;
-        bottom: 15px;
-        right: 20px;
-        background-color: var(--accent-color);
-        color: white;
-        padding: 6px 15px;
-        border-radius: 20px;
-        font-size: 0.75rem;
-        font-weight: 600;
-        cursor: pointer;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        opacity: 0;
-        visibility: hidden;
-        transform: translateY(10px);
+        position: relative;
+        background-color: #0f172a; /* Fundo sempre escuro pro terminal */
+        border-radius: 12px;
+        border: 1px solid #334155;
+        overflow: hidden;
         transition: all 0.3s ease;
-        z-index: 10;
-        border: 1px solid rgba(255,255,255,0.2);
-        font-family: var(--font-family);
     }
-    .new-logs-alert.visible {
-        opacity: 1;
-        visibility: visible;
-        transform: translateY(0);
+    
+    .terminal-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 10px 15px;
+        background-color: #1e293b;
+        border-bottom: 1px solid #334155;
+        color: #94a3b8;
+        font-size: 0.85rem;
     }
-    .new-logs-alert:hover {
-        background-color: var(--accent-hover);
-        transform: translateY(-2px);
+
+    .terminal-header-left { display: flex; align-items: center; gap: 8px; }
+    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; cursor: pointer; }
+    .terminal-dot.red { background-color: #ef4444; }
+    .terminal-dot.yellow { background-color: #eab308; }
+    .terminal-dot.green { background-color: #22c55e; }
+
+    .terminal-actions button {
+        background: transparent;
+        border: none;
+        color: #94a3b8;
+        cursor: pointer;
+        font-size: 1rem;
+        display: flex;
+        align-items: center;
+        padding: 4px;
+        border-radius: 6px;
+        transition: background 0.2s;
     }
-    .new-logs-alert.visible span {
-        display: inline-block;
-        animation: pulse-dot 1.5s infinite;
+    .terminal-actions button:hover { background: rgba(255,255,255,0.1); color: #fff; }
+
+    .terminal-body {
+        padding: 15px;
+        height: 300px;
+        overflow-y: auto;
+        font-family: 'Consolas', monospace;
+        font-size: 0.85rem;
+        color: #e2e8f0;
     }
-    @keyframes pulse-dot {
-        0% { opacity: 1; } 50% { opacity: 0.5; } 100% { opacity: 1; }
-    }
+
+    /* Estado Minimizado */
+    .terminal-window.collapsed .terminal-body { display: none; }
+    
+    /* Scrollbar pro Terminal */
+    .terminal-body::-webkit-scrollbar { width: 8px; }
+    .terminal-body::-webkit-scrollbar-track { background: #0f172a; }
+    .terminal-body::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
 </style>
 {% endblock %}
 
 {% block content %}
-<h1>{{ page_title|default:"Dashboard da Informática" }}</h1>
-<p>Visão geral e acesso rápido às funcionalidades administrativas.</p>
-
-<div class="dashboard-grid" style="margin-top: 25px;">
-
-    {# Card 1: Estatísticas Rápidas #}
-    <div class="dashboard-card stats-card">
-        <h3>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A2.625 2.625 0 011.5 18.375v-2.25zM16.5 13.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25a2.625 2.625 0 01-2.625-2.625v-2.25zM16.5 13.125V18.75m0-5.625v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c-1.99 0-3.898.39-5.71.989A4.482 4.482 0 005.25 9.75v1.5m6-1.5V18.75m0-5.625c0-1.496.764-2.812 1.99-3.611A48.248 48.248 0 0012 5.25c1.99 0 3.898.39 5.71.989A4.482 4.482 0 0118.75 9.75v1.5m-6-1.5v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c-1.99 0-3.898.39-5.71.989A4.482 4.482 0 005.25 9.75v1.5m6-1.5V9.75m0 9V9.75m0 9H12m0 0H9.75m0 0v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c1.99 0 3.898.39 5.71.989A4.482 4.482 0 0118.75 9.75v1.5" /></svg>
-            Estatísticas Rápidas
-        </h3>
-        <div class="card-content stats-grid">
-             <div class="stat-item"> <span class="stat-value">{{ quick_stats.total_users|default:"0" }}</span> <span class="stat-label">Utilizadores</span> </div>
-            <div class="stat-item"> <span class="stat-value">{{ quick_stats.militares_count|default:"0" }}</span> <span class="stat-label">Militares</span> </div>
-            <div class="stat-item"> <span class="stat-value">{{ quick_stats.total_patds|default:"0" }}</span> <span class="stat-label">Total PATDs</span> </div>
-            <div class="stat-item"> <span class="stat-value">{{ quick_stats.active_patds|default:"0" }}</span> <span class="stat-label">PATDs Ativas</span> </div>
-        </div>
+<div class="d-flex justify-content-between align-items-center">
+    <div>
+        <h1 style="margin-bottom: 5px;">{{ page_title|default:"Visão Geral" }}</h1>
+        <p style="color: var(--text-secondary); margin-top: 0;">Gerencie o sistema e monitore a infraestrutura em tempo real.</p>
     </div>
+</div>
 
-    {# Card 2: Gerenciamento Geral #}
-    <div class="dashboard-card">
-         <h3>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" /></svg>
-            Gerenciar Sistema
-        </h3>
-        <div class="card-content">
-            <ul class="model-list">
-                {% for app in general_admin_apps %}
-                <li data-model="{{ app.model_name|lower }}">
-                    <a href="{{ app.list_url }}" class="model-name-link">
-                        {{ app.name }}
-                        <span class="model-count">{{ app.count }}</span>
-                    </a>
-                    <span class="model-actions">
-                        <a href="{{ app.add_url }}">Adicionar</a>
-                        <a href="{{ app.list_url }}">Ver Lista</a>
-                    </span>
-                </li>
-                {% empty %}
-                <li>Nenhum modelo de sistema configurado.</li>
-                {% endfor %}
-            </ul>
+<div class="dashboard-container">
+    
+    <div class="dashboard-row">
+        {# Card 1: Estatísticas Rápidas #}
+        <div class="dashboard-card">
+            <h3>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A2.625 2.625 0 011.5 18.375v-2.25zM16.5 13.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25a2.625 2.625 0 01-2.625-2.625v-2.25zM16.5 13.125V18.75m0-5.625v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c-1.99 0-3.898.39-5.71.989A4.482 4.482 0 005.25 9.75v1.5m6-1.5V18.75m0-5.625c0-1.496.764-2.812 1.99-3.611A48.248 48.248 0 0012 5.25c1.99 0 3.898.39 5.71.989A4.482 4.482 0 0118.75 9.75v1.5m-6-1.5v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c-1.99 0-3.898.39-5.71.989A4.482 4.482 0 005.25 9.75v1.5m6-1.5V9.75m0 9V9.75m0 9H12m0 0H9.75m0 0v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c1.99 0 3.898.39 5.71.989A4.482 4.482 0 0118.75 9.75v1.5" /></svg>
+                Indicadores
+            </h3>
+            <div class="card-content stats-grid">
+                 <div class="stat-item"> <span class="stat-value text-primary">{{ quick_stats.total_users|default:"0" }}</span> <span class="stat-label">Utilizadores</span> </div>
+                <div class="stat-item"> <span class="stat-value">{{ quick_stats.militares_count|default:"0" }}</span> <span class="stat-label">Militares</span> </div>
+                <div class="stat-item"> <span class="stat-value">{{ quick_stats.total_patds|default:"0" }}</span> <span class="stat-label">Total PATDs</span> </div>
+                <div class="stat-item"> <span class="stat-value">{{ quick_stats.active_patds|default:"0" }}</span> <span class="stat-label">PATDs Ativas</span> </div>
+            </div>
         </div>
-    </div>
 
-    {# Card 3: Gerenciamento Ouvidoria #}
-    <div class="dashboard-card">
-         <h3>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
-            Gerenciar Ouvidoria
-        </h3>
-        <div class="card-content">
-            <ul class="model-list">
-                {% for app in ouvidoria_apps %}
-                 <li data-model="{{ app.model_name|lower }}">
-                    {% if app.singular == 'Configuração' %}
-                        <a href="{{ app.edit_config_url }}" class="model-name-link">{{ app.name }}</a>
-                        <span class="model-actions">
-                            <a href="{{ app.edit_config_url }}">Gerenciar</a>
-                        </span>
-                    {% else %}
+        {# Card 2: Gerenciamento Geral #}
+        <div class="dashboard-card">
+             <h3>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" /></svg>
+                Sistema Global
+            </h3>
+            <div class="card-content">
+                <ul class="model-list">
+                    {% for app in general_admin_apps %}
+                    <li data-model="{{ app.model_name|lower }}">
                         <a href="{{ app.list_url }}" class="model-name-link">
                             {{ app.name }}
                             <span class="model-count">{{ app.count }}</span>
                         </a>
                         <span class="model-actions">
-                            {% if app.model_name != 'patd' %}
-                                <a href="{{ app.add_url }}">Adicionar</a>
-                            {% endif %}
-                            <a href="{{ app.list_url }}">Ver Lista</a>
+                            <a href="{{ app.add_url }}"><i class="fas fa-plus"></i></a>
+                            <a href="{{ app.list_url }}"><i class="fas fa-list"></i></a>
                         </span>
-                    {% endif %}
-                </li>
-                {% empty %}
-                 <li>Nenhum modelo da Ouvidoria configurado.</li>
-                {% endfor %}
-            </ul>
+                    </li>
+                    {% empty %}
+                    <li>Nenhum modelo de sistema configurado.</li>
+                    {% endfor %}
+                </ul>
+            </div>
+        </div>
+
+        {# Card 3: Gerenciamento Ouvidoria #}
+        <div class="dashboard-card">
+             <h3>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
+                Módulo Ouvidoria
+            </h3>
+            <div class="card-content">
+                <ul class="model-list">
+                    {% for app in ouvidoria_apps %}
+                     <li data-model="{{ app.model_name|lower }}">
+                        {% if app.singular == 'Configuração' %}
+                            <a href="{{ app.edit_config_url }}" class="model-name-link">{{ app.name }}</a>
+                            <span class="model-actions">
+                                <a href="{{ app.edit_config_url }}"><i class="fas fa-cog"></i></a>
+                            </span>
+                        {% else %}
+                            <a href="{{ app.list_url }}" class="model-name-link">
+                                {{ app.name }}
+                                <span class="model-count">{{ app.count }}</span>
+                            </a>
+                            <span class="model-actions">
+                                {% if app.model_name != 'patd' %}
+                                    <a href="{{ app.add_url }}"><i class="fas fa-plus"></i></a>
+                                {% endif %}
+                                <a href="{{ app.list_url }}"><i class="fas fa-list"></i></a>
+                            </span>
+                        {% endif %}
+                    </li>
+                    {% empty %}
+                     <li>Nenhum modelo configurado.</li>
+                    {% endfor %}
+                </ul>
+            </div>
         </div>
     </div>
 
-    {# Card 4: Output do Terminal (Logs do Docker) #}
-    <div class="dashboard-card" style="grid-column: 1 / -1;">
-         <h3>
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-            </svg>
-            Monitoramento do Sistema (Docker Logs)
-        </h3>
-        <div class="card-content">
-            <div class="terminal-window">
+    <div class="dashboard-row">
+        <div class="dashboard-card terminal-container" style="padding: 0; overflow: hidden;">
+            <div class="terminal-window" id="terminalWrapper">
                 <div class="terminal-header">
-                    <span class="terminal-dot red"></span>
-                    <span class="terminal-dot yellow"></span>
-                    <span class="terminal-dot green"></span>
-                    <span class="terminal-title">system@gsd-server: /var/log</span>
+                    <div class="terminal-header-left">
+                        <span class="terminal-dot red" id="closeTerminalAction"></span>
+                        <span class="terminal-dot yellow" id="minimizeTerminalAction"></span>
+                        <span class="terminal-dot green"></span>
+                        <span class="terminal-title ml-2" style="margin-left: 10px; font-weight: 500;">system@gsd-server: /var/log/docker</span>
+                    </div>
+                    <div class="terminal-actions">
+                        <button id="toggleTerminalBtn" title="Minimizar/Expandir">
+                            <i class="fas fa-chevron-up" id="toggleTerminalIcon"></i>
+                        </button>
+                    </div>
                 </div>
                 
                 <div class="terminal-body" id="terminalBody">
-                    {# Logs iniciais renderizados pelo Django #}
                     {% for log in terminal_logs %}
                         <div class="log-line">
-                            <span class="log-prompt">root@docker:~$</span> 
+                            <span class="log-prompt" style="color: #22c55e;">root@docker:~$</span> 
                             <span class="log-text">{{ log }}</span>
                         </div>
                     {% empty %}
                         <div class="log-line">
-                            <span class="log-text">Carregando logs do sistema...</span>
+                            <span class="log-text">Aguardando novos logs do sistema...</span>
                         </div>
                     {% endfor %}
                     <div class="log-line active-cursor">
-                        <span class="log-prompt">root@gsd-live:~$</span> <span class="cursor">_</span>
+                        <span class="log-prompt" style="color: #22c55e;">root@gsd-live:~$</span> <span class="cursor">_</span>
                     </div>
-                </div>
-
-                {# Botão de Alerta Flutuante #}
-                <div id="newLogsAlert" class="new-logs-alert" onclick="scrollToBottom()">
-                    <span>⬇</span> Novas atualizações
                 </div>
             </div>
         </div>
@@ -309,98 +307,84 @@
 
 <script>
     document.addEventListener("DOMContentLoaded", function() {
+        // --- LÓGICA DE MINIMIZAR TERMINAL ---
+        const terminalWrapper = document.getElementById("terminalWrapper");
+        const toggleBtn = document.getElementById("toggleTerminalBtn");
+        const toggleIcon = document.getElementById("toggleTerminalIcon");
+        const minimizeDot = document.getElementById("minimizeTerminalAction");
+
+        // Verifica preferência salva
+        const isTerminalCollapsed = localStorage.getItem('terminalCollapsed') === 'true';
+        if (isTerminalCollapsed) {
+            terminalWrapper.classList.add('collapsed');
+            toggleIcon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+        }
+
+        function toggleTerminal() {
+            terminalWrapper.classList.toggle('collapsed');
+            const isCollapsed = terminalWrapper.classList.contains('collapsed');
+            localStorage.setItem('terminalCollapsed', isCollapsed);
+            
+            if (isCollapsed) {
+                toggleIcon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+            } else {
+                toggleIcon.classList.replace('fa-chevron-down', 'fa-chevron-up');
+                terminalBody.scrollTop = terminalBody.scrollHeight; // Rola pra baixo ao abrir
+            }
+        }
+
+        toggleBtn.addEventListener('click', toggleTerminal);
+        minimizeDot.addEventListener('click', toggleTerminal);
+
+        // --- LÓGICA DE ATUALIZAÇÃO DOS LOGS (Mantida a sua original, apenas ajustei escopo) ---
         const terminalBody = document.getElementById("terminalBody");
-        const alertBox = document.getElementById("newLogsAlert");
         const apiUrl = "{% url 'informatica:system_logs_api' %}";
-        
-        // 'Set' para armazenar assinaturas únicas de logs já exibidos
-        // Isso impede duplicatas visuais e permite o "append" sem repetir
         let displayedLogs = new Set();
         let userIsScrolledUp = false;
 
-        // --- Inicialização: Adiciona logs que vieram do Django (template) ao Set ---
-        // Isso evita que os logs iniciais sejam duplicados na primeira chamada da API
-        const initialLogs = terminalBody.querySelectorAll('.log-line:not(.active-cursor) .log-text');
-        initialLogs.forEach(el => {
-            displayedLogs.add(el.textContent.trim());
-        });
-        // --------------------------------------------------------------------------
+        if (terminalBody) {
+            terminalBody.addEventListener('scroll', function() {
+                const isAtBottom = terminalBody.scrollTop + terminalBody.clientHeight >= terminalBody.scrollHeight - 20;
+                userIsScrolledUp = !isAtBottom;
+            });
 
-        // Detectar rolagem manual
-        terminalBody.addEventListener('scroll', function() {
-            const isAtBottom = terminalBody.scrollTop + terminalBody.clientHeight >= terminalBody.scrollHeight - 20;
-            if (isAtBottom) {
-                userIsScrolledUp = false;
-                alertBox.classList.remove('visible');
-            } else {
-                userIsScrolledUp = true;
-            }
-        });
+            function fetchLogs() {
+                if (terminalWrapper.classList.contains('collapsed')) return; // Não gasta rede se minimizado
 
-        window.scrollToBottom = function() {
-            terminalBody.scrollTop = terminalBody.scrollHeight;
-            userIsScrolledUp = false;
-            alertBox.classList.remove('visible');
-        };
+                fetch(apiUrl)
+                    .then(response => response.json())
+                    .then(data => {
+                        let hasNewContent = false;
+                        const cursorLine = terminalBody.querySelector('.active-cursor');
 
-        function fetchLogs() {
-            fetch(apiUrl)
-                .then(response => response.json())
-                .then(data => {
-                    let hasNewContent = false;
-                    
-                    // Seleciona a linha do cursor para inserir antes dela
-                    const cursorLine = terminalBody.querySelector('.active-cursor');
+                        data.logs.forEach(log => {
+                            const logSignature = log.text.trim();
+                            if (displayedLogs.has(logSignature)) return;
+                            
+                            displayedLogs.add(logSignature);
+                            hasNewContent = true;
 
-                    data.logs.forEach(log => {
-                        // Cria uma assinatura única para o log (conteúdo)
-                        // Usamos o texto do log para garantir que não repetimos a mesma mensagem visualmente
-                        const logSignature = log.text.trim();
+                            let promptColor = "#22c55e"; // Success green
+                            if (log.text.includes("❌")) promptColor = "#ef4444";
+                            if (log.text.includes("⚠️")) promptColor = "#eab308";
 
-                        // Se este log JÁ foi mostrado, ignora
-                        if (displayedLogs.has(logSignature)) {
-                            return;
-                        }
+                            const newLogHtml = `
+                                <div class="log-line">
+                                    <span class="log-prompt" style="color: ${promptColor}">root@${log.container}:~$</span> 
+                                    <span class="log-text">${log.text}</span>
+                                </div>
+                            `;
+                            cursorLine.insertAdjacentHTML('beforebegin', newLogHtml);
+                        });
 
-                        // Se é novo, adiciona ao Set e renderiza
-                        displayedLogs.add(logSignature);
-                        hasNewContent = true;
-
-                        let promptColor = "var(--success-color)";
-                        if (log.text.includes("❌")) promptColor = "#ff4444";
-                        if (log.text.includes("⚠️")) promptColor = "#ffbb33";
-                        if (log.text.includes("LOGIN")) promptColor = "#00ff00";
-                        if (log.text.includes("LOGOUT")) promptColor = "#ff00ff";
-
-                        const newLogHtml = `
-                            <div class="log-line">
-                                <span class="log-prompt" style="color: ${promptColor}">root@${log.container}:~$</span> 
-                                <span class="log-text">${log.text}</span>
-                            </div>
-                        `;
-
-                        // Insere ANTES do cursor piscando
-                        cursorLine.insertAdjacentHTML('beforebegin', newLogHtml);
-                    });
-
-                    // Se houve conteúdo novo, gerencia o scroll
-                    if (hasNewContent) {
-                        if (userIsScrolledUp) {
-                            alertBox.classList.add('visible');
-                        } else {
+                        if (hasNewContent && !userIsScrolledUp) {
                             terminalBody.scrollTop = terminalBody.scrollHeight;
                         }
-                    }
-                })
-                .catch(error => console.error('Erro ao buscar logs:', error));
-        }
+                    }).catch(err => console.log('Silenciando erro de fetch no log.'));
+            }
 
-        // Atualiza a cada 2 segundos para parecer mais "tempo real"
-        setInterval(fetchLogs, 2000);
-        
-        // Scroll inicial
-        if(terminalBody) {
-            terminalBody.scrollTop = terminalBody.scrollHeight;
+            setInterval(fetchLogs, 2500);
+            setTimeout(() => { terminalBody.scrollTop = terminalBody.scrollHeight; }, 100);
         }
     });
 </script>

@@ -1276,3 +1276,51 @@ body.dark-theme .btn-close {
 body.dark-theme .text-muted {
     color: var(--text-secondary) !important;
 }
+
+/* No seu arquivo style.css principal */
+
+:root, body.light-theme {
+    /* Tema Claro Moderno */
+    --bg-main: #f8fafc;        /* Fundo da página */
+    --bg-content: #ffffff;     /* Fundo dos cards */
+    --text-primary: #0f172a;   /* Texto principal */
+    --text-secondary: #64748b; /* Texto secundário/ícones */
+    --text-inverse: #ffffff;
+    --border-color: #e2e8f0;   /* Bordas sutis */
+    
+    --accent-color: #2563eb;   /* Azul Royal para ações */
+    --accent-hover: #1d4ed8;
+    --danger-color: #ef4444;
+    --success-color: #22c55e;
+    --warning-color: #f59e0b;
+}
+
+body.dark-theme {
+    /* Tema Escuro Elegante (Sem ser preto puro) */
+    --bg-main: #0f172a;        /* Fundo da página escuro */
+    --bg-content: #1e293b;     /* Fundo dos cards escuro */
+    --text-primary: #f8fafc;   /* Texto branco gelo */
+    --text-secondary: #94a3b8; /* Texto acinzentado */
+    --text-inverse: #ffffff;
+    --border-color: #334155;   /* Bordas que mesclam bem */
+    
+    --accent-color: #3b82f6;   /* Azul mais claro no dark mode */
+    --accent-hover: #60a5fa;
+    --danger-color: #f87171;
+    --success-color: #4ade80;
+    --warning-color: #fbbf24;
+}
+
+/* Ajustes globais para inputs ficarem práticos */
+input[type="text"], input[type="email"], input[type="password"], select, textarea {
+    background-color: var(--bg-main) !important;
+    border: 1px solid var(--border-color) !important;
+    color: var(--text-primary) !important;
+    transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+input:focus, select:focus, textarea:focus {
+    outline: none;
+    border-color: var(--accent-color) !important;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+}
