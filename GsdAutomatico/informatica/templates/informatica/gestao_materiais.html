@@ -32,7 +32,7 @@
     .tabs-nav a.active { background: var(--accent-color); color: white; box-shadow: 0 4px 6px -1px rgba(59,130,246,0.3); }
     
     /* Abas Secundárias (Grupos de Materiais) */
-    .subtabs-nav { display: flex; gap: 5px; margin-bottom: 15px; flex-wrap: wrap; border-bottom: 2px solid var(--bg-main); padding-bottom: 10px;}
+    .subtabs-nav { display: flex; gap: 5px; flex-wrap: wrap; }
     .subtabs-nav a { padding: 6px 15px; text-decoration: none; color: var(--text-secondary); border-radius: 20px; font-weight: 600; font-size: 0.85rem; cursor: pointer; transition: 0.2s;}
     .subtabs-nav a.active { background: var(--bg-main); color: var(--accent-color); border: 1px solid var(--border-color); }
     
@@ -126,7 +126,7 @@
             <div class="col-12 form-item mt-4 pt-3" style="border-top: 1px dashed var(--border-color);">
                 <label>1. Selecione a Categoria (Grupo)</label>
                 <select id="cautela-grupo-select" class="form-select" style="height: 46px;">
-                    <option value="">-- Filtrar por Grupo --</option>
+                    <option value="">-- Selecione o Grupo --</option>
                     {% for g in grupos %}
                         <option value="{{ g.id }}">{{ g.nome }}</option>
                     {% endfor %}
@@ -134,11 +134,25 @@
             </div>
 
             <div class="col-12 form-item mt-1">
-                <label>2. Escolha o Material Disponível</label>
+                <label>2. Selecione a Subcategoria</label>
+                <select id="cautela-subgrupo-select" class="form-select" style="height: 46px;" disabled>
+                    <option value="">-- Selecione o Grupo Primeiro --</option>
+                </select>
+                <!-- Resumo do Subgrupo -->
+                <div id="subgrupo-summary-preview" class="mt-2 p-3" style="background: var(--bg-main); border-radius: 8px; display: none; border: 1px solid var(--border-color); font-size: 0.85rem; justify-content: space-around; text-align: center;">
+                    <div><strong class="text-primary d-block" id="sum-total" style="font-size: 1.1rem;">0</strong> Total Acervo</div>
+                    <div><strong class="text-success d-block" id="sum-disp" style="font-size: 1.1rem;">0</strong> Livres</div>
+                    <div><strong class="text-warning d-block" id="sum-caut" style="font-size: 1.1rem;">0</strong> Em Cautela</div>
+                    <div><strong class="text-danger d-block" id="sum-def" style="font-size: 1.1rem;">0</strong> Defeito</div>
+                </div>
+            </div>
+
+            <div class="col-12 form-item mt-2">
+                <label>3. Escolha o Material Disponível</label>
                 <div class="d-flex gap-2">
                     <div style="flex-grow: 1;">
                         <select id="cautela-material-select" class="select2-search" disabled>
-                            <option value="">-- Selecione o Grupo Primeiro --</option>
+                            <option value="">-- Selecione a Subcategoria Primeiro --</option>
                         </select>
                     </div>
                     <button type="button" class="btn btn-secondary px-3" id="btn-add-material" title="Adicionar à Cautela"><i class="fas fa-plus"></i></button>
@@ -158,7 +172,7 @@
     </div>
 </div>
 
-<!-- ABA: CAUTELAS ATIVAS -->
+<!-- ABA: CAUTELAS ATIVAS (RESUMO) -->
 <div id="tab-cautelas-ativas" class="tab-panel">
     <div class="form-card">
         <div class="form-card-header">
@@ -171,7 +185,7 @@
                         <th>Cód. Cautela</th>
                         <th>Missão / Emissão</th>
                         <th>Recebedor / Emitente</th>
-                        <th>Itens e Status</th>
+                        <th class="text-center">Resumo</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
@@ -188,50 +202,65 @@
                             <span class="text-muted" style="font-size: 0.85rem;">Tel: {{ cautela.telefone_contato|default:"S/N" }}</span><br>
                             <span class="text-muted" style="font-size: 0.85rem;">Em: {{ cautela.sobreaviso.posto }} {{ cautela.sobreaviso.nome_guerra }}</span>
                         </td>
-                        <td>
-                            <ul style="list-style: none; padding: 0; margin: 0; font-size: 0.85rem;">
-                            {% for item in cautela.itens.all %}
-                                <li style="margin-bottom: 8px; border-bottom: 1px dashed var(--border-color); padding-bottom: 8px; display: flex; justify-content: space-between; align-items: start;">
-                                    <div>
-                                        <strong>{% if item.quantidade > 1 %}{{ item.quantidade }}x {% endif %}{{ item.material.nome }}</strong> <span class="text-muted">{% if item.material.serial %}(S/N: {{ item.material.serial }}){% endif %}</span>
-                                        
-                                        {% if item.devolvido %}
-                                            <span class="badge bg-success text-white" style="font-size: 0.65rem; margin-left: 5px; padding: 3px 6px; border-radius: 4px;">Devolvido ({{ item.data_devolucao|date:"d/m" }})</span>
-                                            <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 4px;">
-                                                Recebido por: {{ item.recebedor_devolucao.posto }} {{ item.recebedor_devolucao.nome_guerra }}
-                                                {% if item.assinatura_devolucao %}
-                                                <br><img src="{{ item.assinatura_devolucao }}" style="height: 25px; border: 1px solid #ccc; background: white; margin-top: 2px; border-radius: 4px;">
+                        <td class="text-center">
+                            <span class="badge-status bg-cautela px-3 py-2" style="font-size: 0.85rem; border-radius: 8px;">
+                                <i class="fas fa-boxes me-1"></i> {{ cautela.itens.count }} Itens Registados
+                            </span>
+                        </td>
+                        <td style="vertical-align: middle;">
+                            <div class="d-flex gap-2 flex-column">
+                                <button type="button" class="btn btn-sm btn-primary" onclick="abrirDetalhesCautela({{ cautela.id }})" title="Ver Itens e Dar Baixa">
+                                    <i class="fas fa-eye"></i> Detalhes / Baixa
+                                </button>
+                                <a href="{% url 'informatica:imprimir_cautela' cautela.id %}" target="_blank" class="btn btn-sm btn-secondary" title="Imprimir Comprovativo">
+                                    <i class="fas fa-print"></i> Imprimir Recibo
+                                </a>
+                            </div>
+                            
+                            <!-- DADOS ESCONDIDOS PARA O MODAL DE DETALHES DA CAUTELA -->
+                            <template id="cautela-dados-{{ cautela.id }}">
+                                <div class="acoes-html d-flex gap-2">
+                                    <button type="button" class="btn btn-sm btn-outline-primary" onclick="fecharModal('modal-detalhes-cautela'); abrirModalAddItem({{ cautela.id }})">
+                                        <i class="fas fa-plus"></i> Adicionar Extra
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-success" onclick="fecharModal('modal-detalhes-cautela'); iniciarDevolucao('total', {{ cautela.id }})">
+                                        <i class="fas fa-undo-alt"></i> Baixar Tudo (Devolver)
+                                    </button>
+                                </div>
+                                <div class="itens-html">
+                                    {% for item in cautela.itens.all %}
+                                        <div class="p-3 border-bottom d-flex justify-content-between align-items-start" style="background: var(--bg-main);">
+                                            <div>
+                                                <strong>{% if item.quantidade > 1 %}{{ item.quantidade }}x {% endif %}{{ item.material.nome }}</strong> 
+                                                <span class="text-muted">{% if item.material.serial %}(S/N: {{ item.material.serial }}){% endif %}</span>
+                                                
+                                                {% if item.devolvido %}
+                                                    <span class="badge bg-success text-white" style="font-size: 0.65rem; margin-left: 5px; padding: 3px 6px; border-radius: 4px;">Devolvido ({{ item.data_devolucao|date:"d/m" }})</span>
+                                                {% endif %}
+                                                
+                                                {% if item.material.atributos_extras %}
+                                                    <div style="margin-top: 6px;">
+                                                        {% for k, v in item.material.atributos_extras.items %}
+                                                            <span class="attr-tag" style="background: var(--bg-content);"><b>{{ k }}:</b> {{ v }}</span>
+                                                        {% endfor %}
+                                                    </div>
+                                                {% endif %}
+                                                
+                                                {% if item.devolvido %}
+                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px;">
+                                                        Recebido por: {{ item.recebedor_devolucao.posto }} {{ item.recebedor_devolucao.nome_guerra }}
+                                                    </div>
                                                 {% endif %}
                                             </div>
-                                        {% endif %}
-                                        
-                                        {% if item.material.atributos_extras %}
-                                            <div style="margin-top: 4px;">
-                                                {% for k, v in item.material.atributos_extras.items %}
-                                                    <span class="attr-tag" style="background: var(--bg-content);"><b>{{ k }}:</b> {{ v }}</span>
-                                                {% endfor %}
-                                            </div>
-                                        {% endif %}
-                                    </div>
-                                    {% if not item.devolvido %}
-                                        <button class="btn btn-sm btn-outline-success py-0 px-2 mt-1" style="font-size: 0.7rem; border: 1px solid var(--success-color);" onclick="iniciarDevolucao('item', {{ item.id }})" title="Devolver apenas este material"><i class="fas fa-undo"></i> Devolver</button>
-                                    {% endif %}
-                                </li>
-                            {% endfor %}
-                            </ul>
-                        </td>
-                        <td style="vertical-align: top;">
-                            <div class="d-flex gap-2 flex-column">
-                                <a href="{% url 'informatica:imprimir_cautela' cautela.id %}" target="_blank" class="btn btn-sm btn-secondary" title="Imprimir Comprovativo">
-                                    <i class="fas fa-print"></i> Imprimir
-                                </a>
-                                <button type="button" class="btn btn-sm btn-primary" onclick="abrirModalAddItem({{ cautela.id }})" title="Adicionar mais materiais">
-                                    <i class="fas fa-plus"></i> Add Item
-                                </button>
-                                <button type="button" class="btn btn-sm btn-success" onclick="iniciarDevolucao('total', {{ cautela.id }})" title="Devolve TODOS os itens pendentes">
-                                    <i class="fas fa-undo-alt"></i> Baixar Tudo
-                                </button>
-                            </div>
+                                            {% if not item.devolvido %}
+                                                <button class="btn btn-sm btn-outline-success py-1 px-2 mt-1" style="font-size: 0.75rem; border: 1px solid var(--success-color);" onclick="fecharModal('modal-detalhes-cautela'); iniciarDevolucao('item', {{ item.id }})" title="Devolver apenas este material">
+                                                    <i class="fas fa-undo"></i> Devolver Unitário
+                                                </button>
+                                            {% endif %}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                            </template>
                         </td>
                     </tr>
                     {% empty %}
@@ -296,7 +325,7 @@
     </div>
 </div>
 
-<!-- ABA: ACERVO GERAL (Com Edição e Exclusão) -->
+<!-- ABA: ACERVO GERAL (Com Edição, Exclusão, Pesquisa e Totais) -->
 <div id="tab-acervo" class="tab-panel">
     <div class="form-card">
         <div class="form-card-header">
@@ -309,18 +338,45 @@
             </div>
         </div>
         
+        <!-- Abas Superiores por Grupo -->
         <div class="d-flex justify-content-between align-items-center mb-3">
-            <nav class="subtabs-nav" id="grupos-subtabs">
-                <a class="subtab-link active" data-target="subtab-all">Todos os Itens</a>
+            <nav class="subtabs-nav" id="grupos-subtabs" style="margin-bottom: 0; padding-bottom: 0; border: none;">
+                <a class="subtab-link active" data-target="subtab-all">Todos os Grupos</a>
                 {% for g in grupos %}
                     <a class="subtab-link" data-target="subtab-g{{ g.id }}">{{ g.nome }}</a>
                 {% endfor %}
             </nav>
-            <select class="form-select form-select-sm" id="filtro-status" style="width: auto;" onchange="filtrarAcervo()">
-                <option value="all">Filtrar: Todos os Status</option>
-                <option value="ok">Apenas Funcionando</option>
-                <option value="defeito">Com Defeito</option>
-            </select>
+        </div>
+
+        <!-- Nova Barra de Pesquisa e Filtros -->
+        <div class="row g-2 mb-3">
+            <div class="col-md-4">
+                <div class="input-group">
+                    <span class="input-group-text" style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-secondary);"><i class="fas fa-search"></i></span>
+                    <input type="text" id="pesquisa-acervo" class="form-control" placeholder="Pesquisar nome, modelo, serial, BMP..." onkeyup="filtrarAcervo()" style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-primary);">
+                </div>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" id="filtro-subgrupo" onchange="filtrarAcervo()" style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-primary);">
+                    <option value="all">Todos os Subgrupos</option>
+                    <!-- Preenchido via JS baseado no grupo selecionado -->
+                </select>
+            </div>
+            <div class="col-md-4">
+                <select class="form-select" id="filtro-status" onchange="filtrarAcervo()" style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-primary);">
+                    <option value="all">Todos os Status</option>
+                    <option value="ok">Apenas Funcionando</option>
+                    <option value="defeito">Com Defeito</option>
+                </select>
+            </div>
+        </div>
+
+        <!-- Resumo do Acervo Visível -->
+        <div id="acervo-summary" class="mb-3 p-3 d-flex justify-content-around text-center" style="background: var(--bg-main); border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.85rem;">
+            <div><strong class="text-primary d-block" id="acervo-sum-total" style="font-size: 1.2rem;">0</strong> Total Visível</div>
+            <div><strong class="text-success d-block" id="acervo-sum-disp" style="font-size: 1.2rem;">0</strong> Livres</div>
+            <div><strong class="text-warning d-block" id="acervo-sum-caut" style="font-size: 1.2rem;">0</strong> Em Cautela</div>
+            <div><strong class="text-danger d-block" id="acervo-sum-def" style="font-size: 1.2rem;">0</strong> Defeito</div>
         </div>
 
         <div class="table-responsive">
@@ -332,12 +388,21 @@
                         <th>Serial / Código</th>
                         <th>Status Operacional</th>
                         <th>Disponibilidade</th>
-                        <th style="width: 110px;">Ações</th> <!-- NOVA COLUNA -->
+                        <th style="width: 110px;">Ações</th>
                     </tr>
                 </thead>
                 <tbody>
                     {% for mat in materiais %}
-                    <tr class="acervo-row" data-grupo="subtab-g{{ mat.subgrupo.grupo.id }}" data-funciona="{% if mat.funcionando %}ok{% else %}defeito{% endif %}">
+                    <tr class="acervo-row" 
+                        data-grupo="subtab-g{{ mat.subgrupo.grupo.id }}" 
+                        data-subgrupo="{{ mat.subgrupo.id }}"
+                        data-funciona="{% if mat.funcionando %}ok{% else %}defeito{% endif %}"
+                        data-nome="{{ mat.nome|lower }}"
+                        data-serial="{{ mat.serial|default:''|lower }}"
+                        data-codigo="{{ mat.codigo|default:''|lower }}"
+                        data-qtd="{{ mat.quantidade }}"
+                        data-disp="{{ mat.quantidade_disponivel }}">
+                        
                         <td><span class="text-muted">{{ mat.subgrupo.grupo.nome }} /</span><br><strong>{{ mat.subgrupo.nome }}</strong></td>
                         <td>
                             <strong style="font-size: 1.05rem;">{{ mat.nome }}</strong><br>
@@ -367,7 +432,6 @@
                             {% endif %}
                         </td>
                         <td>
-                            <!-- BOTÕES DE EDIÇÃO E EXCLUSÃO AQUI -->
                             <div class="d-flex gap-2">
                                 <button class="btn btn-sm btn-outline-primary py-1 px-2" onclick="editarMaterial({{ mat.id }})" title="Editar"><i class="fas fa-edit"></i></button>
                                 <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="confirmarDelecaoMaterial({{ mat.id }}, '{{ mat.nome|escapejs }}')" title="Excluir"><i class="fas fa-trash"></i></button>
@@ -465,8 +529,33 @@
 </div>
 
 <!-- ============================================== -->
-<!-- MODAIS DO ACERVO (EDICAO / EXCLUSAO / CADASTRO) -->
+<!-- MODAIS DO ACERVO E DETALHES DE CAUTELA -->
 <!-- ============================================== -->
+
+<!-- NOVO MODAL: DETALHES DA CAUTELA (RESUMO) -->
+<div class="modal-overlay" id="modal-detalhes-cautela">
+    <div class="modal-content" style="max-width: 800px; padding: 0; overflow: hidden;">
+        <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="background-color: var(--bg-main);">
+            <h3 class="m-0" style="font-size: 1.2rem;"><i class="fas fa-clipboard-list text-primary me-2"></i> Detalhes da Cautela #<span id="detalhe-cautela-id"></span></h3>
+            <button class="btn btn-sm btn-outline-secondary py-1 px-2 btn-cancelar-modal" onclick="fecharModal('modal-detalhes-cautela')"><i class="fas fa-times"></i></button>
+        </div>
+        
+        <div class="p-4" style="max-height: 70vh; overflow-y: auto;">
+            <div class="d-flex justify-content-end mb-3" id="detalhe-cautela-acoes">
+                <!-- Botões de ação (Add, Baixar Tudo) injetados aqui -->
+            </div>
+            
+            <h6 class="text-muted text-uppercase mb-2" style="font-weight: 600; font-size: 0.85rem;">Materiais Registados:</h6>
+            <div id="detalhe-cautela-itens" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--bg-content);">
+                <!-- Lista de itens injetada via JS -->
+            </div>
+        </div>
+        <div class="p-3 border-top text-end" style="background-color: var(--bg-main);">
+            <button class="btn btn-secondary px-4 btn-cancelar-modal" onclick="fecharModal('modal-detalhes-cautela')">Fechar Resumo</button>
+        </div>
+    </div>
+</div>
+
 <div class="modal-overlay" id="modal-delete-material">
     <div class="modal-content" style="max-width: 450px;">
         <h3><i class="fas fa-exclamation-triangle text-danger me-2"></i> Excluir Material</h3>
@@ -490,16 +579,27 @@
         <h3>Adicionar Item Extra à Cautela #<span id="add-item-cautela-id-text"></span></h3>
         <input type="hidden" id="add-item-cautela-id">
         <div class="form-item mt-3">
-            <label>1. Selecione a Categoria</label>
+            <label>1. Selecione a Categoria (Grupo)</label>
             <select id="add-item-grupo" class="form-select">
-                <option value="">-- Filtrar por Grupo --</option>
+                <option value="">-- Selecione o Grupo --</option>
                 {% for g in grupos %}<option value="{{ g.id }}">{{ g.nome }}</option>{% endfor %}
             </select>
         </div>
         <div class="form-item mt-3">
-            <label>2. Selecione o Material</label>
-            <select id="add-item-material" class="select2-search" style="width: 100%;">
+            <label>2. Selecione a Subcategoria</label>
+            <select id="add-item-subgrupo" class="form-select" disabled>
                 <option value="">-- Selecione o Grupo Primeiro --</option>
+            </select>
+            <div id="add-item-summary" class="mt-2 p-2" style="background: var(--bg-main); border-radius: 8px; display: none; border: 1px solid var(--border-color); font-size: 0.8rem; justify-content: space-around; text-align: center;">
+                <div><strong class="text-primary d-block" id="add-sum-total">0</strong> Total</div>
+                <div><strong class="text-success d-block" id="add-sum-disp">0</strong> Livres</div>
+                <div><strong class="text-warning d-block" id="add-sum-caut">0</strong> Em Cautela</div>
+            </div>
+        </div>
+        <div class="form-item mt-3">
+            <label>3. Selecione o Material</label>
+            <select id="add-item-material" class="select2-search" style="width: 100%;" disabled>
+                <option value="">-- Selecione a Subcategoria Primeiro --</option>
             </select>
         </div>
         <div class="d-flex justify-content-end gap-2 mt-4">
@@ -512,20 +612,21 @@
 <div class="modal-overlay" id="modal-gerenciar-categorias">
     <div class="modal-content">
         <h3><i class="fas fa-cogs text-danger me-2"></i> Gerenciar Categorias</h3>
-        <p class="text-muted" style="font-size: 0.85rem;">Atenção: A exclusão de um grupo apagará todos os seus subgrupos.</p>
+        <p class="text-muted" style="font-size: 0.85rem;">Atenção: A exclusão de um grupo apagará todos os seus subgrupos. Não é possível excluir grupos/subgrupos que contenham materiais em uso.</p>
+        
         <div style="max-height: 400px; overflow-y: auto; margin-top: 15px;">
             <ul class="list-group" style="list-style: none; padding: 0;">
                 {% for g in grupos %}
                     <li style="background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; padding: 15px;">
                         <div class="d-flex justify-content-between align-items-center">
                             <strong style="font-size: 1.1rem; color: var(--text-primary);">{{ g.nome }}</strong>
-                            <button class="btn btn-sm btn-danger py-1 px-2" onclick="deletarGrupo({{ g.id }})"><i class="fas fa-trash"></i></button>
+                            <button class="btn btn-sm btn-danger py-1 px-2" onclick="deletarGrupo({{ g.id }})" title="Excluir Grupo"><i class="fas fa-trash"></i></button>
                         </div>
                         <ul style="list-style: none; padding-left: 15px; margin-top: 15px; border-left: 2px solid var(--border-color);">
                             {% for sg in g.subgrupos.all %}
                                 <li class="d-flex justify-content-between align-items-center mb-2">
                                     <span style="font-size: 0.95rem; color: var(--text-secondary);">{{ sg.nome }}</span>
-                                    <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deletarSubgrupo({{ sg.id }})"><i class="fas fa-times"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deletarSubgrupo({{ sg.id }})" title="Excluir Subgrupo"><i class="fas fa-times"></i></button>
                                 </li>
                             {% endfor %}
                         </ul>
@@ -534,7 +635,7 @@
             </ul>
         </div>
         <div class="d-flex justify-content-end mt-4">
-            <button class="btn btn-secondary px-4 btn-cancelar-modal" onclick="fecharModal('modal-gerenciar-categorias')">Fechar</button>
+            <button class="btn btn-secondary px-4 btn-cancelar-modal" onclick="fecharModal('modal-gerenciar-categorias')">Fechar Painel</button>
         </div>
     </div>
 </div>
@@ -542,7 +643,7 @@
 <div class="modal-overlay" id="modal-grupo">
     <div class="modal-content">
         <h3>Adicionar Grupo</h3>
-        <div class="form-item mt-3"><input type="text" id="novo_grupo_nome" placeholder="Nome do Grupo"></div>
+        <div class="form-item mt-3"><input type="text" id="novo_grupo_nome" placeholder="Nome do Grupo Mestre"></div>
         <div class="d-flex justify-content-end gap-2 mt-4">
             <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-grupo')">Cancelar</button>
             <button class="btn btn-primary" id="btn-save-grupo">Salvar</button>
@@ -554,6 +655,7 @@
     <div class="modal-content">
         <h3>Adicionar Subgrupo</h3>
         <div class="form-item mt-3">
+            <label>Selecione o Grupo Base</label>
             <select id="novo_subgrupo_grupo_id" class="form-select">
                 {% for g in grupos %}<option value="{{ g.id }}">{{ g.nome }}</option>{% endfor %}
             </select>
@@ -583,7 +685,7 @@
             <div class="col-md-3 form-item"><label>Qtd Total</label><input type="number" id="novo_mat_quantidade" value="1" min="1"></div>
             <div class="col-md-4 form-item"><label>Nº Série</label><input type="text" id="novo_mat_serial" placeholder="S/N"></div>
             
-            <div class="col-md-6 form-item"><label>Cód. Interno</label><input type="text" id="novo_mat_codigo"></div>
+            <div class="col-md-6 form-item"><label>Cód. Interno / BMP</label><input type="text" id="novo_mat_codigo"></div>
             <div class="col-md-6 form-item">
                 <label>Status</label>
                 <select id="novo_mat_status">
@@ -636,6 +738,13 @@ document.addEventListener('DOMContentLoaded', function() {
         acervoGeral = acervoJsonStr ? JSON.parse(acervoJsonStr) : [];
     } catch(e) { console.error("Falha ao carregar dados", e); }
 
+    // Mapeia os Subgrupos para os selects em cascata
+    const subgruposList = [
+        {% for sg in subgrupos %}
+            { id: "{{ sg.id }}", grupo_id: "{{ sg.grupo.id }}", nome: "{{ sg.nome|escapejs }}" }{% if not forloop.last %},{% endif %}
+        {% endfor %}
+    ];
+
     const hasJQuery = (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined');
     let isEditingMat = false;
     
@@ -675,24 +784,81 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // --- NOVA LÓGICA DE FILTRAGEM DO ACERVO ---
     let grupoAtivo = 'subtab-all';
+
+    function atualizarDropdownSubgrupos(grupoIdStr) {
+        const selectSubgrupo = document.getElementById('filtro-subgrupo');
+        selectSubgrupo.innerHTML = '<option value="all">Todos os Subgrupos</option>';
+        if (grupoIdStr === 'subtab-all') {
+            subgruposList.forEach(sg => {
+                selectSubgrupo.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`;
+            });
+        } else {
+            const gId = grupoIdStr.replace('subtab-g', '');
+            const filtrados = subgruposList.filter(sg => sg.grupo_id == gId);
+            filtrados.forEach(sg => {
+                selectSubgrupo.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`;
+            });
+        }
+    }
+
     document.querySelectorAll('.subtab-link').forEach(link => {
         link.addEventListener('click', () => {
             document.querySelectorAll('.subtab-link').forEach(l => l.classList.remove('active'));
             link.classList.add('active');
             grupoAtivo = link.getAttribute('data-target');
+            
+            atualizarDropdownSubgrupos(grupoAtivo);
             filtrarAcervo();
         });
     });
 
     window.filtrarAcervo = function() {
         const statusFiltro = document.getElementById('filtro-status').value;
+        const subgrupoFiltro = document.getElementById('filtro-subgrupo').value;
+        const searchFiltro = document.getElementById('pesquisa-acervo').value.toLowerCase();
+
+        let tTotal = 0, tDisp = 0, tCaut = 0, tDef = 0;
+
         document.querySelectorAll('.acervo-row').forEach(row => {
             const matchGrupo = (grupoAtivo === 'subtab-all' || row.getAttribute('data-grupo') === grupoAtivo);
             const matchStatus = (statusFiltro === 'all' || row.getAttribute('data-funciona') === statusFiltro);
-            row.style.display = (matchGrupo && matchStatus) ? '' : 'none';
+            const matchSubgrupo = (subgrupoFiltro === 'all' || row.getAttribute('data-subgrupo') === subgrupoFiltro);
+            
+            const nome = row.getAttribute('data-nome') || '';
+            const serial = row.getAttribute('data-serial') || '';
+            const codigo = row.getAttribute('data-codigo') || '';
+            const matchSearch = (!searchFiltro || nome.includes(searchFiltro) || serial.includes(searchFiltro) || codigo.includes(searchFiltro));
+            
+            if (matchGrupo && matchStatus && matchSubgrupo && matchSearch) {
+                row.style.display = '';
+                
+                const qtd = parseInt(row.getAttribute('data-qtd')) || 0;
+                const disp = parseInt(row.getAttribute('data-disp')) || 0;
+                const funciona = row.getAttribute('data-funciona') === 'ok';
+
+                tTotal += qtd;
+                if(funciona) {
+                    tDisp += disp;
+                    tCaut += (qtd - disp);
+                } else {
+                    tDef += qtd;
+                }
+            } else {
+                row.style.display = 'none';
+            }
         });
+
+        document.getElementById('acervo-sum-total').innerText = tTotal;
+        document.getElementById('acervo-sum-disp').innerText = tDisp;
+        document.getElementById('acervo-sum-caut').innerText = tCaut;
+        document.getElementById('acervo-sum-def').innerText = tDef;
     };
+
+    // Inicializa Filtros do Acervo
+    atualizarDropdownSubgrupos('subtab-all');
+    filtrarAcervo();
 
     let padRecebedor = null; let padSobreaviso = null; let padDevolucao = null;
     if (typeof SignaturePad !== 'undefined') {
@@ -712,28 +878,79 @@ document.addEventListener('DOMContentLoaded', function() {
 
     let cart = [];
     const grupoSelect = document.getElementById('cautela-grupo-select');
+    const subgrupoSelect = document.getElementById('cautela-subgrupo-select');
     const materialSelect = document.getElementById('cautela-material-select');
     const cartList = document.getElementById('cautela-cart');
     const emptyMsg = document.getElementById('cart-empty-msg');
     const previewDiv = document.getElementById('material-details-preview');
 
+    // Passo 1: Escolhe o Grupo e carrega os Subgrupos
     grupoSelect.addEventListener('change', function() {
         const groupId = this.value;
-        materialSelect.innerHTML = '';
+        subgrupoSelect.innerHTML = '<option value="">-- Selecione o Subgrupo --</option>';
+        materialSelect.innerHTML = '<option value="">-- Selecione o Subgrupo Primeiro --</option>';
+        subgrupoSelect.disabled = true;
+        materialSelect.disabled = true;
+        document.getElementById('subgrupo-summary-preview').style.display = 'none';
         previewDiv.style.display = 'none';
         
-        if(!groupId) {
-            materialSelect.innerHTML = '<option value="">-- Selecione o Grupo --</option>';
-            materialSelect.disabled = true; return;
+        if(groupId) {
+            subgrupoSelect.disabled = false;
+            const filtrados = subgruposList.filter(sg => sg.grupo_id == groupId);
+            filtrados.forEach(sg => {
+                subgrupoSelect.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`;
+            });
         }
+    });
+
+    // Passo 2: Escolhe o Subgrupo e carrega Totais e Materiais Livres
+    subgrupoSelect.addEventListener('change', function() {
+        const sgId = this.value;
+        materialSelect.innerHTML = '';
+        previewDiv.style.display = 'none';
+
+        if(!sgId) {
+            document.getElementById('subgrupo-summary-preview').style.display = 'none';
+            materialSelect.innerHTML = '<option value="">-- Selecione o Subgrupo Primeiro --</option>';
+            materialSelect.disabled = true;
+            if(hasJQuery) $(materialSelect).trigger('change');
+            return;
+        }
+
+        // Calcula Totais usando o acervo completo
+        let tTotal = 0, tDisp = 0, tCaut = 0, tDef = 0;
+        const matDoSubgrupo = acervoGeral.filter(m => m.subgrupo_id == sgId);
         
+        matDoSubgrupo.forEach(m => {
+            tTotal += m.quantidade;
+            if(m.funcionando === 1) {
+                tDisp += m.quantidade_disponivel;
+                tCaut += (m.quantidade - m.quantidade_disponivel);
+            } else {
+                tDef += m.quantidade;
+            }
+        });
+
+        document.getElementById('sum-total').innerText = tTotal;
+        document.getElementById('sum-disp').innerText = tDisp;
+        document.getElementById('sum-caut').innerText = tCaut;
+        document.getElementById('sum-def').innerText = tDef;
+        document.getElementById('subgrupo-summary-preview').style.display = 'flex';
+
+        // Preenche o Select de Materiais
         materialSelect.disabled = false;
         materialSelect.innerHTML = '<option value="">-- Selecione o Material --</option>';
-        const filtrados = materiaisDisponiveis.filter(m => m.grupo_id == groupId && !cart.find(c => c.id == m.id));
+        
+        const filtrados = matDoSubgrupo.filter(m => m.funcionando === 1 && m.quantidade_disponivel > 0);
         filtrados.forEach(m => {
-            const disp = m.quantidade_disponivel > 1 ? ` [${m.quantidade_disponivel} unid. disp.]` : '';
-            const serial = m.serial ? `(S/N: ${m.serial})` : '';
-            materialSelect.innerHTML += `<option value="${m.id}">${m.nome} ${serial}${disp}</option>`;
+            const inCart = cart.filter(c => c.id == m.id).reduce((acc, curr) => acc + curr.qtd, 0);
+            const dispAtual = m.quantidade_disponivel - inCart;
+            
+            if(dispAtual > 0) {
+                const dispText = dispAtual > 1 ? ` [${dispAtual} unid. disp.]` : '';
+                const serial = m.serial ? `(S/N: ${m.serial})` : '';
+                materialSelect.innerHTML += `<option value="${m.id}">${m.nome} ${serial}${dispText}</option>`;
+            }
         });
         if(hasJQuery) $(materialSelect).trigger('change');
     });
@@ -741,12 +958,14 @@ document.addEventListener('DOMContentLoaded', function() {
     const triggerMaterialPreview = function() {
         const matId = materialSelect.value;
         if(!matId) { previewDiv.style.display = 'none'; return; }
-        const mat = materiaisDisponiveis.find(m => m.id.toString() === matId);
+        const mat = acervoGeral.find(m => m.id.toString() === matId);
         if(mat) {
             let attrHtml = '';
             if(mat.atributos && Object.keys(mat.atributos).length > 0) {
                 attrHtml = '<div class="mt-2 pt-2" style="border-top: 1px dashed var(--border-color);">';
-                for (const [key, value] of Object.entries(mat.atributos)) attrHtml += `<span class="attr-tag" style="background: var(--bg-content);"><b>${key}:</b> ${value}</span>`;
+                for (const [key, value] of Object.entries(mat.atributos)) {
+                    attrHtml += `<span class="attr-tag" style="background: var(--bg-content);"><b>${key}:</b> ${value}</span>`;
+                }
                 attrHtml += '</div>';
             }
             const snText = mat.serial ? `<span style="color: var(--accent-color); font-weight: 600;">[S/N: ${mat.serial}]</span>` : '';
@@ -761,15 +980,19 @@ document.addEventListener('DOMContentLoaded', function() {
     document.getElementById('btn-add-material').addEventListener('click', () => {
         const val = materialSelect.value;
         if(!val) return;
-        if(cart.find(i => i.id == val)) return;
+        if(cart.find(i => i.id == val)) { alert("Material já adicionado, aumente a quantidade ou exclua."); return; }
 
-        const mat = materiaisDisponiveis.find(m => m.id.toString() === val);
+        const mat = acervoGeral.find(m => m.id.toString() === val);
         let qtd = 1;
+        
         if(mat.quantidade_disponivel > 1) {
-            let inputQtd = prompt(`O item possui ${mat.quantidade_disponivel} unidades disponíveis.\nQuantas deseja adicionar?`, "1");
+            let inputQtd = prompt(`O item "${mat.nome}" possui ${mat.quantidade_disponivel} unidades disponíveis.\nQuantas deseja adicionar à cautela?`, "1");
             if (inputQtd === null) return; 
             qtd = parseInt(inputQtd);
-            if (isNaN(qtd) || qtd < 1 || qtd > mat.quantidade_disponivel) { alert(`Quantidade inválida.`); return; }
+            if (isNaN(qtd) || qtd < 1 || qtd > mat.quantidade_disponivel) {
+                alert(`Quantidade inválida. Insira um número de 1 a ${mat.quantidade_disponivel}.`);
+                return;
+            }
         }
 
         cart.push({ id: val, qtd: qtd });
@@ -778,7 +1001,9 @@ document.addEventListener('DOMContentLoaded', function() {
         let attrHtmlText = '';
         if(mat.atributos && Object.keys(mat.atributos).length > 0) {
             attrHtmlText = '<div style="margin-top: 5px;">';
-            for (const [key, value] of Object.entries(mat.atributos)) attrHtmlText += `<span class="attr-tag" style="font-size: 0.7rem; background: var(--bg-content);">${key}: ${value}</span>`;
+            for (const [key, value] of Object.entries(mat.atributos)) {
+                attrHtmlText += `<span class="attr-tag" style="font-size: 0.7rem; background: var(--bg-content);">${key}: ${value}</span>`;
+            }
             attrHtmlText += '</div>';
         }
 
@@ -792,10 +1017,12 @@ document.addEventListener('DOMContentLoaded', function() {
                 <span>${qtdDisplay} <strong style="color: var(--text-primary);">${mat.nome}</strong> <span class="text-muted">${snDisplay}</span></span>
                 ${attrHtmlText}
             </div>
-            <i class="fas fa-trash remove-item" onclick="removeFromCart('${val}')" style="cursor:pointer;"></i>
+            <i class="fas fa-trash remove-item" onclick="removeFromCart('${val}')" title="Remover" style="cursor:pointer;"></i>
         `;
         cartList.appendChild(li);
-        if(hasJQuery) $(grupoSelect).trigger('change');
+        
+        if(hasJQuery) $(subgrupoSelect).trigger('change');
+        else subgrupoSelect.dispatchEvent(new Event('change'));
     });
 
     window.removeFromCart = function(id) {
@@ -803,12 +1030,16 @@ document.addEventListener('DOMContentLoaded', function() {
         const itemEl = document.getElementById(`cart-item-${id}`);
         if(itemEl) itemEl.remove();
         if(cart.length === 0 && emptyMsg) emptyMsg.style.display = 'flex';
-        if(hasJQuery) $(grupoSelect).trigger('change');
+        
+        if(hasJQuery) $(subgrupoSelect).trigger('change');
+        else subgrupoSelect.dispatchEvent(new Event('change'));
     };
 
-    // --- FLUXO DE ASSINATURA EM CASCATA ---
+    // --- EMISSÃO ---
     document.getElementById('btn-pre-finalizar').addEventListener('click', () => {
-        if(!document.getElementById('cautela-sobreaviso').value || !document.getElementById('cautela-recebedor').value) { alert("Selecione o Sobreaviso e o Recebedor."); return; }
+        const sobreaviso_id = document.getElementById('cautela-sobreaviso').value;
+        const recebedor_id = document.getElementById('cautela-recebedor').value;
+        if(!sobreaviso_id || !recebedor_id) { alert("Selecione o Sobreaviso e o Recebedor primeiro."); return; }
         if(cart.length === 0) { alert("Adicione pelo menos um material ao carrinho."); return; }
         
         document.getElementById('modal-assinatura-recebedor').classList.add('active');
@@ -838,7 +1069,9 @@ document.addEventListener('DOMContentLoaded', function() {
         executarEmissao(padSobreaviso.toDataURL(), document.getElementById('salvar_assinatura_padrao').checked);
     };
 
-    window.finalizarCautelaComAssinaturaSalva = function() { executarEmissao(window.assinaturaSobreavisoCache, false); };
+    window.finalizarCautelaComAssinaturaSalva = function() {
+        executarEmissao(window.assinaturaSobreavisoCache, false);
+    };
 
     function executarEmissao(assinaturaSobreaviso, salvarPadrao) {
         const btn = document.getElementById('btn-finalizar-real');
@@ -864,6 +1097,23 @@ document.addEventListener('DOMContentLoaded', function() {
             } else { alert("Erro: " + res.message); btn.innerHTML = 'Emitir Oficialmente'; btn.disabled = false; }
         });
     }
+
+    // --- NOVA FUNCIONALIDADE: ABRIR MODAL COM RESUMO DA CAUTELA ---
+    window.abrirDetalhesCautela = function(cautelaId) {
+        document.getElementById('detalhe-cautela-id').innerText = cautelaId;
+        
+        const template = document.getElementById(`cautela-dados-${cautelaId}`);
+        if(template) {
+            const content = template.content;
+            const acoesHtml = content.querySelector('.acoes-html').innerHTML;
+            const itensHtml = content.querySelector('.itens-html').innerHTML;
+            
+            document.getElementById('detalhe-cautela-acoes').innerHTML = acoesHtml;
+            document.getElementById('detalhe-cautela-itens').innerHTML = itensHtml;
+            
+            document.getElementById('modal-detalhes-cautela').classList.add('active');
+        }
+    };
 
     // --- FLUXO DE DEVOLUÇÃO (COM ASSINATURA) ---
     window.iniciarDevolucao = function(tipo, id) {
@@ -910,16 +1160,57 @@ document.addEventListener('DOMContentLoaded', function() {
 
     // --- ADICIONAR ITEM EXTRA EM CAUTELA ABERTA ---
     const addItemGrupo = document.getElementById('add-item-grupo');
+    const addItemSubgrupo = document.getElementById('add-item-subgrupo');
     const addItemMaterial = document.getElementById('add-item-material');
 
     addItemGrupo.addEventListener('change', function() {
         const groupId = this.value;
-        addItemMaterial.innerHTML = '';
-        if(!groupId) {
-            addItemMaterial.innerHTML = '<option value="">-- Selecione o Grupo --</option>'; return;
+        addItemSubgrupo.innerHTML = '<option value="">-- Selecione o Subgrupo --</option>';
+        addItemMaterial.innerHTML = '<option value="">-- Selecione a Subcategoria Primeiro --</option>';
+        addItemSubgrupo.disabled = true;
+        addItemMaterial.disabled = true;
+        document.getElementById('add-item-summary').style.display = 'none';
+        
+        if(groupId) {
+            addItemSubgrupo.disabled = false;
+            const filtrados = subgruposList.filter(sg => sg.grupo_id == groupId);
+            filtrados.forEach(sg => {
+                addItemSubgrupo.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`;
+            });
         }
+    });
+
+    addItemSubgrupo.addEventListener('change', function() {
+        const sgId = this.value;
+        addItemMaterial.innerHTML = '';
+        
+        if(!sgId) {
+            document.getElementById('add-item-summary').style.display = 'none';
+            addItemMaterial.innerHTML = '<option value="">-- Selecione a Subcategoria Primeiro --</option>';
+            addItemMaterial.disabled = true;
+            if (hasJQuery) $(addItemMaterial).trigger('change');
+            return;
+        }
+
+        let tTotal = 0, tDisp = 0, tCaut = 0;
+        const matDoSubgrupo = acervoGeral.filter(m => m.subgrupo_id == sgId);
+        
+        matDoSubgrupo.forEach(m => {
+            tTotal += m.quantidade;
+            if(m.funcionando === 1) {
+                tDisp += m.quantidade_disponivel;
+                tCaut += (m.quantidade - m.quantidade_disponivel);
+            }
+        });
+
+        document.getElementById('add-sum-total').innerText = tTotal;
+        document.getElementById('add-sum-disp').innerText = tDisp;
+        document.getElementById('add-sum-caut').innerText = tCaut;
+        document.getElementById('add-item-summary').style.display = 'flex';
+
+        addItemMaterial.disabled = false;
         addItemMaterial.innerHTML = '<option value="">-- Selecione o Material --</option>';
-        const filtrados = materiaisDisponiveis.filter(m => m.grupo_id == groupId);
+        const filtrados = matDoSubgrupo.filter(m => m.funcionando === 1 && m.quantidade_disponivel > 0);
         filtrados.forEach(m => {
             const snText = m.serial ? `(S/N: ${m.serial})` : '';
             const disp = m.quantidade_disponivel > 1 ? `[${m.quantidade_disponivel} unid.]` : '';
@@ -939,7 +1230,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const matId = addItemMaterial.value;
         if(!matId) { alert("Selecione um material!"); return; }
         
-        const mat = materiaisDisponiveis.find(m => m.id == matId);
+        const mat = acervoGeral.find(m => m.id == matId);
         let qtd = 1;
         if(mat.quantidade_disponivel > 1) {
             let inputQtd = prompt(`Quantas unidades deseja adicionar? (Máximo: ${mat.quantidade_disponivel})`, "1");
@@ -1004,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', function() {
         postApi("{% url 'informatica:api_add_subgrupo' %}", { grupo_id: document.getElementById('novo_subgrupo_grupo_id').value, nome: document.getElementById('novo_subgrupo_nome').value });
     });
 
-    // --- ACERVO: EDITAR E EXCLUIR MATERIAL (Novo) ---
+    // --- ACERVO: EDITAR E EXCLUIR MATERIAL ---
     window.abrirModalNovoMaterial = function() {
         isEditingMat = false;
         document.getElementById('edit_mat_id').value = '';
@@ -1062,7 +1353,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         const matSubgrupoId = document.getElementById('novo_mat_subgrupo').value;
-        if (!matSubgrupoId) { alert("Escolha um Subgrupo."); return; }
+        if (!matSubgrupoId) { alert("Escolha um Subgrupo válido."); return; }
 
         const matId = document.getElementById('edit_mat_id').value;
         const endpoint = matId ? `/informatica/api/materiais/edit-material/${matId}/` : "{% url 'informatica:api_add_material' %}";
