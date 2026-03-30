@@ -1311,6 +1311,12 @@ body.dark-theme {
     --warning-color: #fbbf24;
 }
 
+body.dark-theme .table > :not(caption) > * > * {
+    background-color: #1e293b;
+    color: var(--text-primary);
+    border-bottom-color: var(--border-color);
+}
+
 /* Ajustes globais para inputs ficarem práticos */
 input[type="text"], input[type="email"], input[type="password"], select, textarea {
     background-color: var(--bg-main) !important;

@@ -16,6 +16,8 @@ class Efetivo(models.Model):
     oficial = models.BooleanField(default=False, verbose_name="É Oficial?")
     assinatura = models.TextField(blank=True, null=True, verbose_name="Assinatura Padrão (Base64)")
     senha_unica = models.CharField(max_length=128, blank=True, null=True, verbose_name="Senha Única")
+    inspsau_finalidade = models.CharField(max_length=5, blank=True, null=True, verbose_name="Finalidade INSPSAU")
+    documento_inspsau = models.FileField(upload_to='inspsau_documentos/', null=True, blank=True, verbose_name="Documento da INSPSAU")
 
     def save(self, *args, **kwargs):
         postos_de_oficiais = [

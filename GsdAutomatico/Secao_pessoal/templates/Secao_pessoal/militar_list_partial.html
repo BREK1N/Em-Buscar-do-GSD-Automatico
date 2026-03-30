@@ -1,5 +1,5 @@
 <div class="table-responsive">
-    <table class="data-table">
+    <table class="data-table table">
         <thead>
             <tr>
                 <th>Posto</th>
@@ -21,8 +21,8 @@
                 <td>
                     {% if militar.situacao|lower == 'férias' or militar.situacao|lower == 'ferias' %}
                         <span style="background-color: var(--warning-color); color: #000; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;" title="{{ militar.observacao|default:'' }}">Férias</span>
-                    {% elif militar.situacao|lower == 'baixado' %}
-                        <span style="background-color: var(--danger-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;">Baixado</span>
+                    {% elif militar.situacao|lower == 'de junta' %}
+                        <span style="background-color: var(--danger-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;">JUNTA DE SAÚDE</span>
                     {% else %}
                         <span style="background-color: var(--success-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;">{{ militar.situacao|default:"Ativo" }}</span>
                     {% endif %}

@@ -28,9 +28,9 @@ class MilitarForm(forms.ModelForm):
     class Meta:
         model = Efetivo
         fields = [
-            'posto', 'quad', 'especializacao', 'saram', 'nome_completo',
-            'nome_guerra', 'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial',
-            'assinatura' # Campo adicionado para futuras implementações
+            'posto', 'quad', 'especializacao', 'saram', 'nome_completo', 'nome_guerra',
+            'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial', 'observacao',
+            'assinatura'
         ]
         
         # Usando Select para os campos que agora são listas
@@ -48,6 +48,7 @@ class MilitarForm(forms.ModelForm):
             'nome_guerra': forms.TextInput(attrs={'placeholder': 'Nome de guerra'}),
             'turma': forms.TextInput(attrs={'placeholder': 'Ex: 2024'}),
             'situacao': forms.TextInput(attrs={'placeholder': 'Ex: Ativo'}),
+            'observacao': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Observações sobre a situação do militar (ex: motivo da baixa, período de férias).'}),
             'assinatura': forms.HiddenInput(),
         }
 

@@ -1,13 +1,11 @@
 import pandas as pd
 import openpyxl
-from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
-from openpyxl.utils import get_column_letter
 import os
 import tempfile
-import httpx
+import httpx, json
 import random
 import unicodedata
-from django.http import HttpResponse
+from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
@@ -19,7 +17,11 @@ from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor
 from .forms import MilitarForm, NotificacaoForm
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
-import json
+from difflib import SequenceMatcher
+from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
+from openpyxl.utils import get_column_letter
+from langchain_community.document_loaders import PyPDFLoader
+from .analise_inspsau import analisar_inspsau_pdf
 
 def is_s1_member(user):
     """Check if the user is a member of the 'S1' group."""
@@ -35,8 +37,115 @@ def index(request):
 
 @s1_required
 def inspsau(request):
-    # Dashboard básico: Lista militares que estão "Baixados"
-    militares_baixados = Efetivo.objects.filter(situacao__iexact='Baixado').order_by('nome_guerra')
+    if request.method == 'POST':
+        # --- Lógica para lidar com a confirmação do usuário ---
+        if 'militar_id_confirmado' in request.POST:
+            militar_id = request.POST.get('militar_id_confirmado')
+            finalidade_ia = request.POST.get('finalidade')
+            pdf_file = request.FILES.get('pdf_file')
+
+            if not all([militar_id, finalidade_ia, pdf_file]):
+                return JsonResponse({'status': 'error', 'message': 'Dados de confirmação incompletos.'}, status=400)
+
+            try:
+                militar = Efetivo.objects.get(id=militar_id)
+                militar.documento_inspsau = pdf_file
+                militar.situacao = 'De Junta'
+                militar.observacao = f"INSPSAU Finalidade: {finalidade_ia}"
+                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau'])
+                messages.success(request, f"Inspeção do militar {militar.posto} {militar.nome_guerra} atualizada com sucesso. Finalidade: {finalidade_ia}.")
+                return JsonResponse({'status': 'success'})
+            except Efetivo.DoesNotExist:
+                return JsonResponse({'status': 'error', 'message': 'Militar confirmado não foi encontrado.'}, status=404)
+            except Exception as e:
+                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+    if request.method == 'POST' and request.FILES.get('pdf_file'):
+        pdf_file = request.FILES['pdf_file']
+        
+        try:
+            # Salva o PDF num ficheiro temporário
+            with tempfile.NamedTemporaryFile(delete=False, suffix=".pdf") as temp_file:
+                for chunk in pdf_file.chunks():
+                    temp_file.write(chunk)
+                temp_file_path = temp_file.name
+
+            # Usa o PyPDFLoader para extrair o texto
+            loader = PyPDFLoader(temp_file_path)
+            content = "\n\n".join(page.page_content for page in loader.load_and_split())
+            os.remove(temp_file_path) # Remove o ficheiro temporário
+
+            # Analisa o conteúdo com a IA
+            resultado_analise = analisar_inspsau_pdf(content)
+
+            # Busca o militar no banco de dados
+            nome_completo_ia = resultado_analise.nome_completo
+            posto_ia = resultado_analise.posto
+            finalidade_ia = resultado_analise.finalidade
+
+            militar = None
+            if nome_completo_ia:
+                # Tenta encontrar pelo nome completo e posto para maior precisão
+                candidatos = Efetivo.objects.filter(
+                    nome_completo__icontains=nome_completo_ia,
+                    posto__iexact=posto_ia
+                )
+                if candidatos.count() == 1:
+                    militar = candidatos.first()
+                else:
+                    # Se não encontrar ou houver ambiguidade, tenta só pelo nome
+                    candidatos = Efetivo.objects.filter(nome_completo__icontains=nome_completo_ia)
+                    if candidatos.count() == 1:
+                        militar = candidatos.first()
+
+            if militar:
+                # Atualiza a observação do militar com a finalidade
+                militar.documento_inspsau = pdf_file # Salva o arquivo PDF
+                militar.situacao = 'De Junta' # Atualiza a situação para "De Junta"
+                militar.observacao = f"INSPSAU Finalidade: {finalidade_ia}"
+                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau'])
+                messages.success(request, f"Inspeção do militar {militar.posto} {militar.nome_guerra} atualizada com sucesso. Finalidade: {finalidade_ia}.")
+                return JsonResponse({'status': 'success'})
+            else:
+                # --- INÍCIO DA LÓGICA DE BUSCA POR SIMILARIDADE ---
+                best_match = None
+                highest_ratio = 0.7  # Limiar de similaridade de 70%
+
+                if nome_completo_ia:
+                    nome_normalizado_ia = normalize_name(nome_completo_ia)
+                    todos_militares = Efetivo.objects.all()
+
+                    for m in todos_militares:
+                        nome_normalizado_db = normalize_name(m.nome_completo)
+                        ratio = SequenceMatcher(None, nome_normalizado_ia, nome_normalizado_db).ratio()
+                        
+                        if ratio > highest_ratio:
+                            highest_ratio = ratio
+                            best_match = m
+                
+                if best_match:
+                    # Encontrou um militar parecido. Pede confirmação ao usuário.
+                    return JsonResponse({
+                        'status': 'confirm',
+                        'message': f"O militar '{nome_completo_ia}' não foi encontrado. Você quis dizer '{best_match.posto} {best_match.nome_completo}'?",
+                        'militar_encontrado': {
+                            'id': best_match.id,
+                        },
+                        'dados_inspsau': {
+                            'finalidade': finalidade_ia,
+                        }
+                    })
+                else:
+                    # Não encontrou nenhum militar, nem parecido. Retorna um erro.
+                    messages.error(request, f"Militar '{nome_completo_ia}' não foi encontrado no banco de dados. Verifique o nome ou cadastre-o manualmente.")
+                    return JsonResponse({'status': 'error', 'message': f"Militar '{nome_completo_ia}' não foi encontrado no banco de dados."}, status=404)
+
+        except Exception as e:
+            messages.error(request, f"Erro ao processar o PDF: {str(e)}")
+            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+    # Dashboard básico: Lista militares que estão "De Junta"
+    militares_baixados = Efetivo.objects.filter(situacao__iexact='De Junta').order_by('nome_guerra')
     context = {'militares_baixados': militares_baixados}
     return render(request, 'Secao_pessoal/inspsau.html', context)
 
@@ -64,7 +173,7 @@ class MilitarListView(ListView):
             When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
             default=Value(99), output_field=IntegerField(),
         )
-        qs = super().get_queryset().exclude(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
         if query:
             qs = qs.filter(
                 Q(nome_completo__icontains=query) |
@@ -80,6 +189,14 @@ class MilitarCreateView(CreateView):
     form_class = MilitarForm
     template_name = 'Secao_pessoal/militar_form.html'
     success_url = reverse_lazy('Secao_pessoal:militar_list')
+
+    def get_initial(self):
+        initial = super().get_initial()
+        initial['nome_completo'] = self.request.GET.get('nome_completo', '')
+        initial['posto'] = self.request.GET.get('posto', '')
+        initial['situacao'] = self.request.GET.get('situacao', 'Ativo')
+        initial['observacao'] = self.request.GET.get('observacao', '')
+        return initial
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -124,8 +241,8 @@ class MilitarBaixadoListView(ListView):
             When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
             When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
             default=Value(99), output_field=IntegerField(),
-        )
-        qs = super().get_queryset().filter(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        ) 
+        qs = super().get_queryset().filter(situacao__iexact='De Junta').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
         if query:
             qs = qs.filter(
                 Q(nome_completo__icontains=query) |
@@ -656,8 +773,8 @@ def baixa(request):
         
         if militar_id:
             try:
-                militar = Efetivo.objects.get(id=militar_id)
-                militar.situacao = 'Baixado' # Ao invés de deletar, apenas altera a situação
+                militar = Efetivo.objects.get(id=militar_id) # type: ignore
+                militar.situacao = 'De Junta' # Ao invés de deletar, apenas altera a situação
                 militar.observacao = motivo_baixa # Salva o motivo da baixa
                 militar.save()
                 messages.success(request, f'Militar {militar.posto} {militar.nome_guerra} desligado do efetivo com sucesso.')
@@ -673,7 +790,7 @@ def baixa(request):
 
 @s1_required
 def ferias(request):
-    militares = Efetivo.objects.exclude(situacao__iexact='Baixado').exclude(situacao__iexact='Férias').order_by('nome_guerra')
+    militares = Efetivo.objects.exclude(situacao__iexact='De Junta').exclude(situacao__iexact='Férias').order_by('nome_guerra')
     militares_ferias = Efetivo.objects.filter(situacao__iexact='Férias').order_by('nome_guerra')
     
     if request.method == 'POST':
