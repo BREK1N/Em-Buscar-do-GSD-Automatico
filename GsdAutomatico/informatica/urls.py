@@ -55,9 +55,14 @@ urlpatterns = [
     path('api/cautelas/salvar/', views.api_salvar_cautela, name='api_salvar_cautela'),
     path('api/cautelas/<int:pk>/devolver/', views.api_devolver_cautela, name='api_devolver_cautela'),
     path('api/cautelas/item/<int:item_id>/devolver/', views.api_devolver_item_cautela, name='api_devolver_item_cautela'),
+    path('api/cautelas/<int:cautela_id>/devolver-multiplos/', views.api_devolver_multiplos_itens, name='api_devolver_multiplos_itens'),
     path('api/cautelas/<int:cautela_id>/add-item/', views.api_add_item_cautela, name='api_add_item_cautela'),
     
     path('cautelas/<int:pk>/imprimir/', views.imprimir_cautela, name='imprimir_cautela'),
+
+    # APIs para Armários e Prateleiras
+    path('api/armarios/add/', views.api_add_armario, name='api_add_armario'),
+    path('api/prateleiras/add/', views.api_add_prateleira, name='api_add_prateleira'),
 
     # ===============================================
     # INFRAESTRUTURA E LOGS
