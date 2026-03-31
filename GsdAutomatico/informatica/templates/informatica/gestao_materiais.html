@@ -59,37 +59,50 @@
     
     .attr-tag { font-size: 0.75rem; background: var(--bg-main); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 6px; display: inline-block; margin: 3px 3px 0 0; color: var(--text-secondary); }
 
-    /* Chips de Materiais para os Armários */
+    /* Chips de Materiais para os Armários (Design Renovado) */
     .material-chip {
         display: inline-flex;
         align-items: center;
-        gap: 8px;
         background-color: var(--bg-content);
         border: 1px solid var(--border-color);
         color: var(--text-primary);
-        padding: 6px 12px;
-        border-radius: 8px;
+        padding: 4px 12px 4px 6px; /* Menos padding na esquerda para encaixar o círculo */
+        border-radius: 50px; /* Formato de pílula arredondada */
         font-size: 0.85rem;
         font-weight: 500;
         margin: 0 6px 8px 0;
-        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        box-shadow: 0 2px 5px rgba(0,0,0,0.02);
         transition: all 0.2s ease;
+        cursor: default;
     }
     .material-chip:hover {
         border-color: var(--accent-color);
-        box-shadow: 0 4px 6px -1px rgba(59,130,246,0.1);
-        transform: translateY(-1px);
+        box-shadow: 0 4px 8px rgba(59,130,246,0.15);
+        transform: translateY(-2px);
     }
-    .material-chip i { font-size: 0.9rem; opacity: 0.8; }
+    .material-chip .icon-wrapper {
+        background-color: rgba(59,130,246,0.1);
+        color: var(--accent-color);
+        width: 26px;
+        height: 26px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 50%;
+        margin-right: 8px;
+    }
+    .material-chip .icon-wrapper i { font-size: 0.8rem; }
+    
     .material-chip .serial-number {
-        font-size: 0.75rem;
+        font-size: 0.7rem;
         color: var(--text-secondary);
         background: var(--bg-main);
-        padding: 2px 6px;
-        border-radius: 4px;
+        padding: 2px 8px;
+        border-radius: 12px;
         border: 1px solid var(--border-color);
         letter-spacing: 0.3px;
-        margin-left: 4px;
+        margin-left: 6px;
+        font-weight: 600;
     }
 
     /* Carrinho e Canvas */
@@ -513,6 +526,7 @@
         <div class="form-card-header">
             <h2>Gestão de Armários e Localizações</h2>
             <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-success" onclick="abrirModalExportar()"><i class="fas fa-file-excel me-1"></i> Exportar Excel</button>
                 <button class="btn btn-sm btn-outline-primary" onclick="abrirModalVincularMaterial()"><i class="fas fa-link me-1"></i> Vincular Materiais</button>
                 <button class="btn btn-sm btn-secondary" onclick="document.getElementById('modal-armario').classList.add('active')">+ Novo Armário</button>
                 <button class="btn btn-sm btn-secondary" onclick="document.getElementById('modal-prateleira').classList.add('active')">+ Nova Prateleira</button>
@@ -535,8 +549,8 @@
                             </div>
                             <div class="mt-1" style="font-size: 0.85rem;">
                                 {% for mat in prateleira.materiais.all %}
-                                    <div class="material-chip" title="Código Interno: {{ mat.codigo|default:'N/A' }}">
-                                        <i class="fas fa-microchip text-primary"></i>
+                                    <div class="material-chip" title="Código Interno: {{ mat.codigo|default:'N/A' }}" data-material-nome="{{ mat.nome|lower }}">
+                                        <div class="icon-wrapper"><i class="fas fa-box dynamic-icon"></i></div>
                                         <span class="text-truncate" style="max-width: 180px;" title="{{ mat.nome }}">{{ mat.nome }}</span>
                                         {% if mat.serial %}
                                             <span class="serial-number" title="Serial Number: {{ mat.serial }}">S/N: {{ mat.serial }}</span>
@@ -709,6 +723,46 @@
         <div class="d-flex justify-content-end gap-2 mt-4">
             <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-prateleira')">Cancelar</button>
             <button class="btn btn-primary" id="btn-save-prateleira">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- NOVO MODAL DE EXPORTAÇÃO EXCEL -->
+<div class="modal-overlay" id="modal-exportar-excel">
+    <div class="modal-content" style="max-width: 500px;">
+        <h3><i class="fas fa-file-excel text-success me-2"></i> Exportar Inventário</h3>
+        <p class="text-muted small">Selecione os armários que deseja exportar para o ficheiro Excel formatado.</p>
+        
+        <div class="form-check mb-3 mt-3 border-bottom pb-3">
+            <input class="form-check-input" type="checkbox" id="exportar-todos-armarios" checked onchange="toggleExportAll(this)" style="width: 18px; height: 18px; cursor: pointer;">
+            <label class="form-check-label fw-bold" style="color: var(--text-primary); font-size: 1rem; margin-top: 2px; cursor: pointer;" for="exportar-todos-armarios">
+                Selecionar Todos os Armários
+            </label>
+        </div>
+        
+        <div id="lista-armarios-exportar" style="max-height: 250px; overflow-y: auto; padding: 15px; background: var(--bg-main); border-radius: 8px; border: 1px solid var(--border-color);">
+            {% for arm in armarios %}
+            <div class="form-check mb-2">
+                <input class="form-check-input check-armario-export" type="checkbox" value="{{ arm.id }}" checked id="export-arm-{{ arm.id }}" style="cursor: pointer;">
+                <label class="form-check-label" style="color: var(--text-secondary); cursor: pointer;" for="export-arm-{{ arm.id }}"><i class="fas fa-archive me-1"></i> {{ arm.nome }} <small class="text-muted">({{ arm.localizacao|default:"Sem local" }})</small></label>
+            </div>
+            {% empty %}
+            <p class="text-muted small m-0">Nenhum armário cadastrado.</p>
+            {% endfor %}
+        </div>
+
+        <!-- OPÇÃO DE RELATÓRIO COMPLETO -->
+        <div class="form-check mt-3 pt-3 border-top">
+            <input class="form-check-input" type="checkbox" id="exportar-relatorio-completo" style="width: 18px; height: 18px; cursor: pointer;">
+            <label class="form-check-label fw-bold text-primary" style="font-size: 0.95rem; margin-top: 2px; cursor: pointer;" for="exportar-relatorio-completo">
+                Gerar Relatório Completo
+            </label>
+            <div class="text-muted small ms-4">Inclui atributos técnicos, especificações e motivos de defeito de cada material na folha de Excel.</div>
+        </div>
+
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-exportar-excel')">Cancelar</button>
+            <button class="btn btn-success" onclick="gerarExcelArmarios()"><i class="fas fa-download me-1"></i> Gerar e Baixar Excel</button>
         </div>
     </div>
 </div>
@@ -1531,6 +1585,40 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // --- EXPORTAR EXCEL ---
+    window.abrirModalExportar = function() {
+        document.getElementById('modal-exportar-excel').classList.add('active');
+    };
+    
+    window.toggleExportAll = function(checkbox) {
+        document.querySelectorAll('.check-armario-export').forEach(cb => cb.checked = checkbox.checked);
+    };
+    
+    window.gerarExcelArmarios = function() {
+        const selecionados = Array.from(document.querySelectorAll('.check-armario-export:checked')).map(cb => cb.value);
+        if(selecionados.length === 0) {
+            alert("Selecione pelo menos um armário para exportar.");
+            return;
+        }
+        
+        const isCompleto = document.getElementById('exportar-relatorio-completo').checked;
+        const todosOsCheckboxes = document.querySelectorAll('.check-armario-export').length;
+        const isTodos = selecionados.length === todosOsCheckboxes;
+        
+        let url = "{% url 'informatica:exportar_armarios_excel' %}?";
+        
+        if(!isTodos) {
+            url += "armarios=" + selecionados.join(',') + "&";
+        }
+        
+        if (isCompleto) {
+            url += "completo=true";
+        }
+        
+        window.open(url, '_blank');
+        fecharModal('modal-exportar-excel');
+    };
+
     // --- ACERVO GERAL: MEMÓRIA DE ATRIBUTOS, EDIÇÃO E EXCLUSÃO ---
 
     window.addAtributoRow = function(key='', val='') {
@@ -1784,6 +1872,34 @@ document.addEventListener('DOMContentLoaded', function() {
             else { alert(res.message); btn.innerHTML = '<i class="fas fa-trash me-1"></i> Excluir Definitivamente'; btn.disabled = false; }
         });
     };
+
+    // --- APLICAÇÃO DE ÍCONES DINÂMICOS NOS ARMÁRIOS ---
+    document.querySelectorAll('.material-chip').forEach(chip => {
+        const nome = (chip.getAttribute('data-material-nome') || '').toLowerCase();
+        const iconEl = chip.querySelector('.dynamic-icon');
+        if(!iconEl) return;
+
+        let iconClass = 'fa-box'; // Ícone padrão
+        
+        if(nome.includes('computador') || nome.includes('desktop') || nome.includes('pc')) iconClass = 'fa-desktop';
+        else if(nome.includes('notebook') || nome.includes('laptop')) iconClass = 'fa-laptop';
+        else if(nome.includes('monitor') || nome.includes('tela') || nome.includes('display')) iconClass = 'fa-tv';
+        else if(nome.includes('teclado')) iconClass = 'fa-keyboard';
+        else if(nome.includes('mouse') || nome.includes('rato')) iconClass = 'fa-mouse';
+        else if(nome.includes('impressora')) iconClass = 'fa-print';
+        else if(nome.includes('telefone') || nome.includes('voip')) iconClass = 'fa-phone';
+        else if(nome.includes('cabo') || nome.includes('adaptador') || nome.includes('fonte')) iconClass = 'fa-plug';
+        else if(nome.includes('hd ') || nome.includes('ssd') || nome.includes('disco') || nome.includes('pendrive')) iconClass = 'fa-hdd';
+        else if(nome.includes('servidor') || nome.includes('switch') || nome.includes('roteador')) iconClass = 'fa-server';
+        else if(nome.includes('radio') || nome.includes('rádio')) iconClass = 'fa-walkie-talkie';
+        else if(nome.includes('nobreak') || nome.includes('ups') || nome.includes('bateria')) iconClass = 'fa-car-battery';
+        else if(nome.includes('projetor')) iconClass = 'fa-video';
+        else if(nome.includes('memoria') || nome.includes('memória') || nome.includes('ram')) iconClass = 'fa-memory';
+        else if(nome.includes('placa')) iconClass = 'fa-microchip';
+        else if(nome.includes('camera') || nome.includes('câmera') || nome.includes('webcam')) iconClass = 'fa-camera';
+        
+        iconEl.className = `fas ${iconClass} dynamic-icon`;
+    });
 });
 </script>
 {% endblock %}

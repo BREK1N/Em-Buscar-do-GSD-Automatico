@@ -60,9 +60,12 @@ urlpatterns = [
     
     path('cautelas/<int:pk>/imprimir/', views.imprimir_cautela, name='imprimir_cautela'),
 
-    # APIs para Armários e Prateleiras
+    # APIs para Armários e Prateleiras (Restauradas)
     path('api/armarios/add/', views.api_add_armario, name='api_add_armario'),
     path('api/prateleiras/add/', views.api_add_prateleira, name='api_add_prateleira'),
+
+    # Exportação de Armários para Excel
+    path('api/armarios/exportar/', views.exportar_armarios_excel, name='exportar_armarios_excel'),
 
     # ===============================================
     # INFRAESTRUTURA E LOGS

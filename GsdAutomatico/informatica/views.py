@@ -725,6 +725,151 @@ def api_add_item_cautela(request, cautela_id):
         return JsonResponse({'status': 'success'})
     except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
 
+from django.http import HttpResponse
+
+@staff_member_required
+def exportar_armarios_excel(request):
+    try:
+        import openpyxl
+        from openpyxl.styles import Font, Alignment, PatternFill, Border, Side
+        from openpyxl.utils import get_column_letter
+    except ImportError:
+        return HttpResponse("Erro: A biblioteca 'openpyxl' não está instalada. Execute 'pip install openpyxl' no ambiente do servidor.", status=500)
+
+    armarios_ids = request.GET.get('armarios', '')
+    is_completo = request.GET.get('completo') == 'true'
+
+    query = Armario.objects.all().prefetch_related('prateleiras__materiais')
+    
+    if armarios_ids:
+        ids = [int(i) for i in armarios_ids.split(',') if i.isdigit()]
+        if ids:
+            query = query.filter(id__in=ids)
+    
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Inventário de Armários"
+    
+    # Estilos de Formatação
+    header_font = Font(bold=True, color="FFFFFF", size=12)
+    header_fill = PatternFill(start_color="1F4E78", end_color="1F4E78", fill_type="solid")
+    title_font = Font(bold=True, size=16, color="1F4E78")
+    
+    align_center = Alignment(horizontal="center", vertical="center", wrap_text=True)
+    align_left = Alignment(horizontal="left", vertical="center", wrap_text=True)
+    thin_border = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    
+    # Título do Relatório (Linha 1)
+    max_col = 10 if is_completo else 8
+    ws.merge_cells(start_row=1, start_column=1, end_row=1, end_column=max_col)
+    title_cell = ws.cell(row=1, column=1, value=f"Relatório de Inventário de Armários - {'Completo' if is_completo else 'Simplificado'} ({timezone.now().strftime('%d/%m/%Y')})")
+    title_cell.font = title_font
+    title_cell.alignment = align_center
+    ws.row_dimensions[1].height = 30
+    
+    # Cabeçalhos (Linha 2)
+    if is_completo:
+        headers = ['Armário', 'Localização', 'Prateleira', 'Material', 'S/N', 'Código Interno', 'Qtd', 'Status', 'Atributos Técnicos', 'Observações/Defeito']
+    else:
+        headers = ['Armário', 'Localização', 'Prateleira', 'Material', 'S/N', 'Código Interno', 'Qtd', 'Status']
+        
+    ws.append(headers)
+    
+    for col_num, header in enumerate(headers, 1):
+        cell = ws.cell(row=2, column=col_num)
+        cell.font = header_font
+        cell.fill = header_fill
+        cell.alignment = align_center
+        cell.border = thin_border
+        
+    current_row = 3
+    for armario in query:
+        prateleiras = armario.prateleiras.all()
+        if not prateleiras:
+            row_data = [armario.nome, armario.localizacao or '-', 'Sem Prateleiras', '-', '-', '-', '-', '-']
+            if is_completo: row_data.extend(['-', '-'])
+            ws.append(row_data)
+            for col_num in range(1, len(row_data) + 1):
+                ws.cell(row=current_row, column=col_num).border = thin_border
+                ws.cell(row=current_row, column=col_num).alignment = align_center
+            current_row += 1
+            continue
+            
+        for prateleira in prateleiras:
+            materiais = prateleira.materiais.all()
+            if not materiais:
+                row_data = [armario.nome, armario.localizacao or '-', prateleira.nome, 'Vazia', '-', '-', '-', '-']
+                if is_completo: row_data.extend(['-', '-'])
+                ws.append(row_data)
+                for col_num in range(1, len(row_data) + 1):
+                    ws.cell(row=current_row, column=col_num).border = thin_border
+                    ws.cell(row=current_row, column=col_num).alignment = align_center
+                current_row += 1
+                continue
+                
+            for mat in materiais:
+                status = 'Funcionando' if mat.funcionando else 'Com Defeito'
+                row_data = [
+                    armario.nome,
+                    armario.localizacao or '-',
+                    prateleira.nome,
+                    mat.nome,
+                    mat.serial or '-',
+                    mat.codigo or '-',
+                    mat.quantidade,
+                    status
+                ]
+                
+                if is_completo:
+                    attrs_str = "-"
+                    if mat.atributos_extras:
+                        # Junta os atributos com quebras de linha
+                        attrs_str = "\n".join([f"• {k}: {v}" for k, v in mat.atributos_extras.items()])
+                    row_data.append(attrs_str)
+                    row_data.append(mat.motivo_defeito or '-')
+                    
+                ws.append(row_data)
+                
+                # Aplica estilos nas células inseridas
+                for col_num, val in enumerate(row_data, 1):
+                    cell = ws.cell(row=current_row, column=col_num)
+                    cell.border = thin_border
+                    # Alinha à esquerda apenas colunas de texto descritivo
+                    if col_num in [4, 9, 10]:
+                        cell.alignment = align_left
+                    else:
+                        cell.alignment = align_center
+                
+                current_row += 1
+                
+    # Auto-ajuste de largura das colunas
+    for col_idx, col in enumerate(ws.columns, 1):
+        max_length = 0
+        column = get_column_letter(col_idx)
+        for cell in col:
+            try:
+                # Ignora a linha do título principal na contagem de largura
+                if cell.row > 1: 
+                    lines = str(cell.value).split('\n')
+                    for line in lines:
+                        if len(line) > max_length:
+                            max_length = len(line)
+            except:
+                pass
+        
+        # Define largura máxima de 45 para não criar colunas absurdamente gigantes
+        adjusted_width = min(max_length + 2, 45) 
+        ws.column_dimensions[column].width = adjusted_width
+
+    # Adiciona Filtros (Setinhas) na tabela (A2:J[ultima_linha])
+    ws.auto_filter.ref = f"A2:{get_column_letter(max_col)}{current_row - 1}"
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    filename = "Inventario_Completo.xlsx" if is_completo else "Inventario_Simplificado.xlsx"
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    wb.save(response)
+    return response
+
 @staff_member_required
 def imprimir_cautela(request, pk):
     cautela = get_object_or_404(Cautela, id=pk)
