@@ -20,6 +20,25 @@ class SubgrupoMaterial(models.Model):
     def __str__(self):
         return f"{self.grupo.nome} - {self.nome}"
 
+# --- NOVOS MODELOS PARA ARMÁRIOS E PRATELEIRAS ---
+class Armario(models.Model):
+    nome = models.CharField(max_length=100, unique=True, verbose_name="Nome/Número do Armário")
+    localizacao = models.CharField(max_length=150, blank=True, null=True, verbose_name="Localização (Sala/Setor)")
+
+    def __str__(self):
+        return self.nome
+
+class Prateleira(models.Model):
+    armario = models.ForeignKey(Armario, on_delete=models.CASCADE, related_name='prateleiras')
+    nome = models.CharField(max_length=50, verbose_name="Nome/Número da Prateleira")
+
+    class Meta:
+        unique_together = ('armario', 'nome')
+
+    def __str__(self):
+        return f"{self.armario.nome} - {self.nome}"
+# ------------------------------------------------
+
 
 class Material(models.Model):
     subgrupo = models.ForeignKey(SubgrupoMaterial, on_delete=models.PROTECT, related_name='materiais')
@@ -29,6 +48,9 @@ class Material(models.Model):
     # Serial é opcional (para permitir itens em quantidade como pendrives)
     serial = models.CharField(max_length=100, blank=True, null=True, verbose_name="Número de Série")
     
+    # Nova Relação com Prateleira (Opcional)
+    prateleira = models.ForeignKey(Prateleira, on_delete=models.SET_NULL, null=True, blank=True, related_name='materiais', verbose_name="Localização na Prateleira")
+
     # Quantidades
     quantidade = models.IntegerField(default=1, verbose_name="Quantidade Total")
     quantidade_disponivel = models.IntegerField(default=1, verbose_name="Quantidade Disponível")

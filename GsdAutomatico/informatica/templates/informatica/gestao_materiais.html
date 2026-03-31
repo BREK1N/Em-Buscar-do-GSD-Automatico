@@ -25,6 +25,12 @@
     .select2-container--default .select2-results__option--highlighted.select2-results__option--selectable { background-color: var(--accent-color); color: white; }
     .select2-search--dropdown .select2-search__field { background-color: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border-color); border-radius: 6px;}
 
+    /* Select2 Múltiplo Customização */
+    .select2-container--default .select2-selection--multiple { background-color: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; min-height: 46px; padding: 4px; }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice { background-color: var(--accent-color); color: white; border: none; border-radius: 4px; padding: 4px 8px; margin-top: 4px; }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove { color: white; margin-right: 5px; }
+    .select2-container--default .select2-selection--multiple .select2-selection__choice__remove:hover { color: #ffcccc; background: none;}
+
     /* Abas Principais */
     .tabs-nav { display: flex; gap: 10px; margin-bottom: 25px; background: var(--bg-content); padding: 8px; border-radius: 12px; border: 1px solid var(--border-color); width: max-content; flex-wrap: wrap;}
     .tabs-nav a { padding: 8px 20px; text-decoration: none; color: var(--text-secondary); border-radius: 8px; font-weight: 500; transition: all 0.2s ease; cursor: pointer; }
@@ -53,19 +59,55 @@
     
     .attr-tag { font-size: 0.75rem; background: var(--bg-main); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 6px; display: inline-block; margin: 3px 3px 0 0; color: var(--text-secondary); }
 
+    /* Chips de Materiais para os Armários */
+    .material-chip {
+        display: inline-flex;
+        align-items: center;
+        gap: 8px;
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+        padding: 6px 12px;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 500;
+        margin: 0 6px 8px 0;
+        box-shadow: 0 1px 3px rgba(0,0,0,0.02);
+        transition: all 0.2s ease;
+    }
+    .material-chip:hover {
+        border-color: var(--accent-color);
+        box-shadow: 0 4px 6px -1px rgba(59,130,246,0.1);
+        transform: translateY(-1px);
+    }
+    .material-chip i { font-size: 0.9rem; opacity: 0.8; }
+    .material-chip .serial-number {
+        font-size: 0.75rem;
+        color: var(--text-secondary);
+        background: var(--bg-main);
+        padding: 2px 6px;
+        border-radius: 4px;
+        border: 1px solid var(--border-color);
+        letter-spacing: 0.3px;
+        margin-left: 4px;
+    }
+
     /* Carrinho e Canvas */
     .cautela-items-list { list-style: none; padding: 0; margin: 0; border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden;}
     .cautela-items-list li { display: flex; justify-content: space-between; align-items: center; padding: 12px 15px; background: var(--bg-main); border-bottom: 1px solid var(--border-color); }
     .cautela-items-list li .remove-item { color: var(--danger-color); cursor: pointer; padding: 5px; border-radius: 4px;}
     
     .canvas-container { border: 2px dashed var(--border-color); border-radius: 12px; background-color: #ffffff; overflow: hidden; width: 100%; margin-bottom: 10px; }
-    canvas { display: block; width: 100%; height: 200px; cursor: crosshair; }
+    canvas { display: block; width: 100%; height: 400px; cursor: crosshair; touch-action: none; } /* AUMENTADO PARA 400px E TOUCH-ACTION PARA MESAS DIGITALIZADORAS */
 
     /* Modais Customizados */
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
     .modal-overlay.active { opacity: 1; visibility: visible; }
     .modal-content { background-color: var(--bg-content); padding: 30px; border-radius: 16px; width: 90%; max-width: 600px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); transform: scale(0.9); transition: transform 0.3s; max-height: 90vh; overflow-y: auto;}
     .modal-overlay.active .modal-content { transform: scale(1); }
+
+    .armario-card { background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; margin-bottom: 15px; }
+    .prateleira-item { padding: 10px; border-bottom: 1px dashed var(--border-color); margin-left: 20px; }
 </style>
 {% endblock %}
 
@@ -81,6 +123,7 @@
     <a class="tab-link" data-target="tab-cautelas-ativas"><i class="fas fa-clipboard-list me-2"></i> Cautelas Ativas</a>
     <a class="tab-link" data-target="tab-historico-cautelas"><i class="fas fa-history me-2"></i> Histórico</a>
     <a class="tab-link" data-target="tab-acervo"><i class="fas fa-boxes me-2"></i> Acervo / Inventário</a>
+    <a class="tab-link" data-target="tab-armarios"><i class="fas fa-cubes me-2"></i> Armários / Localização</a>
 </nav>
 
 <!-- ABA: NOVA CAUTELA -->
@@ -228,29 +271,38 @@
                                     </button>
                                 </div>
                                 <div class="itens-html">
+                                    <div class="mb-2 d-flex justify-content-between align-items-center">
+                                        <label style="font-size: 0.85rem; color: var(--text-secondary); cursor:pointer;"><input type="checkbox" id="check-all-{{ cautela.id }}" onchange="toggleCheckAll({{ cautela.id }}, this.checked)"> Selecionar Todos para Baixa Múltipla</label>
+                                        <button class="btn btn-sm btn-outline-success" onclick="iniciarDevolucaoMultipla({{ cautela.id }})"><i class="fas fa-check-double"></i> Devolver Selecionados</button>
+                                    </div>
                                     {% for item in cautela.itens.all %}
                                         <div class="p-3 border-bottom d-flex justify-content-between align-items-start" style="background: var(--bg-main);">
-                                            <div>
-                                                <strong>{% if item.quantidade > 1 %}{{ item.quantidade }}x {% endif %}{{ item.material.nome }}</strong> 
-                                                <span class="text-muted">{% if item.material.serial %}(S/N: {{ item.material.serial }}){% endif %}</span>
-                                                
-                                                {% if item.devolvido %}
-                                                    <span class="badge bg-success text-white" style="font-size: 0.65rem; margin-left: 5px; padding: 3px 6px; border-radius: 4px;">Devolvido ({{ item.data_devolucao|date:"d/m" }})</span>
+                                            <div class="d-flex gap-2 align-items-start">
+                                                {% if not item.devolvido %}
+                                                    <input type="checkbox" class="cautela-item-check-{{ cautela.id }} mt-1" value="{{ item.id }}">
                                                 {% endif %}
-                                                
-                                                {% if item.material.atributos_extras %}
-                                                    <div style="margin-top: 6px;">
-                                                        {% for k, v in item.material.atributos_extras.items %}
-                                                            <span class="attr-tag" style="background: var(--bg-content);"><b>{{ k }}:</b> {{ v }}</span>
-                                                        {% endfor %}
-                                                    </div>
-                                                {% endif %}
-                                                
-                                                {% if item.devolvido %}
-                                                    <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px;">
-                                                        Recebido por: {{ item.recebedor_devolucao.posto }} {{ item.recebedor_devolucao.nome_guerra }}
-                                                    </div>
-                                                {% endif %}
+                                                <div>
+                                                    <strong>{% if item.quantidade > 1 %}{{ item.quantidade }}x {% endif %}{{ item.material.nome }}</strong> 
+                                                    <span class="text-muted">{% if item.material.serial %}(S/N: {{ item.material.serial }}){% endif %}</span>
+                                                    
+                                                    {% if item.devolvido %}
+                                                        <span class="badge bg-success text-white" style="font-size: 0.65rem; margin-left: 5px; padding: 3px 6px; border-radius: 4px;">Devolvido ({{ item.data_devolucao|date:"d/m" }})</span>
+                                                    {% endif %}
+                                                    
+                                                    {% if item.material.atributos_extras %}
+                                                        <div style="margin-top: 6px;">
+                                                            {% for k, v in item.material.atributos_extras.items %}
+                                                                <span class="attr-tag" style="background: var(--bg-content);"><b>{{ k }}:</b> {{ v }}</span>
+                                                            {% endfor %}
+                                                        </div>
+                                                    {% endif %}
+                                                    
+                                                    {% if item.devolvido %}
+                                                        <div style="font-size: 0.75rem; color: var(--text-secondary); margin-top: 6px;">
+                                                            Recebido por: {{ item.recebedor_devolucao.posto }} {{ item.recebedor_devolucao.nome_guerra }}
+                                                        </div>
+                                                    {% endif %}
+                                                </div>
                                             </div>
                                             {% if not item.devolvido %}
                                                 <button class="btn btn-sm btn-outline-success py-1 px-2 mt-1" style="font-size: 0.75rem; border: 1px solid var(--success-color);" onclick="fecharModal('modal-detalhes-cautela'); iniciarDevolucao('item', {{ item.id }})" title="Devolver apenas este material">
@@ -325,7 +377,7 @@
     </div>
 </div>
 
-<!-- ABA: ACERVO GERAL (Com Edição, Exclusão, Pesquisa e Totais) -->
+<!-- ABA: ACERVO GERAL -->
 <div id="tab-acervo" class="tab-panel">
     <div class="form-card">
         <div class="form-card-header">
@@ -385,7 +437,7 @@
                     <tr>
                         <th>Grupo / Subgrupo</th>
                         <th>Material e Especificações</th>
-                        <th>Serial / Código</th>
+                        <th>Localização</th>
                         <th>Status Operacional</th>
                         <th>Disponibilidade</th>
                         <th style="width: 110px;">Ações</th>
@@ -406,6 +458,7 @@
                         <td><span class="text-muted">{{ mat.subgrupo.grupo.nome }} /</span><br><strong>{{ mat.subgrupo.nome }}</strong></td>
                         <td>
                             <strong style="font-size: 1.05rem;">{{ mat.nome }}</strong><br>
+                            <span style="color: var(--accent-color); font-size: 0.85rem;">S/N: {{ mat.serial|default:"N/A" }}</span> | <small class="text-muted">Cód: {{ mat.codigo|default:"-" }}</small><br>
                             {% if mat.atributos_extras %}
                                 <div class="mt-1">
                                     {% for key, val in mat.atributos_extras.items %}
@@ -414,7 +467,14 @@
                                 </div>
                             {% endif %}
                         </td>
-                        <td><span style="color: var(--accent-color);">S/N: {{ mat.serial|default:"N/A" }}</span><br><small class="text-muted">Cód: {{ mat.codigo|default:"-" }}</small></td>
+                        <td>
+                            {% if mat.prateleira %}
+                                <strong>{{ mat.prateleira.armario.nome }}</strong><br>
+                                <small class="text-muted">{{ mat.prateleira.nome }}</small>
+                            {% else %}
+                                <span class="text-muted small">Sem Local</span>
+                            {% endif %}
+                        </td>
                         <td>
                             {% if mat.funcionando %}
                                 <span class="badge-status bg-disponivel"><i class="fas fa-check"></i> Funcionando</span>
@@ -447,17 +507,72 @@
     </div>
 </div>
 
+<!-- ABA: ARMÁRIOS E PRATELEIRAS -->
+<div id="tab-armarios" class="tab-panel">
+    <div class="form-card">
+        <div class="form-card-header">
+            <h2>Gestão de Armários e Localizações</h2>
+            <div class="d-flex gap-2">
+                <button class="btn btn-sm btn-outline-primary" onclick="abrirModalVincularMaterial()"><i class="fas fa-link me-1"></i> Vincular Materiais</button>
+                <button class="btn btn-sm btn-secondary" onclick="document.getElementById('modal-armario').classList.add('active')">+ Novo Armário</button>
+                <button class="btn btn-sm btn-secondary" onclick="document.getElementById('modal-prateleira').classList.add('active')">+ Nova Prateleira</button>
+            </div>
+        </div>
+        
+        <div class="row" id="container-armarios">
+            {% for armario in armarios %}
+            <div class="col-md-6 mb-3">
+                <div class="armario-card">
+                    <h4 style="color: var(--text-primary); margin-bottom: 5px;"><i class="fas fa-archive me-2 text-primary"></i> {{ armario.nome }}</h4>
+                    <p class="text-muted small mb-3"><i class="fas fa-map-marker-alt me-1"></i> Local: {{ armario.localizacao|default:"Não informado" }}</p>
+                    
+                    <div class="prateleiras-list">
+                        {% for prateleira in armario.prateleiras.all %}
+                        <div class="prateleira-item">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong style="color: var(--text-secondary);"><i class="fas fa-layer-group me-1"></i> {{ prateleira.nome }}</strong>
+                                <button class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="abrirModalVincularMaterial({{ armario.id }}, {{ prateleira.id }})" title="Adicionar materiais a esta prateleira"><i class="fas fa-plus"></i> Materiais</button>
+                            </div>
+                            <div class="mt-1" style="font-size: 0.85rem;">
+                                {% for mat in prateleira.materiais.all %}
+                                    <div class="material-chip" title="Código Interno: {{ mat.codigo|default:'N/A' }}">
+                                        <i class="fas fa-microchip text-primary"></i>
+                                        <span class="text-truncate" style="max-width: 180px;" title="{{ mat.nome }}">{{ mat.nome }}</span>
+                                        {% if mat.serial %}
+                                            <span class="serial-number" title="Serial Number: {{ mat.serial }}">S/N: {{ mat.serial }}</span>
+                                        {% endif %}
+                                    </div>
+                                {% empty %}
+                                    <span class="text-muted fst-italic small"><i class="fas fa-info-circle me-1"></i> Prateleira Vazia</span>
+                                {% endfor %}
+                            </div>
+                        </div>
+                        {% empty %}
+                        <p class="text-muted small ms-3">Nenhuma prateleira cadastrada neste armário.</p>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="col-12"><p class="text-center text-muted">Nenhum armário cadastrado.</p></div>
+            {% endfor %}
+        </div>
+    </div>
+</div>
+
+
 <!-- ============================================== -->
 <!-- MODAIS DE ASSINATURA EM CASCATA -->
 <!-- ============================================== -->
 
 <div class="modal-overlay" id="modal-assinatura-recebedor">
-    <div class="modal-content" style="max-width: 500px;">
+    <!-- Largura aumentada para 750px para dar amplo espaço para mesa digitalizadora -->
+    <div class="modal-content" style="max-width: 750px;">
         <h3><i class="fas fa-pen-nib text-primary me-2"></i> Assinatura: Recebedor</h3>
         <p class="text-muted small">O militar que está a receber o material deve assinar no quadro abaixo.</p>
         <div class="canvas-container"><canvas id="pad-recebedor"></canvas></div>
         <div class="d-flex justify-content-between mt-3">
-            <button type="button" class="btn btn-sm btn-light" onclick="padRecebedor.clear()">Limpar</button>
+            <button type="button" class="btn btn-sm btn-light" onclick="window.limparAssinatura('recebedor')">Limpar</button>
             <div class="d-flex gap-2">
                 <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-assinatura-recebedor')">Cancelar</button>
                 <button class="btn btn-primary" onclick="avancarParaSobreaviso()">Próximo Passo <i class="fas fa-arrow-right"></i></button>
@@ -467,7 +582,8 @@
 </div>
 
 <div class="modal-overlay" id="modal-assinatura-sobreaviso">
-    <div class="modal-content" style="max-width: 500px;">
+    <!-- Largura aumentada para 750px -->
+    <div class="modal-content" style="max-width: 750px;">
         <h3><i class="fas fa-check-double text-success me-2"></i> Assinatura: Sobreaviso</h3>
         <p class="text-muted small">Assinatura final do emitente da Informática.</p>
         
@@ -484,7 +600,7 @@
         </div>
 
         <div class="d-flex justify-content-between mt-3">
-            <button type="button" class="btn btn-sm btn-light" onclick="padSobreaviso.clear()">Limpar</button>
+            <button type="button" class="btn btn-sm btn-light" onclick="window.limparAssinatura('sobreaviso')">Limpar</button>
             <div class="d-flex gap-2">
                 <button class="btn btn-secondary" onclick="fecharModal('modal-assinatura-sobreaviso'); document.getElementById('modal-assinatura-recebedor').classList.add('active');">Voltar</button>
                 <button class="btn btn-success" onclick="finalizarCautelaDesenhada()" id="btn-finalizar-real"><i class="fas fa-save me-1"></i> Emitir Oficialmente</button>
@@ -494,12 +610,14 @@
 </div>
 
 <div class="modal-overlay" id="modal-assinatura-devolucao">
-    <div class="modal-content" style="max-width: 500px;">
+    <!-- Largura aumentada para 750px -->
+    <div class="modal-content" style="max-width: 750px;">
         <h3><i class="fas fa-undo-alt text-success me-2"></i> Registrar Devolução</h3>
         <p class="text-muted small">Selecione o Sobreaviso da Informática que está recebendo o equipamento de volta e assine.</p>
         
         <input type="hidden" id="dev-action-type"> 
         <input type="hidden" id="dev-action-id"> 
+        <input type="hidden" id="dev-action-ids"> <!-- Para múltiplos itens -->
         
         <div class="form-item mb-3">
             <label>Sobreaviso que recebe:</label>
@@ -519,7 +637,7 @@
         <div class="canvas-container"><canvas id="pad-devolucao"></canvas></div>
 
         <div class="d-flex justify-content-between mt-3">
-            <button type="button" class="btn btn-sm btn-light" onclick="padDevolucao.clear()">Limpar</button>
+            <button type="button" class="btn btn-sm btn-light" onclick="window.limparAssinatura('devolucao')">Limpar</button>
             <div class="d-flex gap-2">
                 <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-assinatura-devolucao')">Cancelar</button>
                 <button class="btn btn-success" onclick="processarDevolucao(false)" id="btn-dev-confirmar"><i class="fas fa-check"></i> Confirmar Baixa</button>
@@ -529,10 +647,139 @@
 </div>
 
 <!-- ============================================== -->
-<!-- MODAIS DO ACERVO E DETALHES DE CAUTELA -->
+<!-- MODAIS DO ACERVO, ARMÁRIOS E DETALHES DE CAUTELA -->
 <!-- ============================================== -->
 
-<!-- NOVO MODAL: DETALHES DA CAUTELA (RESUMO) -->
+<div class="modal-overlay" id="modal-vincular-material">
+    <div class="modal-content" style="max-width: 700px;">
+        <h3><i class="fas fa-link text-primary me-2"></i> Vincular Materiais ao Armário</h3>
+        <p class="text-muted" style="font-size: 0.85rem;">Selecione um ou vários materiais para guardá-los nesta localização.</p>
+        
+        <div class="form-item mt-3">
+            <label>1. Selecione os Materiais (Pode selecionar vários)</label>
+            <select id="vincular_mat_ids" class="select2-search" style="width:100%;" multiple="multiple">
+                <!-- Populado via JS -->
+            </select>
+        </div>
+        <div class="row mt-3">
+            <div class="col-md-6 form-item">
+                <label>2. Armário Destino</label>
+                <select id="vincular_armario_id" class="form-select">
+                    <option value="">-- Selecione o Armário --</option>
+                    {% for arm in armarios %}<option value="{{ arm.id }}">{{ arm.nome }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 form-item">
+                <label>3. Prateleira / Gaveta</label>
+                <select id="vincular_prateleira_id" class="form-select" disabled>
+                    <option value="">-- Selecione o Armário Primeiro --</option>
+                </select>
+            </div>
+        </div>
+        
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-vincular-material')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-vincular"><i class="fas fa-save me-1"></i> Salvar Vinculação</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-armario">
+    <div class="modal-content">
+        <h3>Adicionar Armário</h3>
+        <div class="form-item mt-3"><input type="text" id="novo_armario_nome" placeholder="Nome / Identificação do Armário (Ex: Armário 01)"></div>
+        <div class="form-item mt-3"><input type="text" id="novo_armario_localizacao" placeholder="Localização (Ex: Sala de Servidores)"></div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-armario')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-armario">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="modal-prateleira">
+    <div class="modal-content">
+        <h3>Adicionar Prateleira</h3>
+        <div class="form-item mt-3">
+            <label>Selecione o Armário Base</label>
+            <select id="nova_prat_armario_id" class="form-select">
+                {% for arm in armarios %}<option value="{{ arm.id }}">{{ arm.nome }}</option>{% endfor %}
+            </select>
+        </div>
+        <div class="form-item mt-3"><input type="text" id="nova_prat_nome" placeholder="Nome da Prateleira (Ex: Gaveta A, Prateleira 2)"></div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-prateleira')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-prateleira">Salvar</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Unificado para Criar E Editar Material -->
+<div class="modal-overlay" id="modal-material">
+    <div class="modal-content" style="max-width: 800px;">
+        <h3 id="titulo-modal-material">Novo Equipamento / Material</h3>
+        <input type="hidden" id="edit_mat_id"> <!-- ID para Editar -->
+        <div class="row g-3 mt-1">
+            <div class="col-md-6 form-item">
+                <label>Categoria (Subgrupo)</label>
+                <select id="novo_mat_subgrupo" style="width: 100%;">
+                    <option value="">Selecione...</option>
+                    {% for sg in subgrupos %}<option value="{{ sg.id }}">{{ sg.grupo.nome }} -> {{ sg.nome }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 form-item"><label>Nome / Modelo</label><input type="text" id="novo_mat_nome"></div>
+            
+            <div class="col-md-4 form-item"><label>Nº Série</label><input type="text" id="novo_mat_serial" placeholder="S/N"></div>
+            <div class="col-md-4 form-item"><label>Cód. Interno / BMP</label><input type="text" id="novo_mat_codigo"></div>
+            <div class="col-md-4 form-item"><label>Qtd Total</label><input type="number" id="novo_mat_quantidade" value="1" min="1"></div>
+            
+            <!-- NOVOS CAMPOS: ARMÁRIO E PRATELEIRA -->
+            <div class="col-12 mt-2 pt-2" style="border-top: 1px dashed var(--border-color);">
+                <label class="text-secondary fw-bold mb-2">Localização Física (Opcional)</label>
+            </div>
+            <div class="col-md-6 form-item">
+                <label>Armário</label>
+                <select id="novo_mat_armario" class="form-select">
+                    <option value="">-- Sem Armário --</option>
+                    {% for arm in armarios %}<option value="{{ arm.id }}">{{ arm.nome }}</option>{% endfor %}
+                </select>
+            </div>
+            <div class="col-md-6 form-item">
+                <label>Prateleira / Gaveta</label>
+                <select id="novo_mat_prateleira" class="form-select" disabled>
+                    <option value="">-- Selecione o Armário Primeiro --</option>
+                </select>
+            </div>
+
+            <div class="col-12 mt-2 pt-2" style="border-top: 1px dashed var(--border-color);"></div>
+
+            <div class="col-md-6 form-item">
+                <label>Status Operacional</label>
+                <select id="novo_mat_status">
+                    <option value="1">Funcionando (OK)</option>
+                    <option value="0">Com Defeito</option>
+                </select>
+            </div>
+            <div class="col-12 form-item" id="motivo-container" style="display: none;">
+                <label class="text-danger">Motivo</label>
+                <textarea id="novo_mat_motivo" rows="2"></textarea>
+            </div>
+
+            <div class="col-12 mt-3 pt-3" style="border-top: 1px dashed var(--border-color);">
+                <label class="d-flex justify-content-between align-items-center">
+                    <span>Atributos Técnicos</span>
+                    <button type="button" class="btn btn-sm btn-secondary py-1" onclick="addAtributoRow()"><i class="fas fa-plus"></i> Linha</button>
+                </label>
+                <div id="atributos-container" class="d-flex flex-column gap-2 mt-2"></div>
+            </div>
+        </div>
+        <div class="d-flex justify-content-end gap-2 mt-4">
+            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-material')">Cancelar</button>
+            <button class="btn btn-primary" id="btn-save-material">Salvar Alterações</button>
+        </div>
+    </div>
+</div>
+
+<!-- OUTROS MODAIS EXISTENTES (Mantidos e adaptados) -->
 <div class="modal-overlay" id="modal-detalhes-cautela">
     <div class="modal-content" style="max-width: 800px; padding: 0; overflow: hidden;">
         <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="background-color: var(--bg-main);">
@@ -542,7 +789,7 @@
         
         <div class="p-4" style="max-height: 70vh; overflow-y: auto;">
             <div class="d-flex justify-content-end mb-3" id="detalhe-cautela-acoes">
-                <!-- Botões de ação (Add, Baixar Tudo) injetados aqui -->
+                <!-- Botões de ação injetados aqui -->
             </div>
             
             <h6 class="text-muted text-uppercase mb-2" style="font-weight: 600; font-size: 0.85rem;">Materiais Registados:</h6>
@@ -612,7 +859,7 @@
 <div class="modal-overlay" id="modal-gerenciar-categorias">
     <div class="modal-content">
         <h3><i class="fas fa-cogs text-danger me-2"></i> Gerenciar Categorias</h3>
-        <p class="text-muted" style="font-size: 0.85rem;">Atenção: A exclusão de um grupo apagará todos os seus subgrupos. Não é possível excluir grupos/subgrupos que contenham materiais em uso.</p>
+        <p class="text-muted" style="font-size: 0.85rem;">Atenção: A exclusão de um grupo apagará todos os seus subgrupos.</p>
         
         <div style="max-height: 400px; overflow-y: auto; margin-top: 15px;">
             <ul class="list-group" style="list-style: none; padding: 0;">
@@ -668,51 +915,6 @@
     </div>
 </div>
 
-<!-- Modal Unificado para Criar E Editar Material -->
-<div class="modal-overlay" id="modal-material">
-    <div class="modal-content">
-        <h3 id="titulo-modal-material">Novo Equipamento / Material</h3>
-        <input type="hidden" id="edit_mat_id"> <!-- ID para Editar -->
-        <div class="row g-3 mt-1">
-            <div class="col-12 form-item">
-                <label>Categoria (Subgrupo)</label>
-                <select id="novo_mat_subgrupo" style="width: 100%;">
-                    <option value="">Selecione...</option>
-                    {% for sg in subgrupos %}<option value="{{ sg.id }}">{{ sg.grupo.nome }} -> {{ sg.nome }}</option>{% endfor %}
-                </select>
-            </div>
-            <div class="col-md-5 form-item"><label>Nome / Modelo</label><input type="text" id="novo_mat_nome"></div>
-            <div class="col-md-3 form-item"><label>Qtd Total</label><input type="number" id="novo_mat_quantidade" value="1" min="1"></div>
-            <div class="col-md-4 form-item"><label>Nº Série</label><input type="text" id="novo_mat_serial" placeholder="S/N"></div>
-            
-            <div class="col-md-6 form-item"><label>Cód. Interno / BMP</label><input type="text" id="novo_mat_codigo"></div>
-            <div class="col-md-6 form-item">
-                <label>Status</label>
-                <select id="novo_mat_status">
-                    <option value="1">Funcionando (OK)</option>
-                    <option value="0">Com Defeito</option>
-                </select>
-            </div>
-            <div class="col-12 form-item" id="motivo-container" style="display: none;">
-                <label class="text-danger">Motivo</label>
-                <textarea id="novo_mat_motivo" rows="2"></textarea>
-            </div>
-
-            <div class="col-12 mt-3 pt-3" style="border-top: 1px dashed var(--border-color);">
-                <label class="d-flex justify-content-between align-items-center">
-                    <span>Atributos Técnicos</span>
-                    <button type="button" class="btn btn-sm btn-secondary py-1" onclick="addAtributoRow()"><i class="fas fa-plus"></i> Linha</button>
-                </label>
-                <div id="atributos-container" class="d-flex flex-column gap-2 mt-2"></div>
-            </div>
-        </div>
-        <div class="d-flex justify-content-end gap-2 mt-4">
-            <button class="btn btn-secondary btn-cancelar-modal" onclick="fecharModal('modal-material')">Cancelar</button>
-            <button class="btn btn-primary" id="btn-save-material">Salvar Alterações</button>
-        </div>
-    </div>
-</div>
-
 {% csrf_token %}
 {% endblock %}
 
@@ -725,20 +927,21 @@
 document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
     
-    let materiaisDisponiveis = []; let militaresTelefones = []; let militaresInfoDados = []; let acervoGeral = [];
+    let materiaisDisponiveis = []; let militaresTelefones = []; let militaresInfoDados = []; let acervoGeral = []; let armariosList = [];
     try {
         const matJsonStr = '{{ materiais_json|escapejs }}';
         const milJsonStr = '{{ militares_dados_json|escapejs }}';
         const milInfoStr = '{{ militares_info_json|escapejs }}';
         const acervoJsonStr = '{{ acervo_json|escapejs }}';
+        const armariosJsonStr = '{{ armarios_json|escapejs }}';
         
         materiaisDisponiveis = matJsonStr ? JSON.parse(matJsonStr) : [];
         militaresTelefones = milJsonStr ? JSON.parse(milJsonStr) : [];
         militaresInfoDados = milInfoStr ? JSON.parse(milInfoStr) : [];
         acervoGeral = acervoJsonStr ? JSON.parse(acervoJsonStr) : [];
+        armariosList = armariosJsonStr ? JSON.parse(armariosJsonStr) : [];
     } catch(e) { console.error("Falha ao carregar dados", e); }
 
-    // Mapeia os Subgrupos para os selects em cascata
     const subgruposList = [
         {% for sg in subgrupos %}
             { id: "{{ sg.id }}", grupo_id: "{{ sg.grupo.id }}", nome: "{{ sg.nome|escapejs }}" }{% if not forloop.last %},{% endif %}
@@ -756,12 +959,14 @@ document.addEventListener('DOMContentLoaded', function() {
         $('#cautela-recebedor').on('select2:select', function (e) { preencherTelefone(e.params.data.id); });
         
         $('#novo_mat_subgrupo').on('select2:select', function (e) { 
-            if(!isEditingMat) gerarAtributosDinamicos(e.params.data.text); 
+            if(!isEditingMat) gerarOuCarregarAtributos(e.params.data.id, e.params.data.text); 
         });
     } else {
         document.getElementById('cautela-recebedor').addEventListener('change', function() { preencherTelefone(this.value); });
         document.getElementById('novo_mat_subgrupo').addEventListener('change', function() {
-            if(!isEditingMat && this.selectedIndex >= 0) gerarAtributosDinamicos(this.options[this.selectedIndex].text);
+            if(!isEditingMat && this.selectedIndex >= 0) {
+                gerarOuCarregarAtributos(this.value, this.options[this.selectedIndex].text);
+            }
         });
     }
 
@@ -775,31 +980,44 @@ document.addEventListener('DOMContentLoaded', function() {
         modal.addEventListener('click', e => { if(e.target === modal) modal.classList.remove('active'); });
     });
 
+    // --- LÓGICA DE MANUTENÇÃO DE ABAS (PERSISTÊNCIA) ---
     document.querySelectorAll('.tab-link').forEach(link => {
         link.addEventListener('click', (e) => {
             document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
             document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
             link.classList.add('active');
-            document.getElementById(link.getAttribute('data-target')).classList.add('active');
+            const targetId = link.getAttribute('data-target');
+            document.getElementById(targetId).classList.add('active');
+            
+            // Salva a aba ativa no LocalStorage
+            localStorage.setItem('activeTabGestao', targetId);
         });
     });
 
-    // --- NOVA LÓGICA DE FILTRAGEM DO ACERVO ---
+    // Recuperar Aba Principal no carregamento
+    const savedTab = localStorage.getItem('activeTabGestao');
+    if (savedTab) {
+        const tabLink = document.querySelector(`.tab-link[data-target="${savedTab}"]`);
+        if (tabLink) {
+            document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));
+            document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+            tabLink.classList.add('active');
+            document.getElementById(savedTab).classList.add('active');
+        }
+    }
+
+    // --- LÓGICA DE FILTRAGEM DO ACERVO E SUBABAS ---
     let grupoAtivo = 'subtab-all';
 
     function atualizarDropdownSubgrupos(grupoIdStr) {
         const selectSubgrupo = document.getElementById('filtro-subgrupo');
         selectSubgrupo.innerHTML = '<option value="all">Todos os Subgrupos</option>';
         if (grupoIdStr === 'subtab-all') {
-            subgruposList.forEach(sg => {
-                selectSubgrupo.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`;
-            });
+            subgruposList.forEach(sg => { selectSubgrupo.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`; });
         } else {
             const gId = grupoIdStr.replace('subtab-g', '');
             const filtrados = subgruposList.filter(sg => sg.grupo_id == gId);
-            filtrados.forEach(sg => {
-                selectSubgrupo.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`;
-            });
+            filtrados.forEach(sg => { selectSubgrupo.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`; });
         }
     }
 
@@ -808,11 +1026,24 @@ document.addEventListener('DOMContentLoaded', function() {
             document.querySelectorAll('.subtab-link').forEach(l => l.classList.remove('active'));
             link.classList.add('active');
             grupoAtivo = link.getAttribute('data-target');
-            
             atualizarDropdownSubgrupos(grupoAtivo);
             filtrarAcervo();
+            
+            // Salva a sub-aba de grupo ativa no LocalStorage
+            localStorage.setItem('activeSubtabGestao', grupoAtivo);
         });
     });
+
+    // Recuperar Subaba do Acervo no carregamento
+    const savedSubtab = localStorage.getItem('activeSubtabGestao');
+    if (savedSubtab) {
+        const subtabLink = document.querySelector(`.subtab-link[data-target="${savedSubtab}"]`);
+        if (subtabLink) {
+            document.querySelectorAll('.subtab-link').forEach(l => l.classList.remove('active'));
+            subtabLink.classList.add('active');
+            grupoAtivo = savedSubtab;
+        }
+    }
 
     window.filtrarAcervo = function() {
         const statusFiltro = document.getElementById('filtro-status').value;
@@ -833,21 +1064,13 @@ document.addEventListener('DOMContentLoaded', function() {
             
             if (matchGrupo && matchStatus && matchSubgrupo && matchSearch) {
                 row.style.display = '';
-                
                 const qtd = parseInt(row.getAttribute('data-qtd')) || 0;
                 const disp = parseInt(row.getAttribute('data-disp')) || 0;
                 const funciona = row.getAttribute('data-funciona') === 'ok';
 
                 tTotal += qtd;
-                if(funciona) {
-                    tDisp += disp;
-                    tCaut += (qtd - disp);
-                } else {
-                    tDef += qtd;
-                }
-            } else {
-                row.style.display = 'none';
-            }
+                if(funciona) { tDisp += disp; tCaut += (qtd - disp); } else { tDef += qtd; }
+            } else { row.style.display = 'none'; }
         });
 
         document.getElementById('acervo-sum-total').innerText = tTotal;
@@ -856,15 +1079,14 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('acervo-sum-def').innerText = tDef;
     };
 
-    // Inicializa Filtros do Acervo
-    atualizarDropdownSubgrupos('subtab-all');
+    atualizarDropdownSubgrupos(grupoAtivo);
     filtrarAcervo();
 
-    let padRecebedor = null; let padSobreaviso = null; let padDevolucao = null;
+    // --- ESCOPO GLOBAL DOS PADS ---
     if (typeof SignaturePad !== 'undefined') {
-        padRecebedor = new SignaturePad(document.getElementById('pad-recebedor'), { backgroundColor: 'rgb(255, 255, 255)' });
-        padSobreaviso = new SignaturePad(document.getElementById('pad-sobreaviso'), { backgroundColor: 'rgb(255, 255, 255)' });
-        padDevolucao = new SignaturePad(document.getElementById('pad-devolucao'), { backgroundColor: 'rgb(255, 255, 255)' });
+        window.padRecebedor = new SignaturePad(document.getElementById('pad-recebedor'), { backgroundColor: 'rgb(255, 255, 255)' });
+        window.padSobreaviso = new SignaturePad(document.getElementById('pad-sobreaviso'), { backgroundColor: 'rgb(255, 255, 255)' });
+        window.padDevolucao = new SignaturePad(document.getElementById('pad-devolucao'), { backgroundColor: 'rgb(255, 255, 255)' });
     }
 
     window.resizeCanvas = function(canvas, pad) {
@@ -876,6 +1098,13 @@ document.addEventListener('DOMContentLoaded', function() {
         pad.clear();
     };
 
+    window.limparAssinatura = function(tipo) {
+        if (tipo === 'recebedor' && window.padRecebedor) window.padRecebedor.clear();
+        if (tipo === 'sobreaviso' && window.padSobreaviso) window.padSobreaviso.clear();
+        if (tipo === 'devolucao' && window.padDevolucao) window.padDevolucao.clear();
+    };
+
+    // --- CARRINHO DE NOVA CAUTELA ---
     let cart = [];
     const grupoSelect = document.getElementById('cautela-grupo-select');
     const subgrupoSelect = document.getElementById('cautela-subgrupo-select');
@@ -884,31 +1113,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const emptyMsg = document.getElementById('cart-empty-msg');
     const previewDiv = document.getElementById('material-details-preview');
 
-    // Passo 1: Escolhe o Grupo e carrega os Subgrupos
     grupoSelect.addEventListener('change', function() {
         const groupId = this.value;
         subgrupoSelect.innerHTML = '<option value="">-- Selecione o Subgrupo --</option>';
         materialSelect.innerHTML = '<option value="">-- Selecione o Subgrupo Primeiro --</option>';
-        subgrupoSelect.disabled = true;
-        materialSelect.disabled = true;
+        subgrupoSelect.disabled = true; materialSelect.disabled = true;
         document.getElementById('subgrupo-summary-preview').style.display = 'none';
         previewDiv.style.display = 'none';
         
         if(groupId) {
             subgrupoSelect.disabled = false;
             const filtrados = subgruposList.filter(sg => sg.grupo_id == groupId);
-            filtrados.forEach(sg => {
-                subgrupoSelect.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`;
-            });
+            filtrados.forEach(sg => { subgrupoSelect.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`; });
         }
     });
 
-    // Passo 2: Escolhe o Subgrupo e carrega Totais e Materiais Livres
     subgrupoSelect.addEventListener('change', function() {
         const sgId = this.value;
-        materialSelect.innerHTML = '';
-        previewDiv.style.display = 'none';
-
+        materialSelect.innerHTML = ''; previewDiv.style.display = 'none';
         if(!sgId) {
             document.getElementById('subgrupo-summary-preview').style.display = 'none';
             materialSelect.innerHTML = '<option value="">-- Selecione o Subgrupo Primeiro --</option>';
@@ -917,18 +1139,13 @@ document.addEventListener('DOMContentLoaded', function() {
             return;
         }
 
-        // Calcula Totais usando o acervo completo
         let tTotal = 0, tDisp = 0, tCaut = 0, tDef = 0;
         const matDoSubgrupo = acervoGeral.filter(m => m.subgrupo_id == sgId);
         
         matDoSubgrupo.forEach(m => {
             tTotal += m.quantidade;
-            if(m.funcionando === 1) {
-                tDisp += m.quantidade_disponivel;
-                tCaut += (m.quantidade - m.quantidade_disponivel);
-            } else {
-                tDef += m.quantidade;
-            }
+            if(m.funcionando === 1) { tDisp += m.quantidade_disponivel; tCaut += (m.quantidade - m.quantidade_disponivel); }
+            else { tDef += m.quantidade; }
         });
 
         document.getElementById('sum-total').innerText = tTotal;
@@ -937,15 +1154,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sum-def').innerText = tDef;
         document.getElementById('subgrupo-summary-preview').style.display = 'flex';
 
-        // Preenche o Select de Materiais
         materialSelect.disabled = false;
         materialSelect.innerHTML = '<option value="">-- Selecione o Material --</option>';
-        
         const filtrados = matDoSubgrupo.filter(m => m.funcionando === 1 && m.quantidade_disponivel > 0);
         filtrados.forEach(m => {
             const inCart = cart.filter(c => c.id == m.id).reduce((acc, curr) => acc + curr.qtd, 0);
             const dispAtual = m.quantidade_disponivel - inCart;
-            
             if(dispAtual > 0) {
                 const dispText = dispAtual > 1 ? ` [${dispAtual} unid. disp.]` : '';
                 const serial = m.serial ? `(S/N: ${m.serial})` : '';
@@ -1021,8 +1235,7 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
         cartList.appendChild(li);
         
-        if(hasJQuery) $(subgrupoSelect).trigger('change');
-        else subgrupoSelect.dispatchEvent(new Event('change'));
+        if(hasJQuery) $(subgrupoSelect).trigger('change'); else subgrupoSelect.dispatchEvent(new Event('change'));
     });
 
     window.removeFromCart = function(id) {
@@ -1031,11 +1244,10 @@ document.addEventListener('DOMContentLoaded', function() {
         if(itemEl) itemEl.remove();
         if(cart.length === 0 && emptyMsg) emptyMsg.style.display = 'flex';
         
-        if(hasJQuery) $(subgrupoSelect).trigger('change');
-        else subgrupoSelect.dispatchEvent(new Event('change'));
+        if(hasJQuery) $(subgrupoSelect).trigger('change'); else subgrupoSelect.dispatchEvent(new Event('change'));
     };
 
-    // --- EMISSÃO ---
+    // --- EMISSÃO CAUTELA ---
     document.getElementById('btn-pre-finalizar').addEventListener('click', () => {
         const sobreaviso_id = document.getElementById('cautela-sobreaviso').value;
         const recebedor_id = document.getElementById('cautela-recebedor').value;
@@ -1043,11 +1255,11 @@ document.addEventListener('DOMContentLoaded', function() {
         if(cart.length === 0) { alert("Adicione pelo menos um material ao carrinho."); return; }
         
         document.getElementById('modal-assinatura-recebedor').classList.add('active');
-        setTimeout(() => resizeCanvas(document.getElementById('pad-recebedor'), padRecebedor), 250);
+        setTimeout(() => resizeCanvas(document.getElementById('pad-recebedor'), window.padRecebedor), 250);
     });
 
     window.avancarParaSobreaviso = function() {
-        if(padRecebedor.isEmpty()) { alert("O recebedor precisa assinar para prosseguir."); return; }
+        if(window.padRecebedor.isEmpty()) { alert("O recebedor precisa assinar para prosseguir."); return; }
         fecharModal('modal-assinatura-recebedor');
         
         const sobreavisoId = document.getElementById('cautela-sobreaviso').value;
@@ -1061,12 +1273,12 @@ document.addEventListener('DOMContentLoaded', function() {
         }
 
         document.getElementById('modal-assinatura-sobreaviso').classList.add('active');
-        setTimeout(() => resizeCanvas(document.getElementById('pad-sobreaviso'), padSobreaviso), 250);
+        setTimeout(() => resizeCanvas(document.getElementById('pad-sobreaviso'), window.padSobreaviso), 250);
     };
 
     window.finalizarCautelaDesenhada = function() {
-        if(padSobreaviso.isEmpty()) { alert("O Sobreaviso precisa assinar o quadro!"); return; }
-        executarEmissao(padSobreaviso.toDataURL(), document.getElementById('salvar_assinatura_padrao').checked);
+        if(window.padSobreaviso.isEmpty()) { alert("O Sobreaviso precisa assinar o quadro!"); return; }
+        executarEmissao(window.padSobreaviso.toDataURL(), document.getElementById('salvar_assinatura_padrao').checked);
     };
 
     window.finalizarCautelaComAssinaturaSalva = function() {
@@ -1083,7 +1295,7 @@ document.addEventListener('DOMContentLoaded', function() {
             telefone_contato: document.getElementById('cautela-telefone').value,
             nome_missao: document.getElementById('cautela-missao').value,
             materiais: cart,
-            assinatura_recebedor: padRecebedor.toDataURL(),
+            assinatura_recebedor: window.padRecebedor.toDataURL(),
             assinatura_sobreaviso: assinaturaSobreaviso,
             salvar_padrao: salvarPadrao
         };
@@ -1098,32 +1310,46 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // --- NOVA FUNCIONALIDADE: ABRIR MODAL COM RESUMO DA CAUTELA ---
+    // --- ABRIR DETALHES CAUTELA ---
     window.abrirDetalhesCautela = function(cautelaId) {
         document.getElementById('detalhe-cautela-id').innerText = cautelaId;
-        
         const template = document.getElementById(`cautela-dados-${cautelaId}`);
         if(template) {
-            const content = template.content;
-            const acoesHtml = content.querySelector('.acoes-html').innerHTML;
-            const itensHtml = content.querySelector('.itens-html').innerHTML;
-            
-            document.getElementById('detalhe-cautela-acoes').innerHTML = acoesHtml;
-            document.getElementById('detalhe-cautela-itens').innerHTML = itensHtml;
-            
+            document.getElementById('detalhe-cautela-acoes').innerHTML = template.content.querySelector('.acoes-html').innerHTML;
+            document.getElementById('detalhe-cautela-itens').innerHTML = template.content.querySelector('.itens-html').innerHTML;
             document.getElementById('modal-detalhes-cautela').classList.add('active');
         }
     };
 
-    // --- FLUXO DE DEVOLUÇÃO (COM ASSINATURA) ---
+    // --- NOVA LÓGICA DE DEVOLUÇÃO (MÚLTIPLA E INDIVIDUAL) ---
+    window.toggleCheckAll = function(cautelaId, checked) {
+        document.querySelectorAll(`.cautela-item-check-${cautelaId}`).forEach(cb => cb.checked = checked);
+    };
+
+    window.iniciarDevolucaoMultipla = function(cautelaId) {
+        const selecionados = Array.from(document.querySelectorAll(`.cautela-item-check-${cautelaId}:checked`)).map(cb => cb.value);
+        if(selecionados.length === 0) { alert("Selecione pelo menos um item para devolver."); return; }
+        
+        fecharModal('modal-detalhes-cautela');
+        document.getElementById('dev-action-type').value = 'multiplo';
+        document.getElementById('dev-action-id').value = cautelaId; // Manda o ID da cautela
+        document.getElementById('dev-action-ids').value = JSON.stringify(selecionados); // Salva array de IDs
+        
+        abrirModalAssinaturaDevolucao();
+    };
+
     window.iniciarDevolucao = function(tipo, id) {
         document.getElementById('dev-action-type').value = tipo;
         document.getElementById('dev-action-id').value = id;
+        abrirModalAssinaturaDevolucao();
+    };
+
+    function abrirModalAssinaturaDevolucao() {
         document.getElementById('modal-assinatura-devolucao').classList.add('active');
         document.getElementById('dev-sobreaviso').value = '';
         document.getElementById('btn-dev-assinatura-salva-container').style.display = 'none';
-        setTimeout(() => resizeCanvas(document.getElementById('pad-devolucao'), padDevolucao), 250);
-    };
+        setTimeout(() => resizeCanvas(document.getElementById('pad-devolucao'), window.padDevolucao), 250);
+    }
 
     window.verificarAssinaturaDevolucao = function() {
         const sobId = document.getElementById('dev-sobreaviso').value;
@@ -1143,139 +1369,208 @@ document.addEventListener('DOMContentLoaded', function() {
         const sobId = document.getElementById('dev-sobreaviso').value;
         
         if(!sobId) { alert("Selecione quem está recebendo!"); return; }
-        if(!usarSalva && padDevolucao.isEmpty()) { alert("Assine o quadro!"); return; }
+        if(!usarSalva && window.padDevolucao.isEmpty()) { alert("Assine o quadro!"); return; }
 
-        const assinatura = usarSalva ? window.assinaturaDevolucaoCache : padDevolucao.toDataURL();
-        const url = tipo === 'total' ? `/informatica/api/cautelas/${objId}/devolver/` : `/informatica/api/cautelas/item/${objId}/devolver/`;
+        const assinatura = usarSalva ? window.assinaturaDevolucaoCache : window.padDevolucao.toDataURL();
+        
+        let url = ""; let bodyData = { sobreaviso_id: sobId, assinatura_devolucao: assinatura };
+
+        if (tipo === 'total') {
+            url = `/informatica/api/cautelas/${objId}/devolver/`;
+        } else if (tipo === 'item') {
+            url = `/informatica/api/cautelas/item/${objId}/devolver/`;
+        } else if (tipo === 'multiplo') {
+            url = `/informatica/api/cautelas/${objId}/devolver-multiplos/`;
+            bodyData.item_ids = JSON.parse(document.getElementById('dev-action-ids').value);
+        }
         
         document.getElementById('btn-dev-confirmar').disabled = true;
         fetch(url, { 
-            method: 'POST', headers: { 'X-CSRFToken': csrfToken }, 
-            body: JSON.stringify({ sobreaviso_id: sobId, assinatura_devolucao: assinatura })
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: JSON.stringify(bodyData)
         }).then(r => r.json()).then(res => { 
             if(res.status === 'success') window.location.reload(); 
             else { alert("Erro: " + res.message); document.getElementById('btn-dev-confirmar').disabled = false; } 
         });
     };
 
-    // --- ADICIONAR ITEM EXTRA EM CAUTELA ABERTA ---
-    const addItemGrupo = document.getElementById('add-item-grupo');
-    const addItemSubgrupo = document.getElementById('add-item-subgrupo');
-    const addItemMaterial = document.getElementById('add-item-material');
+    // --- ARMÁRIOS E PRATELEIRAS ---
+    document.getElementById('btn-save-armario').addEventListener('click', () => {
+        postApi("{% url 'informatica:api_add_armario' %}", {
+            nome: document.getElementById('novo_armario_nome').value,
+            localizacao: document.getElementById('novo_armario_localizacao').value
+        });
+    });
 
-    addItemGrupo.addEventListener('change', function() {
-        const groupId = this.value;
-        addItemSubgrupo.innerHTML = '<option value="">-- Selecione o Subgrupo --</option>';
-        addItemMaterial.innerHTML = '<option value="">-- Selecione a Subcategoria Primeiro --</option>';
-        addItemSubgrupo.disabled = true;
-        addItemMaterial.disabled = true;
-        document.getElementById('add-item-summary').style.display = 'none';
-        
-        if(groupId) {
-            addItemSubgrupo.disabled = false;
-            const filtrados = subgruposList.filter(sg => sg.grupo_id == groupId);
-            filtrados.forEach(sg => {
-                addItemSubgrupo.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`;
-            });
+    document.getElementById('btn-save-prateleira').addEventListener('click', () => {
+        postApi("{% url 'informatica:api_add_prateleira' %}", {
+            armario_id: document.getElementById('nova_prat_armario_id').value,
+            nome: document.getElementById('nova_prat_nome').value
+        });
+    });
+
+    const armarioSelectMat = document.getElementById('novo_mat_armario');
+    const prateleiraSelectMat = document.getElementById('novo_mat_prateleira');
+
+    armarioSelectMat.addEventListener('change', function() {
+        const armId = this.value;
+        prateleiraSelectMat.innerHTML = '<option value="">-- Sem Prateleira --</option>';
+        if (armId) {
+            prateleiraSelectMat.disabled = false;
+            const arm = armariosList.find(a => a.id == armId);
+            if(arm && arm.prateleiras) {
+                arm.prateleiras.forEach(p => {
+                    prateleiraSelectMat.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
+                });
+            }
+        } else {
+            prateleiraSelectMat.disabled = true;
+            prateleiraSelectMat.innerHTML = '<option value="">-- Selecione o Armário Primeiro --</option>';
         }
     });
 
-    addItemSubgrupo.addEventListener('change', function() {
-        const sgId = this.value;
-        addItemMaterial.innerHTML = '';
-        
-        if(!sgId) {
-            document.getElementById('add-item-summary').style.display = 'none';
-            addItemMaterial.innerHTML = '<option value="">-- Selecione a Subcategoria Primeiro --</option>';
-            addItemMaterial.disabled = true;
-            if (hasJQuery) $(addItemMaterial).trigger('change');
-            return;
+    // LÓGICA DO MODAL DE VINCULAR MATERIAIS
+    window.abrirModalVincularMaterial = function(armId = '', pratId = '') {
+        const matSelect = document.getElementById('vincular_mat_ids');
+        matSelect.innerHTML = ''; // Limpa seleções anteriores
+
+        // Popular lista de materiais para vincular
+        acervoGeral.forEach(m => {
+            const sn = m.serial ? ` (S/N: ${m.serial})` : '';
+            const currLoc = m.armario_id ? ` [Em: ${armariosList.find(a=>a.id==m.armario_id)?.nome}]` : ' [Sem Local]';
+            matSelect.innerHTML += `<option value="${m.id}">${m.nome}${sn}${currLoc}</option>`;
+        });
+
+        if(hasJQuery) {
+            $('#vincular_mat_ids').select2({ 
+                width: '100%', 
+                dropdownParent: $('#modal-vincular-material'),
+                placeholder: "-- Pesquise e selecione materiais --"
+            }).val('').trigger('change');
         }
 
-        let tTotal = 0, tDisp = 0, tCaut = 0;
-        const matDoSubgrupo = acervoGeral.filter(m => m.subgrupo_id == sgId);
-        
-        matDoSubgrupo.forEach(m => {
-            tTotal += m.quantidade;
-            if(m.funcionando === 1) {
-                tDisp += m.quantidade_disponivel;
-                tCaut += (m.quantidade - m.quantidade_disponivel);
+        const armSelect = document.getElementById('vincular_armario_id');
+        if (armId) {
+            armSelect.value = armId;
+            armSelect.dispatchEvent(new Event('change'));
+            setTimeout(() => {
+                if(pratId) document.getElementById('vincular_prateleira_id').value = pratId;
+            }, 100);
+        } else {
+            armSelect.value = '';
+            armSelect.dispatchEvent(new Event('change'));
+        }
+
+        document.getElementById('modal-vincular-material').classList.add('active');
+    };
+
+    const vincularArmSelect = document.getElementById('vincular_armario_id');
+    const vincularPratSelect = document.getElementById('vincular_prateleira_id');
+    
+    if(vincularArmSelect) {
+        vincularArmSelect.addEventListener('change', function() {
+            const armId = this.value;
+            vincularPratSelect.innerHTML = '<option value="">-- Sem Prateleira --</option>';
+            if (armId) {
+                vincularPratSelect.disabled = false;
+                const arm = armariosList.find(a => a.id == armId);
+                if(arm && arm.prateleiras) {
+                    arm.prateleiras.forEach(p => {
+                        vincularPratSelect.innerHTML += `<option value="${p.id}">${p.nome}</option>`;
+                    });
+                }
+            } else {
+                vincularPratSelect.disabled = true;
+                vincularPratSelect.innerHTML = '<option value="">-- Selecione o Armário Primeiro --</option>';
             }
         });
+    }
 
-        document.getElementById('add-sum-total').innerText = tTotal;
-        document.getElementById('add-sum-disp').innerText = tDisp;
-        document.getElementById('add-sum-caut').innerText = tCaut;
-        document.getElementById('add-item-summary').style.display = 'flex';
+    document.getElementById('btn-save-vincular').addEventListener('click', () => {
+        let matIds = [];
+        if(hasJQuery) {
+            matIds = $('#vincular_mat_ids').val();
+        } else {
+            const selectMulti = document.getElementById('vincular_mat_ids');
+            matIds = Array.from(selectMulti.selectedOptions).map(opt => opt.value);
+        }
 
-        addItemMaterial.disabled = false;
-        addItemMaterial.innerHTML = '<option value="">-- Selecione o Material --</option>';
-        const filtrados = matDoSubgrupo.filter(m => m.funcionando === 1 && m.quantidade_disponivel > 0);
-        filtrados.forEach(m => {
-            const snText = m.serial ? `(S/N: ${m.serial})` : '';
-            const disp = m.quantidade_disponivel > 1 ? `[${m.quantidade_disponivel} unid.]` : '';
-            addItemMaterial.innerHTML += `<option value="${m.id}">${m.nome} ${snText} ${disp}</option>`;
+        if(!matIds || matIds.length === 0) { alert("Por favor, selecione pelo menos um material."); return; }
+        
+        const prateleiraId = document.getElementById('vincular_prateleira_id').value;
+        if(!prateleiraId) { alert("Selecione a Prateleira de destino!"); return; }
+
+        const btn = document.getElementById('btn-save-vincular');
+        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vinculando...';
+        btn.disabled = true;
+
+        // Dispara uma atualização simulando a API de edição para cada material
+        let promessas = matIds.map(id => {
+            const mat = acervoGeral.find(m => m.id == id);
+            return fetch(`/informatica/api/materiais/edit-material/${id}/`, {
+                method: 'POST', headers: { 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({
+                    subgrupo_id: mat.subgrupo_id,
+                    prateleira_id: prateleiraId || null,
+                    nome: mat.nome,
+                    serial: mat.serial,
+                    codigo: mat.codigo,
+                    quantidade: mat.quantidade,
+                    funcionando: mat.funcionando === 1,
+                    motivo_defeito: mat.motivo_defeito,
+                    atributos_extras: mat.atributos 
+                })
+            }).then(r => r.json());
         });
-        if (hasJQuery) $(addItemMaterial).trigger('change');
+
+        Promise.all(promessas).then(resultados => {
+            const erros = resultados.filter(r => r.status !== 'success');
+            if(erros.length > 0) {
+                alert("Alguns materiais não puderam ser vinculados. O console pode conter mais detalhes.");
+            }
+            window.location.reload();
+        });
     });
 
-    window.abrirModalAddItem = function(cautelaId) {
-        document.getElementById('add-item-cautela-id').value = cautelaId;
-        document.getElementById('add-item-cautela-id-text').innerText = cautelaId;
-        document.getElementById('modal-add-item-cautela').classList.add('active');
-    };
-
-    window.salvarNovoItemCautela = function() {
-        const cautelaId = document.getElementById('add-item-cautela-id').value;
-        const matId = addItemMaterial.value;
-        if(!matId) { alert("Selecione um material!"); return; }
-        
-        const mat = acervoGeral.find(m => m.id == matId);
-        let qtd = 1;
-        if(mat.quantidade_disponivel > 1) {
-            let inputQtd = prompt(`Quantas unidades deseja adicionar? (Máximo: ${mat.quantidade_disponivel})`, "1");
-            if (inputQtd === null) return;
-            qtd = parseInt(inputQtd);
-            if (isNaN(qtd) || qtd < 1 || qtd > mat.quantidade_disponivel) { alert("Quantidade inválida!"); return; }
-        }
-        fetch(`/informatica/api/cautelas/${cautelaId}/add-item/`, {
-            method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: JSON.stringify({ material_id: matId, quantidade: qtd })
-        }).then(r => r.json()).then(res => {
-            if(res.status === 'success') window.location.reload(); else alert("Erro: " + res.message);
-        });
-    };
-
-    // --- ACERVO GERAL: EXCLUSÕES E ATRIBUTOS DINÂMICOS ---
-    window.deletarGrupo = function(id) {
-        if(!confirm("Apagar Grupo e TODOS os Subgrupos associados?")) return;
-        fetch(`/informatica/api/materiais/delete-grupo/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }})
-        .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert(res.message); });
-    };
-
-    window.deletarSubgrupo = function(id) {
-        if(!confirm("Excluir Subgrupo?")) return;
-        fetch(`/informatica/api/materiais/delete-subgrupo/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }})
-        .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert(res.message); });
-    };
+    // --- ACERVO GERAL: MEMÓRIA DE ATRIBUTOS, EDIÇÃO E EXCLUSÃO ---
 
     window.addAtributoRow = function(key='', val='') {
         const div = document.createElement('div');
         div.className = 'd-flex gap-2 align-items-center atributo-row';
         div.innerHTML = `
-            <input type="text" class="form-control attr-key" placeholder="Nome" value="${key}" style="width: 45%; background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-primary);">
-            <input type="text" class="form-control attr-val" placeholder="Valor" value="${val}" style="width: 55%; background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-primary);">
+            <input type="text" class="form-control attr-key" placeholder="Nome (Ex: Capacidade)" value="${key}" style="width: 45%; background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-primary);">
+            <input type="text" class="form-control attr-val" placeholder="Valor (Ex: 1TB)" value="${val}" style="width: 55%; background: var(--bg-main); border: 1px solid var(--border-color); color: var(--text-primary);">
             <i class="fas fa-times text-danger p-2" style="cursor:pointer;" onclick="this.parentElement.remove()"></i>
         `;
         document.getElementById('atributos-container').appendChild(div);
     };
 
-    function gerarAtributosDinamicos(textRaw) {
-        const text = textRaw.toLowerCase();
+    // Nova Lógica: Verificar LocalStorage ou Gerar Dinâmico
+    function gerarOuCarregarAtributos(sgId, textRaw) {
         document.getElementById('atributos-container').innerHTML = ''; 
+        if(!sgId) return;
+
+        // Tenta buscar no cache do navegador (Memória)
+        const savedAttrsStr = localStorage.getItem(`mat_attrs_sg_${sgId}`);
+        if (savedAttrsStr) {
+            try {
+                const savedAttrs = JSON.parse(savedAttrsStr);
+                for (const [key, value] of Object.entries(savedAttrs)) {
+                    addAtributoRow(key, value); // O valor pode vir vazio para ser preenchido, mas a chave (nome) vem
+                }
+                return; // Se carregou da memória, para aqui.
+            } catch(e) {}
+        }
+
+        // Se não tem na memória, tenta sugerir pelo nome
+        const text = textRaw.toLowerCase();
         if(text.includes('computador') || text.includes('notebook') || text.includes('servidor')) {
             addAtributoRow('Processador', ''); addAtributoRow('Memória RAM', ''); addAtributoRow('Endereço IP', '');
         } else if(text.includes('radio') || text.includes('rádio')) {
             addAtributoRow('Frequência', ''); addAtributoRow('Antena', 'Possui');
+        } else if(text.includes('hd') || text.includes('disco') || text.includes('pendrive')) {
+            addAtributoRow('Capacidade', ''); addAtributoRow('Interface', 'USB');
+        } else if(text.includes('monitor') || text.includes('tela')) {
+            addAtributoRow('Tamanho', 'polegadas'); addAtributoRow('Resolução', '');
         }
     }
 
@@ -1288,14 +1583,6 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert("Erro: " + res.message); });
     }
 
-    document.getElementById('btn-save-grupo').addEventListener('click', () => {
-        postApi("{% url 'informatica:api_add_grupo' %}", { nome: document.getElementById('novo_grupo_nome').value });
-    });
-    document.getElementById('btn-save-subgrupo').addEventListener('click', () => {
-        postApi("{% url 'informatica:api_add_subgrupo' %}", { grupo_id: document.getElementById('novo_subgrupo_grupo_id').value, nome: document.getElementById('novo_subgrupo_nome').value });
-    });
-
-    // --- ACERVO: EDITAR E EXCLUIR MATERIAL ---
     window.abrirModalNovoMaterial = function() {
         isEditingMat = false;
         document.getElementById('edit_mat_id').value = '';
@@ -1307,8 +1594,12 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('novo_mat_status').value = '1';
         document.getElementById('novo_mat_motivo').value = '';
         document.getElementById('motivo-container').style.display = 'none';
-        document.getElementById('atributos-container').innerHTML = '';
         
+        document.getElementById('novo_mat_armario').value = '';
+        prateleiraSelectMat.innerHTML = '<option value="">-- Selecione o Armário Primeiro --</option>';
+        prateleiraSelectMat.disabled = true;
+
+        document.getElementById('atributos-container').innerHTML = '';
         if(hasJQuery) $('#novo_mat_subgrupo').val('').trigger('change.select2');
         
         document.getElementById('modal-material').classList.add('active');
@@ -1333,6 +1624,22 @@ document.addEventListener('DOMContentLoaded', function() {
         if(hasJQuery) $('#novo_mat_subgrupo').val(mat.subgrupo_id).trigger('change.select2'); 
         else document.getElementById('novo_mat_subgrupo').value = mat.subgrupo_id;
 
+        document.getElementById('novo_mat_armario').value = mat.armario_id || '';
+        if(mat.armario_id) {
+            prateleiraSelectMat.disabled = false;
+            prateleiraSelectMat.innerHTML = '<option value="">-- Sem Prateleira --</option>';
+            const arm = armariosList.find(a => a.id == mat.armario_id);
+            if(arm && arm.prateleiras) {
+                arm.prateleiras.forEach(p => {
+                    const sel = (p.id == mat.prateleira_id) ? 'selected' : '';
+                    prateleiraSelectMat.innerHTML += `<option value="${p.id}" ${sel}>${p.nome}</option>`;
+                });
+            }
+        } else {
+            prateleiraSelectMat.innerHTML = '<option value="">-- Selecione o Armário Primeiro --</option>';
+            prateleiraSelectMat.disabled = true;
+        }
+
         document.getElementById('atributos-container').innerHTML = '';
         if(mat.atributos) {
             for (const [key, value] of Object.entries(mat.atributos)) {
@@ -1346,20 +1653,33 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btn-save-material').addEventListener('click', () => {
         const atributos = {};
+        const atributosTemplateMemoria = {}; // Para salvar como molde (chaves sem valor para o próximo)
+
         document.querySelectorAll('.atributo-row').forEach(row => {
             const key = row.querySelector('.attr-key').value.trim();
             const val = row.querySelector('.attr-val').value.trim();
-            if(key && val) atributos[key] = val;
+            if(key) {
+                atributos[key] = val; 
+                atributosTemplateMemoria[key] = ''; // Salva a estrutura vazia para o próximo
+            }
         });
 
         const matSubgrupoId = document.getElementById('novo_mat_subgrupo').value;
         if (!matSubgrupoId) { alert("Escolha um Subgrupo válido."); return; }
+
+        // Salva a estrutura de atributos no LocalStorage
+        if (Object.keys(atributosTemplateMemoria).length > 0) {
+            localStorage.setItem(`mat_attrs_sg_${matSubgrupoId}`, JSON.stringify(atributosTemplateMemoria));
+        } else {
+            localStorage.removeItem(`mat_attrs_sg_${matSubgrupoId}`); // Limpa se apagou todos
+        }
 
         const matId = document.getElementById('edit_mat_id').value;
         const endpoint = matId ? `/informatica/api/materiais/edit-material/${matId}/` : "{% url 'informatica:api_add_material' %}";
 
         postApi(endpoint, {
             subgrupo_id: matSubgrupoId,
+            prateleira_id: document.getElementById('novo_mat_prateleira').value || null,
             nome: document.getElementById('novo_mat_nome').value,
             serial: document.getElementById('novo_mat_serial').value,
             codigo: document.getElementById('novo_mat_codigo').value,
@@ -1370,25 +1690,95 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
+    // ... Restante do código de Add Item Extra à Cautela se mantém ...
+    const addItemGrupo = document.getElementById('add-item-grupo');
+    const addItemSubgrupo = document.getElementById('add-item-subgrupo');
+    const addItemMaterial = document.getElementById('add-item-material');
+    if(addItemGrupo) {
+        addItemGrupo.addEventListener('change', function() {
+            const groupId = this.value;
+            addItemSubgrupo.innerHTML = '<option value="">-- Selecione o Subgrupo --</option>';
+            addItemMaterial.innerHTML = '<option value="">-- Selecione a Subcategoria Primeiro --</option>';
+            addItemSubgrupo.disabled = true; addItemMaterial.disabled = true;
+            document.getElementById('add-item-summary').style.display = 'none';
+            if(groupId) {
+                addItemSubgrupo.disabled = false;
+                const filtrados = subgruposList.filter(sg => sg.grupo_id == groupId);
+                filtrados.forEach(sg => { addItemSubgrupo.innerHTML += `<option value="${sg.id}">${sg.nome}</option>`; });
+            }
+        });
+
+        addItemSubgrupo.addEventListener('change', function() {
+            const sgId = this.value; addItemMaterial.innerHTML = '';
+            if(!sgId) {
+                document.getElementById('add-item-summary').style.display = 'none';
+                addItemMaterial.innerHTML = '<option value="">-- Selecione a Subcategoria Primeiro --</option>';
+                addItemMaterial.disabled = true; if (hasJQuery) $(addItemMaterial).trigger('change'); return;
+            }
+
+            let tTotal = 0, tDisp = 0, tCaut = 0;
+            const matDoSubgrupo = acervoGeral.filter(m => m.subgrupo_id == sgId);
+            matDoSubgrupo.forEach(m => {
+                tTotal += m.quantidade;
+                if(m.funcionando === 1) { tDisp += m.quantidade_disponivel; tCaut += (m.quantidade - m.quantidade_disponivel); }
+            });
+
+            document.getElementById('add-sum-total').innerText = tTotal; document.getElementById('add-sum-disp').innerText = tDisp; document.getElementById('add-sum-caut').innerText = tCaut;
+            document.getElementById('add-item-summary').style.display = 'flex';
+
+            addItemMaterial.disabled = false; addItemMaterial.innerHTML = '<option value="">-- Selecione o Material --</option>';
+            const filtrados = matDoSubgrupo.filter(m => m.funcionando === 1 && m.quantidade_disponivel > 0);
+            filtrados.forEach(m => {
+                const snText = m.serial ? `(S/N: ${m.serial})` : ''; const disp = m.quantidade_disponivel > 1 ? `[${m.quantidade_disponivel} unid.]` : '';
+                addItemMaterial.innerHTML += `<option value="${m.id}">${m.nome} ${snText} ${disp}</option>`;
+            });
+            if (hasJQuery) $(addItemMaterial).trigger('change');
+        });
+
+        window.abrirModalAddItem = function(cautelaId) {
+            document.getElementById('add-item-cautela-id').value = cautelaId; document.getElementById('add-item-cautela-id-text').innerText = cautelaId;
+            document.getElementById('modal-add-item-cautela').classList.add('active');
+        };
+
+        window.salvarNovoItemCautela = function() {
+            const cautelaId = document.getElementById('add-item-cautela-id').value; const matId = addItemMaterial.value;
+            if(!matId) { alert("Selecione um material!"); return; }
+            const mat = acervoGeral.find(m => m.id == matId); let qtd = 1;
+            if(mat.quantidade_disponivel > 1) {
+                let inputQtd = prompt(`Quantas unidades deseja adicionar? (Máximo: ${mat.quantidade_disponivel})`, "1");
+                if (inputQtd === null) return; qtd = parseInt(inputQtd);
+                if (isNaN(qtd) || qtd < 1 || qtd > mat.quantidade_disponivel) { alert("Quantidade inválida!"); return; }
+            }
+            fetch(`/informatica/api/cautelas/${cautelaId}/add-item/`, {
+                method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: JSON.stringify({ material_id: matId, quantidade: qtd })
+            }).then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert("Erro: " + res.message); });
+        };
+    }
+
+    // Exclusão Grupos/Materiais
+    window.deletarGrupo = function(id) {
+        if(!confirm("Apagar Grupo e TODOS os Subgrupos associados?")) return;
+        fetch(`/informatica/api/materiais/delete-grupo/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }})
+        .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert(res.message); });
+    };
+
+    window.deletarSubgrupo = function(id) {
+        if(!confirm("Excluir Subgrupo?")) return;
+        fetch(`/informatica/api/materiais/delete-subgrupo/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }})
+        .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert(res.message); });
+    };
+
     window.confirmarDelecaoMaterial = function(id, nome) {
-        document.getElementById('del-mat-id').value = id;
-        document.getElementById('del-mat-nome').innerText = nome;
-        document.getElementById('del-mat-password').value = '';
-        document.getElementById('modal-delete-material').classList.add('active');
+        document.getElementById('del-mat-id').value = id; document.getElementById('del-mat-nome').innerText = nome;
+        document.getElementById('del-mat-password').value = ''; document.getElementById('modal-delete-material').classList.add('active');
     };
 
     window.executarDelecaoMaterial = function() {
-        const id = document.getElementById('del-mat-id').value;
-        const pwd = document.getElementById('del-mat-password').value;
+        const id = document.getElementById('del-mat-id').value; const pwd = document.getElementById('del-mat-password').value;
         if(!pwd) { alert("A senha de acesso é obrigatória!"); return; }
-
-        const btn = document.getElementById('btn-confirm-delete');
-        btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Excluindo...';
-        btn.disabled = true;
-
+        const btn = document.getElementById('btn-confirm-delete'); btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Excluindo...'; btn.disabled = true;
         fetch(`/informatica/api/materiais/delete-material/${id}/`, {
-            method: 'POST', headers: { 'X-CSRFToken': csrfToken },
-            body: JSON.stringify({ password: pwd })
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken }, body: JSON.stringify({ password: pwd })
         }).then(r => r.json()).then(res => {
             if(res.status === 'success') { window.location.reload(); } 
             else { alert(res.message); btn.innerHTML = '<i class="fas fa-trash me-1"></i> Excluir Definitivamente'; btn.disabled = false; }

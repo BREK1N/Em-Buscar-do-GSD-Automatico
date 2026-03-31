@@ -14,7 +14,7 @@ from .forms import (
     MilitarForm, InformaticaUserCreationForm, InformaticaUserChangeForm,
     GroupForm, UserProfileForm, ConfiguracaoForm
 )
-from .models import GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem
+from .models import GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem, Armario, Prateleira
 from django.db.models import Q, ProtectedError
 import logging
 from django.http import JsonResponse
@@ -360,7 +360,10 @@ def gestao_materiais_view(request):
 
     grupos = GrupoMaterial.objects.all().order_by('nome')
     subgrupos = SubgrupoMaterial.objects.all().select_related('grupo').order_by('grupo__nome', 'nome')
-    materiais = Material.objects.all().select_related('subgrupo__grupo').order_by('nome')
+    materiais = Material.objects.all().select_related('subgrupo__grupo', 'prateleira__armario').order_by('nome')
+    
+    # Busca armários para o painel de armários e selects
+    armarios = Armario.objects.all().prefetch_related('prateleiras__materiais').order_by('nome')
     
     cautelas_ativas = Cautela.objects.filter(ativa=True).select_related('sobreaviso', 'recebedor').order_by('-data_emissao')
     cautelas_historico = Cautela.objects.filter(ativa=False).select_related('sobreaviso', 'recebedor').order_by('-data_emissao')
@@ -373,14 +376,15 @@ def gestao_materiais_view(request):
         'atributos': mat.atributos_extras or {}
     } for mat in materiais_disponiveis]
     
-    # Adicionado para a edição de materiais no Painel Acervo
     acervo_json = [{
         'id': mat.id, 'subgrupo_id': mat.subgrupo.id, 'nome': mat.nome,
         'codigo': mat.codigo or '', 'serial': mat.serial or '',
         'quantidade': mat.quantidade, 'quantidade_disponivel': mat.quantidade_disponivel,
         'funcionando': 1 if mat.funcionando else 0,
         'motivo_defeito': mat.motivo_defeito or '',
-        'atributos': mat.atributos_extras or {}
+        'atributos': mat.atributos_extras or {},
+        'prateleira_id': mat.prateleira.id if mat.prateleira else None,
+        'armario_id': mat.prateleira.armario.id if mat.prateleira else None,
     } for mat in materiais]
 
     militares_dados_json = []
@@ -395,17 +399,24 @@ def gestao_materiais_view(request):
             'id': m.id,
             'assinatura': getattr(m, 'assinatura', None)
         })
+        
+    armarios_json = [{
+        'id': arm.id, 'nome': arm.nome, 'localizacao': arm.localizacao or '',
+        'prateleiras': [{'id': p.id, 'nome': p.nome} for p in arm.prateleiras.all()]
+    } for arm in armarios]
 
     context = {
         'page_title': 'Gestão de Materiais e Cautelas',
         'militares': militares,
         'militares_info': militares_info,
         'grupos': grupos, 'subgrupos': subgrupos, 'materiais': materiais,
+        'armarios': armarios,
         'cautelas_ativas': cautelas_ativas, 'cautelas_historico': cautelas_historico,
         'materiais_json': json.dumps(materiais_json),
         'acervo_json': json.dumps(acervo_json),
         'militares_dados_json': json.dumps(militares_dados_json),
         'militares_info_json': json.dumps(militares_info_json),
+        'armarios_json': json.dumps(armarios_json),
     }
     return render(request, 'informatica/gestao_materiais.html', context)
 
@@ -431,10 +442,33 @@ def api_add_subgrupo(request):
 
 @staff_member_required
 @require_POST
+def api_add_armario(request):
+    data = json.loads(request.body)
+    try:
+        Armario.objects.create(nome=data.get('nome'), localizacao=data.get('localizacao', ''))
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_add_prateleira(request):
+    data = json.loads(request.body)
+    try:
+        armario = Armario.objects.get(id=data.get('armario_id'))
+        Prateleira.objects.create(armario=armario, nome=data.get('nome'))
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+
+@staff_member_required
+@require_POST
 def api_add_material(request):
     data = json.loads(request.body)
     try:
         subgrupo = SubgrupoMaterial.objects.get(id=data.get('subgrupo_id'))
+        prateleira_id = data.get('prateleira_id')
+        prateleira = Prateleira.objects.get(id=prateleira_id) if prateleira_id else None
+        
         serial = data.get('serial')
         qtd = int(data.get('quantidade', 1))
         
@@ -446,6 +480,7 @@ def api_add_material(request):
             nome=data.get('nome'),
             codigo=data.get('codigo'),
             serial=serial,
+            prateleira=prateleira,
             quantidade=qtd,
             quantidade_disponivel=qtd,
             funcionando=data.get('funcionando', True),
@@ -462,6 +497,9 @@ def api_edit_material(request, pk):
     try:
         material = Material.objects.get(pk=pk)
         subgrupo = SubgrupoMaterial.objects.get(id=data.get('subgrupo_id'))
+        prateleira_id = data.get('prateleira_id')
+        prateleira = Prateleira.objects.get(id=prateleira_id) if prateleira_id else None
+        
         serial = data.get('serial')
         qtd = int(data.get('quantidade', 1))
         
@@ -478,6 +516,7 @@ def api_edit_material(request, pk):
         material.nome = data.get('nome')
         material.codigo = data.get('codigo')
         material.serial = serial
+        material.prateleira = prateleira
         material.quantidade = qtd
         material.quantidade_disponivel = nova_disp
         material.funcionando = data.get('funcionando', True)
@@ -629,6 +668,40 @@ def api_devolver_item_cautela(request, item_id):
             
         return JsonResponse({'status': 'success'})
     except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_devolver_multiplos_itens(request, cautela_id):
+    data = json.loads(request.body)
+    try:
+        cautela = Cautela.objects.get(id=cautela_id)
+        sobreaviso_devolucao = Efetivo.objects.get(id=data.get('sobreaviso_id'))
+        item_ids = data.get('item_ids', [])
+        
+        for item_id in item_ids:
+            item = CautelaItem.objects.get(id=item_id, cautela=cautela)
+            if not item.devolvido:
+                item.devolvido = True
+                item.data_devolucao = timezone.now()
+                item.recebedor_devolucao = sobreaviso_devolucao
+                item.assinatura_devolucao = data.get('assinatura_devolucao')
+                item.save()
+                
+                item.material.quantidade_disponivel += item.quantidade
+                item.material.disponivel = True
+                item.material.save()
+        
+        # Se depois dessa baixa múltipla todos os itens estiverem devolvidos, baixa a cautela inteira
+        if not cautela.itens.filter(devolvido=False).exists():
+            cautela.ativa = False
+            cautela.data_devolucao = timezone.now()
+            cautela.recebedor_devolucao = sobreaviso_devolucao
+            cautela.assinatura_devolucao = data.get('assinatura_devolucao')
+            cautela.save()
+            
+        return JsonResponse({'status': 'success'})
+    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+
 
 @staff_member_required
 @require_POST
