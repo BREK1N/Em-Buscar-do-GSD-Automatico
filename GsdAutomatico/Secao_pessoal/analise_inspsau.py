@@ -1,7 +1,7 @@
 # GsdAutomatico/Secao_pessoal/analise_inspsau.py
 import os
 import httpx
-from typing import List
+from typing import List, Optional
 from dotenv import load_dotenv
 from langchain_openai import ChatOpenAI
 from langchain.prompts import ChatPromptTemplate
@@ -32,6 +32,7 @@ class AnaliseInspsau(BaseModel):
     finalidade: str = Field(description="A letra da finalidade da inspeção, que está em negrito e entre aspas (ex: 'A', 'B'). Extraia apenas a letra.")
     posto: str = Field(description="O posto ou graduação do militar (ex: '3S', 'CB', '1T').")
     nome_completo: str = Field(description="O nome completo do militar.")
+    validade: Optional[str] = Field(default="", description="A data de validade da inspeção, que aparece após o texto 'VALIDADE DA INSPEÇÃO'. Extraia no formato DD/MM/AAAA.")
 
 def analisar_inspsau_pdf(conteudo_pdf: str) -> AnaliseInspsau:
     """
@@ -41,12 +42,13 @@ def analisar_inspsau_pdf(conteudo_pdf: str) -> AnaliseInspsau:
 
     sys_prompt = """
     Você é um assistente especialista em analisar documentos militares de Inspeção de Saúde (INSPSAU).
-    Sua tarefa é extrair três informações específicas do texto fornecido.
+    Sua tarefa é extrair quatro informações específicas do texto fornecido.
 
     ### REGRAS DE EXTRAÇÃO:
     1.  **FINALIDADE:** Encontre a palavra "FINALIDADE". Logo após, haverá uma letra maiúscula em negrito e entre aspas. Extraia **APENAS A LETRA**. Por exemplo, se encontrar `FINALIDADE: **"A"**`, o valor a ser extraído é `A`.
     2.  **POSTO/GRADUAÇÃO:** Identifique e extraia o posto ou graduação do militar. Exemplos: "3S", "CB", "S1", "1T", "CAP".
     3.  **NOME COMPLETO:** Identifique e extraia o nome completo do militar que está sendo inspecionado.
+    4.  **VALIDADE DA INSPEÇÃO:** Encontre o texto "VALIDADE DA INSPEÇÃO:". A data que vem logo a seguir estará em negrito. Extraia esta data no formato **DD/MM/AAAA**.
 
     Analise o documento com atenção e retorne os dados no formato JSON solicitado.
     """

@@ -201,15 +201,34 @@
                             {% else %}
                                 <span class="btn btn-sm btn-secondary disabled" title="Nenhum documento anexado">Sem Documento</span>
                             {% endif %}
-                            <form method="post" action="{% url 'Secao_pessoal:reintegrar_militar' militar.pk %}" style="display: inline-block; margin: 0 0 0 5px;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm" style="background-color: var(--success-color); color: white;" onclick="return confirm('Tem certeza que deseja reintegrar o militar {{ militar.posto }} {{ militar.nome_guerra }} ao efetivo ativo?');">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; margin-right: 2px; vertical-align: text-bottom;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
-                                    Reintegrar
-                                </button>
-                            </form>
+                            <!-- Botão para abrir o modal de reintegração -->
+                            <button type="button" class="btn btn-sm" style="background-color: var(--success-color); color: white; margin-left: 5px;" data-bs-toggle="modal" data-bs-target="#reintegrarModalInspsau{{ militar.pk }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; margin-right: 2px; vertical-align: text-bottom;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                                Reintegrar
+                            </button>
                         </td>
                     </tr>
+                    <!-- Modal de Confirmação de Reintegração -->
+                    <div class="modal fade" id="reintegrarModalInspsau{{ militar.pk }}" tabindex="-1" aria-labelledby="reintegrarModalLabelInspsau{{ militar.pk }}" aria-hidden="true">
+                        <div class="modal-dialog modal-dialog-centered">
+                            <div class="modal-content">
+                                <div class="modal-header">
+                                    <h5 class="modal-title" id="reintegrarModalLabelInspsau{{ militar.pk }}">Confirmar Reintegração</h5>
+                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                                </div>
+                                <div class="modal-body">
+                                    Tem certeza que deseja reintegrar o militar <strong>{{ militar.posto }} {{ militar.nome_guerra }}</strong> ao efetivo ativo?
+                                </div>
+                                <div class="modal-footer">
+                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                                    <form method="post" action="{% url 'Secao_pessoal:reintegrar_militar' militar.pk %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-primary">Confirmar</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                     {% empty %}
                     <tr>
                         <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum militar baixado no momento.</td>
@@ -360,6 +379,7 @@ document.addEventListener('DOMContentLoaded', function() {
             confirmFormData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
             confirmFormData.append('militar_id_confirmado', data.militar_encontrado.id);
             confirmFormData.append('finalidade', data.dados_inspsau.finalidade);
+            confirmFormData.append('validade', data.dados_inspsau.validade);
 
             fetch(importForm.action, { method: 'POST', body: confirmFormData })
                 .then(response => response.json())

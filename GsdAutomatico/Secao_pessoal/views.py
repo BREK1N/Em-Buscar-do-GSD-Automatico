@@ -20,6 +20,7 @@ from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
 from difflib import SequenceMatcher
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
+from datetime import datetime
 from langchain_community.document_loaders import PyPDFLoader
 from .analise_inspsau import analisar_inspsau_pdf
 
@@ -42,6 +43,7 @@ def inspsau(request):
         if 'militar_id_confirmado' in request.POST:
             militar_id = request.POST.get('militar_id_confirmado')
             finalidade_ia = request.POST.get('finalidade')
+            validade_ia_str = request.POST.get('validade')
             pdf_file = request.FILES.get('pdf_file')
 
             if not all([militar_id, finalidade_ia, pdf_file]):
@@ -51,8 +53,19 @@ def inspsau(request):
                 militar = Efetivo.objects.get(id=militar_id)
                 militar.documento_inspsau = pdf_file
                 militar.situacao = 'De Junta'
-                militar.observacao = f"INSPSAU Finalidade: {finalidade_ia}"
-                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau'])
+
+                obs_parts = [f"INSPSAU Finalidade: {finalidade_ia}"]
+                validade_obj = None
+                if validade_ia_str and validade_ia_str != 'None':
+                    try:
+                        validade_obj = datetime.strptime(validade_ia_str, '%d/%m/%Y').date()
+                        obs_parts.append(f"Validade: {validade_ia_str}")
+                    except (ValueError, TypeError):
+                        obs_parts.append(f"Validade: {validade_ia_str} (formato inválido)")
+                militar.observacao = ". ".join(obs_parts)
+                militar.inspsau_finalidade = finalidade_ia
+                militar.inspsau_validade = validade_obj
+                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau', 'inspsau_finalidade', 'inspsau_validade'])
                 messages.success(request, f"Inspeção do militar {militar.posto} {militar.nome_guerra} atualizada com sucesso. Finalidade: {finalidade_ia}.")
                 return JsonResponse({'status': 'success'})
             except Efetivo.DoesNotExist:
@@ -82,7 +95,18 @@ def inspsau(request):
             nome_completo_ia = resultado_analise.nome_completo
             posto_ia = resultado_analise.posto
             finalidade_ia = resultado_analise.finalidade
+            validade_ia_str = getattr(resultado_analise, 'validade', None)
 
+            obs_parts = [f"INSPSAU Finalidade: {finalidade_ia}"]
+            validade_obj = None
+            if validade_ia_str:
+                try:
+                    validade_obj = datetime.strptime(validade_ia_str, '%d/%m/%Y').date()
+                    obs_parts.append(f"Validade: {validade_ia_str}")
+                except (ValueError, TypeError):
+                    obs_parts.append(f"Validade: {validade_ia_str} (formato inválido)")
+            observacao_final = ". ".join(obs_parts)
+            
             militar = None
             if nome_completo_ia:
                 # Tenta encontrar pelo nome completo e posto para maior precisão
@@ -102,8 +126,10 @@ def inspsau(request):
                 # Atualiza a observação do militar com a finalidade
                 militar.documento_inspsau = pdf_file # Salva o arquivo PDF
                 militar.situacao = 'De Junta' # Atualiza a situação para "De Junta"
-                militar.observacao = f"INSPSAU Finalidade: {finalidade_ia}"
-                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau'])
+                militar.observacao = observacao_final
+                militar.inspsau_finalidade = finalidade_ia
+                militar.inspsau_validade = validade_obj
+                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau', 'inspsau_finalidade', 'inspsau_validade'])
                 messages.success(request, f"Inspeção do militar {militar.posto} {militar.nome_guerra} atualizada com sucesso. Finalidade: {finalidade_ia}.")
                 return JsonResponse({'status': 'success'})
             else:
@@ -133,6 +159,7 @@ def inspsau(request):
                         },
                         'dados_inspsau': {
                             'finalidade': finalidade_ia,
+                            'validade': validade_ia_str,
                         }
                     })
                 else:
