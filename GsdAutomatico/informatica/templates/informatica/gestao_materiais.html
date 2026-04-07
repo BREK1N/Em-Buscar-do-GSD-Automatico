@@ -51,6 +51,7 @@
     .table-pro th { text-align: left; padding: 12px 15px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--border-color); text-transform: uppercase;}
     .table-pro td { padding: 15px; color: var(--text-primary); border-bottom: 1px solid var(--border-color); vertical-align: middle; }
     .table-pro tbody tr:hover { background-color: var(--bg-main); }
+    .hidden-row { display: none !important; }
 
     .badge-status { padding: 6px 12px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; display: inline-flex; align-items: center; gap: 5px;}
     .bg-disponivel { background: rgba(34, 197, 94, 0.1); color: var(--success-color); border: 1px solid rgba(34, 197, 94, 0.2); }
@@ -59,15 +60,15 @@
     
     .attr-tag { font-size: 0.75rem; background: var(--bg-main); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 6px; display: inline-block; margin: 3px 3px 0 0; color: var(--text-secondary); }
 
-    /* Chips de Materiais para os Armários (Design Renovado) */
+    /* Chips de Materiais para os Armários */
     .material-chip {
         display: inline-flex;
         align-items: center;
         background-color: var(--bg-content);
         border: 1px solid var(--border-color);
         color: var(--text-primary);
-        padding: 4px 12px 4px 6px; /* Menos padding na esquerda para encaixar o círculo */
-        border-radius: 50px; /* Formato de pílula arredondada */
+        padding: 4px 12px 4px 6px;
+        border-radius: 50px;
         font-size: 0.85rem;
         font-weight: 500;
         margin: 0 6px 8px 0;
@@ -111,7 +112,7 @@
     .cautela-items-list li .remove-item { color: var(--danger-color); cursor: pointer; padding: 5px; border-radius: 4px;}
     
     .canvas-container { border: 2px dashed var(--border-color); border-radius: 12px; background-color: #ffffff; overflow: hidden; width: 100%; margin-bottom: 10px; }
-    canvas { display: block; width: 100%; height: 400px; cursor: crosshair; touch-action: none; } /* AUMENTADO PARA 400px E TOUCH-ACTION PARA MESAS DIGITALIZADORAS */
+    canvas { display: block; width: 100%; height: 400px; cursor: crosshair; touch-action: none; }
 
     /* Modais Customizados */
     .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
@@ -125,6 +126,14 @@
 {% endblock %}
 
 {% block content %}
+
+<!-- BLocos Otimizados de JSON (Evita EscapeJS que trava o carregamento) -->
+<script id="json-materiais" type="application/json">{{ materiais_json|safe }}</script>
+<script id="json-militares" type="application/json">{{ militares_dados_json|safe }}</script>
+<script id="json-militares-info" type="application/json">{{ militares_info_json|safe }}</script>
+<script id="json-acervo" type="application/json">{{ acervo_json|safe }}</script>
+<script id="json-armarios" type="application/json">{{ armarios_json|safe }}</script>
+
 <div class="mb-4">
     <h1 style="margin-bottom: 5px;">Gestão de Materiais</h1>
     <p style="color: var(--text-secondary);">Controle de acervo com pesquisa, categorias dinâmicas e emissão de cautelas.</p>
@@ -413,25 +422,34 @@
             </nav>
         </div>
 
-        <!-- Nova Barra de Pesquisa e Filtros -->
+        <!-- Nova Barra de Pesquisa e Filtros (Removido onkeyup manual para usar listener debounceado) -->
         <div class="row g-2 mb-3">
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <div class="input-group">
                     <span class="input-group-text" style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-secondary);"><i class="fas fa-search"></i></span>
-                    <input type="text" id="pesquisa-acervo" class="form-control" placeholder="Pesquisar nome, modelo, serial, BMP..." onkeyup="filtrarAcervo()" style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-primary);">
+                    <input type="text" id="pesquisa-acervo" class="form-control" placeholder="Pesquisar nome, serial, etc..." style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-primary);">
                 </div>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <select class="form-select" id="filtro-subgrupo" onchange="filtrarAcervo()" style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-primary);">
                     <option value="all">Todos os Subgrupos</option>
                     <!-- Preenchido via JS baseado no grupo selecionado -->
                 </select>
             </div>
-            <div class="col-md-4">
+            <div class="col-md-3">
                 <select class="form-select" id="filtro-status" onchange="filtrarAcervo()" style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-primary);">
                     <option value="all">Todos os Status</option>
                     <option value="ok">Apenas Funcionando</option>
                     <option value="defeito">Com Defeito</option>
+                </select>
+            </div>
+            <div class="col-md-3">
+                <!-- Filtro de Seções -->
+                <select class="form-select" id="filtro-secao" onchange="filtrarAcervo()" style="background: var(--bg-main); border-color: var(--border-color); color: var(--text-primary);">
+                    <option value="all">Todas as Seções</option>
+                    {% for sec in setores %}
+                        <option value="{{ sec.id }}">{{ sec.nome }}</option>
+                    {% endfor %}
                 </select>
             </div>
         </div>
@@ -456,11 +474,12 @@
                         <th style="width: 110px;">Ações</th>
                     </tr>
                 </thead>
-                <tbody>
+                <tbody id="tbody-acervo">
                     {% for mat in materiais %}
                     <tr class="acervo-row" 
                         data-grupo="subtab-g{{ mat.subgrupo.grupo.id }}" 
                         data-subgrupo="{{ mat.subgrupo.id }}"
+                        data-secao="{{ mat.secao.id|default:'all' }}"
                         data-funciona="{% if mat.funcionando %}ok{% else %}defeito{% endif %}"
                         data-nome="{{ mat.nome|lower }}"
                         data-serial="{{ mat.serial|default:''|lower }}"
@@ -485,8 +504,10 @@
                                 <strong>{{ mat.prateleira.armario.nome }}</strong><br>
                                 <small class="text-muted">{{ mat.prateleira.nome }}</small>
                             {% else %}
-                                <span class="text-muted small">Sem Local</span>
+                                <span class="text-muted small">Sem Local Físico</span>
                             {% endif %}
+                            <br>
+                            <span class="badge bg-secondary mt-1" style="font-size: 0.7rem;"><i class="fas fa-building"></i> {{ mat.secao.nome|default:"Geral/Estoque" }}</span>
                         </td>
                         <td>
                             {% if mat.funcionando %}
@@ -580,7 +601,6 @@
 <!-- ============================================== -->
 
 <div class="modal-overlay" id="modal-assinatura-recebedor">
-    <!-- Largura aumentada para 750px para dar amplo espaço para mesa digitalizadora -->
     <div class="modal-content" style="max-width: 750px;">
         <h3><i class="fas fa-pen-nib text-primary me-2"></i> Assinatura: Recebedor</h3>
         <p class="text-muted small">O militar que está a receber o material deve assinar no quadro abaixo.</p>
@@ -596,7 +616,6 @@
 </div>
 
 <div class="modal-overlay" id="modal-assinatura-sobreaviso">
-    <!-- Largura aumentada para 750px -->
     <div class="modal-content" style="max-width: 750px;">
         <h3><i class="fas fa-check-double text-success me-2"></i> Assinatura: Sobreaviso</h3>
         <p class="text-muted small">Assinatura final do emitente da Informática.</p>
@@ -624,14 +643,13 @@
 </div>
 
 <div class="modal-overlay" id="modal-assinatura-devolucao">
-    <!-- Largura aumentada para 750px -->
     <div class="modal-content" style="max-width: 750px;">
         <h3><i class="fas fa-undo-alt text-success me-2"></i> Registrar Devolução</h3>
         <p class="text-muted small">Selecione o Sobreaviso da Informática que está recebendo o equipamento de volta e assine.</p>
         
         <input type="hidden" id="dev-action-type"> 
         <input type="hidden" id="dev-action-id"> 
-        <input type="hidden" id="dev-action-ids"> <!-- Para múltiplos itens -->
+        <input type="hidden" id="dev-action-ids"> 
         
         <div class="form-item mb-3">
             <label>Sobreaviso que recebe:</label>
@@ -727,7 +745,6 @@
     </div>
 </div>
 
-<!-- NOVO MODAL DE EXPORTAÇÃO EXCEL -->
 <div class="modal-overlay" id="modal-exportar-excel">
     <div class="modal-content" style="max-width: 500px;">
         <h3><i class="fas fa-file-excel text-success me-2"></i> Exportar Inventário</h3>
@@ -751,7 +768,6 @@
             {% endfor %}
         </div>
 
-        <!-- OPÇÃO DE RELATÓRIO COMPLETO -->
         <div class="form-check mt-3 pt-3 border-top">
             <input class="form-check-input" type="checkbox" id="exportar-relatorio-completo" style="width: 18px; height: 18px; cursor: pointer;">
             <label class="form-check-label fw-bold text-primary" style="font-size: 0.95rem; margin-top: 2px; cursor: pointer;" for="exportar-relatorio-completo">
@@ -767,11 +783,10 @@
     </div>
 </div>
 
-<!-- Modal Unificado para Criar E Editar Material -->
 <div class="modal-overlay" id="modal-material">
     <div class="modal-content" style="max-width: 800px;">
         <h3 id="titulo-modal-material">Novo Equipamento / Material</h3>
-        <input type="hidden" id="edit_mat_id"> <!-- ID para Editar -->
+        <input type="hidden" id="edit_mat_id"> 
         <div class="row g-3 mt-1">
             <div class="col-md-6 form-item">
                 <label>Categoria (Subgrupo)</label>
@@ -786,9 +801,8 @@
             <div class="col-md-4 form-item"><label>Cód. Interno / BMP</label><input type="text" id="novo_mat_codigo"></div>
             <div class="col-md-4 form-item"><label>Qtd Total</label><input type="number" id="novo_mat_quantidade" value="1" min="1"></div>
             
-            <!-- NOVOS CAMPOS: ARMÁRIO E PRATELEIRA -->
             <div class="col-12 mt-2 pt-2" style="border-top: 1px dashed var(--border-color);">
-                <label class="text-secondary fw-bold mb-2">Localização Física (Opcional)</label>
+                <label class="text-secondary fw-bold mb-2">Localização Física e Setor (Opcional)</label>
             </div>
             <div class="col-md-6 form-item">
                 <label>Armário</label>
@@ -801,6 +815,16 @@
                 <label>Prateleira / Gaveta</label>
                 <select id="novo_mat_prateleira" class="form-select" disabled>
                     <option value="">-- Selecione o Armário Primeiro --</option>
+                </select>
+            </div>
+            
+            <div class="col-md-12 form-item mt-2">
+                <label>Seção / Setor Alocado</label>
+                <select id="novo_mat_secao" class="form-select">
+                    <option value="">-- Geral / Estoque da Informática --</option>
+                    {% for sec in setores %}
+                        <option value="{{ sec.id }}">{{ sec.nome }}</option>
+                    {% endfor %}
                 </select>
             </div>
 
@@ -833,7 +857,6 @@
     </div>
 </div>
 
-<!-- OUTROS MODAIS EXISTENTES (Mantidos e adaptados) -->
 <div class="modal-overlay" id="modal-detalhes-cautela">
     <div class="modal-content" style="max-width: 800px; padding: 0; overflow: hidden;">
         <div class="p-3 border-bottom d-flex justify-content-between align-items-center" style="background-color: var(--bg-main);">
@@ -842,14 +865,9 @@
         </div>
         
         <div class="p-4" style="max-height: 70vh; overflow-y: auto;">
-            <div class="d-flex justify-content-end mb-3" id="detalhe-cautela-acoes">
-                <!-- Botões de ação injetados aqui -->
-            </div>
-            
+            <div class="d-flex justify-content-end mb-3" id="detalhe-cautela-acoes"></div>
             <h6 class="text-muted text-uppercase mb-2" style="font-weight: 600; font-size: 0.85rem;">Materiais Registados:</h6>
-            <div id="detalhe-cautela-itens" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--bg-content);">
-                <!-- Lista de itens injetada via JS -->
-            </div>
+            <div id="detalhe-cautela-itens" style="border: 1px solid var(--border-color); border-radius: 8px; overflow: hidden; background: var(--bg-content);"></div>
         </div>
         <div class="p-3 border-top text-end" style="background-color: var(--bg-main);">
             <button class="btn btn-secondary px-4 btn-cancelar-modal" onclick="fecharModal('modal-detalhes-cautela')">Fechar Resumo</button>
@@ -973,6 +991,7 @@
 {% endblock %}
 
 {% block extra_js %}
+<!-- Defer loading de dependencias pesadas -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
 <script src="https://cdn.jsdelivr.net/npm/signature_pad@4.0.0/dist/signature_pad.umd.min.js"></script>
@@ -982,19 +1001,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '';
     
     let materiaisDisponiveis = []; let militaresTelefones = []; let militaresInfoDados = []; let acervoGeral = []; let armariosList = [];
+    
+    // OTIMIZAÇÃO: Parsing seguro e rápido de JSON diretamente do DOM em vez do Django template string (EscapeJS blocking render)
     try {
-        const matJsonStr = '{{ materiais_json|escapejs }}';
-        const milJsonStr = '{{ militares_dados_json|escapejs }}';
-        const milInfoStr = '{{ militares_info_json|escapejs }}';
-        const acervoJsonStr = '{{ acervo_json|escapejs }}';
-        const armariosJsonStr = '{{ armarios_json|escapejs }}';
+        const matEl = document.getElementById('json-materiais');
+        if (matEl) materiaisDisponiveis = JSON.parse(matEl.textContent || '[]');
         
-        materiaisDisponiveis = matJsonStr ? JSON.parse(matJsonStr) : [];
-        militaresTelefones = milJsonStr ? JSON.parse(milJsonStr) : [];
-        militaresInfoDados = milInfoStr ? JSON.parse(milInfoStr) : [];
-        acervoGeral = acervoJsonStr ? JSON.parse(acervoJsonStr) : [];
-        armariosList = armariosJsonStr ? JSON.parse(armariosJsonStr) : [];
-    } catch(e) { console.error("Falha ao carregar dados", e); }
+        const milEl = document.getElementById('json-militares');
+        if (milEl) militaresTelefones = JSON.parse(milEl.textContent || '[]');
+        
+        const milInfoEl = document.getElementById('json-militares-info');
+        if (milInfoEl) militaresInfoDados = JSON.parse(milInfoEl.textContent || '[]');
+        
+        const acervoEl = document.getElementById('json-acervo');
+        if (acervoEl) acervoGeral = JSON.parse(acervoEl.textContent || '[]');
+        
+        const armariosEl = document.getElementById('json-armarios');
+        if (armariosEl) armariosList = JSON.parse(armariosEl.textContent || '[]');
+    } catch(e) { console.error("Falha ao carregar dados JSON embutidos:", e); }
 
     const subgruposList = [
         {% for sg in subgrupos %}
@@ -1002,7 +1026,7 @@ document.addEventListener('DOMContentLoaded', function() {
         {% endfor %}
     ];
 
-    const hasJQuery = (typeof $ !== 'undefined' && typeof $.fn.select2 !== 'undefined');
+    const hasJQuery = (typeof window.jQuery !== 'undefined' && typeof window.jQuery.fn.select2 !== 'undefined');
     let isEditingMat = false;
     
     if (hasJQuery) {
@@ -1042,13 +1066,10 @@ document.addEventListener('DOMContentLoaded', function() {
             link.classList.add('active');
             const targetId = link.getAttribute('data-target');
             document.getElementById(targetId).classList.add('active');
-            
-            // Salva a aba ativa no LocalStorage
             localStorage.setItem('activeTabGestao', targetId);
         });
     });
 
-    // Recuperar Aba Principal no carregamento
     const savedTab = localStorage.getItem('activeTabGestao');
     if (savedTab) {
         const tabLink = document.querySelector(`.tab-link[data-target="${savedTab}"]`);
@@ -1060,7 +1081,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- LÓGICA DE FILTRAGEM DO ACERVO E SUBABAS ---
+    // --- LÓGICA DE FILTRAGEM DO ACERVO ---
     let grupoAtivo = 'subtab-all';
 
     function atualizarDropdownSubgrupos(grupoIdStr) {
@@ -1082,13 +1103,10 @@ document.addEventListener('DOMContentLoaded', function() {
             grupoAtivo = link.getAttribute('data-target');
             atualizarDropdownSubgrupos(grupoAtivo);
             filtrarAcervo();
-            
-            // Salva a sub-aba de grupo ativa no LocalStorage
             localStorage.setItem('activeSubtabGestao', grupoAtivo);
         });
     });
 
-    // Recuperar Subaba do Acervo no carregamento
     const savedSubtab = localStorage.getItem('activeSubtabGestao');
     if (savedSubtab) {
         const subtabLink = document.querySelector(`.subtab-link[data-target="${savedSubtab}"]`);
@@ -1099,32 +1117,40 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
+    // Cache local dos elementos de linha para evitar consultas custosas no DOM
+    const acervoRows = document.querySelectorAll('.acervo-row');
+
     window.filtrarAcervo = function() {
         const statusFiltro = document.getElementById('filtro-status').value;
         const subgrupoFiltro = document.getElementById('filtro-subgrupo').value;
+        const secaoFiltro = document.getElementById('filtro-secao').value;
         const searchFiltro = document.getElementById('pesquisa-acervo').value.toLowerCase();
 
         let tTotal = 0, tDisp = 0, tCaut = 0, tDef = 0;
 
-        document.querySelectorAll('.acervo-row').forEach(row => {
+        // OTIMIZAÇÃO: Loop sob variável instanciada (acervoRows) e usando toggle class em vez de setar display em loop de UI
+        acervoRows.forEach(row => {
             const matchGrupo = (grupoAtivo === 'subtab-all' || row.getAttribute('data-grupo') === grupoAtivo);
             const matchStatus = (statusFiltro === 'all' || row.getAttribute('data-funciona') === statusFiltro);
             const matchSubgrupo = (subgrupoFiltro === 'all' || row.getAttribute('data-subgrupo') === subgrupoFiltro);
+            const matchSecao = (secaoFiltro === 'all' || row.getAttribute('data-secao') === secaoFiltro);
             
             const nome = row.getAttribute('data-nome') || '';
             const serial = row.getAttribute('data-serial') || '';
             const codigo = row.getAttribute('data-codigo') || '';
             const matchSearch = (!searchFiltro || nome.includes(searchFiltro) || serial.includes(searchFiltro) || codigo.includes(searchFiltro));
             
-            if (matchGrupo && matchStatus && matchSubgrupo && matchSearch) {
-                row.style.display = '';
+            if (matchGrupo && matchStatus && matchSubgrupo && matchSearch && matchSecao) {
+                row.classList.remove('hidden-row');
                 const qtd = parseInt(row.getAttribute('data-qtd')) || 0;
                 const disp = parseInt(row.getAttribute('data-disp')) || 0;
                 const funciona = row.getAttribute('data-funciona') === 'ok';
 
                 tTotal += qtd;
                 if(funciona) { tDisp += disp; tCaut += (qtd - disp); } else { tDef += qtd; }
-            } else { row.style.display = 'none'; }
+            } else { 
+                row.classList.add('hidden-row'); 
+            }
         });
 
         document.getElementById('acervo-sum-total').innerText = tTotal;
@@ -1132,6 +1158,16 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('acervo-sum-caut').innerText = tCaut;
         document.getElementById('acervo-sum-def').innerText = tDef;
     };
+
+    // OTIMIZAÇÃO DE DEBOUNCE DA PESQUISA
+    // Isso impede que a página trave se o utilizador digitar rápido no campo de pesquisa
+    let debounceTimer;
+    document.getElementById('pesquisa-acervo').addEventListener('input', function() {
+        clearTimeout(debounceTimer);
+        debounceTimer = setTimeout(() => {
+            window.filtrarAcervo();
+        }, 350); 
+    });
 
     atualizarDropdownSubgrupos(grupoAtivo);
     filtrarAcervo();
@@ -1375,7 +1411,6 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     };
 
-    // --- NOVA LÓGICA DE DEVOLUÇÃO (MÚLTIPLA E INDIVIDUAL) ---
     window.toggleCheckAll = function(cautelaId, checked) {
         document.querySelectorAll(`.cautela-item-check-${cautelaId}`).forEach(cb => cb.checked = checked);
     };
@@ -1485,9 +1520,8 @@ document.addEventListener('DOMContentLoaded', function() {
     // LÓGICA DO MODAL DE VINCULAR MATERIAIS
     window.abrirModalVincularMaterial = function(armId = '', pratId = '') {
         const matSelect = document.getElementById('vincular_mat_ids');
-        matSelect.innerHTML = ''; // Limpa seleções anteriores
+        matSelect.innerHTML = ''; 
 
-        // Popular lista de materiais para vincular
         acervoGeral.forEach(m => {
             const sn = m.serial ? ` (S/N: ${m.serial})` : '';
             const currLoc = m.armario_id ? ` [Em: ${armariosList.find(a=>a.id==m.armario_id)?.nome}]` : ' [Sem Local]';
@@ -1557,13 +1591,13 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Vinculando...';
         btn.disabled = true;
 
-        // Dispara uma atualização simulando a API de edição para cada material
         let promessas = matIds.map(id => {
             const mat = acervoGeral.find(m => m.id == id);
             return fetch(`/informatica/api/materiais/edit-material/${id}/`, {
                 method: 'POST', headers: { 'X-CSRFToken': csrfToken },
                 body: JSON.stringify({
                     subgrupo_id: mat.subgrupo_id,
+                    secao_id: mat.secao_id,
                     prateleira_id: prateleiraId || null,
                     nome: mat.nome,
                     serial: mat.serial,
@@ -1632,24 +1666,21 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('atributos-container').appendChild(div);
     };
 
-    // Nova Lógica: Verificar LocalStorage ou Gerar Dinâmico
     function gerarOuCarregarAtributos(sgId, textRaw) {
         document.getElementById('atributos-container').innerHTML = ''; 
         if(!sgId) return;
 
-        // Tenta buscar no cache do navegador (Memória)
         const savedAttrsStr = localStorage.getItem(`mat_attrs_sg_${sgId}`);
         if (savedAttrsStr) {
             try {
                 const savedAttrs = JSON.parse(savedAttrsStr);
                 for (const [key, value] of Object.entries(savedAttrs)) {
-                    addAtributoRow(key, value); // O valor pode vir vazio para ser preenchido, mas a chave (nome) vem
+                    addAtributoRow(key, value);
                 }
-                return; // Se carregou da memória, para aqui.
+                return;
             } catch(e) {}
         }
 
-        // Se não tem na memória, tenta sugerir pelo nome
         const text = textRaw.toLowerCase();
         if(text.includes('computador') || text.includes('notebook') || text.includes('servidor')) {
             addAtributoRow('Processador', ''); addAtributoRow('Memória RAM', ''); addAtributoRow('Endereço IP', '');
@@ -1684,6 +1715,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('motivo-container').style.display = 'none';
         
         document.getElementById('novo_mat_armario').value = '';
+        document.getElementById('novo_mat_secao').value = ''; 
+        
         prateleiraSelectMat.innerHTML = '<option value="">-- Selecione o Armário Primeiro --</option>';
         prateleiraSelectMat.disabled = true;
 
@@ -1708,6 +1741,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('novo_mat_status').value = mat.funcionando;
         document.getElementById('novo_mat_motivo').value = mat.motivo_defeito;
         document.getElementById('motivo-container').style.display = mat.funcionando === 0 ? 'block' : 'none';
+        document.getElementById('novo_mat_secao').value = mat.secao_id || '';
 
         if(hasJQuery) $('#novo_mat_subgrupo').val(mat.subgrupo_id).trigger('change.select2'); 
         else document.getElementById('novo_mat_subgrupo').value = mat.subgrupo_id;
@@ -1741,25 +1775,24 @@ document.addEventListener('DOMContentLoaded', function() {
 
     document.getElementById('btn-save-material').addEventListener('click', () => {
         const atributos = {};
-        const atributosTemplateMemoria = {}; // Para salvar como molde (chaves sem valor para o próximo)
+        const atributosTemplateMemoria = {};
 
         document.querySelectorAll('.atributo-row').forEach(row => {
             const key = row.querySelector('.attr-key').value.trim();
             const val = row.querySelector('.attr-val').value.trim();
             if(key) {
                 atributos[key] = val; 
-                atributosTemplateMemoria[key] = ''; // Salva a estrutura vazia para o próximo
+                atributosTemplateMemoria[key] = '';
             }
         });
 
         const matSubgrupoId = document.getElementById('novo_mat_subgrupo').value;
         if (!matSubgrupoId) { alert("Escolha um Subgrupo válido."); return; }
 
-        // Salva a estrutura de atributos no LocalStorage
         if (Object.keys(atributosTemplateMemoria).length > 0) {
             localStorage.setItem(`mat_attrs_sg_${matSubgrupoId}`, JSON.stringify(atributosTemplateMemoria));
         } else {
-            localStorage.removeItem(`mat_attrs_sg_${matSubgrupoId}`); // Limpa se apagou todos
+            localStorage.removeItem(`mat_attrs_sg_${matSubgrupoId}`); 
         }
 
         const matId = document.getElementById('edit_mat_id').value;
@@ -1767,6 +1800,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         postApi(endpoint, {
             subgrupo_id: matSubgrupoId,
+            secao_id: document.getElementById('novo_mat_secao').value || null,
             prateleira_id: document.getElementById('novo_mat_prateleira').value || null,
             nome: document.getElementById('novo_mat_nome').value,
             serial: document.getElementById('novo_mat_serial').value,
@@ -1879,7 +1913,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const iconEl = chip.querySelector('.dynamic-icon');
         if(!iconEl) return;
 
-        let iconClass = 'fa-box'; // Ícone padrão
+        let iconClass = 'fa-box'; 
         
         if(nome.includes('computador') || nome.includes('desktop') || nome.includes('pc')) iconClass = 'fa-desktop';
         else if(nome.includes('notebook') || nome.includes('laptop')) iconClass = 'fa-laptop';

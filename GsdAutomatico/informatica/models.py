@@ -43,6 +43,10 @@ class Prateleira(models.Model):
 class Material(models.Model):
     subgrupo = models.ForeignKey(SubgrupoMaterial, on_delete=models.PROTECT, related_name='materiais')
     nome = models.CharField(max_length=150)
+    
+    # --- NOVO CAMPO: SEÇÃO/SETOR ---
+    secao = models.ForeignKey('Secao_pessoal.Setor', on_delete=models.SET_NULL, null=True, blank=True, related_name='materiais_informatica', verbose_name="Seção/Setor alocado")
+
     codigo = models.CharField(max_length=50, blank=True, null=True, verbose_name="Código Interno")
     
     # Serial é opcional (para permitir itens em quantidade como pendrives)

@@ -6,7 +6,7 @@ from django.apps import apps
 from django.urls import reverse, NoReverseMatch, reverse_lazy
 from django.contrib.auth.models import User, Group
 from Ouvidoria.models import PATD, Anexo, Configuracao
-from Secao_pessoal.models import Efetivo
+from Secao_pessoal.models import Efetivo, Setor # ATUALIZADO
 from login.models import UserProfile
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
@@ -360,7 +360,12 @@ def gestao_materiais_view(request):
 
     grupos = GrupoMaterial.objects.all().order_by('nome')
     subgrupos = SubgrupoMaterial.objects.all().select_related('grupo').order_by('grupo__nome', 'nome')
-    materiais = Material.objects.all().select_related('subgrupo__grupo', 'prateleira__armario').order_by('nome')
+    
+    # 1. Busque os setores
+    setores = Setor.objects.all().order_by('nome')
+
+    # 2. Atualize a query de materiais para incluir 'secao' no select_related
+    materiais = Material.objects.all().select_related('subgrupo__grupo', 'prateleira__armario', 'secao').order_by('nome')
     
     # Busca armários para o painel de armários e selects
     armarios = Armario.objects.all().prefetch_related('prateleiras__materiais').order_by('nome')
@@ -376,6 +381,7 @@ def gestao_materiais_view(request):
         'atributos': mat.atributos_extras or {}
     } for mat in materiais_disponiveis]
     
+    # 3. Adicione o secao_id no JSON
     acervo_json = [{
         'id': mat.id, 'subgrupo_id': mat.subgrupo.id, 'nome': mat.nome,
         'codigo': mat.codigo or '', 'serial': mat.serial or '',
@@ -385,6 +391,7 @@ def gestao_materiais_view(request):
         'atributos': mat.atributos_extras or {},
         'prateleira_id': mat.prateleira.id if mat.prateleira else None,
         'armario_id': mat.prateleira.armario.id if mat.prateleira else None,
+        'secao_id': mat.secao.id if mat.secao else '',
     } for mat in materiais]
 
     militares_dados_json = []
@@ -405,12 +412,14 @@ def gestao_materiais_view(request):
         'prateleiras': [{'id': p.id, 'nome': p.nome} for p in arm.prateleiras.all()]
     } for arm in armarios]
 
+    # 4. Adicione os setores ao contexto
     context = {
         'page_title': 'Gestão de Materiais e Cautelas',
         'militares': militares,
         'militares_info': militares_info,
         'grupos': grupos, 'subgrupos': subgrupos, 'materiais': materiais,
         'armarios': armarios,
+        'setores': setores,
         'cautelas_ativas': cautelas_ativas, 'cautelas_historico': cautelas_historico,
         'materiais_json': json.dumps(materiais_json),
         'acervo_json': json.dumps(acervo_json),
@@ -469,6 +478,9 @@ def api_add_material(request):
         prateleira_id = data.get('prateleira_id')
         prateleira = Prateleira.objects.get(id=prateleira_id) if prateleira_id else None
         
+        secao_id = data.get('secao_id')
+        secao = Setor.objects.get(id=secao_id) if secao_id else None
+        
         serial = data.get('serial')
         qtd = int(data.get('quantidade', 1))
         
@@ -477,6 +489,7 @@ def api_add_material(request):
 
         Material.objects.create(
             subgrupo=subgrupo,
+            secao=secao,
             nome=data.get('nome'),
             codigo=data.get('codigo'),
             serial=serial,
@@ -500,6 +513,9 @@ def api_edit_material(request, pk):
         prateleira_id = data.get('prateleira_id')
         prateleira = Prateleira.objects.get(id=prateleira_id) if prateleira_id else None
         
+        secao_id = data.get('secao_id')
+        secao = Setor.objects.get(id=secao_id) if secao_id else None
+        
         serial = data.get('serial')
         qtd = int(data.get('quantidade', 1))
         
@@ -513,6 +529,7 @@ def api_edit_material(request, pk):
             return JsonResponse({'status': 'error', 'message': 'A quantidade total não pode ser menor que a quantidade que já está emprestada!'})
             
         material.subgrupo = subgrupo
+        material.secao = secao
         material.nome = data.get('nome')
         material.codigo = data.get('codigo')
         material.serial = serial
