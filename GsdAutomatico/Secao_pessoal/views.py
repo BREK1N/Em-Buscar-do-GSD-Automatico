@@ -31,6 +31,29 @@ def is_s1_member(user):
 s1_required = user_passes_test(is_s1_member)
 
 
+def obter_situacao_inspsau(letra):
+    """Mapeia a finalidade da INSPSAU para o campo Situação (limite de 50 caracteres)."""
+    if not letra:
+        return 'Inspeção de Saúde'
+    letra = letra.upper().strip()
+    if letra.startswith('G'): return 'De Junta'
+    elif letra.startswith('L'): return 'Licença Pessoal Navegação Aérea - LPNA'
+    elif letra.startswith('A'): return 'Incorporação ou Desincorporação'
+    elif letra.startswith('B'): return 'Matrícula em Escolas de Formação'
+    elif letra.startswith('C'): return 'Concurso Cargos Civis no COMAER'
+    elif letra.startswith('D'): return 'Verificação Periódica - Temporários'
+    elif letra.startswith('E'): return 'Manutenção de Tratamento de Saúde'
+    elif letra.startswith('F1'): return 'Missão no Exterior'
+    elif letra.startswith('F2'): return 'Localidade Especial'
+    elif letra.startswith('H'): return 'Verificação Periódica de Carreira'
+    elif letra.startswith('I'): return 'Cursos Operacionais ou Ativ. Aérea'
+    elif letra.startswith('J'): return 'Designação PTTC'
+    elif letra.startswith('N'): return 'Ordem Judicial/Reversão/DSA'
+    elif letra.startswith('O'): return 'Benefícios e Licenças'
+    elif letra.startswith('P'): return 'Acidentes/Incidentes Aeronáuticos'
+    elif letra.startswith('R1'): return 'Estado de Saúde Desertor/Insubmisso'
+    elif letra.startswith('R2'): return 'Verificação de Capacidade Cognitiva'
+    else: return f'Inspeção Finalidade {letra}'[:50]
 
 @s1_required
 def index(request):
@@ -44,6 +67,7 @@ def inspsau(request):
             militar_id = request.POST.get('militar_id_confirmado')
             finalidade_ia = request.POST.get('finalidade')
             validade_ia_str = request.POST.get('validade')
+            parecer_ia = request.POST.get('parecer')
             pdf_file = request.FILES.get('pdf_file')
 
             if not all([militar_id, finalidade_ia, pdf_file]):
@@ -52,9 +76,16 @@ def inspsau(request):
             try:
                 militar = Efetivo.objects.get(id=militar_id)
                 militar.documento_inspsau = pdf_file
-                militar.situacao = 'De Junta'
 
-                obs_parts = [f"INSPSAU Finalidade: {finalidade_ia}"]
+                significado = obter_situacao_inspsau(finalidade_ia)
+                if finalidade_ia and finalidade_ia.upper().startswith('G'):
+                    militar.situacao = 'De Junta'
+                elif militar.situacao == significado or militar.situacao == 'De Junta':
+                    militar.situacao = 'Ativo'
+
+                obs_parts = [f"Inspeção: {significado}"]
+                if parecer_ia and parecer_ia != 'None':
+                    obs_parts.append(f"Resultado: {parecer_ia}")
                 validade_obj = None
                 if validade_ia_str and validade_ia_str != 'None':
                     try:
@@ -96,8 +127,13 @@ def inspsau(request):
             posto_ia = resultado_analise.posto
             finalidade_ia = resultado_analise.finalidade
             validade_ia_str = getattr(resultado_analise, 'validade', None)
+            parecer_ia = getattr(resultado_analise, 'parecer', '')
 
-            obs_parts = [f"INSPSAU Finalidade: {finalidade_ia}"]
+            significado = obter_situacao_inspsau(finalidade_ia)
+            
+            obs_parts = [f"Inspeção: {significado}"]
+            if parecer_ia:
+                obs_parts.append(f"Resultado: {parecer_ia}")
             validade_obj = None
             if validade_ia_str:
                 try:
@@ -125,7 +161,10 @@ def inspsau(request):
             if militar:
                 # Atualiza a observação do militar com a finalidade
                 militar.documento_inspsau = pdf_file # Salva o arquivo PDF
-                militar.situacao = 'De Junta' # Atualiza a situação para "De Junta"
+                if finalidade_ia and finalidade_ia.upper().startswith('G'):
+                    militar.situacao = 'De Junta'
+                elif militar.situacao == significado or militar.situacao == 'De Junta':
+                    militar.situacao = 'Ativo'
                 militar.observacao = observacao_final
                 militar.inspsau_finalidade = finalidade_ia
                 militar.inspsau_validade = validade_obj
@@ -160,6 +199,7 @@ def inspsau(request):
                         'dados_inspsau': {
                             'finalidade': finalidade_ia,
                             'validade': validade_ia_str,
+                            'parecer': parecer_ia,
                         }
                     })
                 else:

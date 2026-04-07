@@ -189,7 +189,20 @@
                     <tr>
                         <td style="font-weight: 500;">{{ militar.posto }} {{ militar.nome_guerra }}</td>
                         <td><span style="background-color: var(--danger-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700;">JUNTA DE SAÚDE</span></td>
-                        <td style="color: var(--text-secondary);">{{ militar.observacao|default:"Não especificado" }}</td>
+                        <td style="color: var(--text-secondary); max-width: 350px; white-space: pre-wrap; word-break: break-word;">
+                            {% if militar.observacao and militar.observacao|length > 80 %}
+                                <div id="obs-short-{{ militar.pk }}">
+                                    {{ militar.observacao|truncatechars:80 }}
+                                    <a href="#" onclick="toggleObs(event, '{{ militar.pk }}')" class="text-decoration-none ms-1" style="font-size: 0.85em; color: var(--accent-color); font-weight: 600;">Ler mais</a>
+                                </div>
+                                <div id="obs-full-{{ militar.pk }}" style="display: none;">
+                                    {{ militar.observacao }}
+                                    <a href="#" onclick="toggleObs(event, '{{ militar.pk }}')" class="text-decoration-none ms-1" style="font-size: 0.85em; color: var(--accent-color); font-weight: 600;">Ler menos</a>
+                                </div>
+                            {% else %}
+                                {{ militar.observacao|default:"Não especificado" }}
+                            {% endif %}
+                        </td>
                         <td>
                             {% if militar.documento_inspsau %}
                             <a href="{{ militar.documento_inspsau.url }}" class="btn btn-sm btn-secondary" target="_blank">
@@ -208,27 +221,6 @@
                             </button>
                         </td>
                     </tr>
-                    <!-- Modal de Confirmação de Reintegração -->
-                    <div class="modal fade" id="reintegrarModalInspsau{{ militar.pk }}" tabindex="-1" aria-labelledby="reintegrarModalLabelInspsau{{ militar.pk }}" aria-hidden="true">
-                        <div class="modal-dialog modal-dialog-centered">
-                            <div class="modal-content">
-                                <div class="modal-header">
-                                    <h5 class="modal-title" id="reintegrarModalLabelInspsau{{ militar.pk }}">Confirmar Reintegração</h5>
-                                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                                </div>
-                                <div class="modal-body">
-                                    Tem certeza que deseja reintegrar o militar <strong>{{ militar.posto }} {{ militar.nome_guerra }}</strong> ao efetivo ativo?
-                                </div>
-                                <div class="modal-footer">
-                                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                                    <form method="post" action="{% url 'Secao_pessoal:reintegrar_militar' militar.pk %}" style="display: inline;">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-primary">Confirmar</button>
-                                    </form>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
                     {% empty %}
                     <tr>
                         <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum militar baixado no momento.</td>
@@ -239,10 +231,49 @@
         </div>
     </div>
 </div>
+
+<!-- Modais de Reintegração (Renderizados fora da tabela) -->
+{% for militar in militares_baixados %}
+<div class="modal fade" id="reintegrarModalInspsau{{ militar.pk }}" tabindex="-1" aria-labelledby="reintegrarModalLabelInspsau{{ militar.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reintegrarModalLabelInspsau{{ militar.pk }}">Confirmar Reintegração</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Tem certeza que deseja reintegrar o militar <strong>{{ militar.posto }} {{ militar.nome_guerra }}</strong> ao efetivo ativo?
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" action="{% url 'Secao_pessoal:reintegrar_militar' militar.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-primary">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
 {% endblock %}
 
 {% block extra_js %}
 <script>
+window.toggleObs = function(event, pk) {
+    if (event) event.preventDefault(); // Previne que a página salte para o topo ao clicar
+    const shortObs = document.getElementById('obs-short-' + pk);
+    const fullObs = document.getElementById('obs-full-' + pk);
+    if (shortObs && fullObs) {
+        if (shortObs.style.display === 'none') {
+            shortObs.style.display = 'block';
+            fullObs.style.display = 'none';
+        } else {
+            shortObs.style.display = 'none';
+            fullObs.style.display = 'block';
+        }
+    }
+};
+
 document.addEventListener('DOMContentLoaded', function() {
     const importForm = document.getElementById('import-form');
     const submitButton = document.getElementById('submit-btn');
@@ -380,6 +411,9 @@ document.addEventListener('DOMContentLoaded', function() {
             confirmFormData.append('militar_id_confirmado', data.militar_encontrado.id);
             confirmFormData.append('finalidade', data.dados_inspsau.finalidade);
             confirmFormData.append('validade', data.dados_inspsau.validade);
+            if (data.dados_inspsau.parecer) {
+                confirmFormData.append('parecer', data.dados_inspsau.parecer);
+            }
 
             fetch(importForm.action, { method: 'POST', body: confirmFormData })
                 .then(response => response.json())
