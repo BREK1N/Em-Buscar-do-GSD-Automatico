@@ -475,6 +475,51 @@ def api_add_prateleira(request):
         return JsonResponse({'status': 'success'})
     except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
 
+@staff_member_required
+@require_POST
+def api_edit_armario(request, pk):
+    data = json.loads(request.body)
+    try:
+        armario = Armario.objects.get(pk=pk)
+        armario.nome = data.get('nome')
+        armario.localizacao = data.get('localizacao', '')
+        armario.save()
+        return JsonResponse({'status': 'success'})
+    except Exception as e: 
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_delete_armario(request, pk):
+    try:
+        armario = Armario.objects.get(pk=pk)
+        armario.delete() # Excluirá prateleiras (CASCADE). Materiais ficarão com local = NULL (SET_NULL)
+        return JsonResponse({'status': 'success'})
+    except Exception as e: 
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_edit_prateleira(request, pk):
+    data = json.loads(request.body)
+    try:
+        prateleira = Prateleira.objects.get(pk=pk)
+        prateleira.nome = data.get('nome')
+        prateleira.save()
+        return JsonResponse({'status': 'success'})
+    except Exception as e: 
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_delete_prateleira(request, pk):
+    try:
+        prateleira = Prateleira.objects.get(pk=pk)
+        prateleira.delete()
+        return JsonResponse({'status': 'success'})
+    except Exception as e: 
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
 
 @staff_member_required
 @require_POST

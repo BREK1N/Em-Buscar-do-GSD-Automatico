@@ -62,7 +62,12 @@ urlpatterns = [
 
     # APIs para Armários e Prateleiras (Restauradas)
     path('api/armarios/add/', views.api_add_armario, name='api_add_armario'),
+    path('api/armarios/edit/<int:pk>/', views.api_edit_armario, name='api_edit_armario'),
+    path('api/armarios/delete/<int:pk>/', views.api_delete_armario, name='api_delete_armario'),
+    
     path('api/prateleiras/add/', views.api_add_prateleira, name='api_add_prateleira'),
+    path('api/prateleiras/edit/<int:pk>/', views.api_edit_prateleira, name='api_edit_prateleira'),
+    path('api/prateleiras/delete/<int:pk>/', views.api_delete_prateleira, name='api_delete_prateleira'),
 
     # Exportação de Armários para Excel
     path('api/armarios/exportar/', views.exportar_armarios_excel, name='exportar_armarios_excel'),

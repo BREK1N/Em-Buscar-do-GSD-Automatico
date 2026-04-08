@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'login',
     'informatica',
     'Secao_pessoal',
+    'Secao_operacoes',
 ]
 
 MIDDLEWARE = [

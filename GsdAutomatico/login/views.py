@@ -52,7 +52,7 @@ def redirect_based_on_groups(user):
         'Ouvidoria': 'Ouvidoria:index',
         'Informatica': 'informatica:dashboard',
         'S1': 'Secao_pessoal:index',
-        # Adicione outros mapeamentos grupo -> URL aqui
+        'seção de operação': 'Secao_operacoes:index', # ADICIONADO: Seção de Operações
     }
     user_groups = user.groups.values_list('name', flat=True)
 
@@ -107,7 +107,7 @@ def select_app_view(request):
         'Ouvidoria': {'url_name': 'Ouvidoria:index', 'display_name': 'Ouvidoria GSD'},
         'Informatica': {'url_name': 'informatica:dashboard', 'display_name': 'Dashboard Informática'},
         'S1': {'url_name': 'Secao_pessoal:index', 'display_name': 'Seção de Pessoal'},
-        # Adicione outros mapeamentos aqui
+        'seção de operação': {'url_name': 'Secao_operacoes:index', 'display_name': 'Seção de Operações'}, # ADICIONADO: Seção de Operações
     }
     user_groups = request.user.groups.values_list('name', flat=True)
 

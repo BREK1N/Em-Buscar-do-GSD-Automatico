@@ -25,6 +25,7 @@ urlpatterns = [
     path('', include('login.urls')),
     path('informatica/', include('informatica.urls')),
     path('secao_pessoal/', include('Secao_pessoal.urls')),
+    path('secao_operacoes/', include('Secao_operacoes.urls')),
     path('comunicacoes/', secao_pessoal_views.comunicacoes, name='comunicacoes_global'),
     path('comunicacoes/api/check/', secao_pessoal_views.api_notificacoes_check, name='api_notificacoes_check_global'),
     path('comunicacoes/responder/<int:solicitacao_id>/<str:acao>/', secao_pessoal_views.responder_troca_setor, name='responder_troca_setor_global'),

@@ -502,8 +502,8 @@
             <div class="d-flex gap-2">
                 <button class="btn btn-sm btn-success" onclick="abrirModalExportar()"><i class="fas fa-file-excel me-1"></i> Exportar Excel</button>
                 <button class="btn btn-sm btn-outline-primary" onclick="abrirModalVincularMaterial()"><i class="fas fa-link me-1"></i> Vincular Materiais</button>
-                <button class="btn btn-sm btn-secondary" onclick="document.getElementById('modal-armario').classList.add('active')">+ Novo Armário</button>
-                <button class="btn btn-sm btn-secondary" onclick="document.getElementById('modal-prateleira').classList.add('active')">+ Nova Prateleira</button>
+                <button class="btn btn-sm btn-secondary" onclick="abrirModalArmario()">+ Novo Armário</button>
+                <button class="btn btn-sm btn-secondary" onclick="abrirModalPrateleira()">+ Nova Prateleira</button>
             </div>
         </div>
         
@@ -636,7 +636,8 @@
 
 <div class="modal-overlay" id="modal-armario">
     <div class="modal-content">
-        <h3>Adicionar Armário</h3>
+        <h3 id="modal-armario-title">Adicionar Armário</h3>
+        <input type="hidden" id="edit_armario_id">
         <div class="form-item mt-3"><input type="text" id="novo_armario_nome" placeholder="Nome / Identificação do Armário (Ex: Armário 01)"></div>
         <div class="form-item mt-3"><input type="text" id="novo_armario_localizacao" placeholder="Localização (Ex: Sala de Servidores)"></div>
         <div class="d-flex justify-content-end gap-2 mt-4">
@@ -648,8 +649,9 @@
 
 <div class="modal-overlay" id="modal-prateleira">
     <div class="modal-content">
-        <h3>Adicionar Prateleira</h3>
-        <div class="form-item mt-3">
+        <h3 id="modal-prateleira-title">Adicionar Prateleira</h3>
+        <input type="hidden" id="edit_prat_id">
+        <div class="form-item mt-3" id="container-armario-base">
             <label>Selecione o Armário Base</label>
             <select id="nova_prat_armario_id" class="form-select">
                 {% for arm in armarios %}<option value="{{ arm.id }}">{{ arm.nome }}</option>{% endfor %}
@@ -1212,7 +1214,11 @@ document.addEventListener('DOMContentLoaded', function() {
                         <div class="prateleira-item">
                             <div class="d-flex justify-content-between align-items-center mb-2">
                                 <strong style="color: var(--text-secondary);"><i class="fas fa-layer-group me-1"></i> ${escapeHtml(prat.nome)}</strong>
-                                <button class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="abrirModalVincularMaterial(${armario.id}, ${prat.id})" title="Adicionar materiais a esta prateleira"><i class="fas fa-plus"></i> Materiais</button>
+                                <div class="d-flex gap-1">
+                                    <button class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size: 0.75rem;" onclick="editarPrateleira(${prat.id}, '${escapeHtml(prat.nome)}')" title="Editar Prateleira"><i class="fas fa-edit"></i></button>
+                                    <button class="btn btn-sm btn-outline-danger py-0 px-2" style="font-size: 0.75rem;" onclick="deletarPrateleira(${prat.id})" title="Excluir Prateleira"><i class="fas fa-trash"></i></button>
+                                    <button class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="abrirModalVincularMaterial(${armario.id}, ${prat.id})" title="Adicionar materiais a esta prateleira"><i class="fas fa-plus"></i> Materiais</button>
+                                </div>
                             </div>
                             <div class="mt-1" style="font-size: 0.85rem;">
                                 ${matsHtml}
@@ -1225,8 +1231,17 @@ document.addEventListener('DOMContentLoaded', function() {
             html += `
                 <div class="col-md-6 mb-3">
                     <div class="armario-card">
-                        <h4 style="color: var(--text-primary); margin-bottom: 5px;"><i class="fas fa-archive me-2 text-primary"></i> ${escapeHtml(armario.nome)}</h4>
-                        <p class="text-muted small mb-3"><i class="fas fa-map-marker-alt me-1"></i> Local: ${escapeHtml(armario.localizacao || 'Não informado')}</p>
+                        <div class="d-flex justify-content-between align-items-start mb-2">
+                            <div>
+                                <h4 style="color: var(--text-primary); margin-bottom: 5px;"><i class="fas fa-archive me-2 text-primary"></i> ${escapeHtml(armario.nome)}</h4>
+                                <p class="text-muted small mb-0"><i class="fas fa-map-marker-alt me-1"></i> Local: ${escapeHtml(armario.localizacao || 'Não informado')}</p>
+                            </div>
+                            <div class="d-flex gap-1 mt-1">
+                                <button class="btn btn-sm btn-outline-secondary py-0 px-2" onclick="editarArmario(${armario.id}, '${escapeHtml(armario.nome)}', '${escapeHtml(armario.localizacao || '')}')" title="Editar Armário"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deletarArmario(${armario.id})" title="Excluir Armário"><i class="fas fa-trash"></i></button>
+                            </div>
+                        </div>
+                        <hr class="mt-2 mb-3">
                         <div class="prateleiras-list">
                             ${pratHtml}
                         </div>
@@ -1551,16 +1566,67 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    // --- ARMÁRIOS E PRATELEIRAS ---
+    // --- LÓGICA ARMÁRIOS E PRATELEIRAS (CRUD) ---
+    
+    // ABRIR E EDITAR ARMÁRIOS
+    window.abrirModalArmario = function() {
+        document.getElementById('edit_armario_id').value = '';
+        document.getElementById('novo_armario_nome').value = '';
+        document.getElementById('novo_armario_localizacao').value = '';
+        document.getElementById('modal-armario-title').innerHTML = 'Adicionar Armário';
+        document.getElementById('modal-armario').classList.add('active');
+    };
+
+    window.editarArmario = function(id, nome, localizacao) {
+        document.getElementById('edit_armario_id').value = id;
+        document.getElementById('novo_armario_nome').value = nome;
+        document.getElementById('novo_armario_localizacao').value = localizacao;
+        document.getElementById('modal-armario-title').innerHTML = '<i class="fas fa-edit text-primary me-2"></i> Editar Armário';
+        document.getElementById('modal-armario').classList.add('active');
+    };
+
+    window.deletarArmario = function(id) {
+        if(!confirm("Tem a certeza? Excluir este armário excluirá também todas as suas prateleiras (os materiais ficarão a flutuar sem local).")) return;
+        fetch(`/informatica/api/armarios/delete/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }})
+        .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert(res.message); });
+    };
+
     document.getElementById('btn-save-armario').addEventListener('click', () => {
-        postApi("{% url 'informatica:api_add_armario' %}", {
+        const id = document.getElementById('edit_armario_id').value;
+        const url = id ? `/informatica/api/armarios/edit/${id}/` : "{% url 'informatica:api_add_armario' %}";
+        postApi(url, {
             nome: document.getElementById('novo_armario_nome').value,
             localizacao: document.getElementById('novo_armario_localizacao').value
         });
     });
 
+    // ABRIR E EDITAR PRATELEIRAS
+    window.abrirModalPrateleira = function() {
+        document.getElementById('edit_prat_id').value = '';
+        document.getElementById('nova_prat_nome').value = '';
+        document.getElementById('container-armario-base').style.display = 'block';
+        document.getElementById('modal-prateleira-title').innerHTML = 'Adicionar Prateleira';
+        document.getElementById('modal-prateleira').classList.add('active');
+    };
+
+    window.editarPrateleira = function(id, nome) {
+        document.getElementById('edit_prat_id').value = id;
+        document.getElementById('nova_prat_nome').value = nome;
+        document.getElementById('container-armario-base').style.display = 'none'; // Impede trocar de armário na edição para manter a integridade
+        document.getElementById('modal-prateleira-title').innerHTML = '<i class="fas fa-edit text-primary me-2"></i> Editar Prateleira';
+        document.getElementById('modal-prateleira').classList.add('active');
+    };
+
+    window.deletarPrateleira = function(id) {
+        if(!confirm("Atenção: Excluir esta prateleira deixará os materiais nela sem local físico definido. Deseja continuar?")) return;
+        fetch(`/informatica/api/prateleiras/delete/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }})
+        .then(r => r.json()).then(res => { if(res.status === 'success') window.location.reload(); else alert(res.message); });
+    };
+
     document.getElementById('btn-save-prateleira').addEventListener('click', () => {
-        postApi("{% url 'informatica:api_add_prateleira' %}", {
+        const id = document.getElementById('edit_prat_id').value;
+        const url = id ? `/informatica/api/prateleiras/edit/${id}/` : "{% url 'informatica:api_add_prateleira' %}";
+        postApi(url, {
             armario_id: document.getElementById('nova_prat_armario_id').value,
             nome: document.getElementById('nova_prat_nome').value
         });
