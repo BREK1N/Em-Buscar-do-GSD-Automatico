@@ -32,7 +32,7 @@ class AnaliseInspsau(BaseModel):
     finalidade: str = Field(description="A letra da finalidade da inspeção, que está em negrito e entre aspas (ex: 'A', 'B'). Extraia apenas a letra.")
     posto: str = Field(description="O posto ou graduação do militar (ex: '3S', 'CB', '1T').")
     nome_completo: str = Field(description="O nome completo do militar.")
-    validade: Optional[str] = Field(default="", description="A data de validade da inspeção, que aparece após o texto 'VALIDADE DA INSPEÇÃO'. Extraia no formato DD/MM/AAAA.")
+    validade: Optional[str] = Field(default="", description="A data de validade da inspeção (DD/MM/AAAA) ou texto (ex: 'para a demanda em trâmite'). Se omitido, deduza pela base de conhecimento.")
     parecer: Optional[str] = Field(default="", description="O parecer ou resultado da inspeção de saúde (ex: 'APTO para o Serviço Militar', 'INCAPAZ TEMPORARIAMENTE').")
 
 # def analisar_inspsau_pdf(conteudo_pdf: str) -> AnaliseInspsau:
@@ -79,7 +79,7 @@ REGRAS DE EXTRAÇÃO:
     1.  **FINALIDADE:** Encontre a palavra "FINALIDADE". Logo após, haverá uma letra maiúscula em negrito e entre aspas. Extraia **APENAS A LETRA**. Por exemplo, se encontrar `FINALIDADE: **"A"**`, o valor a ser extraído é `A`.
     2.  **POSTO/GRADUAÇÃO:** Identifique e extraia o posto ou graduação do militar. Exemplos: "3S", "CB", "S1", "1T", "CAP".
     3.  **NOME COMPLETO:** Identifique e extraia o nome completo do militar que está sendo inspecionado.
-    4.  **VALIDADE DA INSPEÇÃO:** Encontre o texto "VALIDADE DA INSPEÇÃO:". A data que vem logo a seguir estará em negrito. Extraia esta data no formato **DD/MM/AAAA**.
+    4.  **VALIDADE DA INSPEÇÃO:** Encontre a validade da inspeção no documento (ex: data ou texto "para a demanda em trâmite"). Se for uma data, use **DD/MM/AAAA**. Caso a validade não conste no documento, obrigatoriamente deduza a validade correta utilizando a BASE DE CONHECIMENTO fornecida para a finalidade/letra identificada (ex: "1 ano", "2 anos", "90 dias").
     5.  **PARECER/RESULTADO:** Identifique e extraia o parecer ou resultado final da inspeção emitido pela junta de saúde (ex: "APTO para o Serviço Militar", "INCAPAZ...").
 
     Analise o documento com atenção e retorne os dados no formato JSON solicitado.

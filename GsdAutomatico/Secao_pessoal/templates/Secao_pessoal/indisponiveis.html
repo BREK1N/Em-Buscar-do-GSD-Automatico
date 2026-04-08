@@ -1,0 +1,83 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Militares Indisponíveis{% endblock %}
+
+{% block content %}
+<div class="content-column">
+    <div class="table-header">
+        <div>
+            <h1 style="border: none; margin-bottom: 5px;">Militares Indisponíveis</h1>
+            <p style="margin-top: 0; color: var(--text-secondary);">Controle do efetivo que se encontra fora de expediente (Férias, Núpcias, Luto, Dispensa, Junta, etc).</p>
+        </div>
+    </div>
+
+    <div class="card" style="background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; box-shadow: var(--box-shadow); margin-top: 20px;">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Militar</th>
+                        <th>Situação</th>
+                        <th>Observação / Período</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for militar in militares %}
+                    <tr>
+                        <td style="font-weight: 500;">{{ militar.posto }} {{ militar.nome_guerra }}</td>
+                        <td style="white-space: nowrap;">
+                            <span style="background-color: var(--warning-color); color: #212529; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; display: inline-block; white-space: nowrap;">
+                                {{ militar.situacao|upper }}
+                            </span>
+                        </td>
+                        <td style="color: var(--text-secondary); vertical-align: middle; white-space: nowrap;">
+                            {{ militar.observacao|default:"Não especificado" }}
+                        </td>
+                        <td style="white-space: nowrap;">
+                            <div style="display: flex; gap: 8px; align-items: center; flex-wrap: nowrap;">
+                                <!-- Botão para abrir o modal de reintegração -->
+                                <button type="button" class="btn btn-sm" style="background-color: var(--success-color); color: white; white-space: nowrap; display: flex; align-items: center;" data-bs-toggle="modal" data-bs-target="#reintegrarModal{{ militar.pk }}">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; margin-right: 2px; vertical-align: text-bottom;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                                    Tornar Disponível
+                                </button>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum militar indisponível no momento.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modais de Reintegração (Renderizados fora da tabela) -->
+{% for militar in militares %}
+<div class="modal fade" id="reintegrarModal{{ militar.pk }}" tabindex="-1" aria-labelledby="reintegrarModalLabel{{ militar.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="reintegrarModalLabel{{ militar.pk }}">Confirmar Disponibilidade</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                Tem certeza que deseja reintegrar o militar <strong>{{ militar.posto }} {{ militar.nome_guerra }}</strong> ao efetivo ativo?
+                <br><br>
+                <small class="text-muted">A situação atual de <b>{{ militar.situacao }}</b> será alterada para <b>Ativo</b> e as observações serão apagadas.</small>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                <form method="post" action="{% url 'Secao_pessoal:reintegrar_militar' militar.pk %}" style="display: inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-success">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+{% endblock %}

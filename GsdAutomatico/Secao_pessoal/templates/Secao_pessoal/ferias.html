@@ -50,8 +50,28 @@
                 <select name="militar" id="militar" class="form-select" required>
                     <option value="">--- Selecione o militar ---</option>
                     {% for militar in militares %}
-                        <option value="{{ militar.id }}">{{ militar.posto }} {{ militar.nome_guerra }} ({{ militar.nome_completo }})</option>
+                        <option value="{{ militar.id }}" data-dias-usados="{{ militar.dias_ferias_gozados|default:0 }}">
+                            {{ militar.posto }} {{ militar.nome_guerra }} (Já gozou: {{ militar.dias_ferias_gozados|default:0 }} dias)
+                        </option>
                     {% endfor %}
+                </select>
+            </p>
+            <p>
+                <label for="etapa_parcela">Parcelamento:</label>
+                <select name="etapa_parcela" id="etapa_parcela" class="form-select" required>
+                    <option value="Integral">Integral (30 dias)</option>
+                    <option value="1ª Parcela">1ª Parcela</option>
+                    <option value="2ª Parcela">2ª Parcela</option>
+                    <option value="3ª Parcela">3ª Parcela</option>
+                </select>
+            </p>
+            <p>
+                <label for="tipo_parcela">Quantidade de Dias:</label>
+                <select name="tipo_parcela" id="tipo_parcela" class="form-select" required>
+                    <option value="30">30 dias</option>
+                    <option value="20">20 dias</option>
+                    <option value="15">15 dias</option>
+                    <option value="10">10 dias</option>
                 </select>
             </p>
             <p>
@@ -100,6 +120,38 @@
             </table>
         </div>
     </div>
+
+    <div class="card" style="background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; box-shadow: var(--box-shadow); margin-top: 40px;">
+        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Controle de Saldos (Efetivo Ativo)</h3>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Militar</th>
+                        <th>Dias Já Gozados</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for militar in militares %}
+                        {% if militar.dias_ferias_gozados and militar.dias_ferias_gozados > 0 %}
+                        <tr>
+                            <td style="font-weight: 500;">{{ militar.posto }} {{ militar.nome_guerra }}</td>
+                            <td style="color: var(--warning-color); font-weight: bold;">{{ militar.dias_ferias_gozados }} dias</td>
+                            <td>
+                                <form method="post" style="margin: 0;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="reset_militar_id" value="{{ militar.id }}">
+                                    <button type="submit" class="btn btn-sm btn-secondary" onclick="return confirm('Tem certeza que deseja zerar o saldo de férias deste militar?');">Zerar Saldo para Novo Ciclo</button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endif %}
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
 </div>
 {% endblock %}
 
@@ -112,6 +164,75 @@
             placeholder: "--- Selecione o militar ---",
             width: '100%'
         });
+
+        $('#militar').on('change', function() {
+            const selectedOption = $(this).find(':selected');
+            const diasUsados = parseInt(selectedOption.attr('data-dias-usados')) || 0;
+            const diasRestantes = 30 - diasUsados;
+            
+            const etapaSelect = document.getElementById('etapa_parcela');
+            const tipoSelect = document.getElementById('tipo_parcela');
+            
+            etapaSelect.innerHTML = '';
+            tipoSelect.innerHTML = '';
+            
+            if (diasRestantes <= 0) {
+                etapaSelect.innerHTML = '<option value="">Sem saldo</option>';
+                tipoSelect.innerHTML = '<option value="">0 dias</option>';
+                return;
+            }
+
+            if (diasRestantes >= 30) {
+                etapaSelect.innerHTML = '<option value="Integral">Integral (30 dias)</option><option value="1ª Parcela">1ª Parcela</option>';
+                tipoSelect.innerHTML = '<option value="30">30 dias</option><option value="20">20 dias</option><option value="15">15 dias</option><option value="10">10 dias</option>';
+            } else {
+                etapaSelect.innerHTML = '<option value="2ª Parcela">2ª Parcela</option><option value="3ª Parcela">3ª Parcela</option>';
+                if (diasRestantes >= 20) {
+                    tipoSelect.innerHTML = '<option value="20">20 dias</option><option value="10">10 dias</option>';
+                } else if (diasRestantes >= 15) {
+                    tipoSelect.innerHTML = '<option value="15">15 dias</option>';
+                } else if (diasRestantes >= 10) {
+                    tipoSelect.innerHTML = '<option value="10">10 dias</option>';
+                }
+            }
+            calculateEndDate();
+        });
+
+        const etapaSelect = document.getElementById('etapa_parcela');
+        const tipoSelect = document.getElementById('tipo_parcela');
+        const inicioInput = document.getElementById('data_inicio');
+        const fimInput = document.getElementById('data_fim');
+
+        function calculateEndDate() {
+            const startDateVal = inicioInput.value;
+            const daysStr = tipoSelect.value;
+            
+            if (startDateVal && daysStr) {
+                const days = parseInt(daysStr);
+                const parts = startDateVal.split('-');
+                const date = new Date(parts[0], parts[1] - 1, parts[2]);
+                
+                date.setDate(date.getDate() + days - 1);
+                
+                const y = date.getFullYear();
+                const m = String(date.getMonth() + 1).padStart(2, '0');
+                const d = String(date.getDate()).padStart(2, '0');
+                
+                fimInput.value = `${y}-${m}-${d}`;
+            }
+        }
+
+        etapaSelect.addEventListener('change', function() {
+            if (this.value === 'Integral') {
+                tipoSelect.value = '30';
+            } else if (tipoSelect.value === '30') {
+                tipoSelect.value = '10'; // Muda para um padrão de parcela se sair de Integral
+            }
+            calculateEndDate();
+        });
+
+        tipoSelect.addEventListener('change', calculateEndDate);
+        inicioInput.addEventListener('change', calculateEndDate);
     });
 </script>
 {% endblock %}

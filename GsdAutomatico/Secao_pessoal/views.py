@@ -83,17 +83,15 @@ def inspsau(request):
                 elif militar.situacao == significado or militar.situacao == 'De Junta':
                     militar.situacao = 'Ativo'
 
-                obs_parts = [f"Inspeção: {significado}"]
-                if parecer_ia and parecer_ia != 'None':
-                    obs_parts.append(f"Resultado: {parecer_ia}")
+                observacao_final = f"INSPSAU Finalidade: {finalidade_ia}."
                 validade_obj = None
-                if validade_ia_str and validade_ia_str != 'None':
+                if validade_ia_str and str(validade_ia_str).lower() != 'none':
+                    observacao_final += f" Validade: {validade_ia_str}"
                     try:
                         validade_obj = datetime.strptime(validade_ia_str, '%d/%m/%Y').date()
-                        obs_parts.append(f"Validade: {validade_ia_str}")
                     except (ValueError, TypeError):
-                        obs_parts.append(f"Validade: {validade_ia_str} (formato inválido)")
-                militar.observacao = ". ".join(obs_parts)
+                        pass
+                militar.observacao = observacao_final
                 militar.inspsau_finalidade = finalidade_ia
                 militar.inspsau_validade = validade_obj
                 militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau', 'inspsau_finalidade', 'inspsau_validade'])
@@ -131,17 +129,14 @@ def inspsau(request):
 
             significado = obter_situacao_inspsau(finalidade_ia)
             
-            obs_parts = [f"Inspeção: {significado}"]
-            if parecer_ia:
-                obs_parts.append(f"Resultado: {parecer_ia}")
+            observacao_final = f"INSPSAU Finalidade: {finalidade_ia}."
             validade_obj = None
-            if validade_ia_str:
+            if validade_ia_str and str(validade_ia_str).lower() != 'none':
+                observacao_final += f" Validade: {validade_ia_str}"
                 try:
                     validade_obj = datetime.strptime(validade_ia_str, '%d/%m/%Y').date()
-                    obs_parts.append(f"Validade: {validade_ia_str}")
                 except (ValueError, TypeError):
-                    obs_parts.append(f"Validade: {validade_ia_str} (formato inválido)")
-            observacao_final = ". ".join(obs_parts)
+                    pass
             
             militar = None
             if nome_completo_ia:
@@ -211,8 +206,10 @@ def inspsau(request):
             messages.error(request, f"Erro ao processar o PDF: {str(e)}")
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-    # Dashboard básico: Lista militares que estão "De Junta"
-    militares_baixados = Efetivo.objects.filter(situacao__iexact='De Junta').order_by('nome_guerra')
+    # Dashboard básico: Lista militares que estão "De Junta" ou possuem um resultado de INSPSAU a exibir
+    militares_baixados = Efetivo.objects.filter(
+        Q(situacao__iexact='De Junta') | Q(observacao__icontains='INSPSAU Finalidade')
+    ).order_by('nome_guerra')
     context = {'militares_baixados': militares_baixados}
     return render(request, 'Secao_pessoal/inspsau.html', context)
 
@@ -861,22 +858,54 @@ def ferias(request):
     militares_ferias = Efetivo.objects.filter(situacao__iexact='Férias').order_by('nome_guerra')
     
     if request.method == 'POST':
+        # Ação para zerar saldo de férias para um novo ano
+        reset_militar_id = request.POST.get('reset_militar_id')
+        if reset_militar_id:
+            try:
+                m = Efetivo.objects.get(id=reset_militar_id)
+                if hasattr(m, 'dias_ferias_gozados'):
+                    m.dias_ferias_gozados = 0
+                    m.save()
+                    messages.success(request, f'Saldo de férias do militar {m.posto} {m.nome_guerra} foi zerado para o novo ciclo.')
+            except Efetivo.DoesNotExist:
+                pass
+            return redirect('Secao_pessoal:ferias')
+
         militar_id = request.POST.get('militar')
         data_inicio = request.POST.get('data_inicio')
         data_fim = request.POST.get('data_fim')
+        etapa_parcela = request.POST.get('etapa_parcela')
+        tipo_parcela = request.POST.get('tipo_parcela')
         
         if militar_id and data_inicio and data_fim:
             try:
                 militar = Efetivo.objects.get(id=militar_id)
                 
+                # Validação do limite de 30 dias
+                dias_solicitados = int(tipo_parcela) if tipo_parcela else 0
+                dias_gozados = getattr(militar, 'dias_ferias_gozados', 0)
+                
+                if dias_gozados + dias_solicitados > 30:
+                    messages.error(request, f'Erro: O militar já utilizou {dias_gozados} dias e não pode solicitar mais {dias_solicitados} dias.')
+                    return redirect('Secao_pessoal:ferias')
+
                 militar.situacao = 'Férias'
+                if hasattr(militar, 'dias_ferias_gozados'):
+                    militar.dias_ferias_gozados = dias_gozados + dias_solicitados
                 
                 # Converte o formato do calendário para exibir bonitinho DD/MM/AAAA
                 from datetime import datetime
                 try:
                     inicio_fmt = datetime.strptime(data_inicio, '%Y-%m-%d').strftime('%d/%m/%Y')
                     fim_fmt = datetime.strptime(data_fim, '%Y-%m-%d').strftime('%d/%m/%Y')
-                    militar.observacao = f"Férias: {inicio_fmt} até {fim_fmt}"
+                    
+                    if etapa_parcela and tipo_parcela:
+                        if etapa_parcela == 'Integral':
+                            militar.observacao = f"Férias (Integral - 30 dias): {inicio_fmt} até {fim_fmt}"
+                        else:
+                            militar.observacao = f"Férias ({etapa_parcela} - {tipo_parcela} dias): {inicio_fmt} até {fim_fmt}"
+                    else:
+                        militar.observacao = f"Férias: {inicio_fmt} até {fim_fmt}"
                 except ValueError:
                     militar.observacao = f"Férias: {data_inicio} até {data_fim}"
                     
@@ -894,6 +923,25 @@ def ferias(request):
         'militares_ferias': militares_ferias
     }
     return render(request, 'Secao_pessoal/ferias.html', context)
+
+@s1_required
+def indisponiveis(request):
+    rank_order = Case(
+        When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+        When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+        When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+        When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+        default=Value(99), output_field=IntegerField(),
+    )
+    # Traz todos os militares onde a situação não seja "Ativo" e não seja vazia
+    militares = Efetivo.objects.exclude(
+        Q(situacao__iexact='Ativo') | Q(situacao__exact='') | Q(situacao__isnull=True)
+    ).annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+    
+    context = {
+        'militares': militares
+    }
+    return render(request, 'Secao_pessoal/indisponiveis.html', context)
 
 @s1_required
 def reintegrar_militar(request, pk):

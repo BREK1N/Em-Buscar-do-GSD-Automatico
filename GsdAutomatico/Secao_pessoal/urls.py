@@ -19,6 +19,7 @@ urlpatterns = [
     path('controle/ata/', views.ata, name='ata'),
     path('controle/baixa/', views.baixa, name='baixa'),
     path('controle/ferias/', views.ferias, name='ferias'),
+    path('controle/indisponiveis/', views.indisponiveis, name='indisponiveis'),
     path('gerenciar-opcoes/', views.gerenciar_opcoes, name='gerenciar_opcoes'),
     path('ferramentas/comunicacoes/', views.comunicacoes, name='comunicacoes'),
     path('api/notificacoes/', views.api_notificacoes_check, name='api_notificacoes_check'),
