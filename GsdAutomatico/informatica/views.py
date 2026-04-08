@@ -381,17 +381,24 @@ def gestao_materiais_view(request):
         'atributos': mat.atributos_extras or {}
     } for mat in materiais_disponiveis]
     
-    # 3. Adicione o secao_id no JSON
     acervo_json = [{
-        'id': mat.id, 'subgrupo_id': mat.subgrupo.id, 'nome': mat.nome,
+        'id': mat.id, 
+        'subgrupo_id': mat.subgrupo.id, 
+        'subgrupo_nome': mat.subgrupo.nome,
+        'grupo_id': mat.subgrupo.grupo.id,
+        'grupo_nome': mat.subgrupo.grupo.nome,
+        'nome': mat.nome,
         'codigo': mat.codigo or '', 'serial': mat.serial or '',
         'quantidade': mat.quantidade, 'quantidade_disponivel': mat.quantidade_disponivel,
         'funcionando': 1 if mat.funcionando else 0,
         'motivo_defeito': mat.motivo_defeito or '',
         'atributos': mat.atributos_extras or {},
         'prateleira_id': mat.prateleira.id if mat.prateleira else None,
+        'prateleira_nome': mat.prateleira.nome if mat.prateleira else None,
         'armario_id': mat.prateleira.armario.id if mat.prateleira else None,
+        'armario_nome': mat.prateleira.armario.nome if mat.prateleira else None,
         'secao_id': mat.secao.id if mat.secao else '',
+        'secao_nome': mat.secao.nome if mat.secao else 'Geral/Estoque',
     } for mat in materiais]
 
     militares_dados_json = []

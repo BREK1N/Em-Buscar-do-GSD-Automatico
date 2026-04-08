@@ -58,6 +58,18 @@
     .bg-cautela { background: rgba(59, 130, 246, 0.1); color: var(--accent-color); border: 1px solid rgba(59, 130, 246, 0.2); }
     .bg-defeito { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); border: 1px solid rgba(239, 68, 68, 0.2); }
     
+    .secao-badge {
+        display: inline-flex;
+        align-items: center;
+        padding: 4px 10px;
+        border-radius: 12px;
+        background-color: rgba(148, 163, 184, 0.1);
+        border: 1px solid rgba(148, 163, 184, 0.25);
+        color: var(--text-secondary);
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
     .attr-tag { font-size: 0.75rem; background: var(--bg-main); border: 1px solid var(--border-color); padding: 4px 8px; border-radius: 6px; display: inline-block; margin: 3px 3px 0 0; color: var(--text-secondary); }
 
     /* Chips de Materiais para os Armários */
@@ -475,66 +487,7 @@
                     </tr>
                 </thead>
                 <tbody id="tbody-acervo">
-                    {% for mat in materiais %}
-                    <tr class="acervo-row" 
-                        data-grupo="subtab-g{{ mat.subgrupo.grupo.id }}" 
-                        data-subgrupo="{{ mat.subgrupo.id }}"
-                        data-secao="{{ mat.secao.id|default:'all' }}"
-                        data-funciona="{% if mat.funcionando %}ok{% else %}defeito{% endif %}"
-                        data-nome="{{ mat.nome|lower }}"
-                        data-serial="{{ mat.serial|default:''|lower }}"
-                        data-codigo="{{ mat.codigo|default:''|lower }}"
-                        data-qtd="{{ mat.quantidade }}"
-                        data-disp="{{ mat.quantidade_disponivel }}">
-                        
-                        <td><span class="text-muted">{{ mat.subgrupo.grupo.nome }} /</span><br><strong>{{ mat.subgrupo.nome }}</strong></td>
-                        <td>
-                            <strong style="font-size: 1.05rem;">{{ mat.nome }}</strong><br>
-                            <span style="color: var(--accent-color); font-size: 0.85rem;">S/N: {{ mat.serial|default:"N/A" }}</span> | <small class="text-muted">Cód: {{ mat.codigo|default:"-" }}</small><br>
-                            {% if mat.atributos_extras %}
-                                <div class="mt-1">
-                                    {% for key, val in mat.atributos_extras.items %}
-                                        <span class="attr-tag"><b>{{ key }}:</b> {{ val }}</span>
-                                    {% endfor %}
-                                </div>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if mat.prateleira %}
-                                <strong>{{ mat.prateleira.armario.nome }}</strong><br>
-                                <small class="text-muted">{{ mat.prateleira.nome }}</small>
-                            {% else %}
-                                <span class="text-muted small">Sem Local Físico</span>
-                            {% endif %}
-                            <br>
-                            <span class="badge bg-secondary mt-1" style="font-size: 0.7rem;"><i class="fas fa-building"></i> {{ mat.secao.nome|default:"Geral/Estoque" }}</span>
-                        </td>
-                        <td>
-                            {% if mat.funcionando %}
-                                <span class="badge-status bg-disponivel"><i class="fas fa-check"></i> Funcionando</span>
-                            {% else %}
-                                <span class="badge-status bg-defeito" title="{{ mat.motivo_defeito }}"><i class="fas fa-times"></i> Defeito</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            {% if not mat.funcionando %}
-                                <span class="badge-status bg-defeito">Inoperante</span>
-                            {% elif mat.quantidade_disponivel > 0 %}
-                                <span class="badge-status bg-disponivel" title="De um total de {{ mat.quantidade }}">Livre ({{ mat.quantidade_disponivel }})</span>
-                            {% else %}
-                                <span class="badge-status bg-cautela">Em Cautela</span>
-                            {% endif %}
-                        </td>
-                        <td>
-                            <div class="d-flex gap-2">
-                                <button class="btn btn-sm btn-outline-primary py-1 px-2" onclick="editarMaterial({{ mat.id }})" title="Editar"><i class="fas fa-edit"></i></button>
-                                <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="confirmarDelecaoMaterial({{ mat.id }}, '{{ mat.nome|escapejs }}')" title="Excluir"><i class="fas fa-trash"></i></button>
-                            </div>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr><td colspan="6" class="text-center py-4 text-muted">Nenhum material cadastrado.</td></tr>
-                    {% endfor %}
+                    <!-- Renderizado via JavaScript para máxima performance (Virtualização) -->
                 </tbody>
             </table>
         </div>
@@ -555,42 +508,7 @@
         </div>
         
         <div class="row" id="container-armarios">
-            {% for armario in armarios %}
-            <div class="col-md-6 mb-3">
-                <div class="armario-card">
-                    <h4 style="color: var(--text-primary); margin-bottom: 5px;"><i class="fas fa-archive me-2 text-primary"></i> {{ armario.nome }}</h4>
-                    <p class="text-muted small mb-3"><i class="fas fa-map-marker-alt me-1"></i> Local: {{ armario.localizacao|default:"Não informado" }}</p>
-                    
-                    <div class="prateleiras-list">
-                        {% for prateleira in armario.prateleiras.all %}
-                        <div class="prateleira-item">
-                            <div class="d-flex justify-content-between align-items-center mb-2">
-                                <strong style="color: var(--text-secondary);"><i class="fas fa-layer-group me-1"></i> {{ prateleira.nome }}</strong>
-                                <button class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="abrirModalVincularMaterial({{ armario.id }}, {{ prateleira.id }})" title="Adicionar materiais a esta prateleira"><i class="fas fa-plus"></i> Materiais</button>
-                            </div>
-                            <div class="mt-1" style="font-size: 0.85rem;">
-                                {% for mat in prateleira.materiais.all %}
-                                    <div class="material-chip" title="Código Interno: {{ mat.codigo|default:'N/A' }}" data-material-nome="{{ mat.nome|lower }}">
-                                        <div class="icon-wrapper"><i class="fas fa-box dynamic-icon"></i></div>
-                                        <span class="text-truncate" style="max-width: 180px;" title="{{ mat.nome }}">{{ mat.nome }}</span>
-                                        {% if mat.serial %}
-                                            <span class="serial-number" title="Serial Number: {{ mat.serial }}">S/N: {{ mat.serial }}</span>
-                                        {% endif %}
-                                    </div>
-                                {% empty %}
-                                    <span class="text-muted fst-italic small"><i class="fas fa-info-circle me-1"></i> Prateleira Vazia</span>
-                                {% endfor %}
-                            </div>
-                        </div>
-                        {% empty %}
-                        <p class="text-muted small ms-3">Nenhuma prateleira cadastrada neste armário.</p>
-                        {% endfor %}
-                    </div>
-                </div>
-            </div>
-            {% empty %}
-            <div class="col-12"><p class="text-center text-muted">Nenhum armário cadastrado.</p></div>
-            {% endfor %}
+            <!-- Renderizado via JavaScript para máxima performance -->
         </div>
     </div>
 </div>
@@ -1117,8 +1035,10 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Cache local dos elementos de linha para evitar consultas custosas no DOM
-    const acervoRows = document.querySelectorAll('.acervo-row');
+    function escapeHtml(unsafe) {
+        if (!unsafe) return '';
+        return unsafe.toString().replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;").replace(/'/g, "&#039;");
+    }
 
     window.filtrarAcervo = function() {
         const statusFiltro = document.getElementById('filtro-status').value;
@@ -1127,37 +1047,101 @@ document.addEventListener('DOMContentLoaded', function() {
         const searchFiltro = document.getElementById('pesquisa-acervo').value.toLowerCase();
 
         let tTotal = 0, tDisp = 0, tCaut = 0, tDef = 0;
+        let htmlRows = '';
+        let rowsRendered = 0;
+        const MAX_ROWS = 100; // Limite para manter o DOM incrivelmente rápido
 
-        // OTIMIZAÇÃO: Loop sob variável instanciada (acervoRows) e usando toggle class em vez de setar display em loop de UI
-        acervoRows.forEach(row => {
-            const matchGrupo = (grupoAtivo === 'subtab-all' || row.getAttribute('data-grupo') === grupoAtivo);
-            const matchStatus = (statusFiltro === 'all' || row.getAttribute('data-funciona') === statusFiltro);
-            const matchSubgrupo = (subgrupoFiltro === 'all' || row.getAttribute('data-subgrupo') === subgrupoFiltro);
-            const matchSecao = (secaoFiltro === 'all' || row.getAttribute('data-secao') === secaoFiltro);
+        acervoGeral.forEach(mat => {
+            const matchGrupo = (grupoAtivo === 'subtab-all' || `subtab-g${mat.grupo_id}` === grupoAtivo);
+            const matchStatus = (statusFiltro === 'all' || (statusFiltro === 'ok' ? mat.funcionando === 1 : mat.funcionando === 0));
+            const matchSubgrupo = (subgrupoFiltro === 'all' || mat.subgrupo_id == subgrupoFiltro);
+            const matchSecao = (secaoFiltro === 'all' || mat.secao_id == secaoFiltro || (!mat.secao_id && secaoFiltro === ''));
             
-            const nome = row.getAttribute('data-nome') || '';
-            const serial = row.getAttribute('data-serial') || '';
-            const codigo = row.getAttribute('data-codigo') || '';
-            const matchSearch = (!searchFiltro || nome.includes(searchFiltro) || serial.includes(searchFiltro) || codigo.includes(searchFiltro));
+            const searchStr = `${mat.nome} ${mat.serial || ''} ${mat.codigo || ''}`.toLowerCase();
+            const matchSearch = (!searchFiltro || searchStr.includes(searchFiltro));
             
             if (matchGrupo && matchStatus && matchSubgrupo && matchSearch && matchSecao) {
-                row.classList.remove('hidden-row');
-                const qtd = parseInt(row.getAttribute('data-qtd')) || 0;
-                const disp = parseInt(row.getAttribute('data-disp')) || 0;
-                const funciona = row.getAttribute('data-funciona') === 'ok';
-
-                tTotal += qtd;
-                if(funciona) { tDisp += disp; tCaut += (qtd - disp); } else { tDef += qtd; }
-            } else { 
-                row.classList.add('hidden-row'); 
+                tTotal += mat.quantidade;
+                if(mat.funcionando === 1) { tDisp += mat.quantidade_disponivel; tCaut += (mat.quantidade - mat.quantidade_disponivel); } else { tDef += mat.quantidade; }
+                
+                if (rowsRendered < MAX_ROWS) {
+                    htmlRows += gerarRowHTML(mat);
+                    rowsRendered++;
+                }
             }
         });
 
+        if (rowsRendered === 0) {
+            htmlRows = `<tr><td colspan="6" class="text-center py-4 text-muted">Nenhum material encontrado.</td></tr>`;
+        } else if (rowsRendered === MAX_ROWS) {
+            htmlRows += `<tr><td colspan="6" class="text-center py-3 text-muted" style="background: var(--bg-main); font-size: 0.85rem;"><i class="fas fa-info-circle me-1"></i> Muitos resultados encontrados. Mostrando os primeiros ${MAX_ROWS}. Use a barra de pesquisa para refinar.</td></tr>`;
+        }
+
+        document.getElementById('tbody-acervo').innerHTML = htmlRows;
         document.getElementById('acervo-sum-total').innerText = tTotal;
         document.getElementById('acervo-sum-disp').innerText = tDisp;
         document.getElementById('acervo-sum-caut').innerText = tCaut;
         document.getElementById('acervo-sum-def').innerText = tDef;
     };
+
+    function gerarRowHTML(mat) {
+        const grupoNome = escapeHtml(mat.grupo_nome);
+        const subgrupoNome = escapeHtml(mat.subgrupo_nome);
+        const nome = escapeHtml(mat.nome);
+        const serial = escapeHtml(mat.serial || 'N/A');
+        const codigo = escapeHtml(mat.codigo || '-');
+        
+        let attrHtml = '';
+        if (mat.atributos && Object.keys(mat.atributos).length > 0) {
+            attrHtml += '<div class="mt-1">';
+            for (const [key, val] of Object.entries(mat.atributos)) {
+                attrHtml += `<span class="attr-tag"><b>${escapeHtml(key)}:</b> ${escapeHtml(val)}</span>`;
+            }
+            attrHtml += '</div>';
+        }
+
+        let localHtml = '';
+        if (mat.armario_nome) {
+            localHtml += `<strong>${escapeHtml(mat.armario_nome)}</strong><br><small class="text-muted">${escapeHtml(mat.prateleira_nome)}</small>`;
+        } else {
+            localHtml += `<span class="text-muted small">Sem Local Físico</span>`;
+        }
+        localHtml += `<br><span class="secao-badge mt-1"><i class="fas fa-building me-1"></i> ${escapeHtml(mat.secao_nome)}</span>`;
+
+        let funcHtml = '';
+        let dispHtml = '';
+        if (mat.funcionando === 1) {
+            funcHtml = '<span class="badge-status bg-disponivel"><i class="fas fa-check"></i> Funcionando</span>';
+            if (mat.quantidade_disponivel > 0) {
+                dispHtml = `<span class="badge-status bg-disponivel" title="De um total de ${mat.quantidade}">Livre (${mat.quantidade_disponivel})</span>`;
+            } else {
+                dispHtml = '<span class="badge-status bg-cautela">Em Cautela</span>';
+            }
+        } else {
+            funcHtml = `<span class="badge-status bg-defeito" title="${escapeHtml(mat.motivo_defeito)}"><i class="fas fa-times"></i> Defeito</span>`;
+            dispHtml = '<span class="badge-status bg-defeito">Inoperante</span>';
+        }
+
+        return `
+        <tr>
+            <td><span class="text-muted">${grupoNome} /</span><br><strong>${subgrupoNome}</strong></td>
+            <td>
+                <strong style="font-size: 1.05rem;">${nome}</strong><br>
+                <span style="color: var(--accent-color); font-size: 0.85rem;">S/N: ${serial}</span> | <small class="text-muted">Cód: ${codigo}</small><br>
+                ${attrHtml}
+            </td>
+            <td>${localHtml}</td>
+            <td>${funcHtml}</td>
+            <td>${dispHtml}</td>
+            <td>
+                <div class="d-flex gap-2">
+                    <button class="btn btn-sm btn-outline-primary py-1 px-2" onclick="editarMaterial(${mat.id})" title="Editar"><i class="fas fa-edit"></i></button>
+                    <button class="btn btn-sm btn-outline-danger py-1 px-2" onclick="confirmarDelecaoMaterial(${mat.id}, '${nome.replace(/'/g, "\\'")}')" title="Excluir"><i class="fas fa-trash"></i></button>
+                </div>
+            </td>
+        </tr>
+        `;
+    }
 
     // OTIMIZAÇÃO DE DEBOUNCE DA PESQUISA
     // Isso impede que a página trave se o utilizador digitar rápido no campo de pesquisa
@@ -1169,8 +1153,93 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 350); 
     });
 
+    function getIconClass(nomeRaw) {
+        const nome = (nomeRaw || '').toLowerCase();
+        let iconClass = 'fa-box';
+        if(nome.includes('computador') || nome.includes('desktop') || nome.includes('pc')) iconClass = 'fa-desktop';
+        else if(nome.includes('notebook') || nome.includes('laptop')) iconClass = 'fa-laptop';
+        else if(nome.includes('monitor') || nome.includes('tela') || nome.includes('display')) iconClass = 'fa-tv';
+        else if(nome.includes('teclado')) iconClass = 'fa-keyboard';
+        else if(nome.includes('mouse') || nome.includes('rato')) iconClass = 'fa-mouse';
+        else if(nome.includes('impressora')) iconClass = 'fa-print';
+        else if(nome.includes('telefone') || nome.includes('voip')) iconClass = 'fa-phone';
+        else if(nome.includes('cabo') || nome.includes('adaptador') || nome.includes('fonte')) iconClass = 'fa-plug';
+        else if(nome.includes('hd ') || nome.includes('ssd') || nome.includes('disco') || nome.includes('pendrive')) iconClass = 'fa-hdd';
+        else if(nome.includes('servidor') || nome.includes('switch') || nome.includes('roteador')) iconClass = 'fa-server';
+        else if(nome.includes('radio') || nome.includes('rádio')) iconClass = 'fa-walkie-talkie';
+        else if(nome.includes('nobreak') || nome.includes('ups') || nome.includes('bateria')) iconClass = 'fa-car-battery';
+        else if(nome.includes('projetor')) iconClass = 'fa-video';
+        else if(nome.includes('memoria') || nome.includes('memória') || nome.includes('ram')) iconClass = 'fa-memory';
+        else if(nome.includes('placa')) iconClass = 'fa-microchip';
+        else if(nome.includes('camera') || nome.includes('câmera') || nome.includes('webcam')) iconClass = 'fa-camera';
+        return iconClass;
+    }
+
+    function renderArmarios() {
+        const container = document.getElementById('container-armarios');
+        let html = '';
+
+        if (!armariosList || armariosList.length === 0) {
+            container.innerHTML = '<div class="col-12"><p class="text-center text-muted">Nenhum armário cadastrado.</p></div>';
+            return;
+        }
+
+        armariosList.forEach(armario => {
+            let pratHtml = '';
+            if (!armario.prateleiras || armario.prateleiras.length === 0) {
+                pratHtml = '<p class="text-muted small ms-3">Nenhuma prateleira cadastrada neste armário.</p>';
+            } else {
+                armario.prateleiras.forEach(prat => {
+                    const mats = acervoGeral.filter(m => m.prateleira_id === prat.id);
+                    let matsHtml = '';
+                    if (mats.length === 0) {
+                        matsHtml = '<span class="text-muted fst-italic small"><i class="fas fa-info-circle me-1"></i> Prateleira Vazia</span>';
+                    } else {
+                        mats.forEach(mat => {
+                            const iconClass = getIconClass(mat.nome);
+                            const serialHtml = mat.serial ? `<span class="serial-number" title="Serial Number: ${escapeHtml(mat.serial)}">S/N: ${escapeHtml(mat.serial)}</span>` : '';
+                            matsHtml += `
+                                <div class="material-chip" title="Código Interno: ${escapeHtml(mat.codigo || 'N/A')}">
+                                    <div class="icon-wrapper"><i class="fas ${iconClass} dynamic-icon"></i></div>
+                                    <span class="text-truncate" style="max-width: 180px;" title="${escapeHtml(mat.nome)}">${escapeHtml(mat.nome)}</span>
+                                    ${serialHtml}
+                                </div>
+                            `;
+                        });
+                    }
+
+                    pratHtml += `
+                        <div class="prateleira-item">
+                            <div class="d-flex justify-content-between align-items-center mb-2">
+                                <strong style="color: var(--text-secondary);"><i class="fas fa-layer-group me-1"></i> ${escapeHtml(prat.nome)}</strong>
+                                <button class="btn btn-sm btn-outline-primary py-0 px-2" style="font-size: 0.75rem;" onclick="abrirModalVincularMaterial(${armario.id}, ${prat.id})" title="Adicionar materiais a esta prateleira"><i class="fas fa-plus"></i> Materiais</button>
+                            </div>
+                            <div class="mt-1" style="font-size: 0.85rem;">
+                                ${matsHtml}
+                            </div>
+                        </div>
+                    `;
+                });
+            }
+
+            html += `
+                <div class="col-md-6 mb-3">
+                    <div class="armario-card">
+                        <h4 style="color: var(--text-primary); margin-bottom: 5px;"><i class="fas fa-archive me-2 text-primary"></i> ${escapeHtml(armario.nome)}</h4>
+                        <p class="text-muted small mb-3"><i class="fas fa-map-marker-alt me-1"></i> Local: ${escapeHtml(armario.localizacao || 'Não informado')}</p>
+                        <div class="prateleiras-list">
+                            ${pratHtml}
+                        </div>
+                    </div>
+                </div>
+            `;
+        });
+        container.innerHTML = html;
+    }
+
     atualizarDropdownSubgrupos(grupoAtivo);
     filtrarAcervo();
+    renderArmarios();
 
     // --- ESCOPO GLOBAL DOS PADS ---
     if (typeof SignaturePad !== 'undefined') {
@@ -1907,33 +1976,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     };
 
-    // --- APLICAÇÃO DE ÍCONES DINÂMICOS NOS ARMÁRIOS ---
-    document.querySelectorAll('.material-chip').forEach(chip => {
-        const nome = (chip.getAttribute('data-material-nome') || '').toLowerCase();
-        const iconEl = chip.querySelector('.dynamic-icon');
-        if(!iconEl) return;
-
-        let iconClass = 'fa-box'; 
-        
-        if(nome.includes('computador') || nome.includes('desktop') || nome.includes('pc')) iconClass = 'fa-desktop';
-        else if(nome.includes('notebook') || nome.includes('laptop')) iconClass = 'fa-laptop';
-        else if(nome.includes('monitor') || nome.includes('tela') || nome.includes('display')) iconClass = 'fa-tv';
-        else if(nome.includes('teclado')) iconClass = 'fa-keyboard';
-        else if(nome.includes('mouse') || nome.includes('rato')) iconClass = 'fa-mouse';
-        else if(nome.includes('impressora')) iconClass = 'fa-print';
-        else if(nome.includes('telefone') || nome.includes('voip')) iconClass = 'fa-phone';
-        else if(nome.includes('cabo') || nome.includes('adaptador') || nome.includes('fonte')) iconClass = 'fa-plug';
-        else if(nome.includes('hd ') || nome.includes('ssd') || nome.includes('disco') || nome.includes('pendrive')) iconClass = 'fa-hdd';
-        else if(nome.includes('servidor') || nome.includes('switch') || nome.includes('roteador')) iconClass = 'fa-server';
-        else if(nome.includes('radio') || nome.includes('rádio')) iconClass = 'fa-walkie-talkie';
-        else if(nome.includes('nobreak') || nome.includes('ups') || nome.includes('bateria')) iconClass = 'fa-car-battery';
-        else if(nome.includes('projetor')) iconClass = 'fa-video';
-        else if(nome.includes('memoria') || nome.includes('memória') || nome.includes('ram')) iconClass = 'fa-memory';
-        else if(nome.includes('placa')) iconClass = 'fa-microchip';
-        else if(nome.includes('camera') || nome.includes('câmera') || nome.includes('webcam')) iconClass = 'fa-camera';
-        
-        iconEl.className = `fas ${iconClass} dynamic-icon`;
-    });
 });
 </script>
 {% endblock %}
