@@ -854,7 +854,7 @@ def baixa(request):
 
 @s1_required
 def ferias(request):
-    militares = Efetivo.objects.exclude(situacao__iexact='De Junta').exclude(situacao__iexact='Férias').order_by('nome_guerra')
+    militares = Efetivo.objects.exclude(situacao__iexact='De Junta').order_by('nome_guerra')
     militares_ferias = Efetivo.objects.filter(situacao__iexact='Férias').order_by('nome_guerra')
     
     if request.method == 'POST':
@@ -863,10 +863,9 @@ def ferias(request):
         if reset_militar_id:
             try:
                 m = Efetivo.objects.get(id=reset_militar_id)
-                if hasattr(m, 'dias_ferias_gozados'):
-                    m.dias_ferias_gozados = 0
-                    m.save()
-                    messages.success(request, f'Saldo de férias do militar {m.posto} {m.nome_guerra} foi zerado para o novo ciclo.')
+                m.dias_ferias_gozados = 0
+                m.save()
+                messages.success(request, f'Saldo de férias do militar {m.posto} {m.nome_guerra} foi zerado para o novo ciclo.')
             except Efetivo.DoesNotExist:
                 pass
             return redirect('Secao_pessoal:ferias')
@@ -883,15 +882,15 @@ def ferias(request):
                 
                 # Validação do limite de 30 dias
                 dias_solicitados = int(tipo_parcela) if tipo_parcela else 0
-                dias_gozados = getattr(militar, 'dias_ferias_gozados', 0)
+                dias_gozados = militar.dias_ferias_gozados
                 
                 if dias_gozados + dias_solicitados > 30:
                     messages.error(request, f'Erro: O militar já utilizou {dias_gozados} dias e não pode solicitar mais {dias_solicitados} dias.')
                     return redirect('Secao_pessoal:ferias')
 
+                was_ferias = (militar.situacao == 'Férias')
                 militar.situacao = 'Férias'
-                if hasattr(militar, 'dias_ferias_gozados'):
-                    militar.dias_ferias_gozados = dias_gozados + dias_solicitados
+                militar.dias_ferias_gozados = dias_gozados + dias_solicitados
                 
                 # Converte o formato do calendário para exibir bonitinho DD/MM/AAAA
                 from datetime import datetime
@@ -901,13 +900,19 @@ def ferias(request):
                     
                     if etapa_parcela and tipo_parcela:
                         if etapa_parcela == 'Integral':
-                            militar.observacao = f"Férias (Integral - 30 dias): {inicio_fmt} até {fim_fmt}"
+                            nova_obs = f"Férias (Integral - 30 dias): {inicio_fmt} até {fim_fmt}"
                         else:
-                            militar.observacao = f"Férias ({etapa_parcela} - {tipo_parcela} dias): {inicio_fmt} até {fim_fmt}"
+                            nova_obs = f"Férias ({etapa_parcela} - {tipo_parcela} dias): {inicio_fmt} até {fim_fmt}"
                     else:
-                        militar.observacao = f"Férias: {inicio_fmt} até {fim_fmt}"
+                        nova_obs = f"Férias: {inicio_fmt} até {fim_fmt}"
                 except ValueError:
-                    militar.observacao = f"Férias: {data_inicio} até {data_fim}"
+                    nova_obs = f"Férias: {data_inicio} até {data_fim}"
+                    
+                if was_ferias and militar.observacao:
+                    if nova_obs not in militar.observacao:
+                        militar.observacao = f"{militar.observacao} | {nova_obs}"
+                else:
+                    militar.observacao = nova_obs
                     
                 militar.save()
                 messages.success(request, f'Férias registradas. O militar {militar.posto} {militar.nome_guerra} consta agora como indisponível no cadastro.')

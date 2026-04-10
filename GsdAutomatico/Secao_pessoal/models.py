@@ -19,6 +19,7 @@ class Efetivo(models.Model):
     inspsau_finalidade = models.CharField(max_length=5, blank=True, null=True, verbose_name="Finalidade INSPSAU")
     inspsau_validade = models.DateField(null=True, blank=True, verbose_name="Validade da INSPSAU")
     documento_inspsau = models.FileField(upload_to='inspsau_documentos/', null=True, blank=True, verbose_name="Documento da INSPSAU")
+    dias_ferias_gozados = models.IntegerField(default=0, verbose_name="Dias de Férias Gozados")
 
     def save(self, *args, **kwargs):
         postos_de_oficiais = [
