@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor
+from .models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, HistoricoInspsau
 
 @admin.register(Efetivo)
 class EfetivoAdmin(admin.ModelAdmin):
@@ -37,3 +37,9 @@ class SetorAdmin(admin.ModelAdmin):
 @admin.register(Subsetor)
 class SubsetorAdmin(admin.ModelAdmin):
     search_fields = ['nome']
+
+@admin.register(HistoricoInspsau)
+class HistoricoInspsauAdmin(admin.ModelAdmin):
+    list_display = ('militar', 'finalidade', 'validade', 'data_registro')
+    search_fields = ('militar__nome_guerra', 'militar__saram')
+    list_filter = ('finalidade', 'data_registro')

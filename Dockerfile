@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y \
     gcc \
     libpq-dev \
     netcat-openbsd \
+    tesseract-ocr \
+    tesseract-ocr-por \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/

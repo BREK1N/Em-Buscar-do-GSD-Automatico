@@ -13,6 +13,11 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 from pathlib import Path
 from dotenv import load_dotenv
 import os
+import mimetypes
+
+# Força o sistema a reconhecer o CSS e o JS corretamente (Corrige o site "feio" no Windows)
+mimetypes.add_type("text/css", ".css", True)
+mimetypes.add_type("text/javascript", ".js", True)
 
 load_dotenv(override=True)
 
@@ -30,7 +35,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOTS', '*').split(',')
+ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 
 
 # Application definition
@@ -129,11 +134,17 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.2/howto/static-files/
 
-STATIC_URL = 'Static/'
+STATIC_URL = '/Static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'Static')]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
+
+# Evita erro 500 se um ficheiro específico faltar no manifest do collectstatic
+WHITENOISE_MANIFEST_STRICT = False
+
+# Restaura o comportamento original: faz o WhiteNoise ler diretamente da pasta 'Static'
+WHITENOISE_USE_FINDERS = True
 
 # Media files (Uploads)
 MEDIA_URL = '/media/'

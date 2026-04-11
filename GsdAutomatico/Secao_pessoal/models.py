@@ -19,6 +19,7 @@ class Efetivo(models.Model):
     inspsau_finalidade = models.CharField(max_length=5, blank=True, null=True, verbose_name="Finalidade INSPSAU")
     inspsau_validade = models.DateField(null=True, blank=True, verbose_name="Validade da INSPSAU")
     documento_inspsau = models.FileField(upload_to='inspsau_documentos/', null=True, blank=True, verbose_name="Documento da INSPSAU")
+    inspsau_parecer = models.TextField(blank=True, null=True, verbose_name="Parecer da INSPSAU")
     dias_ferias_gozados = models.IntegerField(default=0, verbose_name="Dias de Férias Gozados")
 
     def save(self, *args, **kwargs):
@@ -138,3 +139,19 @@ class SolicitacaoTrocaSetor(models.Model):
 
     class Meta:
         ordering = ['-data_solicitacao']
+
+class HistoricoInspsau(models.Model):
+    militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='historico_inspsau', verbose_name="Militar")
+    data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Registro")
+    finalidade = models.CharField(max_length=10, blank=True, null=True, verbose_name="Finalidade")
+    validade = models.DateField(null=True, blank=True, verbose_name="Validade")
+    documento = models.FileField(upload_to='inspsau_historico/', null=True, blank=True, verbose_name="Documento")
+    parecer = models.TextField(blank=True, null=True, verbose_name="Parecer")
+
+    class Meta:
+        ordering = ['-data_registro']
+        verbose_name = "Histórico de INSPSAU"
+        verbose_name_plural = "Históricos de INSPSAU"
+
+    def __str__(self):
+        return f"Histórico {self.finalidade} - {self.militar.nome_guerra}"

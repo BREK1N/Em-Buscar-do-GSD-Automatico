@@ -1,5 +1,5 @@
 <div class="table-responsive">
-    <table class="data-table table">
+    <table class="data-table">
         <thead>
             <tr>
                 <th>Posto</th>
@@ -53,46 +53,6 @@
                     </a>
                 </td>
             </tr>
-            {% if 'baixados' in request.path %}
-            <!-- Modal para Motivo da Baixa -->
-            <div class="modal fade" id="motivoModal{{ militar.pk }}" tabindex="-1" aria-labelledby="motivoModalLabel{{ militar.pk }}" aria-hidden="true">
-              <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h5 class="modal-title" id="motivoModalLabel{{ militar.pk }}">Motivo da Baixa: {{ militar.posto }} {{ militar.nome_guerra }}</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                  </div>
-                  <div class="modal-body">
-                    {{ militar.observacao|default:"Nenhum motivo registrado."|linebreaksbr }}
-                  </div>
-                  <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
-                  </div>
-                </div>
-              </div>
-            </div>
-            <!-- Modal de Confirmação de Reintegração -->
-            <div class="modal fade" id="reintegrarModal{{ militar.pk }}" tabindex="-1" aria-labelledby="reintegrarModalLabel{{ militar.pk }}" aria-hidden="true">
-              <div class="modal-dialog modal-dialog-centered">
-                <div class="modal-content">
-                  <div class="modal-header">
-                    <h5 class="modal-title" id="reintegrarModalLabel{{ militar.pk }}">Confirmar Reintegração</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                  </div>
-                  <div class="modal-body">
-                    Tem certeza que deseja reintegrar o militar <strong>{{ militar.posto }} {{ militar.nome_guerra }}</strong> ao efetivo ativo?
-                  </div>
-                  <div class.modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <form method="post" action="{% url 'Secao_pessoal:reintegrar_militar' militar.pk %}" style="display: inline;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-primary">Confirmar</button>
-                    </form>
-                  </div>
-                </div>
-              </div>
-            </div>
-            {% endif %}
             {% empty %}
             <tr>
                 <td colspan="8" style="text-align: center; padding: 20px;">Nenhum militar encontrado.</td>
@@ -101,6 +61,50 @@
         </tbody>
     </table>
 </div>
+
+{% if 'baixados' in request.path %}
+<!-- Modais Renderizados FORA da tabela para evitar quebra de layout no CSS -->
+{% for militar in militares %}
+<!-- Modal para Motivo da Baixa -->
+<div class="modal fade" id="motivoModal{{ militar.pk }}" tabindex="-1" aria-labelledby="motivoModalLabel{{ militar.pk }}" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="motivoModalLabel{{ militar.pk }}">Motivo da Baixa: {{ militar.posto }} {{ militar.nome_guerra }}</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        {{ militar.observacao|default:"Nenhum motivo registrado."|linebreaksbr }}
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+      </div>
+    </div>
+  </div>
+</div>
+<!-- Modal de Confirmação de Reintegração -->
+<div class="modal fade" id="reintegrarModal{{ militar.pk }}" tabindex="-1" aria-labelledby="reintegrarModalLabel{{ militar.pk }}" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="reintegrarModalLabel{{ militar.pk }}">Confirmar Reintegração</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Tem certeza que deseja reintegrar o militar <strong>{{ militar.posto }} {{ militar.nome_guerra }}</strong> ao efetivo ativo?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+        <form method="post" action="{% url 'Secao_pessoal:reintegrar_militar' militar.pk %}" style="display: inline;">
+            {% csrf_token %}
+            <button type="submit" class="btn btn-primary">Confirmar</button>
+        </form>
+      </div>
+    </div>
+  </div>
+</div>
+{% endfor %}
+{% endif %}
 
 <div id="pagination-container">
     {% if is_paginated %}

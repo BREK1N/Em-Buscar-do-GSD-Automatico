@@ -129,6 +129,27 @@
   </div>
 </div>
 
+<!-- Modal de Busca Manual -->
+<div class="modal fade" id="manualSearchModal" tabindex="-1" aria-labelledby="manualSearchModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="manualSearchModalLabel">Busca Manual de Militar</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        <p>O militar extraído do PDF não foi encontrado. Use a busca abaixo para associar a inspeção manualmente.</p>
+        <div class="mb-3">
+            <input type="text" class="form-control" id="manualSearchInput" placeholder="Digite o nome, nome de guerra ou SARAM do militar...">
+        </div>
+        <div id="manualSearchResults" class="list-group" style="max-height: 300px; overflow-y: auto;">
+            <!-- Resultados da busca aparecerão aqui -->
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <div class="content-column">
     <div class="table-header">
         <div>
@@ -149,13 +170,13 @@
             {% csrf_token %}
             <p style="margin-bottom: 0;">PDF da Inspeção:</p>
             <label for="pdf_file" class="file-drop-zone">
-                <input type="file" name="pdf_file" id="pdf_file" accept=".pdf" required hidden>
+                <input type="file" name="pdf_file" id="pdf_file" accept=".pdf" required hidden multiple>
                 <div class="file-drop-zone-text">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3.75 3.75M12 9.75l3.75 3.75M3.75 18A2.25 2.25 0 006 20.25h12A2.25 2.25 0 0020.25 18v-2.25a2.25 2.25 0 00-2.25-2.25H6a2.25 2.25 0 00-2.25 2.25V18z" />
                     </svg>
                     <br>
-                    <span>Arraste e solte o ficheiro PDF aqui, ou <strong>clique para selecionar</strong>.</span>
+                    <span>Arraste e solte os ficheiros PDF aqui, ou <strong>clique para selecionar</strong>.</span>
                 </div>
                 <div class="file-drop-zone-preview" style="display: none;"></div>
             </label>
@@ -173,6 +194,18 @@
             </svg>
             Militares de Junta e Inspecionados
         </h3>
+
+        <!-- BARRA DE PESQUISA -->
+        <div class="filter-bar" style="margin-bottom: 25px; padding-bottom: 20px; border-bottom: 1px solid var(--border-color);">
+            <div class="search-group">
+                <form method="get" action="">
+                    <input type="text" name="q" placeholder="Pesquisar por posto, militar, motivo..." value="{{ current_query }}">
+                    <button type="submit" class="search-btn">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"></path></svg>
+                    </button>
+                </form>
+            </div>
+        </div>
         
         <div class="table-responsive">
             <table class="data-table">
@@ -265,7 +298,7 @@ document.addEventListener('DOMContentLoaded', function() {
     const fileInput = document.getElementById('pdf_file');
     const dropZoneText = document.querySelector('.file-drop-zone-text');
     const dropZonePreview = document.querySelector('.file-drop-zone-preview');
-    let droppedFiles = null;
+    let selectedFiles = [];
 
     if (dropZone && fileInput) {
         ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
@@ -279,70 +312,115 @@ document.addEventListener('DOMContentLoaded', function() {
         ['dragleave', 'drop'].forEach(eventName => dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false));
 
         dropZone.addEventListener('drop', e => {
-            droppedFiles = e.dataTransfer.files;
-            handleFiles(droppedFiles);
-            if (droppedFiles && droppedFiles.length > 0 && droppedFiles[0].type === 'application/pdf') {
+            handleFiles(e.dataTransfer.files);
+            if (selectedFiles.length > 0) {
                 importForm.dispatchEvent(new Event('submit', { cancelable: true, bubbles: true })); // Dispara o evento de submit programaticamente
             }
         }, false);
-        fileInput.addEventListener('change', function() { droppedFiles = null; handleFiles(this.files); });
+        
+        fileInput.addEventListener('change', function() { handleFiles(this.files); });
 
         function handleFiles(files) {
-            if (files.length > 0) {
-                const file = files[0];
-                if (file.type === 'application/pdf') {
-                    dropZoneText.style.display = 'none';
-                    dropZonePreview.style.display = 'block';
-                    dropZonePreview.innerHTML = `Ficheiro selecionado: <strong>${file.name}</strong>`;
+            selectedFiles = [];
+            let invalidFiles = 0;
+            for (let i = 0; i < files.length; i++) {
+                if (files[i].type === 'application/pdf') {
+                    selectedFiles.push(files[i]);
                 } else {
-                    showDynamicAlert('Por favor, selecione um ficheiro PDF.', 'warning');
-                    fileInput.value = '';
-                    droppedFiles = null;
+                    invalidFiles++;
                 }
+            }
+
+            if (selectedFiles.length > 0) {
+                dropZoneText.style.display = 'none';
+                dropZonePreview.style.display = 'block';
+                if (selectedFiles.length === 1) {
+                    dropZonePreview.innerHTML = `Ficheiro selecionado: <strong>${selectedFiles[0].name}</strong>`;
+                } else {
+                    dropZonePreview.innerHTML = `<strong>${selectedFiles.length}</strong> ficheiros PDF selecionados.`;
+                }
+            } else {
+                dropZoneText.style.display = 'block';
+                dropZonePreview.style.display = 'none';
+            }
+
+            if (invalidFiles > 0) {
+                showDynamicAlert(`${invalidFiles} ficheiro(s) ignorado(s) por não ser(em) PDF.`, 'warning');
             }
         }
     }
 
+    let fileQueueIndex = 0;
+    let hasErrors = false;
+    let processedAny = false;
+
     if (importForm) {
         importForm.addEventListener('submit', function(e) {
             e.preventDefault();
-            const file = droppedFiles ? droppedFiles[0] : fileInput.files[0];
-            if (!file) {
-                showDynamicAlert('Por favor, selecione um ficheiro PDF para analisar.', 'warning');
+            if (selectedFiles.length === 0) {
+                showDynamicAlert('Por favor, selecione pelo menos um ficheiro PDF para analisar.', 'warning');
                 return;
             }
 
+            fileQueueIndex = 0;
+            hasErrors = false;
+            processedAny = false;
+            processFilesQueue();
+        });
+    }
+
+    function processFilesQueue() {
+        if (fileQueueIndex >= selectedFiles.length) {
+            if (processedAny) {
+                showDynamicAlert('Processamento concluído.', 'success');
+                setTimeout(() => window.location.reload(), 1500);
+            } else {
+                resetSubmitButton();
+            }
+            return;
+        }
+
+        const file = selectedFiles[fileQueueIndex];
+
             const spinner = submitButton.querySelector('.spinner');
             const buttonText = submitButton.querySelector('.button-text');
-            buttonText.textContent = 'A analisar...';
-            spinner.style.display = 'inline-block';
-            submitButton.disabled = true;
+        buttonText.textContent = `A analisar (${fileQueueIndex + 1}/${selectedFiles.length})...`;
+        spinner.style.display = 'inline-block';
+        submitButton.disabled = true;
 
-            const formData = new FormData();
-            formData.append('pdf_file', file);
-            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        const formData = new FormData();
+        formData.append('pdf_file', file);
+        formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
 
-            fetch(importForm.action, { method: 'POST', body: formData })
-            .then(response => {
-                if (!response.ok) {
-                    // Se o servidor respondeu com um status de erro (e.g., 400, 500),
-                    // tenta ler o JSON de erro do corpo da resposta ou rejeita com o statusText.
-                    // Isso garante que o bloco .catch receba um objeto de erro mais informativo.
-                    return response.json().catch(() => Promise.reject(new Error(response.statusText))).then(errorData => Promise.reject(errorData));
-                }
-                return response.json();
-            })
-            .then(data => {
-                if (data.status === 'success') {
-                    window.location.reload();
-                } else if (data.status === 'confirm') { 
-                    handleConfirmation(data, file);
-                } else {
-                    showDynamicAlert('Erro: ' + data.message, 'danger');
-                    resetSubmitButton();
-                }
-            })
-            .catch(handleFetchError);
+        fetch(importForm.action, { method: 'POST', body: formData })
+        .then(response => {
+            if (!response.ok) {
+                return response.json().catch(() => Promise.reject(new Error(response.statusText))).then(errorData => Promise.reject(errorData));
+            }
+            return response.json();
+        })
+        .then(data => {
+            if (data.status === 'success') {
+                processedAny = true;
+                showDynamicAlert(`Ficheiro ${file.name} processado com sucesso.`, 'success');
+                fileQueueIndex++;
+                processFilesQueue();
+            } else if (data.status === 'confirm') { 
+                handleConfirmation(data, file);
+            } else if (data.status === 'not_found') {
+                handleManualSearch(data, file);
+            } else {
+                showDynamicAlert(`Erro no ficheiro ${file.name}: ` + data.message, 'danger');
+                hasErrors = true;
+                fileQueueIndex++;
+                processFilesQueue();
+            }
+        })
+        .catch(error => {
+            handleFetchError(error, file);
+            hasErrors = true;
+            fileQueueIndex++;
+            processFilesQueue();
         });
     }
 
@@ -350,7 +428,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const alertsContainer = document.getElementById('dynamic-alerts-container');
         if (!alertsContainer) return;
 
-        const alertId = 'alert-' + Date.now();
+        const alertId = 'alert-' + Date.now() + Math.floor(Math.random() * 1000);
         const alertEl = document.createElement('div');
         alertEl.id = alertId;
         alertEl.className = `alert alert-${type} alert-dismissible fade show`;
@@ -382,11 +460,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const modalElement = document.getElementById('confirmationModal');
         const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
         
-        document.getElementById('confirmationModalBody').textContent = data.message;
+        document.getElementById('confirmationModalBody').innerHTML = `<strong>Ficheiro: ${file.name}</strong><br><br>${data.message}`;
 
         const confirmBtn = document.getElementById('confirmationModalConfirmBtn');
+        let confirmed = false;
         
         const confirmHandler = () => {
+            confirmed = true;
             modal.hide();
 
             const confirmFormData = new FormData();
@@ -399,37 +479,120 @@ document.addEventListener('DOMContentLoaded', function() {
                 confirmFormData.append('parecer', data.dados_inspsau.parecer);
             }
 
+            const buttonText = submitButton.querySelector('.button-text');
+            buttonText.textContent = `A confirmar (${fileQueueIndex + 1}/${selectedFiles.length})...`;
+
             fetch(importForm.action, { method: 'POST', body: confirmFormData })
-                .then(response => response.json())
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().catch(() => Promise.reject(new Error(response.statusText))).then(errorData => Promise.reject(errorData));
+                    }
+                    return response.json();
+                })
                 .then(confirmData => {
                     if (confirmData.status === 'success') {
-                        window.location.reload();
+                        processedAny = true;
+                        showDynamicAlert(`Ficheiro ${file.name} confirmado e processado com sucesso.`, 'success');
                     } else {
-                        showDynamicAlert('Erro ao confirmar: ' + confirmData.message, 'danger');
-                        resetSubmitButton();
+                        showDynamicAlert(`Erro ao confirmar ${file.name}: ` + confirmData.message, 'danger');
+                        hasErrors = true;
                     }
-                }).catch(handleFetchError);
+                    fileQueueIndex++;
+                    processFilesQueue();
+                }).catch(error => {
+                    handleFetchError(error, file);
+                    hasErrors = true;
+                    fileQueueIndex++;
+                    processFilesQueue();
+                });
         };
 
         const newConfirmBtn = confirmBtn.cloneNode(true);
         confirmBtn.parentNode.replaceChild(newConfirmBtn, confirmBtn);
-        newConfirmBtn.addEventListener('click', confirmHandler, { once: true });
+        newConfirmBtn.addEventListener('click', confirmHandler);
 
         const onModalHidden = () => {
-            resetSubmitButton();
-            newConfirmBtn.removeEventListener('click', confirmHandler);
+            if (!confirmed) {
+                showDynamicAlert(`Processamento ignorado para o ficheiro ${file.name}.`, 'warning');
+                hasErrors = true;
+                fileQueueIndex++;
+                processFilesQueue();
+            }
         };
 
         modalElement.addEventListener('hidden.bs.modal', onModalHidden, { once: true });
 
-        newConfirmBtn.addEventListener('click', () => {
-            modalElement.removeEventListener('hidden.bs.modal', onModalHidden);
-        }, { once: true });
-
         modal.show();
     }
 
-    function handleFetchError(error) {
+    let inspsauDataForManualSearch = null;
+    let fileForManualSearch = null;
+    let userSelectedInManualSearch = false;
+
+    function handleManualSearch(data, file) {
+        const modalElement = document.getElementById('manualSearchModal');
+        const modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        
+        inspsauDataForManualSearch = data.dados_inspsau;
+        fileForManualSearch = file;
+        userSelectedInManualSearch = false;
+
+        const searchInput = document.getElementById('manualSearchInput');
+        const resultsContainer = document.getElementById('manualSearchResults');
+        
+        searchInput.value = '';
+        resultsContainer.innerHTML = '<p class="text-center text-muted">Digite para iniciar a busca.</p>';
+
+        let searchTimeout;
+        searchInput.oninput = () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                const query = searchInput.value;
+                if (query.length < 2) {
+                    resultsContainer.innerHTML = '<p class="text-center text-muted">Digite pelo menos 2 caracteres.</p>';
+                    return;
+                }
+                resultsContainer.innerHTML = '<p class="text-center text-muted">Buscando...</p>';
+
+                fetch(`/secao_pessoal/api/search-militares/?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(militares => {
+                        resultsContainer.innerHTML = '';
+                        if (militares.length === 0) {
+                            resultsContainer.innerHTML = '<p class="text-center text-muted">Nenhum militar encontrado.</p>';
+                        } else {
+                            militares.forEach(militar => {
+                                const item = document.createElement('button');
+                                item.type = 'button';
+                                item.className = 'list-group-item list-group-item-action';
+                                item.innerHTML = `<strong>${militar.posto} ${militar.nome_guerra}</strong><br><small class="text-muted">${militar.nome_completo}</small>`;
+                                item.onclick = () => {
+                                    userSelectedInManualSearch = true;
+                                    const confirmationData = {
+                                        militar_encontrado: { id: militar.id },
+                                        dados_inspsau: inspsauDataForManualSearch,
+                                        message: `Você selecionou manualmente o militar <strong>${militar.posto} ${militar.nome_guerra}</strong>. Confirma a associação desta inspeção a ele?`
+                                    };
+                                    modal.hide();
+                                    handleConfirmation(confirmationData, fileForManualSearch);
+                                };
+                                resultsContainer.appendChild(item);
+                            });
+                        }
+                    }).catch(err => resultsContainer.innerHTML = '<p class="text-center text-danger">Erro ao buscar.</p>');
+            }, 300);
+        };
+
+        modalElement.addEventListener('hidden.bs.modal', () => {
+            if (!userSelectedInManualSearch) {
+                showDynamicAlert(`Processamento ignorado para o ficheiro ${file.name}.`, 'warning');
+                fileQueueIndex++; processFilesQueue();
+            }
+        }, { once: true });
+        modal.show();
+    }
+
+    function handleFetchError(error, file) {
         let errorMessage = 'Ocorreu um erro desconhecido ao enviar o ficheiro.';
         if (error instanceof Error) {
             errorMessage = `Erro de rede: ${error.message}. Verifique sua conexão.`;
@@ -439,117 +602,8 @@ document.addEventListener('DOMContentLoaded', function() {
             errorMessage = `Erro: ${error}`;
         }
         console.error('Erro no fetch:', error);
-        showDynamicAlert(errorMessage, 'danger');
-        resetSubmitButton();
+        showDynamicAlert(`Erro no ficheiro ${file ? file.name : ''}: ` + errorMessage, 'danger');
     }
 });
 </script>
 {% endblock %}
-
-{% comment %}
-O código JS antigo foi removido e substituído pelo bloco acima.
-document.addEventListener('DOMContentLoaded', function() {
-    const importForm = document.getElementById('import-form');
-    const submitButton = document.getElementById('submit-btn');
-    const dropZone = document.querySelector('.file-drop-zone');
-    const fileInput = document.getElementById('pdf_file');
-    const dropZoneText = document.querySelector('.file-drop-zone-text');
-    const dropZonePreview = document.querySelector('.file-drop-zone-preview');
-    let droppedFiles = null;
-
-    // Lógica de Drag and Drop
-    if (dropZone && fileInput) {
-        // Previne comportamentos padrão do browser
-        ['dragenter', 'dragover', 'dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, preventDefaults, false);
-            document.body.addEventListener(eventName, preventDefaults, false);
-        });
-
-        function preventDefaults(e) {
-            e.preventDefault();
-            e.stopPropagation();
-        }
-
-        // Adiciona classe para feedback visual ao arrastar
-        ['dragenter', 'dragover'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => dropZone.classList.add('drag-over'), false);
-        });
-
-        ['dragleave', 'drop'].forEach(eventName => {
-            dropZone.addEventListener(eventName, () => dropZone.classList.remove('drag-over'), false);
-        });
-
-        // Lida com os ficheiros soltos
-        dropZone.addEventListener('drop', handleDrop, false);
-
-        function handleDrop(e) {
-            droppedFiles = e.dataTransfer.files;
-            handleFiles(droppedFiles);
-        }
-
-        // Lida com a seleção de ficheiro via clique
-        fileInput.addEventListener('change', function() {
-            droppedFiles = null; // Limpa ficheiros de drop se usar o seletor
-            handleFiles(this.files);
-        });
-
-        function handleFiles(files) {
-            if (files.length > 0) {
-                const file = files[0];
-                if (file.type === 'application/pdf') {
-                    dropZoneText.style.display = 'none';
-                    dropZonePreview.style.display = 'block';
-                    dropZonePreview.innerHTML = `Ficheiro selecionado: <strong>${file.name}</strong>`;
-                } else {
-                    alert('Por favor, selecione um ficheiro PDF.');
-                    fileInput.value = '';
-                    droppedFiles = null;
-                }
-            }
-        }
-    }
-
-    // Lógica de submissão do formulário com AJAX
-    if (importForm) {
-        importForm.addEventListener('submit', function(e) {
-            e.preventDefault(); // Previne a submissão padrão
-
-            const file = droppedFiles ? droppedFiles[0] : fileInput.files[0];
-            if (!file) {
-                alert('Por favor, selecione um ficheiro PDF para analisar.');
-                return;
-            }
-
-            // Ativa o spinner e desativa o botão
-            const spinner = submitButton.querySelector('.spinner');
-            const buttonText = submitButton.querySelector('.button-text');
-            buttonText.textContent = 'A analisar...';
-            spinner.style.display = 'inline-block';
-            submitButton.disabled = true;
-
-            // Cria o FormData e envia via fetch
-            const formData = new FormData();
-            formData.append('pdf_file', file);
-            formData.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
-
-            fetch(importForm.action, {
-                method: 'POST',
-                body: formData,
-            })
-            .then(response => {
-                // Mesmo que haja um erro (4xx, 5xx), o reload vai mostrar a mensagem de erro do Django.
-                window.location.reload();
-            })
-            .catch(error => {
-                console.error('Erro de rede ou de conexão:', error);
-                alert('Ocorreu um erro de rede ao enviar o ficheiro. Verifique sua conexão.');
-                // Restaura o botão em caso de falha de rede
-                buttonText.textContent = 'Analisar';
-                spinner.style.display = 'none';
-                submitButton.disabled = false;
-            });
-        });
-    }
-});
-</script> 
-{% endcomment %}

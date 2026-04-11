@@ -24,4 +24,6 @@ urlpatterns = [
     path('ferramentas/comunicacoes/', views.comunicacoes, name='comunicacoes'),
     path('api/notificacoes/', views.api_notificacoes_check, name='api_notificacoes_check'),
     path('inspsau/', views.inspsau, name='inspsau'),
+    path('inspsau/historico/', views.HistoricoInspsauListView.as_view(), name='historico_inspsau_list'),
+    path('api/search-militares/', views.api_search_militares, name='api_search_militares'),
 ]

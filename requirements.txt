@@ -94,3 +94,4 @@ zstandard==0.25.0
 docker==7.1.0
 pdf2docx==0.5.8
 PyMuPDF==1.24.1
+pytesseract==0.3.10

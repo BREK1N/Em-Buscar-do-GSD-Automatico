@@ -14,7 +14,14 @@ from .models import PATD, Configuracao, Anexo
 from Secao_pessoal.models import Efetivo
 # --- ALTERAÇÃO: Adicionar ComandanteAprovarForm ---
 from .forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm, ComandanteAprovarForm
-from langchain_community.document_loaders import PyPDFLoader
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
+from PIL import Image
+import io
+# Se estiver no Windows e der erro, descomente e ajuste o caminho do seu tesseract:
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 from langchain_openai import ChatOpenAI
 from langchain_core.prompts import ChatPromptTemplate
 from pydantic import BaseModel, Field
@@ -1299,8 +1306,24 @@ def index(request):
                         temp_file.write(chunk)
                     temp_file_path = temp_file.name
                 
-                loader = PyPDFLoader(temp_file_path)
-                content = "\n\n".join(page.page_content for page in loader.load_and_split())
+                # Extração Híbrida: Texto nativo + OCR para escaneamentos
+                content = ""
+                doc = fitz.open(temp_file_path)
+                for page in doc:
+                    page_text = page.get_text()
+                    if len(page_text.strip()) > 50:
+                        content += page_text + "\n\n"
+                    else:
+                        try:
+                            pix = page.get_pixmap(dpi=300)
+                            img = Image.open(io.BytesIO(pix.tobytes("png")))
+                            if pytesseract:
+                                content += pytesseract.image_to_string(img, lang='por') + "\n\n"
+                            else:
+                                logger.warning("pytesseract não está instalado. OCR ignorado.")
+                        except Exception as e:
+                            logger.warning(f"Erro ao processar OCR na página: {e}")
+                doc.close()
                 # Do not remove the temp file here: os.remove(temp_file_path)
 
 
@@ -2123,7 +2146,7 @@ def extender_prazo(request, pk):
         logger.error(f"Erro ao estender prazo da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
-login_required
+@login_required
 @ouvidoria_required
 @require_POST
 def salvar_documento_patd(request, pk):
@@ -3971,4 +3994,3 @@ def finalizar_patd_completa(request, pk):
         logger.error(f"Erro ao finalizar PATD Completa {pk}: {e}", exc_info=True)
         messages.error(request, "Ocorreu um erro ao tentar finalizar o processo.")
         return redirect('Ouvidoria:patd_detail', pk=pk)
-

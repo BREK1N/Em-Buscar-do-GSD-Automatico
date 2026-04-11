@@ -12,8 +12,9 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_sameorigin
+from django.views.decorators.http import require_GET
 from django.contrib.auth.models import Group
-from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, Notificacao, SolicitacaoTrocaSetor
+from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, Notificacao, SolicitacaoTrocaSetor, HistoricoInspsau
 from .forms import MilitarForm, NotificacaoForm
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
@@ -21,7 +22,15 @@ from difflib import SequenceMatcher
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 from datetime import datetime
-from langchain_community.document_loaders import PyPDFLoader
+import fitz
+try:
+    import pytesseract
+except ImportError:
+    pytesseract = None
+from PIL import Image
+import io
+# Se estiver no Windows e der erro, descomente e ajuste o caminho do seu tesseract:
+# pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 from .analise_inspsau import analisar_inspsau_pdf
 
 def is_s1_member(user):
@@ -75,26 +84,34 @@ def inspsau(request):
 
             try:
                 militar = Efetivo.objects.get(id=militar_id)
-                militar.documento_inspsau = pdf_file
 
                 significado = obter_situacao_inspsau(finalidade_ia)
+                validade_obj = None
+                if validade_ia_str and str(validade_ia_str).lower() != 'none':
+                    try:
+                        validade_obj = datetime.strptime(validade_ia_str, '%d/%m/%Y').date()
+                    except (ValueError, TypeError):
+                        pass
+
+                # VERIFICA DUPLICIDADE NO HISTÓRICO
+                if HistoricoInspsau.objects.filter(militar=militar, finalidade=finalidade_ia, validade=validade_obj).exists():
+                    message = f"Já existe um registro de inspeção com finalidade '{finalidade_ia}' e validade '{validade_ia_str or 'N/A'}' para o militar {militar.posto} {militar.nome_guerra} no histórico."
+                    return JsonResponse({'status': 'error', 'message': message}, status=409)
+
+                militar.documento_inspsau = pdf_file
                 if finalidade_ia and finalidade_ia.upper().startswith('G'):
                     militar.situacao = 'De Junta'
                 elif militar.situacao == significado or militar.situacao == 'De Junta':
                     militar.situacao = 'Ativo'
 
                 observacao_final = f"INSPSAU Finalidade: {finalidade_ia}."
-                validade_obj = None
                 if validade_ia_str and str(validade_ia_str).lower() != 'none':
                     observacao_final += f" Validade: {validade_ia_str}"
-                    try:
-                        validade_obj = datetime.strptime(validade_ia_str, '%d/%m/%Y').date()
-                    except (ValueError, TypeError):
-                        pass
                 militar.observacao = observacao_final
                 militar.inspsau_finalidade = finalidade_ia
                 militar.inspsau_validade = validade_obj
-                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau', 'inspsau_finalidade', 'inspsau_validade'])
+                militar.inspsau_parecer = parecer_ia
+                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau', 'inspsau_finalidade', 'inspsau_validade', 'inspsau_parecer'])
                 messages.success(request, f"Inspeção do militar {militar.posto} {militar.nome_guerra} atualizada com sucesso. Finalidade: {finalidade_ia}.")
                 return JsonResponse({'status': 'success'})
             except Efetivo.DoesNotExist:
@@ -112,9 +129,24 @@ def inspsau(request):
                     temp_file.write(chunk)
                 temp_file_path = temp_file.name
 
-            # Usa o PyPDFLoader para extrair o texto
-            loader = PyPDFLoader(temp_file_path)
-            content = "\n\n".join(page.page_content for page in loader.load_and_split())
+            # Extração Híbrida: Tenta texto nativo, se falhar ou tiver pouco texto, faz OCR
+            content = ""
+            doc = fitz.open(temp_file_path)
+            for page in doc:
+                page_text = page.get_text()
+                if len(page_text.strip()) > 50:
+                    content += page_text + "\n\n"
+                else:
+                    try:
+                        pix = page.get_pixmap(dpi=300)
+                        img = Image.open(io.BytesIO(pix.tobytes("png")))
+                        if pytesseract:
+                            content += pytesseract.image_to_string(img, lang='por') + "\n\n"
+                        else:
+                            print("Aviso: pytesseract não instalado. OCR ignorado.")
+                    except Exception as e:
+                        print(f"Aviso: Erro ao realizar OCR na página: {e}")
+            doc.close()
             os.remove(temp_file_path) # Remove o ficheiro temporário
 
             # Analisa o conteúdo com a IA
@@ -154,6 +186,11 @@ def inspsau(request):
                         militar = candidatos.first()
 
             if militar:
+                # VERIFICA DUPLICIDADE NO HISTÓRICO
+                if HistoricoInspsau.objects.filter(militar=militar, finalidade=finalidade_ia, validade=validade_obj).exists():
+                    message = f"Já existe um registro de inspeção com finalidade '{finalidade_ia}' e validade '{validade_ia_str or 'N/A'}' para o militar {militar.posto} {militar.nome_guerra} no histórico."
+                    return JsonResponse({'status': 'error', 'message': message}, status=409)
+
                 # Atualiza a observação do militar com a finalidade
                 militar.documento_inspsau = pdf_file # Salva o arquivo PDF
                 if finalidade_ia and finalidade_ia.upper().startswith('G'):
@@ -163,7 +200,9 @@ def inspsau(request):
                 militar.observacao = observacao_final
                 militar.inspsau_finalidade = finalidade_ia
                 militar.inspsau_validade = validade_obj
-                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau', 'inspsau_finalidade', 'inspsau_validade'])
+                militar.inspsau_parecer = parecer_ia
+                militar.save(update_fields=['observacao', 'situacao', 'documento_inspsau', 'inspsau_finalidade', 'inspsau_validade', 'inspsau_parecer'])
+
                 messages.success(request, f"Inspeção do militar {militar.posto} {militar.nome_guerra} atualizada com sucesso. Finalidade: {finalidade_ia}.")
                 return JsonResponse({'status': 'success'})
             else:
@@ -199,18 +238,38 @@ def inspsau(request):
                     })
                 else:
                     # Não encontrou nenhum militar, nem parecido. Retorna um erro.
-                    messages.error(request, f"Militar '{nome_completo_ia}' não foi encontrado no banco de dados. Verifique o nome ou cadastre-o manualmente.")
-                    return JsonResponse({'status': 'error', 'message': f"Militar '{nome_completo_ia}' não foi encontrado no banco de dados."}, status=404)
+                    # --- ALTERAÇÃO: Retorna status 'not_found' para acionar a busca manual no frontend ---
+                    return JsonResponse({
+                        'status': 'not_found',
+                        'message': f"O militar '{nome_completo_ia}' não foi encontrado. Deseja procurar manualmente?",
+                        'dados_inspsau': {
+                            'finalidade': finalidade_ia,
+                            'validade': validade_ia_str,
+                            'parecer': parecer_ia,
+                        }
+                    })
+
 
         except Exception as e:
             messages.error(request, f"Erro ao processar o PDF: {str(e)}")
             return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
 
     # Dashboard básico: Lista militares que estão "De Junta" ou possuem um resultado de INSPSAU a exibir
+    query = request.GET.get('q')
     militares_baixados = Efetivo.objects.filter(
         Q(situacao__iexact='De Junta') | Q(observacao__icontains='INSPSAU Finalidade')
-    ).order_by('nome_guerra')
-    context = {'militares_baixados': militares_baixados}
+    )
+
+    if query:
+        militares_baixados = militares_baixados.filter(
+            Q(posto__icontains=query) |
+            Q(nome_guerra__icontains=query) |
+            Q(nome_completo__icontains=query) |
+            Q(observacao__icontains=query)
+        )
+
+    militares_baixados = militares_baixados.order_by('nome_guerra')
+    context = {'militares_baixados': militares_baixados, 'current_query': query or ''}
     return render(request, 'Secao_pessoal/inspsau.html', context)
 
 #Efetivo
@@ -955,6 +1014,20 @@ def reintegrar_militar(request, pk):
             militar = Efetivo.objects.get(id=pk)
             was_ferias = militar.situacao and militar.situacao.lower() in ['férias', 'ferias']
             
+            # Se o militar tem dados de inspeção, arquiva-os no histórico e limpa os campos
+            if militar.inspsau_finalidade or militar.documento_inspsau:
+                HistoricoInspsau.objects.create(
+                    militar=militar,
+                    finalidade=militar.inspsau_finalidade,
+                    validade=militar.inspsau_validade,
+                    documento=militar.documento_inspsau,
+                    parecer=militar.inspsau_parecer
+                )
+                militar.documento_inspsau = None
+                militar.inspsau_finalidade = None
+                militar.inspsau_validade = None
+                militar.inspsau_parecer = None
+
             militar.situacao = 'Ativo' # Retorna a situação para Ativo
             militar.observacao = '' # Limpa o histórico de período/motivo
             militar.save()
@@ -1165,3 +1238,50 @@ def exportar_efetivo(request):
     return render(request, 'Secao_pessoal/exportar_excel.html', {
         'postos': postos_existentes
     })
+
+@method_decorator(s1_required, name='dispatch')
+class HistoricoInspsauListView(ListView):
+    model = HistoricoInspsau
+    template_name = 'Secao_pessoal/historico_inspsau.html'
+    context_object_name = 'historico_list'
+    paginate_by = 20
+
+    def get_queryset(self):
+        query = self.request.GET.get('q')
+        qs = super().get_queryset().select_related('militar').order_by('-data_registro')
+
+        if query:
+            qs = qs.filter(
+                Q(militar__nome_completo__icontains=query) |
+                Q(militar__nome_guerra__icontains=query) |
+                Q(militar__posto__icontains=query) |
+                Q(militar__saram__icontains=query) |
+                Q(finalidade__icontains=query) |
+                Q(parecer__icontains=query)
+            )
+        return qs
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['current_query'] = self.request.GET.get('q', '')
+        return context
+
+@s1_required
+@require_GET
+def api_search_militares(request):
+    """
+    Endpoint de API para a busca manual de militares no modal de INSPSAU.
+    """
+    query = request.GET.get('q', '')
+    if not query or len(query) < 2:
+        return JsonResponse([], safe=False)
+
+    militares = Efetivo.objects.filter(
+        Q(nome_completo__icontains=query) |
+        Q(nome_guerra__icontains=query) |
+        Q(saram__icontains=query)
+    ).order_by('posto', 'nome_guerra')[:15]
+
+    data = [{'id': m.id, 'posto': m.posto, 'nome_guerra': m.nome_guerra, 'nome_completo': m.nome_completo} for m in militares]
+    
+    return JsonResponse(data, safe=False)
