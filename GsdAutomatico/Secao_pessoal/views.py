@@ -697,6 +697,8 @@ def comunicacoes(request):
             base_template = 'base.html'
         elif 'Informatica' in user_groups:
             base_template = 'informatica/base.html'
+        elif 'seção de operação' in user_groups or 'Secao_operacoes' in user_groups:
+            base_template = 'Secao_operacoes/base.html'
 
     context = {
         'notificacoes': notificacoes,
