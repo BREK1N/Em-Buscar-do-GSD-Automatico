@@ -1,0 +1,159 @@
+{% extends "Secao_operacoes/base.html" %}
+{% load static %}
+
+{% block title %}{{ title }} - Seção de Operações{% endblock %}
+
+{% block extra_head %}
+<!-- Adicionando Select2 para melhorar a seleção múltipla -->
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
+<style>
+    /* Ajustes para o Select2 se adaptar ao tema escuro/claro se necessário */
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: 45px;
+        padding-top: 5px;
+    }
+    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice {
+        background-color: #0d6efd;
+        color: #fff;
+        border: none;
+        border-radius: 4px;
+        padding: 4px 10px;
+        margin-top: 4px;
+        font-size: 0.95em;
+    }
+    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove {
+        color: #fff;
+        margin-right: 8px;
+        border-right: 1px solid rgba(255,255,255,0.3);
+        padding-right: 5px;
+    }
+    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove:hover {
+        background-color: transparent;
+        color: #ffcccc;
+    }
+    
+    /* Adaptação para o dark theme */
+    body.dark-theme .select2-container--bootstrap-5 .select2-selection {
+        background-color: var(--sidebar-bg);
+        border-color: var(--border-color);
+        color: var(--text-primary);
+    }
+    body.dark-theme .select2-container--bootstrap-5 .select2-dropdown {
+        background-color: var(--sidebar-bg);
+        border-color: var(--border-color);
+    }
+    body.dark-theme .select2-container--bootstrap-5 .select2-results__option {
+        color: var(--text-primary);
+    }
+    body.dark-theme .select2-container--bootstrap-5 .select2-search__field {
+        background-color: var(--main-bg);
+        color: var(--text-primary);
+        border-color: var(--border-color);
+    }
+    body.dark-theme .select2-container--bootstrap-5 .select2-results__option[aria-selected=true] {
+        background-color: var(--sidebar-active-bg);
+    }
+    body.dark-theme .select2-container--bootstrap-5 .select2-results__option--highlighted[aria-selected] {
+        background-color: #0d6efd;
+        color: white;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="card shadow border-0" style="border-radius: 12px; overflow: hidden;">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
+                    <h5 class="mb-0 fw-bold">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-card-checklist me-2 mb-1" viewBox="0 0 16 16">
+                            <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
+                            <path d="M7 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0zM7 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 0 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0z"/>
+                        </svg>
+                        {{ title }}
+                    </h5>
+                </div>
+                <div class="card-body p-4 p-md-5">
+                    <form method="post">
+                        {% csrf_token %}
+                        
+                        <div class="mb-4">
+                            <label for="{{ form.nome.id_for_label }}" class="form-label fw-bold">Nome da Escala</label>
+                            {{ form.nome }}
+                            {% if form.nome.errors %}
+                                <div class="text-danger small mt-1">{{ form.nome.errors }}</div>
+                            {% endif %}
+                            <div class="form-text">Ex: Serviço de Oficial de Dia, Plantão de TI, etc.</div>
+                        </div>
+
+                        <div class="mb-4">
+                            <label for="{{ form.descricao.id_for_label }}" class="form-label fw-bold">Descrição (Opcional)</label>
+                            {{ form.descricao }}
+                            {% if form.descricao.errors %}
+                                <div class="text-danger small mt-1">{{ form.descricao.errors }}</div>
+                            {% endif %}
+                            <div class="form-text">Detalhes rápidos ou responsabilidades sobre esta escala.</div>
+                        </div>
+
+                        <div class="mb-5">
+                            <label for="{{ form.militares.id_for_label }}" class="form-label fw-bold text-primary fs-5 mb-3 border-bottom pb-2 w-100">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-people-fill me-2 mb-1" viewBox="0 0 16 16">
+                                  <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+                                </svg>
+                                Militares Vinculados (Equipe)
+                            </label>
+                            {{ form.militares }}
+                            <div class="form-text mt-3 bg-light p-3 rounded" style="border-left: 4px solid #0d6efd;">
+                                <strong>Dica:</strong> Clique na caixa e digite o nome do militar para buscar. 
+                                Selecione quantos militares quiser clicando sobre eles. Cada selecionado aparecerá como um "balão" azul. Você também pode remover clicando no <strong>'x'</strong>.
+                            </div>
+                            {% if form.militares.errors %}
+                                <div class="text-danger small mt-1">{{ form.militares.errors }}</div>
+                            {% endif %}
+                        </div>
+
+                        <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
+                            <a href="{% url 'Secao_operacoes:escala_list' %}" class="btn btn-outline-secondary px-4 fw-bold">
+                                Voltar
+                            </a>
+                            <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm" style="border-radius: 30px;">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-check2-circle me-2 mb-1" viewBox="0 0 16 16">
+                                  <path d="M2.5 8a5.5 5.5 0 0 1 8.25-4.764.5.5 0 0 0 .5-.866A6.5 6.5 0 1 0 14.5 8a.5.5 0 0 0-1 0 5.5 5.5 0 1 1-11 0z"/>
+                                  <path d="M15.354 3.354a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0l7-7z"/>
+                                </svg>
+                                Salvar Escala
+                            </button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<!-- jQuery (Necessário para o Select2) -->
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<!-- Select2 JS -->
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+
+<script>
+    $(document).ready(function() {
+        // Inicializa o Select2 no campo de militares para modernizar a interface
+        $('#{{ form.militares.id_for_label }}').select2({
+            theme: 'bootstrap-5',
+            width: '100%',
+            placeholder: 'Pesquisar e adicionar militares à escala...',
+            allowClear: true,
+            language: {
+                noResults: function() {
+                    return "Nenhum militar encontrado";
+                }
+            }
+        });
+    });
+</script>
+{% endblock %}

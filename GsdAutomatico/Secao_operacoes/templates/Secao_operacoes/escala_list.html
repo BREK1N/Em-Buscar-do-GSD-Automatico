@@ -1,0 +1,166 @@
+{% extends "Secao_operacoes/base.html" %}
+{% load static %}
+
+{% block title %}Escalas - Seção de Operações{% endblock %}
+
+{% block extra_head %}
+<style>
+    /* Dark theme overrides for escala_list */
+    body.dark-theme .card,
+    body.dark-theme .list-group-item,
+    body.dark-theme .table,
+    body.dark-theme .bg-white {
+        background-color: var(--sidebar-bg, #212529) !important;
+        color: var(--text-primary, #fff) !important;
+        border-color: var(--border-color, #495057) !important;
+    }
+    body.dark-theme .input-group-text {
+        background-color: var(--sidebar-bg, #212529) !important;
+        color: var(--text-primary, #fff) !important;
+        border-color: var(--border-color, #495057) !important;
+    }
+    body.dark-theme .form-control {
+        background-color: var(--main-bg, #343a40) !important;
+        color: var(--text-primary, #fff) !important;
+        border-color: var(--border-color, #495057) !important;
+    }
+    body.dark-theme .table-light,
+    body.dark-theme .table-light th {
+        background-color: #343a40 !important;
+        color: #fff !important;
+        border-color: #495057 !important;
+    }
+    /* Improve light theme contrast */
+    .card {
+        border: 1px solid rgba(0,0,0,0.125);
+    }
+    .list-group-item {
+        border-color: rgba(0,0,0,0.125);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="container-fluid py-4">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>Gerenciamento de Escalas</h2>
+        <a href="{% url 'Secao_operacoes:escala_create' %}" class="btn btn-primary">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg me-1" viewBox="0 0 16 16">
+              <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+            </svg>
+            Nova Escala
+        </a>
+    </div>
+
+    <!-- Barra de Pesquisa -->
+    <div class="card shadow-sm border-0 mb-4">
+        <div class="card-body">
+            <form method="GET" action="{% url 'Secao_operacoes:escala_list' %}">
+                <div class="input-group">
+                    <span class="input-group-text bg-white" id="search-addon">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
+                          <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                        </svg>
+                    </span>
+                    <input type="text" name="q" class="form-control border-start-0" placeholder="Pesquisar militares escalados..." value="{{ search_query }}">
+                    <button class="btn btn-primary" type="submit">Buscar</button>
+                    {% if search_query %}
+                    <a href="{% url 'Secao_operacoes:escala_list' %}" class="btn btn-outline-secondary">Limpar</a>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Resultados da Pesquisa -->
+    {% if search_query %}
+    <div class="mb-4">
+        <h4 class="mb-3">Resultados para "{{ search_query }}"</h4>
+        {% if resultados_pesquisa %}
+            <div class="table-responsive bg-white rounded shadow-sm">
+                <table class="table table-hover mb-0">
+                    <thead class="table-light">
+                        <tr>
+                            <th>Militar</th>
+                            <th>Escala</th>
+                            <th>Data</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for turno in resultados_pesquisa %}
+                        <tr>
+                            <td class="fw-bold">{{ turno.militar.nome_guerra }}</td>
+                            <td>{{ turno.escala.nome }}</td>
+                            <td>{{ turno.data|date:"d/m/Y" }}</td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+        {% else %}
+            <div class="alert alert-info">Nenhum militar encontrado nas escalas com esse nome.</div>
+        {% endif %}
+    </div>
+    {% endif %}
+
+    <!-- Blocos de Escalas -->
+    <h4 class="mb-3">Escalas Cadastradas</h4>
+    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+        {% if escalas %}
+            {% for escala in escalas %}
+            <div class="col">
+                <div class="card h-100 shadow-sm border-0">
+                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
+                        <h5 class="mb-0 text-truncate" title="{{ escala.nome }}">{{ escala.nome }}</h5>
+                        <span class="badge bg-secondary rounded-pill" title="Militares vinculados">{{ escala.militares.count }}</span>
+                    </div>
+                    <div class="card-body">
+                        <p class="card-text text-muted small mb-3" style="min-height: 40px;">
+                            {{ escala.descricao|default:"Sem descrição."|truncatechars:100 }}
+                        </p>
+                        
+                        <div class="mb-3">
+                            <h6 class="fw-bold border-bottom pb-2">Serviço Hoje ({{ hoje|date:"d/m" }})</h6>
+                            {% if escala.turnos_hoje %}
+                                <ul class="list-group list-group-flush">
+                                    {% for turno in escala.turnos_hoje %}
+                                    <li class="list-group-item px-0 py-1 border-0">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-check-fill text-success me-2" viewBox="0 0 16 16">
+                                            <path fill-rule="evenodd" d="M15.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L12.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
+                                            <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                                        </svg>
+                                        {{ turno.militar.nome_guerra }}
+                                    </li>
+                                    {% endfor %}
+                                </ul>
+                            {% else %}
+                                <p class="text-muted small mb-0">Ninguém escalado para hoje.</p>
+                            {% endif %}
+                        </div>
+                    </div>
+                    <div class="card-footer bg-white border-top-0 pt-0 pb-3 d-flex justify-content-between">
+                        <a href="{% url 'Secao_operacoes:escala_detail' escala.pk %}" class="btn btn-outline-primary btn-sm w-100 me-2">Acessar Escala</a>
+                        <a href="{% url 'Secao_operacoes:escala_edit' escala.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
+                              <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                            </svg>
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="col-12">
+                <div class="text-center py-5 text-muted bg-white rounded shadow-sm border">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-calendar-x mb-3" viewBox="0 0 16 16">
+                      <path d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708z"/>
+                      <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                    </svg>
+                    <h4>Nenhuma escala encontrada</h4>
+                    <p>Crie sua primeira escala para começar a organizar os serviços.</p>
+                </div>
+            </div>
+        {% endif %}
+    </div>
+</div>
+{% endblock %}
