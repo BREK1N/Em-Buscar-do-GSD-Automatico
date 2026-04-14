@@ -3,92 +3,394 @@
 {% block title %}{{ page_title }}{% endblock %}
 
 {% block extra_head %}
-{# Adiciona estilos para a seleção de permissões #}
 <style>
-    /* Estilos básicos (mantidos) */
-    .form-card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; margin-bottom: 25px; box-shadow: var(--box-shadow); }
-    .form-card-header { display: flex; align-items: center; gap: 10px; border-bottom: 1px solid var(--border-color); padding-bottom: 15px; margin-bottom: 20px; }
-    .form-card-header svg { width: 24px; height: 24px; color: var(--accent-color); }
-    .form-card-header h2 { margin: 0; font-size: 1.2rem; }
-    .form-card-body .form-grid { display: grid; grid-template-columns: 1fr; gap: 20px; } /* Simplificado para 1 coluna */
-    .form-card-body .form-item { display: flex; flex-direction: column; }
-    .form-card-body .form-item label { margin-bottom: 8px; font-weight: 500; color: var(--text-secondary); }
-    .form-card-body .form-item input, .form-card-body .form-item select { width: 100%; padding: 10px; border-radius: 6px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); box-sizing: border-box; }
-    .alert-error { color: var(--danger-color); font-size: 0.8rem; margin-top: 5px; }
-    .form-help-text { font-size: 0.8rem; color: var(--text-secondary); margin-top: 5px;}
+    .form-page { max-width: 860px; }
 
-    /* Estilos para a lista de permissões */
-    .permissions-list-container {
-        max-height: 400px; /* Altura máxima para a lista */
-        overflow-y: auto; /* Scroll vertical */
-        border: 1px solid var(--border-color);
+    .page-title-h {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: clamp(1.5rem, 3vw, 2rem);
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 1.75rem;
+    }
+
+    .fcard {
+        background: var(--bg-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        margin-bottom: 1.25rem;
+    }
+    .fcard-head {
+        background: var(--bg-card-header);
+        padding: 0.85rem 1.25rem;
+        display: flex; align-items: center; gap: 0.6rem;
+    }
+    .fcard-head-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem; font-weight: 700;
+        letter-spacing: 0.1em; text-transform: uppercase;
+        color: #e6edf3; margin: 0;
+    }
+    .fcard-body { padding: 1.25rem 1.5rem; }
+
+    .field-label {
+        font-size: 0.78rem; font-weight: 600;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        color: var(--text-muted); margin-bottom: 0.45rem; display: block;
+    }
+    .field-input {
+        width: 100%; padding: 0.6rem 0.85rem;
+        background: var(--bg-input); border: 1px solid var(--border-strong);
+        border-radius: 8px; color: var(--text-primary);
+        font-family: 'Inter', sans-serif; font-size: 0.875rem; outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .field-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .field-error { font-size: 0.78rem; color: var(--danger); margin-top: 0.35rem; }
+
+    /* ── Permissions UI ── */
+    .perms-search-wrap {
+        display: flex; align-items: center;
+        background: var(--bg-input); border: 1px solid var(--border-strong);
+        border-radius: 8px; overflow: hidden; margin-bottom: 1rem;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .perms-search-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .perms-search-wrap input {
+        flex: 1; border: none; background: transparent;
+        padding: 0.55rem 0.85rem 0.55rem 2rem;
+        color: var(--text-primary); font-family: 'Inter', sans-serif;
+        font-size: 0.875rem; outline: none;
+    }
+    .perms-search-wrap input::placeholder { color: var(--text-muted); }
+    .perms-search-icon {
+        position: absolute; left: 1.35rem; top: 50%;
+        transform: translateY(-50%); color: var(--text-muted); pointer-events: none;
+    }
+
+    .perms-stats {
+        font-size: 0.78rem; color: var(--text-muted);
+        margin-bottom: 0.85rem; font-family: 'Inter', sans-serif;
+    }
+    .perms-stats strong { color: var(--accent); }
+
+    .app-block { margin-bottom: 0.75rem; }
+
+    .app-block-header {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 0.55rem 0.75rem;
+        background: var(--badge-bg);
         border-radius: 8px;
-        padding: 15px;
-        background-color: var(--bg-main);
-        margin-top: 8px; /* Espaço acima da lista */
-    }
-    .permissions-list-container ul {
-        list-style: none;
-        padding: 0;
-        margin: 0;
-    }
-    .permissions-list-container li {
-        margin-bottom: 10px;
-    }
-    .permissions-list-container label {
-        display: flex;
-        align-items: center;
         cursor: pointer;
-        font-weight: normal; /* Texto normal */
-        color: var(--text-primary); /* Cor primária */
-        margin: 0;
+        user-select: none;
+        transition: background 0.12s;
+        margin-bottom: 0.4rem;
     }
-     .permissions-list-container input[type="checkbox"] {
-        margin-right: 10px;
-        width: auto; /* Tamanho padrão do checkbox */
-        accent-color: var(--accent-color); /* Cor do check */
+    .app-block-header:hover { background: var(--accent-dim); }
+
+    .app-block-label {
+        display: flex; align-items: center; gap: 0.5rem;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.82rem; font-weight: 700;
+        letter-spacing: 0.08em; text-transform: uppercase;
+        color: var(--text-primary);
     }
+    .app-check-count {
+        font-size: 0.7rem; font-weight: 700;
+        background: var(--accent-dim); color: var(--accent);
+        border-radius: 10px; padding: 1px 7px;
+        font-family: 'Inter', sans-serif;
+    }
+    .app-block-toggle {
+        font-size: 0.72rem; font-weight: 600;
+        color: var(--accent); text-decoration: none;
+        background: none; border: none; cursor: pointer;
+        font-family: 'Inter', sans-serif;
+        padding: 0;
+        white-space: nowrap;
+    }
+
+    .app-perms-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 0.4rem;
+        padding: 0 0.1rem;
+    }
+
+    .perm-item {
+        display: flex; align-items: flex-start; gap: 0.5rem;
+        padding: 0.5rem 0.65rem;
+        border: 1px solid var(--border);
+        border-radius: 7px;
+        background: var(--bg-card);
+        cursor: pointer;
+        transition: all 0.12s;
+    }
+    .perm-item:hover { border-color: var(--accent); background: var(--accent-dim); }
+    .perm-item.checked { border-color: var(--accent); background: var(--accent-dim); }
+    .perm-item[data-hidden="true"] { display: none; }
+
+    .perm-checkbox {
+        width: 16px; height: 16px;
+        border: 2px solid var(--border-strong);
+        border-radius: 4px;
+        background: var(--bg-input);
+        flex-shrink: 0;
+        margin-top: 1px;
+        display: flex; align-items: center; justify-content: center;
+        transition: all 0.12s;
+    }
+    .perm-item.checked .perm-checkbox {
+        background: var(--accent); border-color: var(--accent);
+    }
+    .perm-item.checked .perm-checkbox::after {
+        content: '';
+        display: block;
+        width: 9px; height: 7px;
+        background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e");
+        background-repeat: no-repeat; background-position: center; background-size: contain;
+    }
+
+    .perm-text {
+        flex: 1;
+        font-size: 0.78rem; font-weight: 500;
+        color: var(--text-secondary);
+        font-family: 'Inter', sans-serif;
+        line-height: 1.3;
+    }
+    .perm-item.checked .perm-text { color: var(--text-primary); }
+
+    /* Hidden real checkboxes */
+    .real-perms { display: none; }
+
+    /* Footer sticky */
+    .form-footer {
+        position: sticky;
+        bottom: 0;
+        z-index: 100;
+        display: flex; gap: 0.75rem; align-items: center;
+        padding: 0.9rem 1.25rem;
+        background: var(--bg-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        box-shadow: 0 -4px 24px rgba(0,0,0,0.18);
+        flex-wrap: wrap;
+        margin-top: 1rem;
+    }
+    .btn-save {
+        display: inline-flex; align-items: center; gap: 0.45rem;
+        padding: 0.6rem 1.5rem;
+        background: var(--accent); color: #fff; border: none;
+        border-radius: 8px; font-family: 'Inter', sans-serif;
+        font-size: 0.875rem; font-weight: 600; cursor: pointer;
+        box-shadow: 0 2px 8px var(--accent-glow);
+        transition: background 0.15s, transform 0.1s;
+    }
+    .btn-save:hover { background: #2563eb; transform: translateY(-1px); }
+    .btn-cancel {
+        display: inline-flex; align-items: center; gap: 0.45rem;
+        padding: 0.6rem 1.25rem;
+        background: transparent; color: var(--text-secondary);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px; font-family: 'Inter', sans-serif;
+        font-size: 0.875rem; font-weight: 600; text-decoration: none;
+        transition: background 0.15s;
+    }
+    .btn-cancel:hover { background: var(--badge-bg); color: var(--text-primary); }
 </style>
 {% endblock %}
 
 {% block content %}
-<h1>{{ page_title }}</h1>
+<div class="form-page">
+    <h1 class="page-title-h">{{ page_title }}</h1>
 
-<form method="post" class="model-form">
-    {% csrf_token %}
-    {{ form.non_field_errors }}
+    <form method="post" id="group-form">
+        {% csrf_token %}
 
-    <div class="form-card">
-        <div class="form-card-header">
-            {# Ícone de Grupo #}
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24"> <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /> </svg>
-            <h2>Dados do Grupo</h2>
+        <!-- Dados do grupo -->
+        <div class="fcard">
+            <div class="fcard-head">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#8b949e" viewBox="0 0 16 16">
+                    <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                </svg>
+                <h5 class="fcard-head-title">Dados do Grupo</h5>
+            </div>
+            <div class="fcard-body" style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+                <div>
+                    <label for="{{ form.name.id_for_label }}" class="field-label">Nome do Grupo</label>
+                    <input type="text" name="{{ form.name.html_name }}" id="{{ form.name.id_for_label }}"
+                        class="field-input" placeholder="Ex: Moderador Ouvidoria, Supervisor Ops..."
+                        value="{{ form.name.value|default:'' }}" autocomplete="off">
+                    {% for error in form.name.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+                </div>
+                <div>
+                    <label for="id_secao" class="field-label">Seção</label>
+                    <select name="secao" id="id_secao" class="field-input">
+                        {% for key, label in secao_choices %}
+                        <option value="{{ key }}" {% if key == secao_atual %}selected{% endif %}>{{ label }}</option>
+                        {% endfor %}
+                    </select>
+                    <div style="font-size:0.75rem;color:var(--text-muted);margin-top:0.35rem;">Categoriza o grupo na listagem por seção.</div>
+                </div>
+            </div>
         </div>
-        <div class="form-card-body">
-            <div class="form-grid">
-                <div class="form-item">
-                    <label for="{{ form.name.id_for_label }}">{{ form.name.label }}:</label>
-                    {{ form.name }}
-                    {% if form.name.help_text %}<div class="form-help-text">{{ form.name.help_text|safe }}</div>{% endif %}
-                    {% for error in form.name.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
 
-                <div class="form-item">
-                    <label for="{{ form.permissions.id_for_label }}">{{ form.permissions.label }}:</label>
-                    <div class="permissions-list-container">
-                        {# Renderiza o campo de permissões (CheckboxSelectMultiple) #}
-                        {{ form.permissions }}
+        <!-- Permissões -->
+        <div class="fcard">
+            <div class="fcard-head">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="#8b949e" viewBox="0 0 16 16">
+                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                </svg>
+                <h5 class="fcard-head-title">Permissões</h5>
+                <span id="total-count" style="font-family:'Rajdhani',sans-serif;font-size:0.75rem;color:#6e7681;margin-left:auto;">0 selecionadas</span>
+            </div>
+            <div class="fcard-body">
+
+                <!-- Campo real (hidden) do form Django -->
+                <div class="real-perms">{{ form.permissions }}</div>
+                {% for error in form.permissions.errors %}<div class="field-error">{{ error }}</div>{% endfor %}
+
+                <!-- Busca -->
+                <div style="position:relative;">
+                    <svg class="perms-search-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/>
+                    </svg>
+                    <div class="perms-search-wrap">
+                        <input type="text" id="perms-search" placeholder="Filtrar permissões por nome ou módulo...">
                     </div>
-                    {% if form.permissions.help_text %}<div class="form-help-text">{{ form.permissions.help_text|safe }}</div>{% endif %}
-                    {% for error in form.permissions.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
-            </div> {# Fim form-grid #}
-        </div> {# Fim form-card-body #}
-    </div> {# Fim form-card #}
 
-    <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Salvar</button>
-        <a href="{% url 'informatica:group_list' %}" class="btn btn-secondary">Cancelar</a>
-    </div>
-</form>
+                <!-- Blocos por app -->
+                <div id="perms-container">
+                    {% for app_key, app_data in perms_por_app.items %}
+                    <div class="app-block" data-app="{{ app_key }}">
+                        <div class="app-block-header" onclick="toggleApp('{{ app_key }}')">
+                            <span class="app-block-label">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M1 2.828c.885-.37 2.154-.769 3.388-.893 1.33-.134 2.458.063 3.112.752v9.746c-.935-.53-2.12-.603-3.213-.493-1.18.12-2.37.461-3.287.811V2.828zm7.5-.141c.654-.689 1.782-.886 3.112-.752 1.234.124 2.503.523 3.388.893v9.966c-.918-.35-2.107-.692-3.287-.81-1.094-.111-2.278-.039-3.213.492V2.687zM8 1.783C7.015.936 5.587.81 4.287.94c-1.514.153-3.042.672-3.994 1.105A.5.5 0 0 0 0 2.5v11a.5.5 0 0 0 .707.455c.882-.4 2.303-.881 3.68-1.02 1.409-.142 2.59.087 3.223.877a.5.5 0 0 0 .78 0c.633-.79 1.814-1.019 3.222-.877 1.378.139 2.8.62 3.681 1.02A.5.5 0 0 0 16 13.5v-11a.5.5 0 0 0-.293-.455c-.952-.433-2.48-.952-3.994-1.105C10.413.809 8.985.936 8 1.783z"/>
+                                </svg>
+                                {{ app_data.label }}
+                                <span class="app-check-count" id="count-{{ app_key }}">0</span>
+                            </span>
+                            <button type="button" class="app-block-toggle" onclick="event.stopPropagation(); toggleSelectAll('{{ app_key }}', this)">
+                                Selecionar todos
+                            </button>
+                        </div>
+                        <div class="app-perms-grid" id="grid-{{ app_key }}">
+                            {% for perm in app_data.perms %}
+                            <div class="perm-item {% if perm.id in selected_perm_ids %}checked{% endif %}"
+                                 data-perm-id="{{ perm.id }}"
+                                 data-app="{{ app_key }}"
+                                 data-name="{{ perm.name|lower }}"
+                                 onclick="togglePerm(this)">
+                                <div class="perm-checkbox"></div>
+                                <span class="perm-text">{{ perm.name }}</span>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="form-footer">
+            <button type="submit" class="btn-save">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+                </svg>
+                Salvar Grupo
+            </button>
+            <a href="{% url 'informatica:group_list' %}" class="btn-cancel">Cancelar</a>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    // IDs pré-selecionados vindos do servidor
+    const preSelected = new Set({{ selected_perm_ids|safe }});
+
+    // Sync: mantém os checkboxes reais sincronizados com a UI
+    function syncRealSelect() {
+        document.querySelectorAll('.real-perms input[type="checkbox"]').forEach(cb => {
+            cb.checked = preSelected.has(parseInt(cb.value));
+        });
+        updateTotalCount();
+    }
+
+    function togglePerm(el) {
+        const id = parseInt(el.dataset.permId);
+        if (preSelected.has(id)) {
+            preSelected.delete(id);
+            el.classList.remove('checked');
+        } else {
+            preSelected.add(id);
+            el.classList.add('checked');
+        }
+        syncRealSelect();
+        updateAppCount(el.dataset.app);
+    }
+
+    function toggleSelectAll(appKey, btn) {
+        const items = document.querySelectorAll(`.perm-item[data-app="${appKey}"]:not([data-hidden="true"])`);
+        const allChecked = Array.from(items).every(el => preSelected.has(parseInt(el.dataset.permId)));
+        items.forEach(el => {
+            const id = parseInt(el.dataset.permId);
+            if (allChecked) { preSelected.delete(id); el.classList.remove('checked'); }
+            else            { preSelected.add(id);    el.classList.add('checked'); }
+        });
+        btn.textContent = allChecked ? 'Selecionar todos' : 'Remover todos';
+        syncRealSelect();
+        updateAppCount(appKey);
+    }
+
+    function toggleApp(appKey) {
+        const grid = document.getElementById('grid-' + appKey);
+        if (grid) grid.style.display = grid.style.display === 'none' ? '' : 'none';
+    }
+
+    function updateAppCount(appKey) {
+        const items = document.querySelectorAll(`.perm-item[data-app="${appKey}"]`);
+        const count = Array.from(items).filter(el => preSelected.has(parseInt(el.dataset.permId))).length;
+        const badge = document.getElementById('count-' + appKey);
+        if (badge) badge.textContent = count;
+    }
+
+    function updateTotalCount() {
+        document.getElementById('total-count').textContent = preSelected.size + ' selecionada' + (preSelected.size !== 1 ? 's' : '');
+    }
+
+    function updateAllAppCounts() {
+        document.querySelectorAll('.app-block').forEach(block => updateAppCount(block.dataset.app));
+        updateTotalCount();
+    }
+
+    // Search filter
+    document.getElementById('perms-search').addEventListener('input', function() {
+        const q = this.value.toLowerCase().trim();
+        document.querySelectorAll('.perm-item').forEach(el => {
+            const match = !q || el.dataset.name.includes(q) || el.dataset.app.includes(q);
+            el.setAttribute('data-hidden', match ? 'false' : 'true');
+        });
+        // Hide entire app block if no visible items
+        document.querySelectorAll('.app-block').forEach(block => {
+            const visible = block.querySelectorAll('.perm-item:not([data-hidden="true"])').length;
+            block.style.display = visible === 0 ? 'none' : '';
+        });
+    });
+
+    // Init on load
+    document.addEventListener('DOMContentLoaded', function() {
+        // Mark pre-selected items
+        document.querySelectorAll('.perm-item').forEach(el => {
+            if (preSelected.has(parseInt(el.dataset.permId))) el.classList.add('checked');
+        });
+        syncRealSelect();
+        updateAllAppCounts();
+    });
+</script>
 {% endblock %}

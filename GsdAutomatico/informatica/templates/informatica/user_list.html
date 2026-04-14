@@ -43,7 +43,7 @@
     </div>
     <div class="actions-bar">
         <form method="get" class="search-form">
-            <input type="text" name="q" placeholder="Pesquisar utilizador..." value="{{ search_query }}">
+            <input type="text" name="q" placeholder="Pesquisar por username ou nome de guerra..." value="{{ search_query }}">
             <button type="submit" title="Pesquisar"><i class="fas fa-search"></i></button>
         </form>
         <a href="{% url 'informatica:user_add' %}" class="btn btn-primary" style="display: flex; align-items: center; gap: 8px; border-radius: 8px; padding: 10px 20px;">
@@ -58,6 +58,7 @@
             <tr>
                 <th>Username</th>
                 <th>Nome Completo</th>
+                <th>Nome de Guerra</th>
                 <th>Email</th>
                 <th>Ativo</th>
                 <th>Acesso Staff</th>
@@ -69,6 +70,12 @@
             <tr>
                 <td><strong>{{ user.username }}</strong></td>
                 <td>{{ user.get_full_name|default:"-" }}</td>
+                <td style="color: var(--text-secondary);">
+                    {% if user.profile.militar %}
+                        <span style="color: var(--accent-color); font-weight: 600;">{{ user.profile.militar.nome_guerra }}</span>
+                        <span style="font-size: 0.75rem; color: var(--text-muted); display: block;">{{ user.profile.militar.posto }}</span>
+                    {% else %}-{% endif %}
+                </td>
                 <td style="color: var(--text-secondary);">{{ user.email|default:"-" }}</td>
                 <td><span class="status-badge {% if user.is_active %}status-yes{% else %}status-no{% endif %}">{% if user.is_active %}Sim{% else %}Não{% endif %}</span></td>
                 <td><span class="status-badge {% if user.is_staff %}status-yes{% else %}status-no{% endif %}">{% if user.is_staff %}Sim{% else %}Não{% endif %}</span></td>
@@ -81,12 +88,13 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
+                <td colspan="7" style="text-align: center; padding: 40px; color: var(--text-secondary);">
                     <i class="fas fa-users fa-3x mb-3" style="opacity: 0.2;"></i><br>
                     Nenhum utilizador encontrado.
                 </td>
             </tr>
             {% endfor %}
+
         </tbody>
     </table>
 </div>

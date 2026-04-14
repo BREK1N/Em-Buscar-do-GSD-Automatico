@@ -8,12 +8,6 @@ urlpatterns = [
     # Dashboard principal
     path('', views.dashboard, name='dashboard'),
 
-    # URLs para Militar
-    path('militares/', views.MilitarListView.as_view(), name='militar_list'),
-    path('militares/add/', views.MilitarCreateView.as_view(), name='militar_add'),
-    path('militares/<int:pk>/edit/', views.MilitarUpdateView.as_view(), name='militar_edit'),
-    path('militares/<int:pk>/delete/', views.MilitarDeleteView.as_view(), name='militar_delete'),
-
     # URLs para Utilizador (User)
     path('users/', views.UserListView.as_view(), name='user_list'),
     path('users/add/', views.UserCreateView.as_view(), name='user_add'),
@@ -26,13 +20,6 @@ urlpatterns = [
     path('groups/add/', views.GroupCreateView.as_view(), name='group_add'),
     path('groups/<int:pk>/edit/', views.GroupUpdateView.as_view(), name='group_edit'),
     path('groups/<int:pk>/delete/', views.GroupDeleteView.as_view(), name='group_delete'),
-
-    # URLs para Perfis
-    path('profiles/', views.UserProfileListView.as_view(), name='userprofile_list'),
-    path('profiles/<int:pk>/edit/', views.UserProfileUpdateView.as_view(), name='userprofile_edit'),
-
-    # URL para PATD
-    path('patds/', views.PATDListView.as_view(), name='patd_list'),
 
     # URL para Configuração
     path('configuracao/', views.ConfiguracaoUpdateView.as_view(), name='configuracao_edit'),

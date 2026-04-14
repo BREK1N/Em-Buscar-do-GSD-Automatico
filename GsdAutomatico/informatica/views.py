@@ -11,10 +11,10 @@ from login.models import UserProfile
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from .forms import (
-    MilitarForm, InformaticaUserCreationForm, InformaticaUserChangeForm,
-    GroupForm, UserProfileForm, ConfiguracaoForm
+    InformaticaUserCreationForm, InformaticaUserChangeForm,
+    GroupForm, ConfiguracaoForm
 )
-from .models import GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem, Armario, Prateleira
+from .models import GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem, Armario, Prateleira, GroupProfile, SECAO_CHOICES
 from django.db.models import Q, ProtectedError
 import logging
 from django.http import JsonResponse
@@ -121,51 +121,6 @@ def dashboard(request):
     }
     return render(request, 'informatica/dashboard.html', context)
 
-class MilitarListView(StaffRequiredMixin, ListView):
-    model = Efetivo
-    template_name = 'informatica/militar_list.html'
-    context_object_name = 'militares'
-    paginate_by = 20
-    def get_queryset(self):
-        queryset = super().get_queryset().order_by('posto', 'nome_guerra')
-        query = self.request.GET.get('q')
-        if query:
-            queryset = queryset.filter(Q(nome_completo__icontains=query) | Q(nome_guerra__icontains=query) | Q(saram__icontains=query) | Q(posto__icontains=query))
-        return queryset
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = "Gerenciar Efetivo"
-        context['search_query'] = self.request.GET.get('q', '')
-        return context
-
-class MilitarCreateView(StaffRequiredMixin, CreateView):
-    model = Efetivo
-    form_class = MilitarForm
-    template_name = 'informatica/militar_form.html'
-    success_url = reverse_lazy('informatica:militar_list')
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = "Adicionar Militar"
-        return context
-
-class MilitarUpdateView(StaffRequiredMixin, UpdateView):
-    model = Efetivo
-    form_class = MilitarForm
-    template_name = 'informatica/militar_form.html'
-    success_url = reverse_lazy('informatica:militar_list')
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = f"Editar Militar: {self.object}"
-        return context
-
-class MilitarDeleteView(StaffRequiredMixin, DeleteView):
-    model = Efetivo
-    template_name = 'informatica/militar_confirm_delete.html'
-    success_url = reverse_lazy('informatica:militar_list')
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        context['page_title'] = f"Confirmar Exclusão de {self.object}"
-        return context
 
 class UserListView(StaffRequiredMixin, ListView):
     model = User
@@ -173,10 +128,16 @@ class UserListView(StaffRequiredMixin, ListView):
     context_object_name = 'users'
     paginate_by = 20
     def get_queryset(self):
-        queryset = super().get_queryset().order_by('username')
+        queryset = super().get_queryset().select_related('profile__militar').order_by('username')
         query = self.request.GET.get('q')
         if query:
-            queryset = queryset.filter(Q(username__icontains=query) | Q(first_name__icontains=query) | Q(last_name__icontains=query) | Q(email__icontains=query))
+            queryset = queryset.filter(
+                Q(username__icontains=query) |
+                Q(first_name__icontains=query) |
+                Q(last_name__icontains=query) |
+                Q(email__icontains=query) |
+                Q(profile__militar__nome_guerra__icontains=query)
+            ).distinct()
         return queryset
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -232,17 +193,44 @@ class GroupListView(StaffRequiredMixin, ListView):
     model = Group
     template_name = 'informatica/group_list.html'
     context_object_name = 'groups'
-    paginate_by = 20
+    paginate_by = 9999  # agrupamos manualmente, sem paginação por página
     def get_queryset(self):
-        queryset = super().get_queryset().order_by('name')
+        queryset = super().get_queryset().select_related('secao_profile').order_by('name')
         query = self.request.GET.get('q')
-        if query: queryset = queryset.filter(name__icontains=query)
+        if query:
+            queryset = queryset.filter(name__icontains=query)
         return queryset
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = "Gerenciar Grupos"
         context['search_query'] = self.request.GET.get('q', '')
+        context['secao_ativa'] = self.request.GET.get('secao', 'todas')
+        context['secao_choices'] = SECAO_CHOICES
+        # Agrupa grupos por seção
+        from collections import defaultdict
+        grupos_por_secao = defaultdict(list)
+        for g in context['groups']:
+            secao = getattr(g.secao_profile, 'secao', 'geral') if hasattr(g, 'secao_profile') else 'geral'
+            grupos_por_secao[secao].append(g)
+        # Garante que todas as seções com grupos apareçam, na ordem de SECAO_CHOICES
+        secao_labels = dict(SECAO_CHOICES)
+        context['grupos_por_secao'] = [
+            {'key': key, 'label': label, 'groups': grupos_por_secao.get(key, [])}
+            for key, label in SECAO_CHOICES
+            if grupos_por_secao.get(key)
+        ]
         return context
+
+def _get_perms_por_app():
+    from django.contrib.auth.models import Permission
+    from collections import defaultdict
+    agrupado = defaultdict(lambda: {'label': '', 'perms': []})
+    for perm in Permission.objects.select_related('content_type').order_by(
+            'content_type__app_label', 'content_type__model', 'codename'):
+        app = perm.content_type.app_label
+        agrupado[app]['label'] = app.replace('_', ' ').title()
+        agrupado[app]['perms'].append({'id': perm.pk, 'name': perm.name, 'codename': perm.codename})
+    return dict(agrupado)
 
 class GroupCreateView(StaffRequiredMixin, CreateView):
     model = Group
@@ -250,34 +238,52 @@ class GroupCreateView(StaffRequiredMixin, CreateView):
     template_name = 'informatica/group_form.html'
     success_url = reverse_lazy('informatica:group_list')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        secao = self.request.POST.get('secao', 'geral')
+        GroupProfile.objects.update_or_create(group=self.object, defaults={'secao': secao})
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['page_title'] = "Novo Grupo"
+        context['perms_por_app'] = _get_perms_por_app()
+        context['selected_perm_ids'] = []
+        context['secao_choices'] = SECAO_CHOICES
+        context['secao_atual'] = 'geral'
+        return context
+
 class GroupUpdateView(StaffRequiredMixin, UpdateView):
     model = Group
     form_class = GroupForm
     template_name = 'informatica/group_form.html'
     success_url = reverse_lazy('informatica:group_list')
 
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        secao = self.request.POST.get('secao', 'geral')
+        GroupProfile.objects.update_or_create(group=self.object, defaults={'secao': secao})
+        return response
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        context['page_title'] = f"Editar Grupo: {self.object.name}"
+        context['perms_por_app'] = _get_perms_por_app()
+        context['selected_perm_ids'] = list(self.object.permissions.values_list('id', flat=True))
+        context['secao_choices'] = SECAO_CHOICES
+        profile = GroupProfile.objects.filter(group=self.object).first()
+        context['secao_atual'] = profile.secao if profile else 'geral'
+        return context
+
 class GroupDeleteView(StaffRequiredMixin, DeleteView):
     model = Group
     template_name = 'informatica/group_confirm_delete.html'
     success_url = reverse_lazy('informatica:group_list')
 
-class UserProfileListView(StaffRequiredMixin, ListView):
-    model = UserProfile
-    template_name = 'informatica/userprofile_list.html'
-    context_object_name = 'profiles'
-    paginate_by = 20
+    def form_valid(self, form):
+        GroupProfile.objects.filter(group=self.object).delete()
+        return super().form_valid(form)
 
-class UserProfileUpdateView(StaffRequiredMixin, UpdateView):
-    model = UserProfile
-    form_class = UserProfileForm
-    template_name = 'informatica/userprofile_form.html'
-    success_url = reverse_lazy('informatica:userprofile_list')
-
-class PATDListView(StaffRequiredMixin, ListView):
-    model = PATD
-    template_name = 'informatica/patd_list.html'
-    context_object_name = 'patds'
-    paginate_by = 20
 
 class ConfiguracaoUpdateView(StaffRequiredMixin, UpdateView):
     model = Configuracao
@@ -317,8 +323,10 @@ URL_MONITOR = "http://10.52.18.29:5000"
 LOG_FILE_PATH = "/logs_do_host/backup_sender.log"
 
 @login_required
-@permission_required('informatica.view_configuracao', raise_exception=True)
 def monitoramento_backup(request):
+    if not request.user.is_staff:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
     context = {}
     try:
         response = requests.get(URL_MONITOR, timeout=5)
@@ -335,8 +343,10 @@ def monitoramento_backup(request):
     return render(request, 'informatica/monitoramento.html', context)
 
 @login_required
-@permission_required('informatica.view_configuracao', raise_exception=True)
 def visualizar_logs_backup(request):
+    if not request.user.is_staff:
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
     logs = []
     try:
         if os.path.exists(LOG_FILE_PATH):

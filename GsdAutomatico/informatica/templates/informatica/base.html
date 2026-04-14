@@ -1,204 +1,520 @@
 {% load static %}
-{% load auth_extras %} {# Mantém a possibilidade de usar filtros de grupo, se necessário #}
+{% load auth_extras %}
 
 <!DOCTYPE html>
 <html lang="pt-br">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>{% block title %}Dashboard Informática{% endblock %}</title>
+    <title>{% block title %}Seção de Informática{% endblock %}</title>
 
-    {# Bibliotecas para ícones (FontAwesome opcional, já que estamos usando SVG, mas bom garantir) #}
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <!-- Adicionando Bootstrap para padronizar fontes e design com a Ouvidoria -->
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* ── Design Tokens ─────────────────────────────────────────── */
+        :root {
+            --accent:          #3b82f6;
+            --accent-glow:     rgba(59,130,246,0.25);
+            --accent-dim:      rgba(59,130,246,0.12);
+            --danger:          #ef4444;
+            --danger-dim:      rgba(239,68,68,0.12);
+            --success:         #22c55e;
+            --success-dim:     rgba(34,197,94,0.12);
+            --warning:         #f59e0b;
+
+            --bg-page:         #f0f4f8;
+            --bg-card:         #ffffff;
+            --bg-card-header:  #1e293b;
+            --bg-sidebar:      #0f172a;
+            --bg-sidebar-item: rgba(255,255,255,0.05);
+            --bg-input:        #ffffff;
+            --border:          rgba(0,0,0,0.07);
+            --border-strong:   rgba(0,0,0,0.13);
+            --text-primary:    #0f172a;
+            --text-secondary:  #64748b;
+            --text-muted:      #94a3b8;
+            --badge-bg:        #e2e8f0;
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --divider:         rgba(0,0,0,0.06);
+
+            /* Aliases para compatibilidade com templates filhos */
+            --bg-content:      var(--bg-card);
+            --bg-main:         var(--bg-page);
+            --border-color:    var(--border-strong);
+            --accent-color:    var(--accent);
+            --success-color:   var(--success);
+            --danger-color:    var(--danger);
+            --text-inverse:    #ffffff;
+
+            --sidebar-w: 240px;
+            --header-h:  56px;
+        }
+
+        body.dark-theme {
+            --bg-page:         #0d1117;
+            --bg-card:         #161b22;
+            --bg-card-header:  #0d1117;
+            --bg-sidebar:      #010409;
+            --bg-sidebar-item: rgba(255,255,255,0.06);
+            --bg-input:        #0d1117;
+            --border:          rgba(255,255,255,0.06);
+            --border-strong:   rgba(255,255,255,0.11);
+            --text-primary:    #e6edf3;
+            --text-secondary:  #8b949e;
+            --text-muted:      #6e7681;
+            --badge-bg:        rgba(255,255,255,0.08);
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+            --divider:         rgba(255,255,255,0.06);
+
+            --bg-content:      var(--bg-card);
+            --bg-main:         var(--bg-page);
+            --border-color:    var(--border-strong);
+        }
+
+        /* ── Reset & Base ──────────────────────────────────────────── */
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+            overflow-x: hidden;
+        }
+
+        /* ── Sidebar ───────────────────────────────────────────────── */
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: var(--sidebar-w);
+            height: 100vh;
+            background: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+            border-right: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 1.1rem 1.25rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand-icon {
+            width: 32px; height: 32px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand-name {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #e6edf3;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+
+        .sidebar-section-label {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #4b5563;
+            padding: 1rem 1.25rem 0.35rem;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem 0.65rem 1rem;
+            scrollbar-width: none;
+        }
+        .sidebar-nav::-webkit-scrollbar { display: none; }
+
+        .sidebar-nav ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 0.85rem;
+            border-radius: 8px;
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.16s;
+            position: relative;
+        }
+        .sidebar-nav a:hover {
+            background: var(--bg-sidebar-item);
+            color: #e6edf3;
+        }
+        .sidebar-nav a.active {
+            background: rgba(59,130,246,0.18);
+            color: #60a5fa;
+        }
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 20%; bottom: 20%;
+            width: 3px;
+            background: var(--accent);
+            border-radius: 0 3px 3px 0;
+        }
+        .sidebar-nav a svg { flex-shrink: 0; opacity: 0.75; }
+        .sidebar-nav a.active svg, .sidebar-nav a:hover svg { opacity: 1; }
+
+        .sidebar-footer {
+            padding: 0.75rem 0.65rem;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            flex-shrink: 0;
+        }
+        .sidebar-footer a {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 0.85rem;
+            border-radius: 8px;
+            color: #6e7681;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.16s;
+        }
+        .sidebar-footer a:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+
+        /* ── Header ─────────────────────────────────────────────────── */
+        .main-header {
+            position: fixed;
+            top: 0;
+            left: var(--sidebar-w);
+            right: 0;
+            height: var(--header-h);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-strong);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            z-index: 900;
+            transition: background 0.3s, border-color 0.3s, left 0.28s;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 0.75rem; }
+
+        .mobile-nav-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.35rem;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+        .mobile-nav-toggle:hover { background: var(--badge-bg); }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+        }
+
+        .header-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 34px; height: 34px;
+            background: none;
+            border: 1px solid var(--border-strong);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.16s;
+            flex-shrink: 0;
+        }
+        .header-btn:hover { background: var(--badge-bg); color: var(--text-primary); }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 0.3rem 0.75rem 0.3rem 0.4rem;
+            background: var(--badge-bg);
+            border-radius: 20px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+            font-family: 'Inter', sans-serif;
+        }
+
+        .user-avatar {
+            width: 24px; height: 24px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff;
+            font-size: 0.65rem;
+            font-weight: 700;
+            font-family: 'Rajdhani', sans-serif;
+            flex-shrink: 0;
+        }
+
+        /* ── Main Layout ─────────────────────────────────────────────── */
+        .main-wrapper {
+            margin-left: var(--sidebar-w);
+            padding-top: var(--header-h);
+            min-height: 100vh;
+            transition: margin-left 0.28s;
+        }
+
+        .main-container {
+            padding: 2rem 1.75rem 4rem;
+        }
+
+        /* ── Alerts ──────────────────────────────────────────────────── */
+        .alert {
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+        }
+        .alert-success  { background: var(--success-dim); color: var(--success);  border-color: rgba(34,197,94,0.25); }
+        .alert-error,
+        .alert-danger   { background: var(--danger-dim);  color: var(--danger);   border-color: rgba(239,68,68,0.25); }
+        .alert-warning  { background: rgba(245,158,11,.1); color: var(--warning); border-color: rgba(245,158,11,.25); }
+        .alert-info     { background: var(--accent-dim);  color: var(--accent);   border-color: rgba(59,130,246,0.25); }
+
+        /* ── Scrollbar global ────────────────────────────────────────── */
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+        /* ── Mobile ──────────────────────────────────────────────────── */
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.active { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.4); }
+            .main-wrapper { margin-left: 0; }
+            .main-header { left: 0; }
+            .mobile-nav-toggle { display: flex; }
+            .main-container { padding: 1.25rem 1rem 3rem; }
+            .user-chip span { display: none; }
+        }
+    </style>
+
     {% block extra_head %}{% endblock %}
 </head>
+
 <body>
 <script>
-    // Previne o flash de tela branca (clarão) ao carregar a página no modo escuro
     (function() {
-        var theme = localStorage.getItem('theme');
-        if (!theme) {
-            theme = window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme';
-        }
-        document.body.classList.add(theme);
+        var t = localStorage.getItem('theme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
+        document.body.classList.add(t);
     })();
 </script>
-    <div class="sidebar" id="sidebar">
-        <div class="sidebar-content">
-            <h2>Informática</h2>
-            <ul>
-                {# --- Links Específicos da Informática --- #}
-                <li>
-                    <a href="{% url 'informatica:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
-                        {# Ícone Dashboard #}
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25a2.25 2.25 0 01-2.25-2.25v-2.25z" />
-                        </svg>
-                        <span>Dashboard</span>
-                    </a>
-                </li>
-                 <li>
-                    <a href="{% url 'informatica:user_list' %}" class="{% if 'user_' in request.resolver_match.url_name %}active{% endif %}">
-                         {# Ícone Utilizadores #}
-                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20"> <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-2.305c.394-.434.394-1.135 0-1.569a9.337 9.337 0 00-4.121-2.305 9.38 9.38 0 00-2.625.372M15 19.128v-3.857M15 19.128c-1.58 0-3.097-.63-4.242-1.757M15 19.128c.143.01.287.017.432.017h.008M15 19.128c-1.58 0-3.097-.63-4.242-1.757m0 0a9.38 9.38 0 01-2.625-.372 9.337 9.337 0 01-4.121 2.305c-.394.434-.394 1.135 0 1.569a9.337 9.337 0 014.121 2.305 9.38 9.38 0 012.625-.372m0 0v3.857m0 0c1.58 0 3.097.63 4.242 1.757" /> </svg>
-                        <span>Utilizadores</span>
-                    </a>
-                </li>
-                 <li>
-                    <a href="{% url 'informatica:group_list' %}" class="{% if 'group_' in request.resolver_match.url_name %}active{% endif %}">
-                         {# Ícone Grupos #}
-                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20"> <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /> </svg>
-                        <span>Grupos</span>
-                    </a>
-                </li>
-                
-                {# --- LINK GESTÃO DE MATERIAIS --- #}
-                <li>
-                    <a href="{% url 'informatica:gestao_materiais' %}" class="{% if 'gestao_materiais' in request.resolver_match.url_name %}active{% endif %}">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
-                          <path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5m8.25 3v6.75m0 0l-3-3m3 3l3-3M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" />
-                        </svg>
-                        <span>Materiais & Cautelas</span>
-                    </a>
-                </li>
 
-                {# --- NOVOS LINKS DE BACKUP --- #}
-                <li>
-                    <a href="{% url 'informatica:monitoramento_backup' %}" class="{% if 'monitoramento' in request.resolver_match.url_name %}active{% endif %}">
-                        {# Ícone Monitor/Server #}
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-16.5-3a3 3 0 013-3h13.5a3 3 0 013 3m-19.5 0a4.5 4.5 0 01.9-2.25l.075-.113a4.5 4.5 0 012.775-1.888 3.75 3.75 0 012.25 0 4.5 4.5 0 012.775 1.888l.075.113a4.5 4.5 0 01.9 2.25v3.75" />
-                        </svg>
-                        <span>Monitor GSD</span>
-                    </a>
-                </li>
-                <li>
-                    <a href="{% url 'informatica:logs_backup' %}" class="{% if 'logs_backup' in request.resolver_match.url_name %}active{% endif %}">
-                        {# Ícone Logs/Terminal #}
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 7.5l3 2.25-3 2.25m4.5 0h3m-9 8.25h13.5A2.25 2.25 0 0021 18V6a2.25 2.25 0 00-2.25-2.25H5.25A2.25 2.25 0 003 6v12a2.25 2.25 0 002.25 2.25z" />
-                        </svg>
-                        <span>Logs Backup</span>
-                    </a>
-                </li>
-                {# ---------------------------- #}
-
-            </ul>
+<!-- ── Sidebar ── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="#fff" viewBox="0 0 16 16">
+                <path d="M0 4s0-2 2-2h12s2 0 2 2v6s0 2-2 2h-4c0 .667.083 1.167.25 1.5H11a.5.5 0 0 1 0 1H5a.5.5 0 0 1 0-1h.75c.167-.333.25-.833.25-1.5H2s-2 0-2-2V4zm1.398-.855a.758.758 0 0 0-.254.302A1.46 1.46 0 0 0 1 4.01V10c0 .325.078.502.145.602.07.105.17.188.302.254a1.464 1.464 0 0 0 .538.143L2.01 11H14c.325 0 .502-.078.602-.145a.758.758 0 0 0 .254-.302 1.464 1.464 0 0 0 .143-.538L15 9.99V4c0-.325-.078-.502-.145-.602a.757.757 0 0 0-.302-.254A1.46 1.46 0 0 0 13.99 3H2c-.325 0-.502.078-.602.145z"/>
+            </svg>
         </div>
-        {# --- Footer da Sidebar --- #}
-        <div class="sidebar-footer">
-            <a href="{% url 'login:logout' %}">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
+        <span class="sidebar-brand-name">Informática</span>
+    </div>
+
+    <nav class="sidebar-nav">
+        <ul>
+            <li>
+                <a href="{% url 'informatica:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 4a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-1 0V4.5A.5.5 0 0 1 8 4zM3.732 5.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707zM2 10a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 10zm9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5zm.754-4.246a.389.389 0 0 0-.527-.02L7.547 9.31a.91.91 0 1 0 1.302 1.258l3.434-4.297a.389.389 0 0 0-.029-.518z"/>
+                        <path fill-rule="evenodd" d="M0 10a8 8 0 1 1 15.547 2.661c-.442 1.253-1.845 1.602-2.932 1.25C11.309 13.488 9.475 13 8 13c-1.474 0-3.31.488-4.615.911-1.087.352-2.49.003-2.932-1.25A7.988 7.988 0 0 1 0 10zm8-7a7 7 0 0 0-6.603 9.329c.203.575.923.876 1.68.63C4.397 12.533 6.358 12 8 12s3.604.532 4.923.96c.757.245 1.477-.056 1.68-.631A7 7 0 0 0 8 3z"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+
+            <li>
+                <a href="{% url 'informatica:user_list' %}" class="{% if 'user_' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+                    </svg>
+                    <span>Utilizadores</span>
+                </a>
+            </li>
+
+            <li>
+                <a href="{% url 'informatica:group_list' %}" class="{% if 'group_' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1Zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm7 6s1 0 1-1-1-4-4-4c-.392 0-.77.035-1.132.1A5.011 5.011 0 0 1 11 13v1h2ZM13.5 8a2.5 2.5 0 1 0-1.668-4.395A4.993 4.993 0 0 1 13.5 8Z"/>
+                    </svg>
+                    <span>Grupos</span>
+                </a>
+            </li>
+
+            <li>
+                <a href="{% url 'informatica:gestao_materiais' %}" class="{% if 'gestao_materiais' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M0 1.5A.5.5 0 0 1 .5 1H2a.5.5 0 0 1 .485.379L2.89 3H14.5a.5.5 0 0 1 .491.592l-1.5 8A.5.5 0 0 1 13 12H4a.5.5 0 0 1-.491-.408L2.01 3.607 1.61 2H.5a.5.5 0 0 1-.5-.5zM3.102 4l1.313 7h8.17l1.313-7H3.102zM5 12a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm7 0a2 2 0 1 0 0 4 2 2 0 0 0 0-4zm-7 1a1 1 0 1 1 0 2 1 1 0 0 1 0-2zm7 0a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                    </svg>
+                    <span>Materiais & Cautelas</span>
+                </a>
+            </li>
+
+            <li>
+                <a href="{% url 'informatica:monitoramento_backup' %}" class="{% if 'monitoramento' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M0 4s0-2 2-2h12s2 0 2 2v6s0 2-2 2h-4q0 1 .25 1.5H11a.5.5 0 0 1 0 1H5a.5.5 0 0 1 0-1h.75Q6 13 6 12H2s-2 0-2-2zm1.398-.855A1.46 1.46 0 0 0 1 4.01V10c0 .325.078.502.145.602.07.105.17.188.302.254a1.5 1.5 0 0 0 .538.143L2.01 11H14c.324 0 .502-.078.602-.145a.758.758 0 0 0 .254-.302 1.464 1.464 0 0 0 .143-.538L15 9.99V4c0-.325-.078-.502-.145-.602a.757.757 0 0 0-.302-.254A1.46 1.46 0 0 0 13.99 3H2c-.324 0-.502.078-.602.145z"/>
+                    </svg>
+                    <span>Monitor GSD</span>
+                </a>
+            </li>
+
+            <li>
+                <a href="{% url 'informatica:logs_backup' %}" class="{% if 'logs_backup' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M14 1a1 1 0 0 1 1 1v12a1 1 0 0 1-1 1H2a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                        <path d="M6.854 4.646a.5.5 0 0 1 0 .708L4.207 8l2.647 2.646a.5.5 0 0 1-.708.708l-3-3a.5.5 0 0 1 0-.708l3-3a.5.5 0 0 1 .708 0zm2.292 0a.5.5 0 0 0 0 .708L11.793 8l-2.647 2.646a.5.5 0 0 0 .708.708l3-3a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708 0z"/>
+                    </svg>
+                    <span>Logs Backup</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+        <a href="{% url 'login:logout' %}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+            </svg>
+            <span>Sair</span>
+        </a>
+    </div>
+</aside>
+
+<!-- ── Main ── -->
+<div class="main-wrapper">
+
+    <header class="main-header">
+        <div class="header-left">
+            <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Menu">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
                 </svg>
-                <span>Sair</span>
-            </a>
-        </div>
-    </div>
-
-    {# --- Estrutura Principal da Página --- #}
-    <div class="main-wrapper">
-        <header class="main-header">
-            {# Botão Hamburguer para Mobile #}
-            <button class="mobile-nav-toggle" id="mobile-nav-toggle">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
             </button>
-            <div class="actions">
-                <a href="{% url 'login:go_home' %}" class="theme-switcher" title="Página Inicial" style="margin-right: 10px;"> {# Reutiliza a classe theme-switcher para estilo similar ou crie uma nova #}
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
-                      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                    </svg>
-                </a>
-                {# Informação do Utilizador Logado #}
-                {% if user.is_authenticated %}
-                    <span class="user-info">
-                        Olá, <strong>{{ user.username }}</strong>
-                    </span>
-                {% endif %}
-
-                <a href="{% url 'comunicacoes_global' %}" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; color: inherit; text-decoration: none; display: flex; align-items: center; justify-content: center;">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="20" height="20">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                    </svg>
-                </a>
-                {# Botão Tema #}
-                <button class="theme-switcher" id="theme-toggle" title="Alterar tema">
-                    <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
-                    <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
-                </button>
-            </div>
-        </header>
-        <div class="main-container">
-            <div class="content-column">
-                {# Mensagens Flash #}
-                {% if messages %}
-                    {% for message in messages %}
-                        <div class="alert alert-{{ message.tags|lower }}">
-                            {{ message }}
-                        </div>
-                    {% endfor %}
-                {% endif %}
-                {# Bloco onde o conteúdo específico da página será inserido #}
-                {% block content %}{% endblock %}
-            </div>
+            <!-- Breadcrumb dinâmico via bloco -->
+            <span style="font-family:'Rajdhani',sans-serif;font-size:0.72rem;font-weight:700;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);">
+                Seção de Informática
+            </span>
         </div>
+
+        <div class="header-right">
+            <!-- Home -->
+            <a href="{% url 'login:go_home' %}" class="header-btn" title="Página Inicial">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5ZM13 7.207V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V7.207l5-5 5 5Z"/>
+                </svg>
+            </a>
+
+            <!-- Comunicações -->
+            <a href="{% url 'comunicacoes_global' %}" class="header-btn" title="Comunicações">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/>
+                </svg>
+            </a>
+
+            <!-- Tema -->
+            <button class="header-btn" id="theme-toggle" title="Alternar tema">
+                <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>
+                </svg>
+                <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="display:none;">
+                    <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+                </svg>
+            </button>
+
+            <!-- Usuário logado -->
+            {% if user.is_authenticated %}
+            <div class="user-chip">
+                <div class="user-avatar">{{ user.username|slice:":2"|upper }}</div>
+                <span>{{ user.username }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="main-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|lower }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
     </div>
+</div>
 
-    {# --- Scripts JS --- #}
-    <script>
-        document.addEventListener('DOMContentLoaded', function() {
-            // --- Variáveis Globais ---
-            const isSuperuser = {{ request.user.is_superuser|yesno:"true,false" }};
-            const body = document.body;
-            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : null;
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const body = document.body;
 
-            // --- Lógica do Tema ---
-             const themeToggle = document.getElementById('theme-toggle');
-            const sunIcon = document.getElementById('theme-icon-sun');
-            const moonIcon = document.getElementById('theme-icon-moon');
+        // ── Tema ──
+        const themeToggle = document.getElementById('theme-toggle');
+        const sunIcon     = document.getElementById('theme-icon-sun');
+        const moonIcon    = document.getElementById('theme-icon-moon');
 
-            function applyTheme(theme) {
-                body.className = ''; // Limpa classes anteriores
-                body.classList.add(theme);
-                localStorage.setItem('theme', theme);
-                updateIcon(theme);
+        function applyTheme(theme) {
+            body.className = theme;
+            localStorage.setItem('theme', theme);
+            if (sunIcon && moonIcon) {
+                sunIcon.style.display  = theme === 'dark-theme' ? 'none'  : 'block';
+                moonIcon.style.display = theme === 'dark-theme' ? 'block' : 'none';
             }
-            function updateIcon(theme) {
-                if (sunIcon && moonIcon) {
-                    sunIcon.style.display = (theme === 'dark-theme') ? 'none' : 'block';
-                    moonIcon.style.display = (theme === 'dark-theme') ? 'block' : 'none';
-                }
-            }
-            const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
-            applyTheme(savedTheme);
+        }
 
-            if (themeToggle) {
-                themeToggle.addEventListener('click', () => {
-                    let newTheme = body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme';
-                    applyTheme(newTheme);
-                });
-            }
+        const saved = localStorage.getItem('theme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
+        applyTheme(saved);
 
-            // --- Lógica da Sidebar Mobile ---
-            const mobileNavToggle = document.getElementById('mobile-nav-toggle');
-            const sidebar = document.getElementById('sidebar');
-            if (mobileNavToggle && sidebar) {
-                mobileNavToggle.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    sidebar.classList.toggle('active');
-                });
-                document.addEventListener('click', (e) => {
-                    if (sidebar.classList.contains('active') && !sidebar.contains(e.target) && !mobileNavToggle.contains(e.target)) {
-                        sidebar.classList.remove('active');
-                    }
-                });
-            }
-        });
-    </script>
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    {% block extra_js %}{% endblock %}
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                applyTheme(body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme');
+            });
+        }
+
+        // ── Sidebar Mobile ──
+        const toggle  = document.getElementById('mobile-nav-toggle');
+        const sidebar = document.getElementById('sidebar');
+        if (toggle && sidebar) {
+            toggle.addEventListener('click', e => { e.stopPropagation(); sidebar.classList.toggle('active'); });
+            document.addEventListener('click', e => {
+                if (sidebar.classList.contains('active') && !sidebar.contains(e.target) && !toggle.contains(e.target))
+                    sidebar.classList.remove('active');
+            });
+        }
+    });
+</script>
+{% block extra_js %}{% endblock %}
 </body>
 </html>

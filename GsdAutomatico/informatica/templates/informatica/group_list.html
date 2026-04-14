@@ -2,54 +2,293 @@
 
 {% block title %}{{ page_title }}{% endblock %}
 
+{% block extra_head %}
+<style>
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 1.5rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+    .page-title-h {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: clamp(1.5rem, 3vw, 2rem);
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 0.2rem;
+    }
+    .page-sub { font-size: 0.85rem; color: var(--text-secondary); margin: 0; }
+
+    .header-actions { display: flex; gap: 0.65rem; align-items: center; flex-wrap: wrap; }
+
+    .search-wrap {
+        display: flex; align-items: center;
+        background: var(--bg-card); border: 1px solid var(--border-strong);
+        border-radius: 8px; overflow: hidden;
+        transition: box-shadow 0.15s, border-color 0.15s;
+    }
+    .search-wrap:focus-within { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .search-wrap input {
+        border: none; background: transparent; padding: 0.5rem 0.85rem;
+        color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 0.875rem;
+        outline: none; width: 220px;
+    }
+    .search-wrap input::placeholder { color: var(--text-muted); }
+    .search-wrap button {
+        background: transparent; border: none; padding: 0.5rem 0.75rem;
+        color: var(--text-muted); cursor: pointer; transition: color 0.15s;
+    }
+    .search-wrap button:hover { color: var(--accent); }
+
+    .btn-new {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        padding: 0.5rem 1.1rem;
+        background: var(--accent); color: #fff; border: none;
+        border-radius: 8px; font-family: 'Inter', sans-serif;
+        font-size: 0.875rem; font-weight: 600; text-decoration: none;
+        transition: background 0.15s, transform 0.1s; white-space: nowrap;
+    }
+    .btn-new:hover { background: #2563eb; color: #fff; transform: translateY(-1px); }
+
+    /* ── Tabs de seção ── */
+    .secao-tabs {
+        display: flex;
+        gap: 0.35rem;
+        flex-wrap: wrap;
+        margin-bottom: 1.5rem;
+        border-bottom: 1px solid var(--border-strong);
+        padding-bottom: 0;
+    }
+    .secao-tab {
+        display: inline-flex; align-items: center; gap: 0.4rem;
+        padding: 0.5rem 1rem;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem; font-weight: 700;
+        letter-spacing: 0.04em; text-transform: uppercase;
+        color: var(--text-secondary);
+        border: 1px solid transparent;
+        border-bottom: none;
+        border-radius: 8px 8px 0 0;
+        text-decoration: none;
+        transition: color 0.15s, background 0.15s;
+        position: relative; bottom: -1px;
+        cursor: pointer;
+    }
+    .secao-tab:hover { color: var(--text-primary); background: var(--badge-bg); }
+    .secao-tab.active {
+        color: var(--accent);
+        background: var(--bg-card);
+        border-color: var(--border-strong);
+        border-bottom-color: var(--bg-card);
+    }
+    .secao-tab .tab-count {
+        font-size: 0.68rem; font-weight: 700;
+        background: var(--accent-dim); color: var(--accent);
+        border-radius: 10px; padding: 1px 6px;
+        font-family: 'Inter', sans-serif;
+    }
+    .secao-tab.active .tab-count { background: var(--accent); color: #fff; }
+
+    /* ── Section block ── */
+    .secao-block { display: none; }
+    .secao-block.active { display: block; }
+
+    .secao-block-header {
+        display: flex; align-items: center; gap: 0.6rem;
+        margin-bottom: 1rem;
+    }
+    .secao-block-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1rem; font-weight: 700;
+        letter-spacing: 0.06em; text-transform: uppercase;
+        color: var(--text-primary); margin: 0;
+    }
+    .secao-divider {
+        flex: 1; height: 1px; background: var(--border-strong);
+    }
+
+    /* ── Groups grid ── */
+    .groups-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+        gap: 1rem;
+        margin-bottom: 1.5rem;
+    }
+
+    .group-card {
+        background: var(--bg-card); border: 1px solid var(--border-strong);
+        border-radius: 12px; overflow: hidden;
+        box-shadow: var(--shadow-card);
+        transition: transform 0.15s, box-shadow 0.15s;
+    }
+    .group-card:hover { transform: translateY(-2px); box-shadow: 0 4px 20px rgba(0,0,0,0.1); }
+
+    .group-card-header {
+        background: var(--bg-card-header); padding: 0.9rem 1.1rem;
+        display: flex; align-items: center; gap: 0.6rem;
+    }
+    .group-icon {
+        width: 28px; height: 28px;
+        background: rgba(59,130,246,0.2); border-radius: 7px;
+        display: flex; align-items: center; justify-content: center;
+        color: #60a5fa; flex-shrink: 0;
+    }
+    .group-name {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.95rem; font-weight: 700;
+        color: #e6edf3; letter-spacing: 0.04em;
+        flex: 1; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+    }
+    .group-perm-count {
+        font-size: 0.7rem; font-weight: 700;
+        background: rgba(59,130,246,0.25); color: #93c5fd;
+        border-radius: 12px; padding: 2px 8px;
+        font-family: 'Inter', sans-serif; flex-shrink: 0;
+    }
+
+    .group-card-body { padding: 0.9rem 1.1rem; }
+    .group-perms-preview {
+        display: flex; flex-wrap: wrap; gap: 0.35rem;
+        min-height: 1.5rem; margin-bottom: 0.85rem;
+    }
+    .perm-chip {
+        font-size: 0.68rem; font-weight: 600;
+        font-family: 'Rajdhani', sans-serif;
+        letter-spacing: 0.04em; text-transform: uppercase;
+        background: var(--accent-dim); color: var(--accent);
+        border: 1px solid rgba(59,130,246,0.2);
+        border-radius: 5px; padding: 0.1rem 0.5rem;
+    }
+    .perm-chip-more { background: var(--badge-bg); color: var(--text-muted); border-color: transparent; }
+    .group-no-perms { font-size: 0.8rem; color: var(--text-muted); font-style: italic; }
+
+    .group-card-actions {
+        display: flex; gap: 0.5rem;
+        padding-top: 0.75rem; border-top: 1px solid var(--divider);
+    }
+    .btn-card-action {
+        flex: 1; display: inline-flex; align-items: center; justify-content: center; gap: 0.35rem;
+        padding: 0.45rem 0; border-radius: 7px;
+        font-family: 'Inter', sans-serif; font-size: 0.8rem; font-weight: 600;
+        text-decoration: none; border: 1px solid var(--border-strong);
+        background: transparent; color: var(--text-secondary);
+        cursor: pointer; transition: all 0.15s;
+    }
+    .btn-card-action.edit:hover { background: var(--accent-dim); color: var(--accent); border-color: rgba(59,130,246,0.3); }
+    .btn-card-action.del:hover  { background: var(--danger-dim);  color: var(--danger);  border-color: rgba(239,68,68,0.3); }
+
+    .empty-state {
+        text-align: center; padding: 3rem 1rem; color: var(--text-muted);
+    }
+    .empty-state svg { margin-bottom: 1rem; opacity: 0.3; }
+    .empty-state p { font-size: 0.9rem; }
+</style>
+{% endblock %}
+
 {% block content %}
-<div class="table-header">
-    <h1>{{ page_title }}</h1>
-    <div class="actions">
-        <form method="get" class="search-form">
+<div class="page-header">
+    <div>
+        <h1 class="page-title-h">{{ page_title }}</h1>
+        <p class="page-sub">Gerencie os grupos de permissão organizados por seção.</p>
+    </div>
+    <div class="header-actions">
+        <form method="get" class="search-wrap">
+            {% if secao_ativa != 'todas' %}
+            <input type="hidden" name="secao" value="{{ secao_ativa }}">
+            {% endif %}
             <input type="text" name="q" placeholder="Pesquisar grupo..." value="{{ search_query }}">
-            <button type="submit" class="search-btn" title="Pesquisar">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+            <button type="submit" title="Pesquisar">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/>
+                </svg>
             </button>
         </form>
-        <a href="{% url 'informatica:group_add' %}" class="btn btn-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
-            Adicionar Grupo
+        <a href="{% url 'informatica:group_add' %}" class="btn-new">
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+            </svg>
+            Novo Grupo
         </a>
     </div>
 </div>
 
-<div class="table-responsive">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Nome do Grupo</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for group in groups %}
-            <tr>
-                <td>{{ group.name }}</td>
-                <td class="actions-cell">
-                    <a href="{% url 'informatica:group_edit' group.pk %}" class="btn btn-sm btn-edit">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-                        Editar
-                    </a>
-                    <a href="{% url 'informatica:group_delete' group.pk %}" class="btn btn-sm btn-delete">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
-                        Excluir
-                    </a>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="2" style="text-align: center; padding: 20px;">Nenhum grupo encontrado.</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+{% if grupos_por_secao %}
+
+<!-- Tabs -->
+<div class="secao-tabs">
+    <a class="secao-tab {% if secao_ativa == 'todas' %}active{% endif %}"
+       href="?q={{ search_query }}"
+       onclick="showSecao('todas'); return false;">
+        Todas
+        <span class="tab-count">{{ groups|length }}</span>
+    </a>
+    {% for bloco in grupos_por_secao %}
+    <a class="secao-tab {% if secao_ativa == bloco.key %}active{% endif %}"
+       href="?secao={{ bloco.key }}&q={{ search_query }}"
+       onclick="showSecao('{{ bloco.key }}'); return false;">
+        {{ bloco.label }}
+        <span class="tab-count">{{ bloco.groups|length }}</span>
+    </a>
+    {% endfor %}
 </div>
 
-{% include 'informatica/includes/pagination.html' %} {# Reutilizar paginação #}
+<!-- Bloco "Todas" -->
+<div class="secao-block {% if secao_ativa == 'todas' %}active{% endif %}" id="secao-todas">
+    {% for bloco in grupos_por_secao %}
+    <div class="secao-block-header">
+        <h3 class="secao-block-title">{{ bloco.label }}</h3>
+        <div class="secao-divider"></div>
+    </div>
+    <div class="groups-grid">
+        {% for group in bloco.groups %}
+        {% include 'informatica/includes/group_card.html' %}
+        {% endfor %}
+    </div>
+    {% endfor %}
+</div>
+
+<!-- Blocos individuais por seção -->
+{% for bloco in grupos_por_secao %}
+<div class="secao-block {% if secao_ativa == bloco.key %}active{% endif %}" id="secao-{{ bloco.key }}">
+    <div class="groups-grid">
+        {% for group in bloco.groups %}
+        {% include 'informatica/includes/group_card.html' %}
+        {% endfor %}
+    </div>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="empty-state">
+    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" viewBox="0 0 16 16">
+        <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+    </svg>
+    <p>Nenhum grupo encontrado{% if search_query %} para "<strong>{{ search_query }}</strong>"{% endif %}.</p>
+    <a href="{% url 'informatica:group_add' %}" class="btn-new" style="display:inline-flex;margin-top:1rem;">Criar primeiro grupo</a>
+</div>
+{% endif %}
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function showSecao(key) {
+    document.querySelectorAll('.secao-tab').forEach(t => t.classList.remove('active'));
+    document.querySelectorAll('.secao-block').forEach(b => b.classList.remove('active'));
+
+    const tab = document.querySelector(`.secao-tab[onclick*="'${key}'"]`);
+    if (tab) tab.classList.add('active');
+
+    const block = document.getElementById('secao-' + key);
+    if (block) block.classList.add('active');
+
+    // Atualiza URL sem recarregar
+    const url = new URL(window.location);
+    if (key === 'todas') url.searchParams.delete('secao');
+    else url.searchParams.set('secao', key);
+    window.history.replaceState({}, '', url);
+}
+</script>
 {% endblock %}

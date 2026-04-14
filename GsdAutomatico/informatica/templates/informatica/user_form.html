@@ -308,6 +308,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 li.innerHTML = `<strong>${militar.posto || ''} ${militar.nome_guerra || ''}</strong> - <span style="font-size: 0.85rem; color: var(--text-secondary);">${militar.nome_completo || ''}</span>`;
                                 li.dataset.id = militar.id;
                                 li.dataset.name = `${militar.posto || ''} ${militar.nome_guerra || ''}`.trim();
+                                li.dataset.nomeCompleto = militar.nome_completo || '';
                                 militarResultsList.appendChild(li);
                             });
                         } else {
@@ -333,6 +334,17 @@ document.addEventListener('DOMContentLoaded', function() {
                     hiddenMilitarInput.value = targetLi.dataset.id;
                     selectedMilitarName.innerHTML = `<i class="fas fa-check-circle me-1"></i> ${targetLi.dataset.name}`;
                     selectedMilitarName.classList.add('selected');
+
+                    // Auto-fill first/last name from nome_completo
+                    const nomeCompleto = (targetLi.dataset.nomeCompleto || '').trim();
+                    const firstNameInput = document.getElementById('id_first_name');
+                    const lastNameInput  = document.getElementById('id_last_name');
+                    if (firstNameInput && lastNameInput && nomeCompleto) {
+                        const partes = nomeCompleto.split(/\s+/);
+                        if (!firstNameInput.value) firstNameInput.value = partes[0] || '';
+                        if (!lastNameInput.value)  lastNameInput.value  = partes.length > 1 ? partes[partes.length - 1] : '';
+                    }
+
                     const event = new Event('change', { bubbles: true });
                     hiddenMilitarInput.dispatchEvent(event);
                     closeModal();
