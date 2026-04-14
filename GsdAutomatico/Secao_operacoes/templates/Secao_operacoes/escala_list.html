@@ -4,163 +4,1035 @@
 {% block title %}Escalas - Seção de Operações{% endblock %}
 
 {% block extra_head %}
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <style>
-    /* Dark theme overrides for escala_list */
+    :root {
+        --accent: #3b82f6;
+        --accent-glow: rgba(59, 130, 246, 0.25);
+        --accent-dim: rgba(59, 130, 246, 0.12);
+        --success: #22c55e;
+        --success-dim: rgba(34, 197, 94, 0.12);
+        --warning: #f59e0b;
+        --danger: #ef4444;
+
+        /* Light theme */
+        --bg-page: #f0f4f8;
+        --bg-card: #ffffff;
+        --bg-card-header: #1e293b;
+        --bg-input: #ffffff;
+        --bg-search-wrap: #ffffff;
+        --border: rgba(0, 0, 0, 0.08);
+        --border-strong: rgba(0, 0, 0, 0.15);
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+        --text-muted: #94a3b8;
+        --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+        --shadow-hover: 0 4px 12px rgba(0,0,0,0.1), 0 12px 40px rgba(0,0,0,0.08);
+        --divider: rgba(0,0,0,0.06);
+        --list-item-bg: #f8fafc;
+        --footer-bg: #f8fafc;
+        --badge-bg: #e2e8f0;
+        --badge-text: #475569;
+        --empty-bg: #f8fafc;
+    }
+
+    body.dark-theme {
+        --bg-page: #0d1117;
+        --bg-card: #161b22;
+        --bg-card-header: #0d1117;
+        --bg-input: #0d1117;
+        --bg-search-wrap: #161b22;
+        --border: rgba(255,255,255,0.06);
+        --border-strong: rgba(255,255,255,0.12);
+        --text-primary: #e6edf3;
+        --text-secondary: #8b949e;
+        --text-muted: #6e7681;
+        --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+        --shadow-hover: 0 4px 20px rgba(0,0,0,0.5), 0 0 0 1px rgba(59,130,246,0.2);
+        --divider: rgba(255,255,255,0.06);
+        --list-item-bg: rgba(255,255,255,0.03);
+        --footer-bg: rgba(255,255,255,0.02);
+        --badge-bg: rgba(255,255,255,0.08);
+        --badge-text: #8b949e;
+        --empty-bg: rgba(255,255,255,0.02);
+    }
+
+    /* Override Bootstrap globals */
     body.dark-theme .card,
     body.dark-theme .list-group-item,
     body.dark-theme .table,
-    body.dark-theme .bg-white {
-        background-color: var(--sidebar-bg, #212529) !important;
-        color: var(--text-primary, #fff) !important;
-        border-color: var(--border-color, #495057) !important;
-    }
-    body.dark-theme .input-group-text {
-        background-color: var(--sidebar-bg, #212529) !important;
-        color: var(--text-primary, #fff) !important;
-        border-color: var(--border-color, #495057) !important;
-    }
+    body.dark-theme .bg-white,
+    body.dark-theme .input-group-text,
     body.dark-theme .form-control {
-        background-color: var(--main-bg, #343a40) !important;
-        color: var(--text-primary, #fff) !important;
-        border-color: var(--border-color, #495057) !important;
+        background-color: unset !important;
+        color: unset !important;
+        border-color: unset !important;
     }
-    body.dark-theme .table-light,
-    body.dark-theme .table-light th {
-        background-color: #343a40 !important;
-        color: #fff !important;
-        border-color: #495057 !important;
+
+    /* ── Page Layout ── */
+    .escalas-page {
+        min-height: 100vh;
+        background: var(--bg-page);
+        padding: 2rem 2rem 4rem;
+        font-family: 'Inter', sans-serif;
+        transition: background 0.3s;
     }
-    /* Improve light theme contrast */
-    .card {
-        border: 1px solid rgba(0,0,0,0.125);
+
+    /* ── Page Header ── */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 2rem;
+        gap: 1rem;
+        flex-wrap: wrap;
     }
-    .list-group-item {
-        border-color: rgba(0,0,0,0.125);
+
+    .page-header-left .page-eyebrow {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.18em;
+        text-transform: uppercase;
+        color: var(--accent);
+        margin-bottom: 0.25rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .page-header-left .page-eyebrow::before {
+        content: '';
+        display: inline-block;
+        width: 18px;
+        height: 2px;
+        background: var(--accent);
+        border-radius: 2px;
+    }
+
+    .page-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: clamp(1.8rem, 4vw, 2.4rem);
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+        letter-spacing: 0.01em;
+        line-height: 1.1;
+    }
+
+    .btn-nova-escala {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.25rem;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-decoration: none;
+        letter-spacing: 0.01em;
+        transition: all 0.2s;
+        box-shadow: 0 0 0 0 var(--accent-glow);
+        white-space: nowrap;
+    }
+
+    .btn-nova-escala:hover {
+        background: #2563eb;
+        color: #fff;
+        box-shadow: 0 4px 20px var(--accent-glow);
+        transform: translateY(-1px);
+    }
+
+    .btn-nova-escala svg {
+        flex-shrink: 0;
+    }
+
+    /* ── Search ── */
+    .search-wrap {
+        background: var(--bg-search-wrap);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        padding: 1rem 1.25rem;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-card);
+    }
+
+    .search-inner {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .search-icon-wrap {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+        color: var(--text-muted);
+    }
+
+    .search-input {
+        flex: 1;
+        border: none;
+        outline: none;
+        background: transparent;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.9rem;
+        color: var(--text-primary);
+        padding: 0.25rem 0;
+    }
+
+    .search-input::placeholder { color: var(--text-muted); }
+
+    .btn-buscar {
+        padding: 0.45rem 1rem;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 7px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.18s, transform 0.15s;
+        white-space: nowrap;
+    }
+
+    .btn-buscar:hover { background: #2563eb; transform: translateY(-1px); }
+
+    .btn-limpar {
+        padding: 0.45rem 0.9rem;
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-strong);
+        border-radius: 7px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 500;
+        text-decoration: none;
+        transition: all 0.18s;
+        white-space: nowrap;
+    }
+
+    .btn-limpar:hover { background: var(--accent-dim); color: var(--accent); border-color: var(--accent); }
+
+    /* ── Search Results Table ── */
+    .search-results-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1.1rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        letter-spacing: 0.02em;
+    }
+
+    .search-results-title span {
+        color: var(--accent);
+    }
+
+    .results-table-wrap {
+        background: var(--bg-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-bottom: 2rem;
+        box-shadow: var(--shadow-card);
+    }
+
+    .results-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.875rem;
+    }
+
+    .results-table thead th {
+        background: var(--bg-card-header);
+        color: #8b949e;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.12em;
+        text-transform: uppercase;
+        padding: 0.85rem 1.25rem;
+        text-align: left;
+        border-bottom: 1px solid var(--border);
+    }
+
+    .results-table tbody tr {
+        border-bottom: 1px solid var(--divider);
+        transition: background 0.15s;
+    }
+
+    .results-table tbody tr:last-child { border-bottom: none; }
+
+    .results-table tbody tr:hover { background: var(--accent-dim); }
+
+    .results-table td {
+        padding: 0.9rem 1.25rem;
+        color: var(--text-primary);
+    }
+
+    .results-table td.militar-name { font-weight: 600; }
+
+    .alert-info-custom {
+        background: var(--accent-dim);
+        border: 1px solid rgba(59,130,246,0.2);
+        border-radius: 10px;
+        padding: 1rem 1.25rem;
+        color: var(--accent);
+        font-size: 0.875rem;
+        margin-bottom: 1.5rem;
+    }
+
+    /* ── Section Label ── */
+    .section-label {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1.25rem;
+    }
+
+    .section-label-text {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+    }
+
+    .section-label-line {
+        flex: 1;
+        height: 1px;
+        background: var(--divider);
+    }
+
+    /* ── Cards Grid ── */
+    .escalas-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 1.25rem;
+    }
+
+    /* ── Escala Card ── */
+    .escala-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        display: flex;
+        flex-direction: column;
+        transition: transform 0.22s cubic-bezier(0.34, 1.56, 0.64, 1),
+                    box-shadow 0.22s ease;
+        position: relative;
+    }
+
+    .escala-card:hover {
+        transform: translateY(-3px);
+        box-shadow: var(--shadow-hover);
+    }
+
+    .escala-card::before {
+        content: '';
+        position: absolute;
+        top: 0;
+        left: 0;
+        right: 0;
+        height: 3px;
+        background: linear-gradient(90deg, var(--accent), #60a5fa);
+        opacity: 0;
+        transition: opacity 0.22s;
+    }
+
+    .escala-card:hover::before { opacity: 1; }
+
+    /* Card Header */
+    .card-head {
+        background: var(--bg-card-header);
+        padding: 1rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .card-head-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: #e6edf3;
+        letter-spacing: 0.04em;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        margin: 0;
+        flex: 1;
+        min-width: 0;
+    }
+
+    .militar-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        background: var(--accent-dim);
+        border: 1px solid rgba(59,130,246,0.3);
+        color: var(--accent);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.78rem;
+        font-weight: 700;
+        letter-spacing: 0.06em;
+        padding: 0.2rem 0.55rem;
+        border-radius: 20px;
+        white-space: nowrap;
+        flex-shrink: 0;
+    }
+
+    /* Card Body */
+    .card-body-custom {
+        padding: 1.1rem 1.25rem;
+        flex: 1;
+        display: flex;
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    .card-descricao {
+        font-size: 0.82rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        min-height: 36px;
+        margin: 0;
+    }
+
+    /* Today's service */
+    .service-today {
+        background: var(--list-item-bg);
+        border: 1px solid var(--divider);
+        border-radius: 10px;
+        padding: 0.85rem 1rem;
+    }
+
+    .service-today-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.65rem;
+    }
+
+    .service-today-label {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.7rem;
+        font-weight: 700;
+        letter-spacing: 0.14em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    .service-today-label::before {
+        content: '';
+        display: inline-block;
+        width: 6px;
+        height: 6px;
+        background: var(--success);
+        border-radius: 50%;
+        box-shadow: 0 0 0 3px var(--success-dim);
+        animation: pulse-dot 2s infinite;
+    }
+
+    @keyframes pulse-dot {
+        0%, 100% { box-shadow: 0 0 0 3px var(--success-dim); }
+        50% { box-shadow: 0 0 0 5px rgba(34,197,94,0.05); }
+    }
+
+    .service-today-date {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        background: var(--badge-bg);
+        padding: 0.15rem 0.45rem;
+        border-radius: 5px;
+    }
+
+    .militares-list {
+        list-style: none;
+        margin: 0;
+        padding: 0;
+        display: flex;
+        flex-direction: column;
+        gap: 0.35rem;
+    }
+
+    .militar-item {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.85rem;
+        font-weight: 500;
+        color: var(--text-primary);
+    }
+
+    .militar-item-icon {
+        color: var(--success);
+        flex-shrink: 0;
+    }
+
+    .no-service {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        font-style: italic;
+        display: flex;
+        align-items: center;
+        gap: 0.4rem;
+    }
+
+    /* Card Footer */
+    .card-foot {
+        padding: 0.85rem 1.25rem;
+        background: var(--footer-bg);
+        border-top: 1px solid var(--divider);
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .btn-acessar {
+        flex: 1;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        padding: 0.55rem 0.75rem;
+        background: var(--accent-dim);
+        color: var(--accent);
+        border: 1px solid rgba(59,130,246,0.25);
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.18s;
+    }
+
+    .btn-acessar:hover {
+        background: var(--accent);
+        color: #fff;
+        border-color: var(--accent);
+    }
+
+    .btn-editar {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        text-decoration: none;
+        flex-shrink: 0;
+        transition: all 0.18s;
+    }
+
+    .btn-editar:hover {
+        background: var(--badge-bg);
+        color: var(--text-primary);
+        border-color: var(--border-strong);
+    }
+
+    .btn-icon-danger {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 34px;
+        height: 34px;
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        text-decoration: none;
+        flex-shrink: 0;
+        transition: all 0.18s;
+        cursor: pointer;
+        padding: 0;
+    }
+
+    .btn-icon-danger:hover {
+        background: rgba(239,68,68,0.1);
+        color: #ef4444;
+        border-color: rgba(239,68,68,0.35);
+    }
+
+    .status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.25rem;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.68rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 0.15rem 0.5rem;
+        border-radius: 20px;
+        flex-shrink: 0;
+    }
+
+    .status-ativo {
+        background: rgba(34,197,94,0.12);
+        color: #22c55e;
+        border: 1px solid rgba(34,197,94,0.25);
+    }
+
+    .status-inativo {
+        background: rgba(100,116,139,0.1);
+        color: var(--text-muted);
+        border: 1px solid rgba(100,116,139,0.2);
+    }
+
+    .escala-card.card-inativo {
+        opacity: 0.6;
+    }
+
+    .escala-card.card-inativo:hover {
+        opacity: 0.85;
+    }
+
+    /* Confirm overlay */
+    .delete-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+    }
+    .delete-overlay.active { opacity: 1; pointer-events: all; }
+    .delete-box {
+        background: var(--bg-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        padding: 1.75rem;
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        transform: translateY(8px);
+        transition: transform 0.2s;
+    }
+    .delete-overlay.active .delete-box { transform: translateY(0); }
+    .delete-box-icon {
+        width: 44px; height: 44px;
+        background: rgba(239,68,68,0.12);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        color: #ef4444;
+        margin-bottom: 1rem;
+    }
+    .delete-box-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+    .delete-box-text { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5; }
+    .delete-box-actions { display: flex; gap: 0.75rem; }
+    .btn-dbox-cancel {
+        flex: 1; padding: 0.65rem;
+        background: transparent; color: var(--text-secondary);
+        border: 1px solid var(--border-strong); border-radius: 8px;
+        font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 600;
+        cursor: pointer; transition: all 0.18s;
+    }
+    .btn-dbox-cancel:hover { background: var(--badge-bg); }
+    .btn-dbox-ok {
+        flex: 1; padding: 0.65rem;
+        background: #ef4444; color: #fff;
+        border: none; border-radius: 8px;
+        font-family: 'Inter', sans-serif; font-size: 0.875rem; font-weight: 600;
+        cursor: pointer; transition: opacity 0.18s; width: 100%;
+    }
+    .btn-dbox-ok:hover { opacity: 0.88; }
+
+    /* ── Empty State ── */
+    .empty-state {
+        grid-column: 1 / -1;
+        background: var(--empty-bg);
+        border: 2px dashed var(--border-strong);
+        border-radius: 16px;
+        padding: 4rem 2rem;
+        text-align: center;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .empty-state-icon {
+        color: var(--text-muted);
+        opacity: 0.5;
+    }
+
+    .empty-state-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1.35rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        letter-spacing: 0.02em;
+        margin: 0;
+    }
+
+    .empty-state-desc {
+        font-size: 0.875rem;
+        color: var(--text-muted);
+        margin: 0;
+        max-width: 28ch;
+    }
+
+    .empty-state-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.65rem 1.25rem;
+        background: var(--accent);
+        color: #fff;
+        border-radius: 8px;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-decoration: none;
+        margin-top: 0.25rem;
+        transition: background 0.18s, transform 0.15s;
+    }
+
+    .empty-state-btn:hover { background: #2563eb; color: #fff; transform: translateY(-1px); }
+
+    /* ── Responsive ── */
+    @media (max-width: 640px) {
+        .escalas-page { padding: 1.25rem 1rem 3rem; }
+        .page-title { font-size: 1.6rem; }
+        .escalas-grid { grid-template-columns: 1fr; }
+        .search-inner { flex-wrap: wrap; }
+    }
+
+    /* ── Fade-in animation ── */
+    .escala-card {
+        animation: fadeUp 0.35s ease both;
+    }
+
+    {% for i in "123456789" %}
+    .escala-card:nth-child({{ forloop.counter }}) { animation-delay: {{ forloop.counter0 }}00ms; }
+    {% endfor %}
+
+    @keyframes fadeUp {
+        from { opacity: 0; transform: translateY(12px); }
+        to   { opacity: 1; transform: translateY(0); }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2>Gerenciamento de Escalas</h2>
-        <a href="{% url 'Secao_operacoes:escala_create' %}" class="btn btn-primary">
-            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-plus-lg me-1" viewBox="0 0 16 16">
-              <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+<div class="escalas-page">
+
+    <!-- Header -->
+    <div class="page-header">
+        <div class="page-header-left">
+            <div class="page-eyebrow">Seção de Operações</div>
+            <h2 class="page-title">Gerenciamento de Escalas</h2>
+        </div>
+        <a href="{% url 'Secao_operacoes:escala_create' %}" class="btn-nova-escala">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
             </svg>
             Nova Escala
         </a>
     </div>
 
-    <!-- Barra de Pesquisa -->
-    <div class="card shadow-sm border-0 mb-4">
-        <div class="card-body">
-            <form method="GET" action="{% url 'Secao_operacoes:escala_list' %}">
-                <div class="input-group">
-                    <span class="input-group-text bg-white" id="search-addon">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-search" viewBox="0 0 16 16">
-                          <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
-                        </svg>
-                    </span>
-                    <input type="text" name="q" class="form-control border-start-0" placeholder="Pesquisar militares escalados..." value="{{ search_query }}">
-                    <button class="btn btn-primary" type="submit">Buscar</button>
-                    {% if search_query %}
-                    <a href="{% url 'Secao_operacoes:escala_list' %}" class="btn btn-outline-secondary">Limpar</a>
-                    {% endif %}
-                </div>
-            </form>
-        </div>
+    <!-- Search -->
+    <div class="search-wrap">
+        <form method="GET" action="{% url 'Secao_operacoes:escala_list' %}">
+            <div class="search-inner">
+                <span class="search-icon-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.1zM12 6.5a5.5 5.5 0 1 1-11 0 5.5 5.5 0 0 1 11 0z"/>
+                    </svg>
+                </span>
+                <input type="text" name="q" class="search-input" placeholder="Pesquisar por militar, posto ou escala..." value="{{ search_query }}">
+                <button class="btn-buscar" type="submit">Buscar</button>
+                {% if search_query %}
+                <a href="{% url 'Secao_operacoes:escala_list' %}" class="btn-limpar">Limpar</a>
+                {% endif %}
+            </div>
+        </form>
     </div>
 
-    <!-- Resultados da Pesquisa -->
+    <!-- Search Results -->
     {% if search_query %}
-    <div class="mb-4">
-        <h4 class="mb-3">Resultados para "{{ search_query }}"</h4>
-        {% if resultados_pesquisa %}
-            <div class="table-responsive bg-white rounded shadow-sm">
-                <table class="table table-hover mb-0">
-                    <thead class="table-light">
-                        <tr>
-                            <th>Militar</th>
-                            <th>Escala</th>
-                            <th>Data</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        {% for turno in resultados_pesquisa %}
-                        <tr>
-                            <td class="fw-bold">{{ turno.militar.nome_guerra }}</td>
-                            <td>{{ turno.escala.nome }}</td>
-                            <td>{{ turno.data|date:"d/m/Y" }}</td>
-                        </tr>
-                        {% endfor %}
-                    </tbody>
-                </table>
-            </div>
-        {% else %}
-            <div class="alert alert-info">Nenhum militar encontrado nas escalas com esse nome.</div>
-        {% endif %}
+    <p class="search-results-title">Resultados para <span>"{{ search_query }}"</span></p>
+
+    {% if not escalas_encontradas and not resultados_turnos %}
+        <div class="alert-info-custom">Nenhum resultado encontrado para essa busca.</div>
+    {% endif %}
+
+    <!-- Escalas encontradas pelo nome -->
+    {% if escalas_encontradas %}
+    <p style="font-family:'Rajdhani',sans-serif;font-size:0.72rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.6rem;">
+        Escalas encontradas
+    </p>
+    <div class="results-table-wrap" style="margin-bottom:1.5rem;">
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th>Nome da Escala</th>
+                    <th>Status</th>
+                    <th>Militares</th>
+                    <th>Ação</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for e in escalas_encontradas %}
+                <tr>
+                    <td class="militar-name">{{ e.nome }}</td>
+                    <td>
+                        {% if e.ativo %}
+                            <span class="status-badge status-ativo">Ativa</span>
+                        {% else %}
+                            <span class="status-badge status-inativo">Inativa</span>
+                        {% endif %}
+                    </td>
+                    <td>{{ e.militares.count }} militar{{ e.militares.count|pluralize:"es" }}</td>
+                    <td>
+                        <a href="{% url 'Secao_operacoes:escala_detail' e.pk %}" style="color:var(--accent);font-size:0.8rem;font-weight:600;text-decoration:none;">
+                            Acessar →
+                        </a>
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
     </div>
     {% endif %}
 
-    <!-- Blocos de Escalas -->
-    <h4 class="mb-3">Escalas Cadastradas</h4>
-    <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-4">
+    <!-- Turnos encontrados por militar ou posto -->
+    {% if resultados_turnos %}
+    <p style="font-family:'Rajdhani',sans-serif;font-size:0.72rem;font-weight:600;letter-spacing:0.14em;text-transform:uppercase;color:var(--text-muted);margin-bottom:0.6rem;">
+        Turnos agendados
+    </p>
+    <div class="results-table-wrap">
+        <table class="results-table">
+            <thead>
+                <tr>
+                    <th>Militar</th>
+                    <th>Posto</th>
+                    <th>Escala</th>
+                    <th>Data</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for turno in resultados_turnos %}
+                <tr>
+                    <td class="militar-name">{{ turno.militar.nome_guerra }}</td>
+                    <td>
+                        {% if turno.posto %}
+                            <span style="font-size:0.78rem;font-weight:600;font-family:'Rajdhani',sans-serif;letter-spacing:0.06em;text-transform:uppercase;background:var(--accent-dim);color:var(--accent);border:1px solid rgba(59,130,246,0.2);padding:0.1rem 0.45rem;border-radius:5px;">
+                                {{ turno.posto.nome }}
+                            </span>
+                        {% else %}
+                            <span style="color:var(--text-muted);font-size:0.8rem;">—</span>
+                        {% endif %}
+                    </td>
+                    <td>
+                        <a href="{% url 'Secao_operacoes:escala_detail' turno.escala.pk %}" style="color:var(--text-primary);text-decoration:none;font-weight:500;">
+                            {{ turno.escala.nome }}
+                        </a>
+                    </td>
+                    <td>{{ turno.data|date:"d/m/Y" }}</td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% endif %}
+
+    {% endif %}
+
+    <!-- Escalas Section -->
+    <div class="section-label">
+        <span class="section-label-text">Escalas Cadastradas</span>
+        <span class="section-label-line"></span>
+    </div>
+
+    <div class="escalas-grid">
         {% if escalas %}
             {% for escala in escalas %}
-            <div class="col">
-                <div class="card h-100 shadow-sm border-0">
-                    <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                        <h5 class="mb-0 text-truncate" title="{{ escala.nome }}">{{ escala.nome }}</h5>
-                        <span class="badge bg-secondary rounded-pill" title="Militares vinculados">{{ escala.militares.count }}</span>
-                    </div>
-                    <div class="card-body">
-                        <p class="card-text text-muted small mb-3" style="min-height: 40px;">
-                            {{ escala.descricao|default:"Sem descrição."|truncatechars:100 }}
-                        </p>
-                        
-                        <div class="mb-3">
-                            <h6 class="fw-bold border-bottom pb-2">Serviço Hoje ({{ hoje|date:"d/m" }})</h6>
-                            {% if escala.turnos_hoje %}
-                                <ul class="list-group list-group-flush">
-                                    {% for turno in escala.turnos_hoje %}
-                                    <li class="list-group-item px-0 py-1 border-0">
-                                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-person-check-fill text-success me-2" viewBox="0 0 16 16">
-                                            <path fill-rule="evenodd" d="M15.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L12.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
-                                            <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
-                                        </svg>
-                                        {{ turno.militar.nome_guerra }}
-                                    </li>
-                                    {% endfor %}
-                                </ul>
-                            {% else %}
-                                <p class="text-muted small mb-0">Ninguém escalado para hoje.</p>
-                            {% endif %}
+            <div class="escala-card {% if not escala.ativo %}card-inativo{% endif %}">
+                <!-- Card Header -->
+                <div class="card-head">
+                    <h5 class="card-head-title" title="{{ escala.nome }}">{{ escala.nome }}</h5>
+                    {% if escala.ativo %}
+                        <span class="status-badge status-ativo">Ativa</span>
+                    {% else %}
+                        <span class="status-badge status-inativo">Inativa</span>
+                    {% endif %}
+                    <span class="militar-badge" title="Militares vinculados">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M7 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H7zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                            <path fill-rule="evenodd" d="M5.216 14A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216z"/>
+                            <path d="M4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5z"/>
+                        </svg>
+                        {{ escala.militares.count }}
+                    </span>
+                </div>
+
+                <!-- Card Body -->
+                <div class="card-body-custom">
+                    <p class="card-descricao">{{ escala.descricao|default:"Sem descrição."|truncatechars:100 }}</p>
+
+                    <div class="service-today">
+                        <div class="service-today-header">
+                            <span class="service-today-label">Serviço Hoje</span>
+                            <span class="service-today-date">{{ hoje|date:"d/m/Y" }}</span>
                         </div>
+
+                        {% if escala.turnos_hoje %}
+                            <ul class="militares-list">
+                                {% for turno in escala.turnos_hoje %}
+                                <li class="militar-item">
+                                    <svg class="militar-item-icon" xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                        <path fill-rule="evenodd" d="M15.854 5.146a.5.5 0 0 1 0 .708l-3 3a.5.5 0 0 1-.708 0l-1.5-1.5a.5.5 0 0 1 .708-.708L12.5 7.793l2.646-2.647a.5.5 0 0 1 .708 0z"/>
+                                        <path d="M1 14s-1 0-1-1 1-4 6-4 6 3 6 4-1 1-1 1H1zm5-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6z"/>
+                                    </svg>
+                                    <span>{{ turno.militar.nome_guerra }}</span>
+                                    {% if turno.posto %}
+                                        <span style="font-family:'Rajdhani',sans-serif;font-size:0.68rem;font-weight:700;letter-spacing:0.08em;text-transform:uppercase;background:var(--accent-dim);color:var(--accent);border:1px solid rgba(59,130,246,0.2);padding:0.1rem 0.4rem;border-radius:4px;white-space:nowrap;margin-left:auto;flex-shrink:0;">
+                                            {{ turno.posto.nome }}
+                                        </span>
+                                    {% endif %}
+                                </li>
+                                {% endfor %}
+                            </ul>
+                        {% else %}
+                            <p class="no-service">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+                                    <path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>
+                                </svg>
+                                Ninguém escalado para hoje
+                            </p>
+                        {% endif %}
                     </div>
-                    <div class="card-footer bg-white border-top-0 pt-0 pb-3 d-flex justify-content-between">
-                        <a href="{% url 'Secao_operacoes:escala_detail' escala.pk %}" class="btn btn-outline-primary btn-sm w-100 me-2">Acessar Escala</a>
-                        <a href="{% url 'Secao_operacoes:escala_edit' escala.pk %}" class="btn btn-outline-secondary btn-sm" title="Editar">
-                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-pencil" viewBox="0 0 16 16">
-                              <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
-                            </svg>
-                        </a>
-                    </div>
+                </div>
+
+                <!-- Card Footer -->
+                <div class="card-foot">
+                    <a href="{% url 'Secao_operacoes:escala_detail' escala.pk %}" class="btn-acessar">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                        </svg>
+                        Acessar
+                    </a>
+                    <a href="{% url 'Secao_operacoes:escala_edit' escala.pk %}" class="btn-editar" title="Editar escala">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                        </svg>
+                    </a>
+                    <!-- Toggle ativo -->
+                    <form method="post" action="{% url 'Secao_operacoes:escala_toggle_ativo' escala.pk %}" style="display:inline;">
+                        {% csrf_token %}
+                        <button type="submit" class="btn-editar" title="{% if escala.ativo %}Desativar{% else %}Ativar{% endif %} escala">
+                            {% if escala.ativo %}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/>
+                                </svg>
+                            {% else %}
+                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                                </svg>
+                            {% endif %}
+                        </button>
+                    </form>
+                    <!-- Excluir -->
+                    <button type="button" class="btn-icon-danger" title="Excluir escala"
+                        onclick="openDeleteModal('{{ escala.pk }}', '{{ escala.nome|escapejs }}')">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                        </svg>
+                    </button>
                 </div>
             </div>
             {% endfor %}
         {% else %}
-            <div class="col-12">
-                <div class="text-center py-5 text-muted bg-white rounded shadow-sm border">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="currentColor" class="bi bi-calendar-x mb-3" viewBox="0 0 16 16">
-                      <path d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708z"/>
-                      <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+            <div class="empty-state">
+                <svg class="empty-state-icon" xmlns="http://www.w3.org/2000/svg" width="52" height="52" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M6.146 7.146a.5.5 0 0 1 .708 0L8 8.293l1.146-1.147a.5.5 0 1 1 .708.708L8.707 9l1.147 1.146a.5.5 0 0 1-.708.708L8 9.707l-1.146 1.147a.5.5 0 0 1-.708-.708L7.293 9 6.146 7.854a.5.5 0 0 1 0-.708z"/>
+                    <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                </svg>
+                <h4 class="empty-state-title">Nenhuma escala cadastrada</h4>
+                <p class="empty-state-desc">Crie sua primeira escala para começar a organizar os serviços.</p>
+                <a href="{% url 'Secao_operacoes:escala_create' %}" class="empty-state-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
                     </svg>
-                    <h4>Nenhuma escala encontrada</h4>
-                    <p>Crie sua primeira escala para começar a organizar os serviços.</p>
-                </div>
+                    Criar primeira escala
+                </a>
             </div>
         {% endif %}
     </div>
+
 </div>
+
+<!-- Confirm Delete Modal -->
+<div class="delete-overlay" id="deleteOverlay">
+    <div class="delete-box">
+        <div class="delete-box-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+            </svg>
+        </div>
+        <div class="delete-box-title">Excluir Escala</div>
+        <div class="delete-box-text" id="deleteBoxText">Tem certeza que deseja excluir esta escala? Todos os turnos serão removidos permanentemente.</div>
+        <div class="delete-box-actions">
+            <button class="btn-dbox-cancel" onclick="closeDeleteModal()">Cancelar</button>
+            <form id="deleteEscalaForm" method="post" action="" style="flex:1;">
+                {% csrf_token %}
+                <button type="submit" class="btn-dbox-ok">Excluir</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block extra_js %}
+<script>
+    function openDeleteModal(pk, nome) {
+        document.getElementById('deleteBoxText').innerHTML =
+            'Tem certeza que deseja excluir a escala <strong>' + nome + '</strong>? Todos os turnos serão removidos permanentemente.';
+        document.getElementById('deleteEscalaForm').action = '/secao_operacoes/escalas/' + pk + '/excluir/';
+        document.getElementById('deleteOverlay').classList.add('active');
+    }
+    function closeDeleteModal() {
+        document.getElementById('deleteOverlay').classList.remove('active');
+    }
+    document.getElementById('deleteOverlay').addEventListener('click', function(e) {
+        if (e.target === this) closeDeleteModal();
+    });
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') closeDeleteModal();
+    });
+</script>
 {% endblock %}

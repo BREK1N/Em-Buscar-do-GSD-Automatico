@@ -4,156 +4,793 @@
 {% block title %}{{ title }} - Seção de Operações{% endblock %}
 
 {% block extra_head %}
-<!-- Adicionando Select2 para melhorar a seleção múltipla -->
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <link href="https://cdn.jsdelivr.net/npm/select2-bootstrap-5-theme@1.3.0/dist/select2-bootstrap-5-theme.min.css" rel="stylesheet" />
 <style>
-    /* Ajustes para o Select2 se adaptar ao tema escuro/claro se necessário */
-    .select2-container--bootstrap-5 .select2-selection {
-        min-height: 45px;
-        padding-top: 5px;
+    :root {
+        --accent: #3b82f6;
+        --accent-glow: rgba(59, 130, 246, 0.25);
+        --accent-dim: rgba(59, 130, 246, 0.12);
+        --danger: #ef4444;
+        --danger-dim: rgba(239, 68, 68, 0.12);
+
+        --bg-page: #f0f4f8;
+        --bg-card: #ffffff;
+        --bg-card-header: #1e293b;
+        --bg-input: #ffffff;
+        --border: rgba(0, 0, 0, 0.08);
+        --border-strong: rgba(0, 0, 0, 0.15);
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+        --text-muted: #94a3b8;
+        --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+        --divider: rgba(0,0,0,0.06);
+        --badge-bg: #e2e8f0;
     }
-    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice {
-        background-color: #0d6efd;
+
+    body.dark-theme {
+        --bg-page: #0d1117;
+        --bg-card: #161b22;
+        --bg-card-header: #0d1117;
+        --bg-input: #0d1117;
+        --border: rgba(255,255,255,0.06);
+        --border-strong: rgba(255,255,255,0.12);
+        --text-primary: #e6edf3;
+        --text-secondary: #8b949e;
+        --text-muted: #6e7681;
+        --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+        --divider: rgba(255,255,255,0.06);
+        --badge-bg: rgba(255,255,255,0.08);
+    }
+
+    .form-page {
+        min-height: 100vh;
+        background: var(--bg-page);
+        padding: 2rem 2rem 4rem;
+        font-family: 'Inter', sans-serif;
+        transition: background 0.3s;
+    }
+
+    .breadcrumb-nav {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-bottom: 0.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .breadcrumb-nav a { color: var(--accent); text-decoration: none; }
+    .breadcrumb-nav a:hover { opacity: 0.75; }
+    .breadcrumb-nav::before {
+        content: '';
+        display: inline-block;
+        width: 18px; height: 2px;
+        background: var(--accent);
+        border-radius: 2px;
+    }
+
+    .page-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0 0 2rem 0;
+        letter-spacing: 0.01em;
+    }
+
+    /* ── Form Card ── */
+    .form-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 16px;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        max-width: 800px;
+        margin: 0 auto 1.5rem;
+    }
+
+    .form-card-header {
+        background: var(--bg-card-header);
+        padding: 1rem 1.75rem;
+        display: flex;
+        align-items: center;
+        gap: 0.6rem;
+    }
+
+    .form-card-header-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #e6edf3;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin: 0;
+    }
+
+    .form-card-body { padding: 1.75rem; }
+
+    .field-group { margin-bottom: 1.5rem; }
+
+    .field-label {
+        font-size: 0.78rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-bottom: 0.45rem;
+        display: block;
+    }
+
+    .field-hint { font-size: 0.78rem; color: var(--text-muted); margin-top: 0.4rem; line-height: 1.4; }
+
+    .field-error {
+        font-size: 0.78rem;
+        color: var(--danger);
+        margin-top: 0.35rem;
+        display: flex;
+        align-items: center;
+        gap: 0.3rem;
+    }
+
+    .form-control, .form-select {
+        background: var(--bg-input) !important;
+        border: 1px solid var(--border-strong) !important;
+        border-radius: 8px !important;
+        color: var(--text-primary) !important;
+        font-family: 'Inter', sans-serif !important;
+        font-size: 0.875rem !important;
+        padding: 0.6rem 0.85rem !important;
+        transition: border-color 0.18s, box-shadow 0.18s !important;
+    }
+    .form-control:focus, .form-select:focus {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 3px var(--accent-dim) !important;
+        outline: none !important;
+    }
+    textarea.form-control { resize: vertical; }
+
+    /* ── Militares Section ── */
+    .section-divider {
+        border-top: 1px solid var(--divider);
+        padding-top: 1.5rem;
+        margin-top: 0.5rem;
+    }
+
+    .section-header-row {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .section-header-icon {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 32px; height: 32px;
+        background: var(--accent-dim);
+        border-radius: 8px;
+        color: var(--accent);
+        flex-shrink: 0;
+    }
+
+    .section-header-text {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        letter-spacing: 0.04em;
+        margin: 0;
+    }
+
+    .militares-tip {
+        background: var(--accent-dim);
+        border-left: 3px solid var(--accent);
+        border-radius: 0 8px 8px 0;
+        padding: 0.75rem 1rem;
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        line-height: 1.5;
+        margin-top: 0.75rem;
+    }
+
+    /* ── Postos Section ── */
+    .postos-grid {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+        min-height: 2rem;
+    }
+
+    .posto-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        background: var(--accent-dim);
+        border: 1px solid rgba(59,130,246,0.2);
+        color: var(--text-primary);
+        border-radius: 8px;
+        padding: 0.35rem 0.75rem;
+        font-size: 0.82rem;
+        font-weight: 500;
+        font-family: 'Inter', sans-serif;
+    }
+
+    .posto-delete-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 16px; height: 16px;
+        background: none;
+        border: none;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0;
+        border-radius: 3px;
+        transition: color 0.15s;
+        flex-shrink: 0;
+    }
+    .posto-delete-btn:hover { color: var(--danger); }
+
+    .posto-add-row {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+    }
+
+    .posto-input {
+        flex: 1;
+        padding: 0.55rem 0.85rem;
+        background: var(--bg-input);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        outline: none;
+        transition: border-color 0.18s, box-shadow 0.18s;
+    }
+    .posto-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .posto-input::placeholder { color: var(--text-muted); }
+
+    .btn-posto-add {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.55rem 1rem;
+        background: var(--accent);
         color: #fff;
         border: none;
-        border-radius: 4px;
-        padding: 4px 10px;
-        margin-top: 4px;
-        font-size: 0.95em;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        white-space: nowrap;
+        transition: background 0.18s;
     }
-    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove {
-        color: #fff;
-        margin-right: 8px;
-        border-right: 1px solid rgba(255,255,255,0.3);
-        padding-right: 5px;
+    .btn-posto-add:hover { background: #2563eb; }
+
+    .postos-empty {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        font-style: italic;
+        padding: 0.5rem 0;
     }
-    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice__remove:hover {
-        background-color: transparent;
-        color: #ffcccc;
+
+    /* ── Membros List ── */
+    .membros-section {
+        margin-top: 1.25rem;
+        border: 1px solid var(--border-strong);
+        border-radius: 12px;
+        overflow: hidden;
     }
-    
-    /* Adaptação para o dark theme */
-    body.dark-theme .select2-container--bootstrap-5 .select2-selection {
-        background-color: var(--sidebar-bg);
-        border-color: var(--border-color);
+
+    .membros-section-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1rem;
+        background: var(--badge-bg);
+        border-bottom: 1px solid var(--border);
+        gap: 0.75rem;
+    }
+
+    .membros-section-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin: 0;
+    }
+
+    .membros-count-badge {
+        font-size: 0.72rem;
+        font-weight: 700;
+        background: var(--accent-dim);
+        color: var(--accent);
+        border: 1px solid rgba(59,130,246,0.25);
+        border-radius: 20px;
+        padding: 2px 9px;
+        font-family: 'Inter', sans-serif;
+        flex-shrink: 0;
+    }
+
+    .membros-search-wrap {
+        padding: 0.65rem 0.85rem;
+        border-bottom: 1px solid var(--border);
+        background: var(--bg-card);
+        position: relative;
+    }
+
+    .membros-search-input {
+        width: 100%;
+        padding: 0.45rem 0.75rem 0.45rem 2rem;
+        background: var(--bg-input);
+        border: 1px solid var(--border-strong);
+        border-radius: 7px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.82rem;
         color: var(--text-primary);
+        outline: none;
+        transition: border-color 0.15s, box-shadow 0.15s;
+    }
+    .membros-search-input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-dim); }
+    .membros-search-input::placeholder { color: var(--text-muted); }
+
+    .membros-search-icon {
+        position: absolute;
+        left: 1.45rem;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--text-muted);
+        pointer-events: none;
+    }
+
+    .membros-list {
+        max-height: 280px;
+        overflow-y: auto;
+        background: var(--bg-card);
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+    .membros-list::-webkit-scrollbar { width: 4px; }
+    .membros-list::-webkit-scrollbar-track { background: transparent; }
+    .membros-list::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+    .membro-item {
+        display: flex;
+        align-items: center;
+        gap: 0.65rem;
+        padding: 0.6rem 1rem;
+        border-bottom: 1px solid var(--border);
+        transition: background 0.12s;
+    }
+    .membro-item:last-child { border-bottom: none; }
+    .membro-item:hover { background: var(--badge-bg); }
+    .membro-item[data-hidden="true"] { display: none; }
+
+    .membro-avatar {
+        width: 30px; height: 30px;
+        background: var(--accent-dim);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--accent);
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 700;
+        flex-shrink: 0;
+        letter-spacing: 0.02em;
+    }
+
+    .membro-nome {
+        flex: 1;
+        font-size: 0.875rem;
+        font-weight: 500;
+        color: var(--text-primary);
+        font-family: 'Inter', sans-serif;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .membro-remove-btn {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 26px; height: 26px;
+        background: none;
+        border: 1px solid transparent;
+        border-radius: 6px;
+        color: var(--text-muted);
+        cursor: pointer;
+        padding: 0;
+        flex-shrink: 0;
+        transition: all 0.15s;
+    }
+    .membro-remove-btn:hover {
+        background: var(--danger-dim);
+        border-color: rgba(239,68,68,0.25);
+        color: var(--danger);
+    }
+
+    .membros-empty {
+        padding: 1.5rem 1rem;
+        text-align: center;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        font-style: italic;
+        background: var(--bg-card);
+    }
+
+    .membros-no-results {
+        padding: 1rem;
+        text-align: center;
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        display: none;
+        background: var(--bg-card);
+    }
+
+    /* ── Select2 ── */
+    .select2-container--bootstrap-5 .select2-selection {
+        min-height: 44px;
+        background: var(--bg-input) !important;
+        border: 1px solid var(--border-strong) !important;
+        border-radius: 8px !important;
+    }
+    .select2-container--bootstrap-5 .select2-selection:focus-within {
+        border-color: var(--accent) !important;
+        box-shadow: 0 0 0 3px var(--accent-dim) !important;
+    }
+    /* Hide selected tags inside Select2 — the membros-list below handles display */
+    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__choice {
+        display: none !important;
+    }
+    .select2-container--bootstrap-5 .select2-selection--multiple .select2-selection__rendered {
+        padding: 2px 6px;
+        color: var(--text-muted) !important;
     }
     body.dark-theme .select2-container--bootstrap-5 .select2-dropdown {
-        background-color: var(--sidebar-bg);
-        border-color: var(--border-color);
+        background: var(--bg-card); border-color: var(--border-strong);
     }
     body.dark-theme .select2-container--bootstrap-5 .select2-results__option {
-        color: var(--text-primary);
+        color: var(--text-primary); font-family: 'Inter', sans-serif; font-size: 0.875rem;
     }
     body.dark-theme .select2-container--bootstrap-5 .select2-search__field {
-        background-color: var(--main-bg);
-        color: var(--text-primary);
-        border-color: var(--border-color);
-    }
-    body.dark-theme .select2-container--bootstrap-5 .select2-results__option[aria-selected=true] {
-        background-color: var(--sidebar-active-bg);
+        background: var(--bg-input); color: var(--text-primary); border-color: var(--border-strong);
     }
     body.dark-theme .select2-container--bootstrap-5 .select2-results__option--highlighted[aria-selected] {
-        background-color: #0d6efd;
-        color: white;
+        background-color: var(--accent); color: #fff;
+    }
+
+    /* ── Footer ── */
+    .form-footer {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding-top: 1.5rem;
+        border-top: 1px solid var(--divider);
+        margin-top: 2rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .btn-back {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.6rem 1.25rem;
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.18s;
+    }
+    .btn-back:hover { background: var(--badge-bg); color: var(--text-primary); }
+
+    .btn-save {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.5rem;
+        padding: 0.65rem 1.75rem;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.18s;
+        box-shadow: 0 2px 8px var(--accent-glow);
+    }
+    .btn-save:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-glow); }
+
+    @media (max-width: 640px) {
+        .form-page { padding: 1.25rem 1rem 3rem; }
+        .form-card-body { padding: 1.25rem 1rem; }
+        .form-footer { flex-direction: column-reverse; align-items: stretch; }
+        .btn-back, .btn-save { justify-content: center; }
+        .posto-add-row { flex-direction: column; }
+        .btn-posto-add { width: 100%; justify-content: center; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="row justify-content-center">
-        <div class="col-md-8">
-            <div class="card shadow border-0" style="border-radius: 12px; overflow: hidden;">
-                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center py-3">
-                    <h5 class="mb-0 fw-bold">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="22" height="22" fill="currentColor" class="bi bi-card-checklist me-2 mb-1" viewBox="0 0 16 16">
-                            <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
-                            <path d="M7 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0zM7 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 0 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0z"/>
+<div class="form-page">
+
+    <div class="breadcrumb-nav" style="margin-bottom:0.3rem;">
+        <a href="{% url 'Secao_operacoes:escala_list' %}">Escalas</a>
+        <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
+            <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+        </svg>
+        {{ title }}
+    </div>
+    <h2 class="page-title">{{ title }}</h2>
+
+    <!-- ── Dados da Escala ── -->
+    <div class="form-card">
+        <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16" style="color:#8b949e;">
+                <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
+                <path d="M7 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0zM7 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 0 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0z"/>
+            </svg>
+            <h5 class="form-card-header-title">Dados da Escala</h5>
+        </div>
+        <div class="form-card-body">
+            <form method="post">
+                {% csrf_token %}
+
+                <!-- Nome -->
+                <div class="field-group">
+                    <label for="{{ form.nome.id_for_label }}" class="field-label">Nome da Escala</label>
+                    {{ form.nome }}
+                    {% if form.nome.errors %}
+                        <div class="field-error">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/></svg>
+                            {{ form.nome.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="field-hint">Ex: Guarda, Serviço de Oficial de Dia, Plantão de TI...</div>
+                </div>
+
+                <!-- Descrição -->
+                <div class="field-group">
+                    <label for="{{ form.descricao.id_for_label }}" class="field-label">Descrição <span style="font-weight:400;text-transform:none;letter-spacing:0;">(opcional)</span></label>
+                    {{ form.descricao }}
+                    {% if form.descricao.errors %}
+                        <div class="field-error">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/></svg>
+                            {{ form.descricao.errors.0 }}
+                        </div>
+                    {% endif %}
+                    <div class="field-hint">Detalhes ou responsabilidades sobre esta escala.</div>
+                </div>
+
+                <!-- Militares -->
+                <div class="section-divider">
+                    <div class="section-header-row">
+                        <div class="section-header-icon">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+                            </svg>
+                        </div>
+                        <h6 class="section-header-text">Militares Vinculados (Equipe)</h6>
+                    </div>
+
+                    <!-- Select2: apenas para adicionar -->
+                    <div class="field-group" style="margin-bottom:0.75rem;">
+                        {{ form.militares }}
+                        {% if form.militares.errors %}
+                            <div class="field-error">{{ form.militares.errors.0 }}</div>
+                        {% endif %}
+                    </div>
+
+                    <!-- Lista pesquisável dos membros -->
+                    <div class="membros-section">
+                        <div class="membros-section-header">
+                            <span class="membros-section-title">Equipe atual</span>
+                            <span class="membros-count-badge" id="membros-count">0 militares</span>
+                        </div>
+                        <div class="membros-search-wrap">
+                            <svg class="membros-search-icon" xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                                <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/>
+                            </svg>
+                            <input type="text" id="membros-search" class="membros-search-input" placeholder="Pesquisar na equipe..." autocomplete="off">
+                        </div>
+                        <div class="membros-list" id="membros-list">
+                            <div class="membros-empty" id="membros-empty">Nenhum militar vinculado ainda.</div>
+                            <div class="membros-no-results" id="membros-no-results">Nenhum resultado encontrado.</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-footer">
+                    <a href="{% url 'Secao_operacoes:escala_list' %}" class="btn-back">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
                         </svg>
-                        {{ title }}
-                    </h5>
+                        Voltar
+                    </a>
+                    <button type="submit" class="btn-save">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425a.267.267 0 0 1 .02-.022z"/>
+                        </svg>
+                        Salvar Escala
+                    </button>
                 </div>
-                <div class="card-body p-4 p-md-5">
-                    <form method="post">
-                        {% csrf_token %}
-                        
-                        <div class="mb-4">
-                            <label for="{{ form.nome.id_for_label }}" class="form-label fw-bold">Nome da Escala</label>
-                            {{ form.nome }}
-                            {% if form.nome.errors %}
-                                <div class="text-danger small mt-1">{{ form.nome.errors }}</div>
-                            {% endif %}
-                            <div class="form-text">Ex: Serviço de Oficial de Dia, Plantão de TI, etc.</div>
-                        </div>
+            </form>
+        </div>
+    </div>
 
-                        <div class="mb-4">
-                            <label for="{{ form.descricao.id_for_label }}" class="form-label fw-bold">Descrição (Opcional)</label>
-                            {{ form.descricao }}
-                            {% if form.descricao.errors %}
-                                <div class="text-danger small mt-1">{{ form.descricao.errors }}</div>
-                            {% endif %}
-                            <div class="form-text">Detalhes rápidos ou responsabilidades sobre esta escala.</div>
-                        </div>
+    <!-- ── Postos da Escala (apenas no modo edição) ── -->
+    {% if escala %}
+    <div class="form-card">
+        <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16" style="color:#8b949e;">
+                <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+            </svg>
+            <h5 class="form-card-header-title">Postos da Escala</h5>
+            <span style="font-family:'Rajdhani',sans-serif; font-size:0.75rem; color:#6e7681; margin-left:auto;">
+                {{ postos|length }} posto{{ postos|length|pluralize }} cadastrado{{ postos|length|pluralize }}
+            </span>
+        </div>
+        <div class="form-card-body">
 
-                        <div class="mb-5">
-                            <label for="{{ form.militares.id_for_label }}" class="form-label fw-bold text-primary fs-5 mb-3 border-bottom pb-2 w-100">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" class="bi bi-people-fill me-2 mb-1" viewBox="0 0 16 16">
-                                  <path d="M7 14s-1 0-1-1 1-4 5-4 5 3 5 4-1 1-1 1H7Zm4-6a3 3 0 1 0 0-6 3 3 0 0 0 0 6Zm-5.784 6A2.238 2.238 0 0 1 5 13c0-1.355.68-2.75 1.936-3.72A6.325 6.325 0 0 0 5 9c-4 0-5 3-5 4s1 1 1 1h4.216ZM4.5 8a2.5 2.5 0 1 0 0-5 2.5 2.5 0 0 0 0 5Z"/>
+            <!-- Lista de postos existentes -->
+            {% if postos %}
+                <div class="postos-grid">
+                    {% for posto in postos %}
+                    <span class="posto-tag">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16" style="color:var(--accent);flex-shrink:0;">
+                            <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+                        </svg>
+                        {{ posto.nome }}
+                        <form method="post" action="{% url 'Secao_operacoes:posto_delete' posto.pk %}" style="display:inline;" onsubmit="return confirm('Remover posto {{ posto.nome }}?');">
+                            {% csrf_token %}
+                            <button type="submit" class="posto-delete-btn" title="Remover posto">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                                    <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
                                 </svg>
-                                Militares Vinculados (Equipe)
-                            </label>
-                            {{ form.militares }}
-                            <div class="form-text mt-3 bg-light p-3 rounded" style="border-left: 4px solid #0d6efd;">
-                                <strong>Dica:</strong> Clique na caixa e digite o nome do militar para buscar. 
-                                Selecione quantos militares quiser clicando sobre eles. Cada selecionado aparecerá como um "balão" azul. Você também pode remover clicando no <strong>'x'</strong>.
-                            </div>
-                            {% if form.militares.errors %}
-                                <div class="text-danger small mt-1">{{ form.militares.errors }}</div>
-                            {% endif %}
-                        </div>
-
-                        <div class="d-flex justify-content-between align-items-center mt-5 pt-3 border-top">
-                            <a href="{% url 'Secao_operacoes:escala_list' %}" class="btn btn-outline-secondary px-4 fw-bold">
-                                Voltar
-                            </a>
-                            <button type="submit" class="btn btn-primary px-5 fw-bold shadow-sm" style="border-radius: 30px;">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" class="bi bi-check2-circle me-2 mb-1" viewBox="0 0 16 16">
-                                  <path d="M2.5 8a5.5 5.5 0 0 1 8.25-4.764.5.5 0 0 0 .5-.866A6.5 6.5 0 1 0 14.5 8a.5.5 0 0 0-1 0 5.5 5.5 0 1 1-11 0z"/>
-                                  <path d="M15.354 3.354a.5.5 0 0 0-.708-.708L8 9.293 5.354 6.646a.5.5 0 1 0-.708.708l3 3a.5.5 0 0 0 .708 0l7-7z"/>
-                                </svg>
-                                Salvar Escala
                             </button>
-                        </div>
-                    </form>
+                        </form>
+                    </span>
+                    {% endfor %}
                 </div>
+            {% else %}
+                <p class="postos-empty">Nenhum posto cadastrado. Adicione abaixo.</p>
+            {% endif %}
+
+            <!-- Adicionar novo posto -->
+            <form method="post" action="{% url 'Secao_operacoes:posto_create' escala.pk %}">
+                {% csrf_token %}
+                <div class="posto-add-row">
+                    <input type="text" name="nome" class="posto-input" placeholder="Ex: Guarita 1, Parabala, Pedestre..." maxlength="100" required autocomplete="off">
+                    <button type="submit" class="btn-posto-add">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                            <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                        </svg>
+                        Adicionar Posto
+                    </button>
+                </div>
+            </form>
+
+            <div class="field-hint" style="margin-top:0.75rem;">
+                Os postos são os locais ou funções específicas dentro desta escala (ex: Guarita 1, Parabala, Pedestre). Ao escalar um militar, você poderá atribuí-lo a um posto específico.
             </div>
         </div>
     </div>
+    {% endif %}
+
 </div>
 {% endblock %}
 
 {% block extra_js %}
-<!-- jQuery (Necessário para o Select2) -->
 <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
-<!-- Select2 JS -->
 <script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
-
 <script>
+    const $select = $('#{{ form.militares.id_for_label }}');
+    const $list   = $('#membros-list');
+    const $empty  = $('#membros-empty');
+    const $noRes  = $('#membros-no-results');
+    const $count  = $('#membros-count');
+
+    function initials(name) {
+        const parts = name.trim().split(' ');
+        if (parts.length === 1) return parts[0].substring(0, 2).toUpperCase();
+        return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase();
+    }
+
+    function updateCount() {
+        const total = $list.find('.membro-item').length;
+        $count.text(total === 1 ? '1 militar' : total + ' militares');
+        $empty.toggle(total === 0);
+    }
+
+    function addMembro(id, text) {
+        if ($list.find(`.membro-item[data-id="${id}"]`).length) return;
+        const item = $(`
+            <div class="membro-item" data-id="${id}" data-nome="${text.toLowerCase()}">
+                <div class="membro-avatar">${initials(text)}</div>
+                <span class="membro-nome">${text}</span>
+                <button type="button" class="membro-remove-btn" title="Remover da escala" data-id="${id}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+                    </svg>
+                </button>
+            </div>
+        `);
+        item.find('.membro-remove-btn').on('click', function() {
+            const rid = $(this).data('id');
+            // Remove from Select2
+            const vals = $select.val().filter(v => v != rid);
+            $select.val(vals).trigger('change');
+            item.remove();
+            updateCount();
+            applySearch();
+        });
+        $list.append(item);
+        updateCount();
+    }
+
+    function applySearch() {
+        const q = $('#membros-search').val().toLowerCase().trim();
+        let visible = 0;
+        $list.find('.membro-item').each(function() {
+            const nome = $(this).data('nome') || '';
+            const match = !q || nome.includes(q);
+            $(this).attr('data-hidden', match ? 'false' : 'true');
+            if (match) visible++;
+        });
+        const total = $list.find('.membro-item').length;
+        $noRes.toggle(total > 0 && visible === 0);
+    }
+
     $(document).ready(function() {
-        // Inicializa o Select2 no campo de militares para modernizar a interface
-        $('#{{ form.militares.id_for_label }}').select2({
+        $select.select2({
             theme: 'bootstrap-5',
             width: '100%',
-            placeholder: 'Pesquisar e adicionar militares à escala...',
-            allowClear: true,
+            placeholder: 'Pesquisar e adicionar militares à equipe...',
+            allowClear: false,
             language: {
-                noResults: function() {
-                    return "Nenhum militar encontrado";
-                }
+                noResults: function() { return "Nenhum militar encontrado"; },
+                searching: function() { return "Buscando..."; }
             }
         });
+
+        // Populate list from pre-selected options (edit mode)
+        $select.find('option:selected').each(function() {
+            addMembro($(this).val(), $(this).text().trim());
+        });
+
+        // When Select2 selects a new option
+        $select.on('select2:select', function(e) {
+            addMembro(e.params.data.id, e.params.data.text.trim());
+        });
+
+        // When Select2 deselects (shouldn't happen normally, but safety net)
+        $select.on('select2:unselect', function(e) {
+            $list.find(`.membro-item[data-id="${e.params.data.id}"]`).remove();
+            updateCount();
+            applySearch();
+        });
+
+        // Search filter
+        $('#membros-search').on('input', applySearch);
     });
 </script>
 {% endblock %}

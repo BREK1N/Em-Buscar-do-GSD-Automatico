@@ -4,167 +4,956 @@
 {% block title %}{{ escala.nome }} - Seção de Operações{% endblock %}
 
 {% block extra_head %}
-<!-- FullCalendar CSS -->
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
 <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.11/index.global.min.js'></script>
 <style>
-    /* Ajustes FullCalendar */
-    #calendar {
-        max-width: 100%;
-        margin: 0 auto;
-        background-color: var(--sidebar-bg, #fff); /* Ajuste para temas claros/escuros */
+    :root {
+        --accent: #3b82f6;
+        --accent-glow: rgba(59, 130, 246, 0.25);
+        --accent-dim: rgba(59, 130, 246, 0.12);
+        --success: #22c55e;
+        --success-dim: rgba(34, 197, 94, 0.12);
+        --warning: #f59e0b;
+        --danger: #ef4444;
+        --danger-dim: rgba(239, 68, 68, 0.12);
+
+        --bg-page: #f0f4f8;
+        --bg-card: #ffffff;
+        --bg-card-header: #1e293b;
+        --bg-input: #ffffff;
+        --border: rgba(0, 0, 0, 0.08);
+        --border-strong: rgba(0, 0, 0, 0.15);
+        --text-primary: #0f172a;
+        --text-secondary: #64748b;
+        --text-muted: #94a3b8;
+        --shadow-card: 0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+        --divider: rgba(0,0,0,0.06);
+        --list-item-bg: #f8fafc;
+        --badge-bg: #e2e8f0;
+    }
+
+    body.dark-theme {
+        --bg-page: #0d1117;
+        --bg-card: #161b22;
+        --bg-card-header: #0d1117;
+        --bg-input: #0d1117;
+        --border: rgba(255,255,255,0.06);
+        --border-strong: rgba(255,255,255,0.12);
+        --text-primary: #e6edf3;
+        --text-secondary: #8b949e;
+        --text-muted: #6e7681;
+        --shadow-card: 0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+        --divider: rgba(255,255,255,0.06);
+        --list-item-bg: rgba(255,255,255,0.03);
+        --badge-bg: rgba(255,255,255,0.08);
+    }
+
+    body.dark-theme .card,
+    body.dark-theme .list-group-item,
+    body.dark-theme .form-control,
+    body.dark-theme .form-select {
+        background-color: unset !important;
+        color: unset !important;
+        border-color: unset !important;
+    }
+
+    .detail-page {
+        min-height: 100vh;
+        background: var(--bg-page);
+        padding: 2rem 2rem 4rem;
+        font-family: 'Inter', sans-serif;
+        transition: background 0.3s;
+    }
+
+    /* ── Page Header ── */
+    .page-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: flex-end;
+        margin-bottom: 2rem;
+        gap: 1rem;
+        flex-wrap: wrap;
+    }
+
+    .breadcrumb-nav {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.16em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-bottom: 0.3rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+    .breadcrumb-nav a { color: var(--accent); text-decoration: none; }
+    .breadcrumb-nav a:hover { opacity: 0.75; }
+    .breadcrumb-nav::before {
+        content: '';
+        display: inline-block;
+        width: 18px; height: 2px;
+        background: var(--accent);
+        border-radius: 2px;
+    }
+
+    .page-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: clamp(1.6rem, 3.5vw, 2.2rem);
+        font-weight: 700;
+        color: var(--text-primary);
+        margin: 0;
+        letter-spacing: 0.01em;
+        line-height: 1.1;
+    }
+
+    .page-subtitle {
+        font-size: 0.875rem;
+        color: var(--text-secondary);
+        margin-top: 0.3rem;
+    }
+
+    .escala-status-badge {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.3rem;
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.72rem;
+        font-weight: 700;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        padding: 0.2rem 0.6rem;
+        border-radius: 20px;
+        margin-left: 0.5rem;
+        vertical-align: middle;
+    }
+    .badge-ativo { background: var(--success-dim); color: var(--success); border: 1px solid rgba(34,197,94,0.3); }
+    .badge-inativo { background: rgba(100,116,139,0.12); color: var(--text-muted); border: 1px solid rgba(100,116,139,0.2); }
+
+    .header-actions {
+        display: flex;
+        gap: 0.5rem;
+        align-items: center;
+        flex-wrap: wrap;
+    }
+
+    .btn-action {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.55rem 1rem;
         border-radius: 8px;
-        padding: 10px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        text-decoration: none;
+        transition: all 0.18s;
+        white-space: nowrap;
+        cursor: pointer;
+        border: none;
     }
-    
-    .fc-theme-standard td, .fc-theme-standard th {
-        border-color: var(--border-color, #dee2e6);
+    .btn-action-ghost {
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-strong);
     }
+    .btn-action-ghost:hover { background: var(--badge-bg); color: var(--text-primary); }
+    .btn-action-danger {
+        background: transparent;
+        color: var(--danger);
+        border: 1px solid rgba(239,68,68,0.3);
+    }
+    .btn-action-danger:hover { background: var(--danger-dim); border-color: var(--danger); }
+
+    /* ── Panel Card ── */
+    .panel-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        overflow: hidden;
+        box-shadow: var(--shadow-card);
+        display: flex;
+        flex-direction: column;
+        margin-bottom: 1.25rem;
+    }
+
+    .panel-head {
+        background: var(--bg-card-header);
+        padding: 0.9rem 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 0.75rem;
+    }
+
+    .panel-head-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 700;
+        color: #e6edf3;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        margin: 0;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .panel-body { padding: 1.25rem; flex: 1; }
+    .panel-body-flush { padding: 0; flex: 1; }
+
+    /* ── Form Styling ── */
+    .form-label-custom {
+        font-size: 0.75rem;
+        font-weight: 600;
+        letter-spacing: 0.08em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-bottom: 0.4rem;
+        display: block;
+    }
+
+    .form-control-custom,
+    .form-select-custom {
+        width: 100%;
+        padding: 0.6rem 0.85rem;
+        background: var(--bg-input);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        transition: border-color 0.18s, box-shadow 0.18s;
+        outline: none;
+    }
+    .form-control-custom:focus, .form-select-custom:focus {
+        border-color: var(--accent);
+        box-shadow: 0 0 0 3px var(--accent-dim);
+    }
+
+    .form-error { font-size: 0.78rem; color: var(--danger); margin-top: 0.3rem; }
+
+    .form-error-global {
+        background: var(--danger-dim);
+        border: 1px solid rgba(239,68,68,0.25);
+        border-radius: 8px;
+        padding: 0.75rem 1rem;
+        font-size: 0.85rem;
+        color: var(--danger);
+        margin-bottom: 1rem;
+    }
+
+    .btn-submit {
+        width: 100%;
+        padding: 0.65rem;
+        background: var(--accent);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: background 0.18s, transform 0.15s, box-shadow 0.18s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.5rem;
+        margin-top: 1rem;
+    }
+    .btn-submit:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 4px 12px var(--accent-glow); }
+
+    .alert-no-militares {
+        background: rgba(245,158,11,0.1);
+        border: 1px solid rgba(245,158,11,0.3);
+        border-radius: 8px;
+        padding: 0.85rem 1rem;
+        font-size: 0.85rem;
+        color: var(--warning);
+        display: flex;
+        align-items: flex-start;
+        gap: 0.6rem;
+    }
+
+    /* ── Tabs (Futuro / Histórico) ── */
+    .tab-bar {
+        display: flex;
+        border-bottom: 1px solid var(--divider);
+    }
+
+    .tab-btn {
+        flex: 1;
+        padding: 0.75rem 0.5rem;
+        background: none;
+        border: none;
+        border-bottom: 2px solid transparent;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: var(--text-muted);
+        cursor: pointer;
+        transition: all 0.18s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 0.4rem;
+        margin-bottom: -1px;
+    }
+    .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); }
+    .tab-btn:hover:not(.active) { color: var(--text-primary); }
+
+    .tab-count {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        min-width: 18px;
+        height: 18px;
+        padding: 0 5px;
+        background: var(--badge-bg);
+        border-radius: 10px;
+        font-size: 0.7rem;
+        font-weight: 700;
+    }
+    .tab-btn.active .tab-count { background: var(--accent-dim); color: var(--accent); }
+
+    .tab-pane { display: none; }
+    .tab-pane.active { display: block; }
+
+    /* ── Turnos List ── */
+    .turno-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.75rem 1.25rem;
+        border-bottom: 1px solid var(--divider);
+        transition: background 0.15s;
+        gap: 0.75rem;
+    }
+    .turno-item:last-child { border-bottom: none; }
+    .turno-item:hover { background: var(--accent-dim); }
+
+    .turno-info { flex: 1; min-width: 0; }
+
+    .turno-nome {
+        font-size: 0.875rem;
+        font-weight: 600;
+        color: var(--text-primary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .turno-meta {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-top: 0.15rem;
+        flex-wrap: wrap;
+    }
+
+    .turno-data {
+        font-size: 0.75rem;
+        color: var(--text-muted);
+        font-family: 'Rajdhani', sans-serif;
+        font-weight: 600;
+        letter-spacing: 0.04em;
+    }
+
+    .turno-posto-tag {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.2rem;
+        font-size: 0.7rem;
+        font-weight: 600;
+        font-family: 'Rajdhani', sans-serif;
+        letter-spacing: 0.06em;
+        text-transform: uppercase;
+        background: var(--accent-dim);
+        color: var(--accent);
+        border: 1px solid rgba(59,130,246,0.2);
+        padding: 0.1rem 0.45rem;
+        border-radius: 5px;
+    }
+
+    .turno-passado-tag {
+        background: rgba(100,116,139,0.1);
+        color: var(--text-muted);
+        border-color: rgba(100,116,139,0.15);
+    }
+
+    .btn-delete-turno {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px; height: 30px;
+        background: transparent;
+        color: var(--text-muted);
+        border: 1px solid var(--border-strong);
+        border-radius: 7px;
+        cursor: pointer;
+        transition: all 0.18s;
+        flex-shrink: 0;
+        padding: 0;
+    }
+    .btn-delete-turno:hover { background: var(--danger-dim); color: var(--danger); border-color: rgba(239,68,68,0.3); }
+
+    .btn-delete-all {
+        display: inline-flex;
+        align-items: center;
+        gap: 0.35rem;
+        padding: 0.35rem 0.75rem;
+        background: transparent;
+        color: var(--danger);
+        border: 1px solid rgba(239,68,68,0.35);
+        border-radius: 6px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.75rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.18s;
+    }
+    .btn-delete-all:hover { background: var(--danger-dim); border-color: var(--danger); }
+
+    .turnos-scroll {
+        max-height: 360px;
+        overflow-y: auto;
+        scrollbar-width: thin;
+        scrollbar-color: var(--border-strong) transparent;
+    }
+
+    .empty-turnos {
+        padding: 2.5rem 1rem;
+        text-align: center;
+        color: var(--text-muted);
+        font-size: 0.85rem;
+        font-style: italic;
+    }
+
+    .lock-icon {
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px; height: 30px;
+        color: var(--text-muted);
+        opacity: 0.4;
+        flex-shrink: 0;
+    }
+
+    /* ── Calendar ── */
+    #calendar { max-width: 100%; }
+
+    .fc-theme-standard td, .fc-theme-standard th { border-color: var(--border); }
     .fc .fc-col-header-cell-cushion {
-        color: var(--text-primary, #212529);
+        color: var(--text-primary);
         text-decoration: none;
+        font-family: 'Rajdhani', sans-serif;
+        font-weight: 600;
+        letter-spacing: 0.04em;
     }
-    .fc .fc-daygrid-day-number {
-        color: var(--text-primary, #212529);
-        text-decoration: none;
-    }
+    .fc .fc-daygrid-day-number { color: var(--text-secondary); text-decoration: none; font-size: 0.8rem; }
     .fc .fc-button-primary {
-        background-color: #0d6efd;
-        border-color: #0d6efd;
+        background-color: var(--accent) !important;
+        border-color: var(--accent) !important;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.8rem;
+        font-weight: 600;
+        border-radius: 6px !important;
     }
-    
-    /* Correção do fundo transparente no tema escuro para a lista (select) e inputs */
-    body.dark-theme select.form-select, 
-    body.dark-theme select.form-select option,
-    body.dark-theme .form-control {
-        background-color: var(--main-bg, #212529) !important;
-        color: var(--text-primary, #fff) !important;
-        border-color: var(--border-color, #495057) !important;
+    .fc .fc-button-primary:hover { opacity: 0.85 !important; }
+    .fc .fc-toolbar-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1.2rem !important;
+        font-weight: 700;
+        color: var(--text-primary);
     }
-    
-    body.dark-theme .list-group-item {
-        background-color: var(--sidebar-bg, #212529) !important;
-        color: var(--text-primary, #fff) !important;
-        border-color: var(--border-color, #495057) !important;
+    body.dark-theme .fc .fc-daygrid-day.fc-day-today { background: var(--accent-dim) !important; }
+
+    /* ── Event Modal ── */
+    .event-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.5);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
     }
-    
-    body.dark-theme .card {
-        background-color: var(--sidebar-bg, #212529) !important;
-        border-color: var(--border-color, #495057) !important;
+    .event-modal-overlay.active { opacity: 1; pointer-events: all; }
+
+    .event-modal {
+        background: var(--bg-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        padding: 1.5rem;
+        max-width: 360px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+        transform: translateY(8px);
+        transition: transform 0.2s;
     }
-    
-    /* Improve light theme contrast */
-    .card {
-        border: 1px solid rgba(0,0,0,0.125);
+    .event-modal-overlay.active .event-modal { transform: translateY(0); }
+
+    .event-modal-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1.15rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 1rem;
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
     }
-    .list-group-item {
-        border-color: rgba(0,0,0,0.125);
+    .event-modal-field { margin-bottom: 0.6rem; }
+    .event-modal-label {
+        font-size: 0.72rem;
+        font-weight: 600;
+        letter-spacing: 0.1em;
+        text-transform: uppercase;
+        color: var(--text-muted);
+        margin-bottom: 0.2rem;
+    }
+    .event-modal-value { font-size: 0.9rem; color: var(--text-primary); font-weight: 500; }
+    .event-modal-close {
+        width: 100%;
+        padding: 0.6rem;
+        background: var(--accent-dim);
+        color: var(--accent);
+        border: 1px solid rgba(59,130,246,0.25);
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        margin-top: 1.25rem;
+        transition: all 0.18s;
+    }
+    .event-modal-close:hover { background: var(--accent); color: #fff; }
+
+    /* ── Confirm Delete Modal ── */
+    .confirm-modal-overlay {
+        position: fixed;
+        inset: 0;
+        background: rgba(0,0,0,0.55);
+        z-index: 9999;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 1rem;
+        opacity: 0;
+        pointer-events: none;
+        transition: opacity 0.2s;
+    }
+    .confirm-modal-overlay.active { opacity: 1; pointer-events: all; }
+    .confirm-modal {
+        background: var(--bg-card);
+        border: 1px solid var(--border-strong);
+        border-radius: 14px;
+        padding: 1.75rem;
+        max-width: 400px;
+        width: 100%;
+        box-shadow: 0 20px 60px rgba(0,0,0,0.35);
+        transform: translateY(8px);
+        transition: transform 0.2s;
+    }
+    .confirm-modal-overlay.active .confirm-modal { transform: translateY(0); }
+    .confirm-modal-icon {
+        width: 44px; height: 44px;
+        background: var(--danger-dim);
+        border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        color: var(--danger);
+        margin-bottom: 1rem;
+    }
+    .confirm-modal-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 1.2rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        margin-bottom: 0.5rem;
+    }
+    .confirm-modal-text { font-size: 0.875rem; color: var(--text-secondary); margin-bottom: 1.5rem; line-height: 1.5; }
+    .confirm-modal-actions { display: flex; gap: 0.75rem; }
+    .btn-confirm-cancel {
+        flex: 1;
+        padding: 0.65rem;
+        background: transparent;
+        color: var(--text-secondary);
+        border: 1px solid var(--border-strong);
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.18s;
+    }
+    .btn-confirm-cancel:hover { background: var(--badge-bg); }
+    .btn-confirm-ok {
+        flex: 1;
+        padding: 0.65rem;
+        background: var(--danger);
+        color: #fff;
+        border: none;
+        border-radius: 8px;
+        font-family: 'Inter', sans-serif;
+        font-size: 0.875rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.18s;
+    }
+    .btn-confirm-ok:hover { opacity: 0.88; }
+
+    /* Responsive */
+    @media (max-width: 768px) {
+        .detail-page { padding: 1.25rem 1rem 3rem; }
+        .page-title { font-size: 1.5rem; }
+        .header-actions { width: 100%; }
     }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="container-fluid py-4">
-    <div class="d-flex justify-content-between align-items-center mb-4">
+<div class="detail-page">
+
+    <!-- Header -->
+    <div class="page-header">
         <div>
-            <h2>{{ escala.nome }}</h2>
+            <div class="breadcrumb-nav">
+                <a href="{% url 'Secao_operacoes:escala_list' %}">Escalas</a>
+                <svg xmlns="http://www.w3.org/2000/svg" width="10" height="10" fill="currentColor" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+                </svg>
+                Detalhe
+            </div>
+            <h2 class="page-title">
+                {{ escala.nome }}
+                {% if escala.ativo %}
+                    <span class="escala-status-badge badge-ativo">Ativa</span>
+                {% else %}
+                    <span class="escala-status-badge badge-inativo">Inativa</span>
+                {% endif %}
+            </h2>
             {% if escala.descricao %}
-                <p class="text-muted mb-0">{{ escala.descricao }}</p>
+                <p class="page-subtitle">{{ escala.descricao }}</p>
             {% endif %}
         </div>
-        <div>
-            <a href="{% url 'Secao_operacoes:escala_edit' escala.pk %}" class="btn btn-outline-secondary me-2">Editar Escala</a>
-            <a href="{% url 'Secao_operacoes:escala_list' %}" class="btn btn-secondary">Voltar</a>
+        <div class="header-actions">
+            <a href="{% url 'Secao_operacoes:escala_edit' escala.pk %}" class="btn-action btn-action-ghost">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M12.146.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1 0 .708l-10 10a.5.5 0 0 1-.168.11l-5 2a.5.5 0 0 1-.65-.65l2-5a.5.5 0 0 1 .11-.168l10-10zM11.207 2.5 13.5 4.793 14.793 3.5 12.5 1.207 11.207 2.5zm1.586 3L10.5 3.207 4 9.707V10h.5a.5.5 0 0 1 .5.5v.5h.5a.5.5 0 0 1 .5.5v.5h.293l6.5-6.5zm-9.761 5.175-.106.106-1.528 3.821 3.821-1.528.106-.106A.5.5 0 0 1 5 12.5V12h-.5a.5.5 0 0 1-.5-.5V11h-.5a.5.5 0 0 1-.468-.325z"/>
+                </svg>
+                Editar
+            </a>
+            <!-- Toggle Ativo -->
+            <form method="post" action="{% url 'Secao_operacoes:escala_toggle_ativo' escala.pk %}" style="display:inline;">
+                {% csrf_token %}
+                <button type="submit" class="btn-action btn-action-ghost" title="{% if escala.ativo %}Desativar escala{% else %}Ativar escala{% endif %}">
+                    {% if escala.ativo %}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/>
+                        </svg>
+                        Desativar
+                    {% else %}
+                        <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 1a2 2 0 0 1 2 2v4H6V3a2 2 0 0 1 2-2zm3 6V3a3 3 0 0 0-6 0v4a2 2 0 0 0-2 2v5a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2V9a2 2 0 0 0-2-2z"/>
+                        </svg>
+                        Ativar
+                    {% endif %}
+                </button>
+            </form>
+            <!-- Excluir -->
+            <button type="button" class="btn-action btn-action-danger" onclick="openConfirmDelete()">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                    <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                </svg>
+                Excluir
+            </button>
+            <a href="{% url 'Secao_operacoes:escala_list' %}" class="btn-action btn-action-ghost">
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                    <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+                </svg>
+                Voltar
+            </a>
         </div>
     </div>
 
-    <div class="row">
-        <!-- Coluna da Esquerda: Formulário e Lista -->
-        <div class="col-lg-4 mb-4">
-            
-            <!-- Formulário para agendar turno -->
-            <div class="card shadow-sm border-0 mb-4">
-                <div class="card-header bg-primary text-white">
-                    <h5 class="mb-0">Escalar Militar</h5>
+    <div class="row g-4">
+        <!-- Coluna Esquerda -->
+        <div class="col-lg-4">
+
+            <!-- Formulário Escalar Militar -->
+            <div class="panel-card">
+                <div class="panel-head">
+                    <span class="panel-head-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10c-2.029 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
+                        </svg>
+                        Escalar Militar
+                    </span>
                 </div>
-                <div class="card-body">
+                <div class="panel-body">
                     {% if escala.militares.count == 0 %}
-                        <div class="alert alert-warning mb-0">
-                            Não há militares vinculados a esta escala. Edite a escala e adicione militares primeiro.
+                        <div class="alert-no-militares">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink:0;margin-top:1px;">
+                                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+                            </svg>
+                            Nenhum militar vinculado. <a href="{% url 'Secao_operacoes:escala_edit' escala.pk %}" style="color:var(--warning);font-weight:600;">Edite a escala</a> para adicionar militares.
                         </div>
                     {% else %}
                         <form method="post">
                             {% csrf_token %}
-                            {{ form.non_field_errors }}
+                            {% if form.non_field_errors %}
+                                <div class="form-error-global">
+                                    {% for error in form.non_field_errors %}{{ error }}{% endfor %}
+                                </div>
+                            {% endif %}
+
+                            <!-- Militar -->
                             <div class="mb-3">
-                                <label for="{{ form.militar.id_for_label }}" class="form-label fw-bold">Militar</label>
-                                {{ form.militar }}
-                                {% if form.militar.errors %}<div class="text-danger small">{{ form.militar.errors }}</div>{% endif %}
+                                <label class="form-label-custom">Militar</label>
+                                <select name="{{ form.militar.html_name }}" class="form-control-custom form-select-custom" id="{{ form.militar.id_for_label }}">
+                                    {% for choice in form.militar.field.choices %}
+                                        <option value="{{ choice.0 }}" {% if form.militar.value == choice.0|stringformat:"s" %}selected{% endif %}>{{ choice.1 }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.militar.errors %}<div class="form-error">{{ form.militar.errors.0 }}</div>{% endif %}
                             </div>
+
+                            <!-- Posto (apenas se existirem postos) -->
+                            {% if escala.postos.count > 0 %}
                             <div class="mb-3">
-                                <label for="{{ form.data.id_for_label }}" class="form-label fw-bold">Data do Serviço</label>
-                                {{ form.data }}
-                                {% if form.data.errors %}<div class="text-danger small">{{ form.data.errors }}</div>{% endif %}
+                                <label class="form-label-custom">Posto</label>
+                                <select name="{{ form.posto.html_name }}" class="form-control-custom form-select-custom" id="{{ form.posto.id_for_label }}">
+                                    <option value="">— Sem posto específico —</option>
+                                    {% for posto in escala.postos.all %}
+                                        <option value="{{ posto.pk }}" {% if form.posto.value == posto.pk|stringformat:"s" %}selected{% endif %}>{{ posto.nome }}</option>
+                                    {% endfor %}
+                                </select>
+                                {% if form.posto.errors %}<div class="form-error">{{ form.posto.errors.0 }}</div>{% endif %}
                             </div>
+                            {% endif %}
+
+                            <!-- Data -->
                             <div class="mb-3">
-                                <label for="{{ form.observacao.id_for_label }}" class="form-label fw-bold">Observação (Opcional)</label>
-                                {{ form.observacao }}
-                                {% if form.observacao.errors %}<div class="text-danger small">{{ form.observacao.errors }}</div>{% endif %}
+                                <label class="form-label-custom">Data do Serviço</label>
+                                <input type="date" name="{{ form.data.html_name }}" class="form-control-custom" id="{{ form.data.id_for_label }}" value="{{ form.data.value|default:'' }}">
+                                {% if form.data.errors %}<div class="form-error">{{ form.data.errors.0 }}</div>{% endif %}
                             </div>
-                            <button type="submit" class="btn btn-primary w-100">Adicionar à Escala</button>
+
+                            <!-- Observação -->
+                            <div class="mb-1">
+                                <label class="form-label-custom">Observação <span style="font-weight:400;text-transform:none;letter-spacing:0;">(opcional)</span></label>
+                                <textarea name="{{ form.observacao.html_name }}" class="form-control-custom" id="{{ form.observacao.id_for_label }}" rows="2" placeholder="Informações adicionais...">{{ form.observacao.value|default:'' }}</textarea>
+                                {% if form.observacao.errors %}<div class="form-error">{{ form.observacao.errors.0 }}</div>{% endif %}
+                            </div>
+
+                            <button type="submit" class="btn-submit">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
+                                    <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
+                                </svg>
+                                Adicionar à Escala
+                            </button>
                         </form>
                     {% endif %}
                 </div>
             </div>
 
-            <!-- Lista de próximos turnos -->
-            <div class="card shadow-sm border-0">
-                <div class="card-header bg-dark text-white d-flex justify-content-between align-items-center">
-                    <h5 class="mb-0">Listagem de Turnos</h5>
-                    {% if turnos %}
-                    <form method="post" action="{% url 'Secao_operacoes:turno_delete_all' escala.pk %}" onsubmit="return confirm('Tem certeza absoluta que deseja remover TODOS os militares desta escala? Esta ação não pode ser desfeita.');">
+            <!-- Listagem de Turnos com Tabs -->
+            <div class="panel-card">
+                <div class="panel-head">
+                    <span class="panel-head-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                        </svg>
+                        Turnos
+                    </span>
+                    {% if turnos_futuros %}
+                    <form method="post" action="{% url 'Secao_operacoes:turno_delete_all' escala.pk %}" id="formDeleteAll">
                         {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-danger">Remover Todos</button>
                     </form>
+                    <button type="button" class="btn-delete-all" onclick="openConfirmDeleteAll()">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                        </svg>
+                        Limpar Futuros
+                    </button>
                     {% endif %}
                 </div>
-                <div class="card-body p-0">
-                    {% if turnos %}
-                        <div class="list-group list-group-flush" style="max-height: 400px; overflow-y: auto;">
-                            {% for turno in turnos %}
-                                <div class="list-group-item d-flex justify-content-between align-items-center">
-                                    <div>
-                                        <div class="fw-bold">{{ turno.militar.nome_guerra }}</div>
-                                        <div class="small text-muted">{{ turno.data|date:"d/m/Y" }}</div>
+
+                <!-- Tabs -->
+                <div class="tab-bar">
+                    <button class="tab-btn active" onclick="switchTab('futuros', this)">
+                        Agendados
+                        <span class="tab-count">{{ turnos_futuros|length }}</span>
+                    </button>
+                    <button class="tab-btn" onclick="switchTab('passados', this)">
+                        Histórico
+                        <span class="tab-count">{{ turnos_passados|length }}</span>
+                    </button>
+                </div>
+
+                <!-- Barra de pesquisa de turnos -->
+                <div style="padding:0.6rem 0.85rem; border-bottom:1px solid var(--border); background:var(--bg-card); position:relative;">
+                    <svg style="position:absolute;left:1.45rem;top:50%;transform:translateY(-50%);color:var(--text-muted);pointer-events:none;" xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/>
+                    </svg>
+                    <input type="text" id="turnos-search" autocomplete="off"
+                        placeholder="Filtrar por militar..."
+                        style="width:100%;padding:0.42rem 0.75rem 0.42rem 2rem;background:var(--bg-input);border:1px solid var(--border-strong);border-radius:7px;font-family:'Inter',sans-serif;font-size:0.82rem;color:var(--text-primary);outline:none;transition:border-color .15s,box-shadow .15s;"
+                        onfocus="this.style.borderColor='var(--accent)';this.style.boxShadow='0 0 0 3px var(--accent-dim)'"
+                        onblur="this.style.borderColor='';this.style.boxShadow=''">
+                </div>
+
+                <!-- Tab: Futuros -->
+                <div class="tab-pane active panel-body-flush" id="tab-futuros">
+                    {% if turnos_futuros %}
+                        <div class="turnos-scroll">
+                            {% for turno in turnos_futuros %}
+                            <div class="turno-item">
+                                <div class="turno-info">
+                                    <div class="turno-nome">{{ turno.militar.nome_guerra }}</div>
+                                    <div class="turno-meta">
+                                        <span class="turno-data">{{ turno.data|date:"d/m/Y" }}</span>
+                                        {% if turno.posto %}
+                                            <span class="turno-posto-tag">{{ turno.posto.nome }}</span>
+                                        {% endif %}
                                     </div>
-                                    <form method="post" action="{% url 'Secao_operacoes:turno_delete' turno.pk %}" onsubmit="return confirm('Tem certeza que deseja remover este turno?');">
-                                        {% csrf_token %}
-                                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Remover">
-                                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="bi bi-trash" viewBox="0 0 16 16">
-                                              <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
-                                              <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
-                                            </svg>
-                                        </button>
-                                    </form>
                                 </div>
+                                <form method="post" action="{% url 'Secao_operacoes:turno_delete' turno.pk %}" style="display:inline;">
+                                    {% csrf_token %}
+                                    <button type="submit" class="btn-delete-turno" title="Remover turno" onclick="return confirm('Remover este turno?')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                                            <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                                            <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+                                        </svg>
+                                    </button>
+                                </form>
+                            </div>
                             {% endfor %}
                         </div>
                     {% else %}
-                        <div class="p-4 text-center text-muted">
-                            Nenhum militar escalado.
+                        <div class="empty-turnos">Nenhum turno agendado.</div>
+                    {% endif %}
+                </div>
+
+                <!-- Tab: Histórico (passados) -->
+                <div class="tab-pane panel-body-flush" id="tab-passados">
+                    {% if turnos_passados %}
+                        <div class="turnos-scroll">
+                            {% for turno in turnos_passados %}
+                            <div class="turno-item">
+                                <div class="turno-info">
+                                    <div class="turno-nome" style="opacity:0.7;">{{ turno.militar.nome_guerra }}</div>
+                                    <div class="turno-meta">
+                                        <span class="turno-data">{{ turno.data|date:"d/m/Y" }}</span>
+                                        {% if turno.posto %}
+                                            <span class="turno-posto-tag turno-passado-tag">{{ turno.posto.nome }}</span>
+                                        {% endif %}
+                                    </div>
+                                </div>
+                                <span class="lock-icon" title="Turnos passados não podem ser removidos">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                                        <path d="M11 1a2 2 0 0 0-2 2v4a2 2 0 0 1 2 2v5a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V9a2 2 0 0 1 2-2h5V3a3 3 0 0 1 6 0v4a.5.5 0 0 1-1 0V3a2 2 0 0 0-2-2z"/>
+                                    </svg>
+                                </span>
+                            </div>
+                            {% endfor %}
                         </div>
+                    {% else %}
+                        <div class="empty-turnos">Nenhum serviço passado registrado.</div>
                     {% endif %}
                 </div>
             </div>
 
         </div>
 
-        <!-- Coluna da Direita: Calendário -->
+        <!-- Coluna Direita: Calendário -->
         <div class="col-lg-8">
-            <div class="card shadow-sm border-0">
-                <div class="card-body">
+            <div class="panel-card">
+                <div class="panel-head">
+                    <span class="panel-head-title">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+                        </svg>
+                        Calendário de Serviços
+                    </span>
+                </div>
+                <div class="panel-body">
                     <div id='calendar'></div>
                 </div>
             </div>
+        </div>
+    </div>
+</div>
+
+<!-- Event Detail Modal -->
+<div class="event-modal-overlay" id="eventModal">
+    <div class="event-modal">
+        <div class="event-modal-title">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="color:var(--accent);">
+                <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10c-2.029 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
+            </svg>
+            Turno de Serviço
+        </div>
+        <div class="event-modal-field">
+            <div class="event-modal-label">Militar</div>
+            <div class="event-modal-value" id="modalMilitar">—</div>
+        </div>
+        <div class="event-modal-field" id="modalPostoWrap" style="display:none;">
+            <div class="event-modal-label">Posto</div>
+            <div class="event-modal-value" id="modalPosto">—</div>
+        </div>
+        <div class="event-modal-field">
+            <div class="event-modal-label">Data</div>
+            <div class="event-modal-value" id="modalData">—</div>
+        </div>
+        <div class="event-modal-field" id="modalObsWrap" style="display:none;">
+            <div class="event-modal-label">Observação</div>
+            <div class="event-modal-value" id="modalObs">—</div>
+        </div>
+        <button class="event-modal-close" onclick="closeEventModal()">Fechar</button>
+    </div>
+</div>
+
+<!-- Confirm Delete Escala Modal -->
+<div class="confirm-modal-overlay" id="confirmDeleteModal">
+    <div class="confirm-modal">
+        <div class="confirm-modal-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6z"/>
+                <path fill-rule="evenodd" d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1zM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118zM2.5 3V2h11v1h-11z"/>
+            </svg>
+        </div>
+        <div class="confirm-modal-title">Excluir Escala</div>
+        <div class="confirm-modal-text">Tem certeza que deseja excluir a escala <strong>{{ escala.nome }}</strong>? Todos os turnos vinculados serão removidos permanentemente.</div>
+        <div class="confirm-modal-actions">
+            <button class="btn-confirm-cancel" onclick="closeConfirmDelete()">Cancelar</button>
+            <form method="post" action="{% url 'Secao_operacoes:escala_delete' escala.pk %}" style="flex:1;">
+                {% csrf_token %}
+                <button type="submit" class="btn-confirm-ok" style="width:100%;">Excluir</button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<!-- Confirm Delete All Turnos Modal -->
+<div class="confirm-modal-overlay" id="confirmDeleteAllModal">
+    <div class="confirm-modal">
+        <div class="confirm-modal-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8.982 1.566a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767L8.982 1.566zM8 5c.535 0 .954.462.9.995l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 5.995A.905.905 0 0 1 8 5zm.002 6a1 1 0 1 1 0 2 1 1 0 0 1 0-2z"/>
+            </svg>
+        </div>
+        <div class="confirm-modal-title">Limpar Turnos Futuros</div>
+        <div class="confirm-modal-text">Todos os <strong>{{ turnos_futuros|length }} turno(s) agendado(s)</strong> serão removidos. O histórico de serviços passados será mantido.</div>
+        <div class="confirm-modal-actions">
+            <button class="btn-confirm-cancel" onclick="closeConfirmDeleteAll()">Cancelar</button>
+            <button type="button" class="btn-confirm-ok" onclick="document.getElementById('formDeleteAll').submit()">Remover</button>
         </div>
     </div>
 </div>
@@ -172,30 +961,110 @@
 
 {% block extra_js %}
 <script>
+    // ── Calendar ──
     document.addEventListener('DOMContentLoaded', function() {
         var calendarEl = document.getElementById('calendar');
         var calendar = new FullCalendar.Calendar(calendarEl, {
             initialView: 'dayGridMonth',
             locale: 'pt-br',
+            height: 'auto',
             headerToolbar: {
                 left: 'prev,next today',
                 center: 'title',
                 right: 'dayGridMonth,timeGridWeek,listWeek'
             },
-            buttonText: {
-                today: 'Hoje',
-                month: 'Mês',
-                week: 'Semana',
-                list: 'Lista'
-            },
+            buttonText: { today: 'Hoje', month: 'Mês', week: 'Semana', list: 'Lista' },
             events: "{% url 'Secao_operacoes:api_escala_eventos' escala.pk %}",
             eventClick: function(info) {
-                if (info.event.extendedProps.description) {
-                    alert('Militar: ' + info.event.title + '\nObs: ' + info.event.extendedProps.description);
+                var date = new Date(info.event.start);
+                var formatted = date.toLocaleDateString('pt-BR', { day: '2-digit', month: '2-digit', year: 'numeric', timeZone: 'UTC' });
+                document.getElementById('modalMilitar').textContent = info.event.title;
+                document.getElementById('modalData').textContent = formatted;
+
+                var posto = info.event.extendedProps.posto;
+                if (posto) {
+                    document.getElementById('modalPosto').textContent = posto;
+                    document.getElementById('modalPostoWrap').style.display = 'block';
+                } else {
+                    document.getElementById('modalPostoWrap').style.display = 'none';
                 }
+
+                var obs = info.event.extendedProps.description;
+                if (obs) {
+                    document.getElementById('modalObs').textContent = obs;
+                    document.getElementById('modalObsWrap').style.display = 'block';
+                } else {
+                    document.getElementById('modalObsWrap').style.display = 'none';
+                }
+                document.getElementById('eventModal').classList.add('active');
             }
         });
         calendar.render();
+    });
+
+    // ── Tabs ──
+    function switchTab(name, btn) {
+        document.querySelectorAll('.tab-pane').forEach(p => p.classList.remove('active'));
+        document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+        document.getElementById('tab-' + name).classList.add('active');
+        btn.classList.add('active');
+        // Re-apply search filter on tab switch
+        filterTurnos(document.getElementById('turnos-search').value);
+    }
+
+    // ── Turno Search Filter ──
+    function filterTurnos(q) {
+        q = q.toLowerCase().trim();
+        // Find active tab pane
+        const pane = document.querySelector('.tab-pane.active');
+        if (!pane) return;
+        const items = pane.querySelectorAll('.turno-item');
+        let visible = 0;
+        items.forEach(function(item) {
+            const nome = item.querySelector('.turno-nome');
+            const text = nome ? nome.textContent.toLowerCase() : '';
+            if (!q || text.includes(q)) {
+                item.style.display = '';
+                visible++;
+            } else {
+                item.style.display = 'none';
+            }
+        });
+        // Show/hide empty message
+        let noRes = pane.querySelector('.turnos-no-results');
+        if (!noRes && items.length > 0) {
+            noRes = document.createElement('div');
+            noRes.className = 'turnos-no-results empty-turnos';
+            noRes.textContent = 'Nenhum resultado encontrado.';
+            pane.querySelector('.turnos-scroll').appendChild(noRes);
+        }
+        if (noRes) noRes.style.display = (items.length > 0 && visible === 0) ? '' : 'none';
+    }
+
+    document.getElementById('turnos-search').addEventListener('input', function() {
+        filterTurnos(this.value);
+    });
+
+    // ── Event Modal ──
+    function closeEventModal() { document.getElementById('eventModal').classList.remove('active'); }
+    document.getElementById('eventModal').addEventListener('click', function(e) { if (e.target === this) closeEventModal(); });
+
+    // ── Confirm Delete Escala ──
+    function openConfirmDelete() { document.getElementById('confirmDeleteModal').classList.add('active'); }
+    function closeConfirmDelete() { document.getElementById('confirmDeleteModal').classList.remove('active'); }
+    document.getElementById('confirmDeleteModal').addEventListener('click', function(e) { if (e.target === this) closeConfirmDelete(); });
+
+    // ── Confirm Delete All ──
+    function openConfirmDeleteAll() { document.getElementById('confirmDeleteAllModal').classList.add('active'); }
+    function closeConfirmDeleteAll() { document.getElementById('confirmDeleteAllModal').classList.remove('active'); }
+    document.getElementById('confirmDeleteAllModal').addEventListener('click', function(e) { if (e.target === this) closeConfirmDeleteAll(); });
+
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape') {
+            closeEventModal();
+            closeConfirmDelete();
+            closeConfirmDeleteAll();
+        }
     });
 </script>
 {% endblock %}
