@@ -2,6 +2,7 @@ from django import forms
 from .models import Escala, TurnoEscala, PostoEscala
 from Secao_pessoal.models import Efetivo
 
+
 class EscalaForm(forms.ModelForm):
     militares = forms.ModelMultipleChoiceField(
         queryset=Efetivo.objects.all().order_by('nome_guerra'),
@@ -12,21 +13,32 @@ class EscalaForm(forms.ModelForm):
 
     class Meta:
         model = Escala
-        fields = ['nome', 'descricao', 'militares']
+        fields = ['nome', 'descricao', 'tipo', 'duracao_horas', 'militares']
         widgets = {
             'nome': forms.TextInput(attrs={'class': 'form-control'}),
             'descricao': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'tipo': forms.Select(attrs={'class': 'form-select'}),
+            'duracao_horas': forms.NumberInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: 12, 24, 48...',
+                'min': '1',
+            }),
         }
 
 
 class PostoEscalaForm(forms.ModelForm):
     class Meta:
         model = PostoEscala
-        fields = ['nome']
+        fields = ['nome', 'horario']
         widgets = {
             'nome': forms.TextInput(attrs={
                 'class': 'form-control',
                 'placeholder': 'Ex: Guarita 1, Parabala, Pedestre...',
+                'autocomplete': 'off',
+            }),
+            'horario': forms.TextInput(attrs={
+                'class': 'form-control',
+                'placeholder': 'Ex: 0h às 6h, 6h às 12h, Manhã...',
                 'autocomplete': 'off',
             }),
         }
@@ -46,18 +58,19 @@ class TurnoEscalaForm(forms.ModelForm):
     def __init__(self, *args, **kwargs):
         escala_id = kwargs.pop('escala_id', None)
         self.escala_id_val = escala_id
+        self.escala_tipo = None
         super().__init__(*args, **kwargs)
         if escala_id:
             try:
                 escala = Escala.objects.get(id=escala_id)
+                self.escala_tipo = escala.tipo
                 self.fields['militar'].queryset = escala.militares.all().order_by('nome_guerra')
                 postos_qs = escala.postos.all()
                 if postos_qs.exists():
                     self.fields['posto'].queryset = postos_qs
-                    self.fields['posto'].required = False
-                    self.fields['posto'].empty_label = "— Sem posto específico —"
+                    self.fields['posto'].required = True
+                    self.fields['posto'].empty_label = None  # sem opção "sem posto"
                 else:
-                    # Sem postos cadastrados: esconde o campo
                     self.fields['posto'].queryset = PostoEscala.objects.none()
                     self.fields['posto'].required = False
                     self.fields['posto'].widget = forms.HiddenInput()
@@ -69,22 +82,36 @@ class TurnoEscalaForm(forms.ModelForm):
         cleaned_data = super().clean()
         militar = cleaned_data.get('militar')
         data = cleaned_data.get('data')
+        posto = cleaned_data.get('posto')
 
         if militar and data and self.escala_id_val:
-            # Regra 1: não pode ser escalado para 2 serviços no mesmo dia
-            if TurnoEscala.objects.filter(militar=militar, data=data).exists():
-                self.add_error('data', 'Este militar já está escalado para um serviço neste dia.')
+            tipo = self.escala_tipo or '24h'
 
-            # Regra 2: saindo de serviço (trabalhou dia anterior)
-            if TurnoEscala.objects.filter(militar=militar, data=data - timedelta(days=1)).exists():
-                self.add_error('data', 'O militar está saindo de serviço neste dia (trabalha no dia anterior).')
+            # Regra global: posto já ocupado por outro militar no mesmo dia
+            if posto and TurnoEscala.objects.filter(posto=posto, data=data).exclude(militar=militar).exists():
+                self.add_error('posto', f'O posto "{posto.nome}" já está ocupado por outro militar neste dia.')
 
-            # Regra 3: entrará de serviço no dia seguinte
-            if TurnoEscala.objects.filter(militar=militar, data=data + timedelta(days=1)).exists():
-                self.add_error('data', 'O militar entrará de serviço no dia seguinte — precisa de descanso.')
+            if tipo == 'turno':
+                # For turno type: only block same military + same posto + same day
+                qs = TurnoEscala.objects.filter(militar=militar, data=data)
+                if posto:
+                    qs = qs.filter(posto=posto)
+                if qs.exists():
+                    self.add_error('data', 'Este militar já está escalado para este posto neste dia.')
+            else:
+                # For 24h, permanencia, sbv: apply full conflict rules
+                if TurnoEscala.objects.filter(militar=militar, data=data).exists():
+                    self.add_error('data', 'Este militar já está escalado para um serviço neste dia.')
 
-            # Regra 4: duplicata na mesma escala e data
+                if tipo == '24h':
+                    if TurnoEscala.objects.filter(militar=militar, data=data - timedelta(days=1)).exists():
+                        self.add_error('data', 'O militar está saindo de serviço neste dia (trabalha no dia anterior).')
+                    if TurnoEscala.objects.filter(militar=militar, data=data + timedelta(days=1)).exists():
+                        self.add_error('data', 'O militar entrará de serviço no dia seguinte — precisa de descanso.')
+
+            # Always block exact same escala + military + day duplicate
             if TurnoEscala.objects.filter(militar=militar, escala_id=self.escala_id_val, data=data).exists():
-                self.add_error('militar', 'Este militar já está escalado para esta escala neste dia.')
+                if not (tipo == 'turno' and posto):
+                    self.add_error('militar', 'Este militar já está escalado para esta escala neste dia.')
 
         return cleaned_data

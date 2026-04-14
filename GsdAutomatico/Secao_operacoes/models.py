@@ -1,10 +1,34 @@
 from django.db import models
 from Secao_pessoal.models import Efetivo
 
+
 class Escala(models.Model):
+    TIPO_CHOICES = [
+        ('24h', '24 Horas'),
+        ('turno', 'Turno (6h)'),
+        ('permanencia', 'Permanência'),
+        ('sbv', 'SBV — Sobre Aviso'),
+    ]
+
     nome = models.CharField(max_length=100, verbose_name="Nome da Escala")
     descricao = models.TextField(blank=True, null=True, verbose_name="Descrição")
-    militares = models.ManyToManyField(Efetivo, related_name='escalas_vinculadas', blank=True, verbose_name="Militares Vinculados")
+    tipo = models.CharField(
+        max_length=20,
+        choices=TIPO_CHOICES,
+        default='24h',
+        verbose_name="Tipo de Serviço"
+    )
+    duracao_horas = models.PositiveIntegerField(
+        null=True, blank=True,
+        verbose_name="Duração (horas)",
+        help_text="Apenas para tipo Permanência"
+    )
+    militares = models.ManyToManyField(
+        Efetivo,
+        related_name='escalas_vinculadas',
+        blank=True,
+        verbose_name="Militares Vinculados"
+    )
     ativo = models.BooleanField(default=True, verbose_name="Ativa")
 
     def __str__(self):
@@ -18,6 +42,12 @@ class Escala(models.Model):
 class PostoEscala(models.Model):
     escala = models.ForeignKey(Escala, on_delete=models.CASCADE, related_name='postos', verbose_name="Escala")
     nome = models.CharField(max_length=100, verbose_name="Nome do Posto")
+    horario = models.CharField(
+        max_length=50,
+        blank=True,
+        verbose_name="Horário",
+        help_text="Ex: 0h às 6h, 6h às 12h, Manhã, Tarde..."
+    )
 
     def __str__(self):
         return f"{self.escala.nome} — {self.nome}"

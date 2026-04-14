@@ -519,6 +519,57 @@
     }
     .btn-save:hover { background: #2563eb; transform: translateY(-1px); box-shadow: 0 4px 16px var(--accent-glow); }
 
+    /* ── Tipo Selector ── */
+    .tipo-grid {
+        display: grid;
+        grid-template-columns: repeat(2, 1fr);
+        gap: 0.65rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .tipo-option { display: none; }
+
+    .tipo-label {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 0.45rem;
+        padding: 0.85rem 0.5rem;
+        background: var(--bg-input);
+        border: 2px solid var(--border-strong);
+        border-radius: 10px;
+        cursor: pointer;
+        transition: all 0.18s;
+        text-align: center;
+    }
+    .tipo-label:hover { border-color: var(--accent); background: var(--accent-dim); }
+    .tipo-option:checked + .tipo-label {
+        border-color: var(--accent);
+        background: var(--accent-dim);
+        box-shadow: 0 0 0 3px var(--accent-glow);
+    }
+
+    .tipo-label-icon {
+        font-size: 1.4rem;
+        line-height: 1;
+    }
+
+    .tipo-label-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: var(--text-primary);
+        letter-spacing: 0.02em;
+    }
+
+    .tipo-label-sub {
+        font-size: 0.7rem;
+        color: var(--text-muted);
+        font-family: 'Inter', sans-serif;
+    }
+
+    .duracao-group { margin-top: 0.75rem; }
+
     @media (max-width: 640px) {
         .form-page { padding: 1.25rem 1rem 3rem; }
         .form-card-body { padding: 1.25rem 1rem; }
@@ -579,6 +630,59 @@
                         </div>
                     {% endif %}
                     <div class="field-hint">Detalhes ou responsabilidades sobre esta escala.</div>
+                </div>
+
+                <!-- Tipo de Serviço -->
+                <div class="field-group">
+                    <label class="field-label">Tipo de Serviço</label>
+                    <div class="tipo-grid">
+                        <div>
+                            <input type="radio" name="{{ form.tipo.html_name }}" id="tipo_24h" value="24h" class="tipo-option"
+                                {% if form.tipo.value == '24h' or not form.tipo.value %}checked{% endif %}>
+                            <label for="tipo_24h" class="tipo-label">
+                                <span class="tipo-label-icon">🕛</span>
+                                <span class="tipo-label-title">24 Horas</span>
+                                <span class="tipo-label-sub">Serviço de dia inteiro</span>
+                            </label>
+                        </div>
+                        <div>
+                            <input type="radio" name="{{ form.tipo.html_name }}" id="tipo_turno" value="turno" class="tipo-option"
+                                {% if form.tipo.value == 'turno' %}checked{% endif %}>
+                            <label for="tipo_turno" class="tipo-label">
+                                <span class="tipo-label-icon">🔄</span>
+                                <span class="tipo-label-title">Turno (6h)</span>
+                                <span class="tipo-label-sub">Turnos por posto/horário</span>
+                            </label>
+                        </div>
+                        <div>
+                            <input type="radio" name="{{ form.tipo.html_name }}" id="tipo_permanencia" value="permanencia" class="tipo-option"
+                                {% if form.tipo.value == 'permanencia' %}checked{% endif %}>
+                            <label for="tipo_permanencia" class="tipo-label">
+                                <span class="tipo-label-icon">⏳</span>
+                                <span class="tipo-label-title">Permanência</span>
+                                <span class="tipo-label-sub">Duração personalizada</span>
+                            </label>
+                        </div>
+                        <div>
+                            <input type="radio" name="{{ form.tipo.html_name }}" id="tipo_sbv" value="sbv" class="tipo-option"
+                                {% if form.tipo.value == 'sbv' %}checked{% endif %}>
+                            <label for="tipo_sbv" class="tipo-label">
+                                <span class="tipo-label-icon">📡</span>
+                                <span class="tipo-label-title">SBV</span>
+                                <span class="tipo-label-sub">Sobre Aviso</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Duração (apenas para Permanência) -->
+                    <div class="duracao-group" id="duracao-group" style="display:{% if form.tipo.value == 'permanencia' %}block{% else %}none{% endif %};">
+                        <label for="{{ form.duracao_horas.id_for_label }}" class="field-label" style="margin-top:0.5rem;">Duração em Horas</label>
+                        {{ form.duracao_horas }}
+                        {% if form.duracao_horas.errors %}
+                            <div class="field-error">{{ form.duracao_horas.errors.0 }}</div>
+                        {% endif %}
+                        <div class="field-hint">Quantas horas dura o serviço de permanência (ex: 12, 24, 48).</div>
+                    </div>
                 </div>
 
                 <!-- Militares -->
@@ -659,7 +763,7 @@
                         <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="currentColor" viewBox="0 0 16 16" style="color:var(--accent);flex-shrink:0;">
                             <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
                         </svg>
-                        {{ posto.nome }}
+                        {{ posto.nome }}{% if posto.horario %} <span style="opacity:0.65;font-size:0.75rem;">· {{ posto.horario }}</span>{% endif %}
                         <form method="post" action="{% url 'Secao_operacoes:posto_delete' posto.pk %}" style="display:inline;" onsubmit="return confirm('Remover posto {{ posto.nome }}?');">
                             {% csrf_token %}
                             <button type="submit" class="posto-delete-btn" title="Remover posto">
@@ -679,12 +783,13 @@
             <form method="post" action="{% url 'Secao_operacoes:posto_create' escala.pk %}">
                 {% csrf_token %}
                 <div class="posto-add-row">
-                    <input type="text" name="nome" class="posto-input" placeholder="Ex: Guarita 1, Parabala, Pedestre..." maxlength="100" required autocomplete="off">
+                    <input type="text" name="nome" class="posto-input" placeholder="Nome do posto (ex: Guarita 1)" maxlength="100" required autocomplete="off" style="flex:2;">
+                    <input type="text" name="horario" class="posto-input" placeholder="Horário (ex: 0h às 6h)" maxlength="50" autocomplete="off" style="flex:1.5;">
                     <button type="submit" class="btn-posto-add">
                         <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
                             <path fill-rule="evenodd" d="M8 2a.5.5 0 0 1 .5.5v5h5a.5.5 0 0 1 0 1h-5v5a.5.5 0 0 1-1 0v-5h-5a.5.5 0 0 1 0-1h5v-5A.5.5 0 0 1 8 2Z"/>
                         </svg>
-                        Adicionar Posto
+                        Adicionar
                     </button>
                 </div>
             </form>
@@ -791,6 +896,14 @@
 
         // Search filter
         $('#membros-search').on('input', applySearch);
+    });
+
+    // Tipo selector: show/hide duracao group
+    document.querySelectorAll('input[name="{{ form.tipo.html_name }}"]').forEach(function(radio) {
+        radio.addEventListener('change', function() {
+            document.getElementById('duracao-group').style.display =
+                this.value === 'permanencia' ? 'block' : 'none';
+        });
     });
 </script>
 {% endblock %}

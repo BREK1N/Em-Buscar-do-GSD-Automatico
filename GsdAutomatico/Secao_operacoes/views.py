@@ -209,10 +209,20 @@ def escala_detail(request, pk):
     else:
         form = TurnoEscalaForm(escala_id=escala.pk)
 
+    import json
+    from collections import defaultdict
+
     todos_turnos = escala.turnos.all().select_related('militar', 'posto').order_by('data')
     turnos_futuros = [t for t in todos_turnos if t.data >= hoje]
     turnos_passados = [t for t in todos_turnos if t.data < hoje]
     turnos_passados.sort(key=lambda t: t.data, reverse=True)
+
+    # Mapa de postos ocupados por data: {posto_id: [date_str, ...]}
+    postos_ocupados = defaultdict(list)
+    for t in todos_turnos:
+        if t.posto_id:
+            postos_ocupados[str(t.posto_id)].append(t.data.isoformat())
+    postos_ocupados_json = json.dumps(dict(postos_ocupados))
 
     return render(request, 'Secao_operacoes/escala_detail.html', {
         'escala': escala,
@@ -220,6 +230,7 @@ def escala_detail(request, pk):
         'turnos_futuros': turnos_futuros,
         'turnos_passados': turnos_passados,
         'hoje': hoje,
+        'postos_ocupados_json': postos_ocupados_json,
     })
 
 
@@ -312,20 +323,53 @@ def posto_delete(request, pk):
 
 @login_required
 def api_escala_eventos(request, pk):
+    from datetime import timedelta
     escala = get_object_or_404(Escala, pk=pk)
     turnos = escala.turnos.all().select_related('militar', 'posto')
+
+    TIPO_COLORS = {
+        '24h':        '#0d6efd',
+        'turno':      '#0ea5e9',
+        'permanencia': '#8b5cf6',
+        'sbv':        '#f59e0b',
+    }
+    color = TIPO_COLORS.get(escala.tipo, '#0d6efd')
+
     eventos = []
     for turno in turnos:
         titulo = turno.militar.nome_guerra
+        posto_nome = ''
+        horario_str = ''
+
         if turno.posto:
-            titulo += f" ({turno.posto.nome})"
-        eventos.append({
+            posto_nome = turno.posto.nome
+            horario_str = turno.posto.horario or ''
+            label = posto_nome
+            if horario_str:
+                label += f' {horario_str}'
+            titulo += f' ({label})'
+
+        evento = {
             'id': turno.id,
             'title': titulo,
             'start': turno.data.isoformat(),
             'allDay': True,
             'description': turno.observacao or '',
-            'posto': turno.posto.nome if turno.posto else '',
-            'color': '#0d6efd',
-        })
+            'posto': posto_nome,
+            'horario': horario_str,
+            'tipo': escala.tipo,
+            'color': color,
+        }
+
+        # 24h: event bar spans into the next day
+        if escala.tipo == '24h':
+            evento['end'] = (turno.data + timedelta(days=1)).isoformat()
+
+        # permanencia: span by duracao_horas if set
+        elif escala.tipo == 'permanencia' and escala.duracao_horas:
+            dias_extra = escala.duracao_horas // 24
+            if dias_extra >= 1:
+                evento['end'] = (turno.data + timedelta(days=dias_extra)).isoformat()
+
+        eventos.append(evento)
     return JsonResponse(eventos, safe=False)
