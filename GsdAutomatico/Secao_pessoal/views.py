@@ -14,7 +14,7 @@ from django.utils.decorators import method_decorator
 from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_GET
 from django.contrib.auth.models import Group
-from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, Notificacao, SolicitacaoTrocaSetor, HistoricoInspsau
+from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, Notificacao, SolicitacaoTrocaSetor, HistoricoInspsau, SolicitacaoFerias
 from .forms import MilitarForm, NotificacaoForm
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
@@ -22,7 +22,7 @@ from difflib import SequenceMatcher
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
 from datetime import datetime
-import fitz
+import fitz, timezone
 try:
     import pytesseract
 except ImportError:
@@ -38,6 +38,21 @@ def is_s1_member(user):
     return user.groups.filter(name='S1').exists()
 
 s1_required = user_passes_test(is_s1_member)
+
+def get_chefe_por_grupo(nome_setor):
+    if not nome_setor:
+        return None
+    nome_grupo = f"Chefe - {nome_setor}"
+    try:
+        grupo = Group.objects.get(name__iexact=nome_grupo)
+        user_chefe = grupo.user_set.filter(is_active=True, profile__militar__isnull=False).first()
+        if user_chefe:
+            return user_chefe.profile.militar
+    except Group.DoesNotExist:
+        pass
+    
+    setor_obj = Setor.objects.filter(nome=nome_setor).first()
+    return setor_obj.chefe if setor_obj and hasattr(setor_obj, 'chefe') else None
 
 
 def obter_situacao_inspsau(letra):
@@ -657,21 +672,34 @@ def comunicacoes(request):
     # --- Contadores Globais (aparecem em todas as abas) ---
     if militar_logado:
         unread_count = Notificacao.objects.filter(destinatario=militar_logado, lida=False).count()
-        autorizacoes_count = SolicitacaoTrocaSetor.objects.filter(
+        
+        count_troca = SolicitacaoTrocaSetor.objects.filter(
             Q(chefe_atual=militar_logado, status='pendente_atual') |
             Q(chefe_destino=militar_logado, status='pendente_destino')
         ).count()
+
+        count_ferias = SolicitacaoFerias.objects.filter(
+            chefe_aprovador=militar_logado,
+            status='pendente'
+        ).count()
+
+        autorizacoes_count = count_troca + count_ferias
     else:
         unread_count = 0
         autorizacoes_count = 0
 
-    autorizacoes_pendentes = []
+    autorizacoes_pendentes_troca = []
+    autorizacoes_pendentes_ferias = []
     if militar_logado and box == 'sent':
         notificacoes = Notificacao.objects.filter(remetente=militar_logado).order_by('-data_criacao')
     elif militar_logado and box == 'autorizacoes':
-        autorizacoes_pendentes = SolicitacaoTrocaSetor.objects.filter(
+        autorizacoes_pendentes_troca = SolicitacaoTrocaSetor.objects.filter(
             Q(chefe_atual=militar_logado, status='pendente_atual') |
             Q(chefe_destino=militar_logado, status='pendente_destino')
+        ).order_by('-data_solicitacao')
+        autorizacoes_pendentes_ferias = SolicitacaoFerias.objects.filter(
+            chefe_aprovador=militar_logado,
+            status='pendente'
         ).order_by('-data_solicitacao')
         notificacoes = []
     elif militar_logado:
@@ -702,7 +730,8 @@ def comunicacoes(request):
 
     context = {
         'notificacoes': notificacoes,
-        'autorizacoes_pendentes': autorizacoes_pendentes,
+        'autorizacoes_pendentes_troca': autorizacoes_pendentes_troca,
+        'autorizacoes_pendentes_ferias': autorizacoes_pendentes_ferias,
         'form': form,
         'is_s1': is_s1,
         'current_box': box,
@@ -917,6 +946,19 @@ def baixa(request):
 def ferias(request):
     militares = Efetivo.objects.exclude(situacao__iexact='De Junta').order_by('nome_guerra')
     militares_ferias = Efetivo.objects.filter(situacao__iexact='Férias').order_by('nome_guerra')
+    militares_com_saldo = militares.filter(dias_ferias_gozados__gt=0)
+
+    # Adiciona os dias pendentes de aprovação ao objeto de cada militar para exibição no template
+    solicitacoes_pendentes_map = {
+        item['militar']: item['total_dias']
+        for item in SolicitacaoFerias.objects.filter(status='pendente').values('militar').annotate(total_dias=models.Sum('dias_solicitados'))
+    }
+    for m in militares:
+        dias_pendentes = solicitacoes_pendentes_map.get(m.id, 0)
+        m.dias_ferias_pendentes = dias_pendentes
+        m.total_dias_comprometidos = m.dias_ferias_gozados + dias_pendentes
+
+    solicitacoes_ferias = SolicitacaoFerias.objects.all().order_by('-data_solicitacao')
     
     if request.method == 'POST':
         # Ação para zerar saldo de férias para um novo ano
@@ -925,6 +967,7 @@ def ferias(request):
             try:
                 m = Efetivo.objects.get(id=reset_militar_id)
                 m.dias_ferias_gozados = 0
+                m.ferias_parcelas_gozadas = []
                 m.save()
                 messages.success(request, f'Saldo de férias do militar {m.posto} {m.nome_guerra} foi zerado para o novo ciclo.')
             except Efetivo.DoesNotExist:
@@ -937,58 +980,124 @@ def ferias(request):
         etapa_parcela = request.POST.get('etapa_parcela')
         tipo_parcela = request.POST.get('tipo_parcela')
         
-        if militar_id and data_inicio and data_fim:
+        if militar_id and data_inicio and data_fim and etapa_parcela and tipo_parcela:
             try:
                 militar = Efetivo.objects.get(id=militar_id)
                 
-                # Validação do limite de 30 dias
-                dias_solicitados = int(tipo_parcela) if tipo_parcela else 0
-                dias_gozados = militar.dias_ferias_gozados
+                dias_solicitados = int(tipo_parcela) if tipo_parcela.isdigit() else 0
+
+                # --- NOVA VALIDAÇÃO DE PARCELAS ---
+                parcelas_gozadas = militar.ferias_parcelas_gozadas or []
+                solicitacoes_pendentes = SolicitacaoFerias.objects.filter(militar=militar, status='pendente')
+                parcelas_pendentes = [s.dias_solicitados for s in solicitacoes_pendentes]
                 
-                if dias_gozados + dias_solicitados > 30:
-                    messages.error(request, f'Erro: O militar já utilizou {dias_gozados} dias e não pode solicitar mais {dias_solicitados} dias.')
+                soma_existente = sum(parcelas_gozadas) + sum(parcelas_pendentes)
+
+                if soma_existente + dias_solicitados > 30:
+                    messages.error(request, f'Erro: O militar já tem {soma_existente} dias de férias (gozados + pendentes) e não pode solicitar mais {dias_solicitados} dias.')
                     return redirect('Secao_pessoal:ferias')
 
-                was_ferias = (militar.situacao == 'Férias')
-                militar.situacao = 'Férias'
-                militar.dias_ferias_gozados = dias_gozados + dias_solicitados
+                valid_parcel_values = [10, 15, 20, 30]
+                if dias_solicitados not in valid_parcel_values:
+                    messages.error(request, f"Erro: A quantidade de {dias_solicitados} dias não é uma parcela de férias válida (permitido: 10, 15, 20, 30).")
+                    return redirect('Secao_pessoal:ferias')
+
+                proximas_parcelas = sorted(parcelas_gozadas + parcelas_pendentes + [dias_solicitados])
                 
-                # Converte o formato do calendário para exibir bonitinho DD/MM/AAAA
-                from datetime import datetime
-                try:
-                    inicio_fmt = datetime.strptime(data_inicio, '%Y-%m-%d').strftime('%d/%m/%Y')
-                    fim_fmt = datetime.strptime(data_fim, '%Y-%m-%d').strftime('%d/%m/%Y')
-                    
-                    if etapa_parcela and tipo_parcela:
-                        if etapa_parcela == 'Integral':
-                            nova_obs = f"Férias (Integral - 30 dias): {inicio_fmt} até {fim_fmt}"
-                        else:
-                            nova_obs = f"Férias ({etapa_parcela} - {tipo_parcela} dias): {inicio_fmt} até {fim_fmt}"
-                    else:
-                        nova_obs = f"Férias: {inicio_fmt} até {fim_fmt}"
-                except ValueError:
-                    nova_obs = f"Férias: {data_inicio} até {data_fim}"
-                    
-                if was_ferias and militar.observacao:
-                    if nova_obs not in militar.observacao:
-                        militar.observacao = f"{militar.observacao} | {nova_obs}"
-                else:
-                    militar.observacao = nova_obs
-                    
-                militar.save()
-                messages.success(request, f'Férias registradas. O militar {militar.posto} {militar.nome_guerra} consta agora como indisponível no cadastro.')
+                valid_combinations = [
+                    [10], [15], [20], [30],
+                    [10, 10],
+                    [10, 20],
+                    [15, 15],
+                    [10, 10, 10]
+                ]
+
+                if proximas_parcelas not in valid_combinations:
+                    messages.error(request, f"Erro: A combinação de parcelas resultante ({proximas_parcelas}) não é válida. As combinações permitidas são 30, 15+15, 20+10, ou 10+10+10.")
+                    return redirect('Secao_pessoal:ferias')
+                # --- FIM DA NOVA VALIDAÇÃO ---
+
+                chefe = get_chefe_por_grupo(militar.setor)
+                if not chefe:
+                    messages.error(request, f'Não foi possível criar a solicitação. O setor "{militar.setor}" do militar {militar.nome_guerra} não possui um chefe definido no sistema.')
+                    return redirect('Secao_pessoal:ferias')
+                
+                SolicitacaoFerias.objects.create(
+                    militar=militar,
+                    chefe_aprovador=chefe,
+                    data_inicio=data_inicio,
+                    data_fim=data_fim,
+                    dias_solicitados=dias_solicitados,
+                    etapa_parcela=etapa_parcela,
+                    tipo_parcela=tipo_parcela,
+                    status='pendente'
+                )
+                
+                messages.success(request, f'Solicitação de férias para {militar.posto} {militar.nome_guerra} enviada para aprovação do(a) {chefe.posto} {chefe.nome_guerra}.')
             except Efetivo.DoesNotExist:
                 messages.error(request, 'Erro: Militar não encontrado.')
+            except Exception as e:
+                 messages.error(request, f'Ocorreu um erro: {e}')
         else:
-            messages.error(request, 'Preencha todos os campos corretamente.')
+            messages.error(request, 'Preencha todos os campos do formulário de solicitação.')
             
         return redirect('Secao_pessoal:ferias')
 
     context = {
         'militares': militares,
-        'militares_ferias': militares_ferias
+        'militares_ferias': militares_ferias,
+        'militares_com_saldo': militares_com_saldo,
+        'solicitacoes_ferias': solicitacoes_ferias,
     }
     return render(request, 'Secao_pessoal/ferias.html', context)
+
+@login_required
+def responder_solicitacao_ferias(request, solicitacao_id, acao):
+    solicitacao = get_object_or_404(SolicitacaoFerias, id=solicitacao_id)
+    militar_logado = getattr(request.user.profile, 'militar', None)
+
+    if not militar_logado or (solicitacao.chefe_aprovador != militar_logado and not is_s1_member(request.user)):
+        messages.error(request, 'Você não tem permissão para responder a esta solicitação.')
+        return redirect('comunicacoes_global')
+
+    if request.method == 'POST':
+        if acao == 'aprovar':
+            solicitacao.status = 'aprovado'
+            solicitacao.data_resposta = timezone.now()
+            
+            militar = solicitacao.militar
+            was_ferias = (militar.situacao == 'Férias')
+            militar.situacao = 'Férias'
+            militar.dias_ferias_gozados += solicitacao.dias_solicitados
+            
+            # Adiciona a parcela aprovada ao histórico do militar
+            if not isinstance(militar.ferias_parcelas_gozadas, list):
+                militar.ferias_parcelas_gozadas = []
+            militar.ferias_parcelas_gozadas.append(solicitacao.dias_solicitados)
+            
+            inicio_fmt = solicitacao.data_inicio.strftime('%d/%m/%Y')
+            fim_fmt = solicitacao.data_fim.strftime('%d/%m/%Y')
+            nova_obs = f"Férias ({solicitacao.etapa_parcela} - {solicitacao.tipo_parcela} dias): {inicio_fmt} até {fim_fmt}"
+            
+            militar.observacao = f"{militar.observacao} | {nova_obs}" if was_ferias and militar.observacao and nova_obs not in militar.observacao else nova_obs
+            
+            militar.save()
+            solicitacao.save()
+            messages.success(request, f'Solicitação de férias para {militar.nome_guerra} APROVADA.')
+
+        elif acao == 'rejeitar':
+            motivo = request.POST.get('motivo_rejeicao')
+            if not motivo:
+                messages.error(request, 'O motivo da rejeição é obrigatório.')
+                return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
+
+            solicitacao.status = 'rejeitado'
+            solicitacao.motivo_rejeicao = motivo
+            solicitacao.data_resposta = timezone.now()
+            solicitacao.save()
+            messages.warning(request, f'Solicitação de férias para {solicitacao.militar.nome_guerra} REJEITADA.')
+    
+    return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
 
 @s1_required
 def indisponiveis(request):
@@ -1115,22 +1224,38 @@ def api_notificacoes_check(request):
             nao_lidas = Notificacao.objects.filter(destinatario=militar, lida=False)
             count_notificacoes = nao_lidas.count()
             
-            autorizacoes_pendentes = SolicitacaoTrocaSetor.objects.filter(
+            autorizacoes_pendentes_troca = SolicitacaoTrocaSetor.objects.filter(
                 Q(chefe_atual=militar, status='pendente_atual') |
                 Q(chefe_destino=militar, status='pendente_destino')
             )
-            count_autorizacoes = autorizacoes_pendentes.count()
+            count_autorizacoes_troca = autorizacoes_pendentes_troca.count()
+
+            autorizacoes_pendentes_ferias = SolicitacaoFerias.objects.filter(
+                chefe_aprovador=militar, status='pendente'
+            )
+            count_autorizacoes_ferias = autorizacoes_pendentes_ferias.count()
             
-            total_count = count_notificacoes + count_autorizacoes
+            total_count = count_notificacoes + count_autorizacoes_troca + count_autorizacoes_ferias
             
             data = []
-            for a in autorizacoes_pendentes[:5]:
+            for a in autorizacoes_pendentes_troca[:5]:
                 data.append({
                     'id': a.id,
                     'titulo': f"Autorização Pendente: {a.militar.nome_guerra}",
                     'remetente': "Sistema",
                     'data': a.data_solicitacao.strftime('%d/%m %H:%M'),
-                    'is_autorizacao': True
+                    'is_autorizacao': True,
+                    'url': reverse('comunicacoes_global') + '?box=autorizacoes'
+                })
+                
+            for a in autorizacoes_pendentes_ferias[:5-len(data)]:
+                data.append({
+                    'id': a.id,
+                    'titulo': f"Solicitação de Férias: {a.militar.nome_guerra}",
+                    'remetente': "Sistema",
+                    'data': a.data_solicitacao.strftime('%d/%m %H:%M'),
+                    'is_autorizacao': True,
+                    'url': reverse('comunicacoes_global') + '?box=autorizacoes'
                 })
                 
             remaining_slots = 5 - len(data)
@@ -1141,7 +1266,8 @@ def api_notificacoes_check(request):
                         'titulo': n.titulo,
                         'remetente': n.remetente.nome_guerra if n.remetente else "Sistema",
                         'data': n.data_criacao.strftime('%d/%m %H:%M') if n.data_criacao else "",
-                        'is_autorizacao': False
+                        'is_autorizacao': False,
+                        'url': reverse('comunicacoes_global') + f'?ler={n.id}'
                     })
             
             return HttpResponse(json.dumps({'count': total_count, 'notifications': data}), content_type="application/json")

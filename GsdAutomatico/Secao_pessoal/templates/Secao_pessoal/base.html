@@ -439,18 +439,14 @@
                             dataGeral.notifications.forEach(notif => {
                                 const listItem = document.createElement('li');
                                 listItem.className = 'notificacao-item';
-                                
-                                let linkAcao = `{% url 'comunicacoes_global' %}?ler=${notif.id}`;
-                                let textoAcao = 'Ler';
+                                let linkAcao = notif.url;
+                                let textoAcao = notif.is_autorizacao ? 'Ver' : 'Ler';
                                 
                                 if (notif.is_autorizacao) {
-                                    linkAcao = `{% url 'comunicacoes_global' %}?box=autorizacoes`;
-                                    textoAcao = 'Ver';
                                     listItem.style.borderLeft = '4px solid var(--warning-color)';
                                 } else {
                                     listItem.style.borderLeft = '4px solid var(--accent-color)';
                                 }
-                                
                                 listItem.innerHTML = `
                                     <div class="notificacao-info">
                                         <span><b>${notif.remetente}:</b> ${notif.titulo}</span>

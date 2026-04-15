@@ -5,33 +5,59 @@
 {% block extra_head %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
 <style>
-    /* Ajustes para o Select2 combinar com o tema do projeto */
     .select2-container .select2-selection--single {
-        height: 38px;
+        height: 42px; /* Aumenta a altura para melhor toque */
         border: 1px solid var(--border-color);
         background-color: var(--bg-main);
-        border-radius: 6px;
+        border-radius: 8px; /* Mais arredondado */
     }
     .select2-container--default .select2-selection--single .select2-selection__rendered {
-        line-height: 38px;
+        line-height: 42px;
         color: var(--text-primary);
+        padding-left: 15px;
     }
     .select2-container--default .select2-selection--single .select2-selection__arrow {
-        height: 36px;
+        height: 40px;
+        right: 10px;
     }
     .select2-dropdown {
         background-color: var(--bg-main);
         border: 1px solid var(--border-color);
         color: var(--text-primary);
+        border-radius: 8px;
     }
     .select2-search input {
         background-color: var(--bg-content);
         color: var(--text-primary);
         border: 1px solid var(--border-color);
+        border-radius: 6px;
     }
     .select2-container--default .select2-results__option--highlighted[aria-selected] {
         background-color: var(--accent-color);
         color: #fff;
+    }
+    .card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 25px;
+        box-shadow: var(--box-shadow);
+        height: 100%; /* Faz os cards da mesma linha terem a mesma altura */
+    }
+    .card-header-custom {
+        margin-top: 0;
+        margin-bottom: 20px;
+        font-size: 1.2rem;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 10px;
+        display: flex;
+        align-items: center;
+        gap: 10px;
+    }
+    .form-label {
+        font-weight: 500;
+        margin-bottom: 8px;
+        color: var(--text-secondary);
     }
 </style>
 {% endblock %}
@@ -39,114 +65,174 @@
 {% block content %}
 <div class="content-column">
     <div class="table-header">
-        <h1>Registro de Férias</h1>
+        <div>
+            <h1 style="border: none; margin-bottom: 5px;">Controle de Férias</h1>
+            <p style="margin-top: 0; color: var(--text-secondary);">Registre novas férias e acompanhe o saldo do efetivo.</p>
+        </div>
     </div>
 
-    <form method="post" class="model-form">
-        {% csrf_token %}
-        <div class="form-grid">
-            <p>
-                <label for="militar">Militar:</label>
-                <select name="militar" id="militar" class="form-select" required>
-                    <option value="">--- Selecione o militar ---</option>
-                    {% for militar in militares %}
-                        <option value="{{ militar.id }}" data-dias-usados="{{ militar.dias_ferias_gozados|default:0 }}">
-                            {{ militar.posto }} {{ militar.nome_guerra }} (Já gozou: {{ militar.dias_ferias_gozados|default:0 }} dias)
-                        </option>
-                    {% endfor %}
-                </select>
-            </p>
-            <p>
-                <label for="etapa_parcela">Parcelamento:</label>
-                <select name="etapa_parcela" id="etapa_parcela" class="form-select" required>
-                    <option value="Integral">Integral (30 dias)</option>
-                    <option value="1ª Parcela">1ª Parcela</option>
-                    <option value="2ª Parcela">2ª Parcela</option>
-                    <option value="3ª Parcela">3ª Parcela</option>
-                </select>
-            </p>
-            <p>
-                <label for="tipo_parcela">Quantidade de Dias:</label>
-                <select name="tipo_parcela" id="tipo_parcela" class="form-select" required>
-                    <option value="30">30 dias</option>
-                    <option value="20">20 dias</option>
-                    <option value="15">15 dias</option>
-                    <option value="10">10 dias</option>
-                </select>
-            </p>
-            <p>
-                <label for="data_inicio">Data de Início:</label>
-                <input type="date" name="data_inicio" id="data_inicio" required>
-            </p>
-            <p>
-                <label for="data_fim">Data de Término:</label>
-                <input type="date" name="data_fim" id="data_fim" required>
-            </p>
+    <div class="row g-4">
+        <!-- Coluna do Formulário -->
+        <div class="col-lg-5">
+            <div class="card">
+                <h3 class="card-header-custom">Solicitar Férias</h3>
+                <form method="post">
+                    {% csrf_token %}
+                    <div class="mb-3">
+                        <label for="militar" class="form-label">Militar:</label>
+                        <select name="militar" id="militar" class="form-select" required>
+                            <option value="">--- Selecione o militar ---</option>
+                            {% for militar in militares %}
+                                <option value="{{ militar.id }}" data-dias-usados="{{ militar.total_dias_comprometidos|default:0 }}">
+                                    {{ militar.posto }} {{ militar.nome_guerra }} (Usufruído: {{ militar.dias_ferias_gozados|default:0 }} | Pendente: {{ militar.dias_ferias_pendentes|default:0 }})
+                                </option>
+                            {% endfor %}
+                        </select>
+                        <small id="dias-restantes-info" class="form-text mt-2 d-block"></small>
+                    </div>
+                    <div class="row g-3">
+                        <div class="col-md-6">
+                            <label for="etapa_parcela" class="form-label">Parcelamento:</label>
+                            <select name="etapa_parcela" id="etapa_parcela" class="form-select" required></select>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="tipo_parcela" class="form-label">Duração:</label>
+                            <select name="tipo_parcela" id="tipo_parcela" class="form-select" required></select>
+                        </div>
+                    </div>
+                    <div class="row g-3 mt-2">
+                        <div class="col-md-6">
+                            <label for="data_inicio" class="form-label">Data de Início:</label>
+                            <input type="date" name="data_inicio" id="data_inicio" class="form-control" required>
+                        </div>
+                        <div class="col-md-6">
+                            <label for="data_fim" class="form-label">Data de Término:</label>
+                            <input type="date" name="data_fim" id="data_fim" class="form-control" required readonly>
+                        </div>
+                    </div>
+                    <div class="d-flex justify-content-end mt-4">
+                        <button type="submit" class="btn btn-primary px-4">Solicitar Férias</button>
+                    </div>
+                </form>
+            </div>
         </div>
-        <div class="form-actions">
-            <button type="submit" class="btn btn-primary">Registrar Férias</button>
-        </div>
-    </form>
 
-    <div class="card" style="background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; box-shadow: var(--box-shadow); margin-top: 40px;">
-        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Militares Atualmente em Férias</h3>
+        <!-- Coluna da Lista de Militares em Férias -->
+        <div class="col-lg-7">
+            <div class="card">
+                <h3 class="card-header-custom">Militares Atualmente em Férias</h3>
+                <div class="table-responsive">
+                    <table class="data-table">
+                        <thead>
+                            <tr>
+                                <th>Militar</th>
+                                <th>Período Registrado</th>
+                                <th>Ações</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for ferias_militar in militares_ferias %}
+                            <tr>
+                                <td style="font-weight: 500;">{{ ferias_militar.posto }} {{ ferias_militar.nome_guerra }}</td>
+                                <td style="color: var(--text-secondary);">{{ ferias_militar.observacao }}</td>
+                                <td>
+                                    <form method="post" action="{% url 'Secao_pessoal:reintegrar_militar' ferias_militar.pk %}" style="margin: 0;">
+                                        {% csrf_token %}
+                                        <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Tem certeza que deseja retornar este militar à situação de Ativo (Disponível)?');">Retornar de Férias</button>
+                                    </form>
+                                </td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="3" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum militar em férias no momento.</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Tabela de Saldos -->
+    <div class="card mt-4">
+        <h3 class="card-header-custom">Controle de Saldos (Efetivo Ativo)</h3>
         <div class="table-responsive">
             <table class="data-table">
                 <thead>
                     <tr>
                         <th>Militar</th>
-                        <th>Período</th>
+                        <th>Saldo Utilizado</th>
                         <th>Ações</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for ferias_militar in militares_ferias %}
-                    <tr>
-                        <td style="font-weight: 500;">{{ ferias_militar.posto }} {{ ferias_militar.nome_guerra }}</td>
-                        <td style="color: var(--text-secondary);">{{ ferias_militar.observacao }}</td>
-                        <td>
-                            <form method="post" action="{% url 'Secao_pessoal:reintegrar_militar' ferias_militar.pk %}" style="margin: 0;">
-                                {% csrf_token %}
-                                <button type="submit" class="btn btn-sm btn-success" onclick="return confirm('Tem certeza que deseja retornar este militar à situação de Ativo (Disponível)?');">Retornar Férias</button>
-                            </form>
-                        </td>
-                    </tr>
+                    {% for militar in militares_com_saldo %}
+                        <tr>
+                            <td style="font-weight: 500;">{{ militar.posto }} {{ militar.nome_guerra }}</td>
+                            <td>
+                                {% with dias_usufruidos=militar.dias_ferias_gozados|default:0 %}
+                                    <span style="font-weight: bold; color: 
+                                        {% if dias_usufruidos == 0 %}var(--success-color)
+                                        {% elif dias_usufruidos >= 30 %}var(--danger-color)
+                                        {% else %}var(--warning-color)
+                                        {% endif %};">
+                                        {{ dias_usufruidos }} / 30 dias
+                                    </span>
+                                {% endwith %}
+                            </td>
+                            <td>
+                                {% if militar.dias_ferias_gozados > 0 %}
+                                <form method="post" style="margin: 0;">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="reset_militar_id" value="{{ militar.id }}">
+                                    <button type="submit" class="btn btn-sm btn-outline-secondary" onclick="return confirm('Tem certeza que deseja zerar o saldo de férias deste militar para o novo ciclo?');">Zerar Saldo</button>
+                                </form>
+                                {% endif %}
+                            </td>
+                        </tr>
                     {% empty %}
-                    <tr>
-                        <td colspan="3" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum militar encontra-se de férias no momento.</td>
-                    </tr>
+                        <tr>
+                            <td colspan="3" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum militar com saldo de férias utilizado neste ciclo.</td>
+                        </tr>
                     {% endfor %}
                 </tbody>
             </table>
         </div>
     </div>
 
-    <div class="card" style="background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; box-shadow: var(--box-shadow); margin-top: 40px;">
-        <h3 style="margin-top: 0; margin-bottom: 20px; font-size: 1.2rem; border-bottom: 1px solid var(--border-color); padding-bottom: 10px;">Controle de Saldos (Efetivo Ativo)</h3>
+    <!-- Tabela de Histórico de Solicitações -->
+    <div class="card mt-4">
+        <h3 class="card-header-custom">Histórico de Solicitações de Férias</h3>
         <div class="table-responsive">
             <table class="data-table">
                 <thead>
                     <tr>
                         <th>Militar</th>
-                        <th>Dias Já Gozados</th>
-                        <th>Ações</th>
+                        <th>Período Solicitado</th>
+                        <th>Dias</th>
+                        <th>Status</th>
+                        <th>Aprovador</th>
+                        <th>Data da Resposta</th>
                     </tr>
                 </thead>
                 <tbody>
-                    {% for militar in militares %}
-                        {% if militar.dias_ferias_gozados and militar.dias_ferias_gozados > 0 %}
+                    {% for sol in solicitacoes_ferias %}
                         <tr>
-                            <td style="font-weight: 500;">{{ militar.posto }} {{ militar.nome_guerra }}</td>
-                            <td style="color: var(--warning-color); font-weight: bold;">{{ militar.dias_ferias_gozados }} dias</td>
+                            <td style="font-weight: 500;">{{ sol.militar.posto }} {{ sol.militar.nome_guerra }}</td>
+                            <td>{{ sol.data_inicio|date:"d/m/Y" }} a {{ sol.data_fim|date:"d/m/Y" }}</td>
+                            <td>{{ sol.dias_solicitados }}</td>
                             <td>
-                                <form method="post" style="margin: 0;">
-                                    {% csrf_token %}
-                                    <input type="hidden" name="reset_militar_id" value="{{ militar.id }}">
-                                    <button type="submit" class="btn btn-sm btn-secondary" onclick="return confirm('Tem certeza que deseja zerar o saldo de férias deste militar?');">Zerar Saldo para Novo Ciclo</button>
-                                </form>
+                                <span class="badge bg-{% if sol.status == 'pendente' %}warning text-dark{% elif sol.status == 'aprovado' %}success{% elif sol.status == 'rejeitado' %}danger{% endif %}">
+                                    {{ sol.get_status_display }}
+                                </span>
+                                {% if sol.status == 'rejeitado' %}<small class="d-block text-muted" title="{{ sol.motivo_rejeicao }}">Ver motivo</small>{% endif %}
                             </td>
+                            <td>{{ sol.chefe_aprovador.posto|default:'' }} {{ sol.chefe_aprovador.nome_guerra|default:'N/A' }}</td>
+                            <td>{{ sol.data_resposta|date:"d/m/Y H:i"|default:"-" }}</td>
                         </tr>
-                        {% endif %}
+                    {% empty %}
+                        <tr><td colspan="6" class="text-center p-4 text-muted">Nenhuma solicitação de férias registrada.</td></tr>
                     {% endfor %}
                 </tbody>
             </table>
@@ -162,8 +248,19 @@
     $(document).ready(function() {
         $('#militar').select2({
             placeholder: "--- Selecione o militar ---",
-            width: '100%'
+            width: '100%',
+            dropdownParent: $('#militar').parent() // Garante que o dropdown apareça corretamente
         });
+
+        // Função para popular os selects de parcela e dias
+        function popularOpcoesIniciais() {
+            const etapaSelect = document.getElementById('etapa_parcela');
+            const tipoSelect = document.getElementById('tipo_parcela');
+            etapaSelect.innerHTML = '<option value="">Selecione um militar primeiro</option>';
+            tipoSelect.innerHTML = '<option value="">Selecione um militar primeiro</option>';
+        }
+
+        popularOpcoesIniciais(); // Chama a função no carregamento da página
 
         $('#militar').on('change', function() {
             const selectedOption = $(this).find(':selected');
@@ -172,6 +269,7 @@
             
             const etapaSelect = document.getElementById('etapa_parcela');
             const tipoSelect = document.getElementById('tipo_parcela');
+            const infoEl = document.getElementById('dias-restantes-info');
             
             etapaSelect.innerHTML = '';
             tipoSelect.innerHTML = '';
@@ -179,8 +277,13 @@
             if (diasRestantes <= 0) {
                 etapaSelect.innerHTML = '<option value="">Sem saldo</option>';
                 tipoSelect.innerHTML = '<option value="">0 dias</option>';
+                infoEl.textContent = 'O militar não possui mais saldo de férias para este ciclo.';
+                infoEl.style.color = 'var(--danger-color)';
                 return;
             }
+
+            infoEl.textContent = `O militar tem ${diasRestantes} dias de férias disponíveis.`;
+            infoEl.style.color = 'var(--success-color)';
 
             if (diasRestantes >= 30) {
                 etapaSelect.innerHTML = '<option value="Integral">Integral (30 dias)</option><option value="1ª Parcela">1ª Parcela</option>';
@@ -188,11 +291,13 @@
             } else {
                 etapaSelect.innerHTML = '<option value="2ª Parcela">2ª Parcela</option><option value="3ª Parcela">3ª Parcela</option>';
                 if (diasRestantes >= 20) {
-                    tipoSelect.innerHTML = '<option value="20">20 dias</option><option value="10">10 dias</option>';
+                    tipoSelect.innerHTML = '<option value="20">20 dias</option><option value="15">15 dias</option><option value="10">10 dias</option>';
                 } else if (diasRestantes >= 15) {
-                    tipoSelect.innerHTML = '<option value="15">15 dias</option>';
+                    tipoSelect.innerHTML = '<option value="15">15 dias</option><option value="10">10 dias</option>';
                 } else if (diasRestantes >= 10) {
                     tipoSelect.innerHTML = '<option value="10">10 dias</option>';
+                } else {
+                    tipoSelect.innerHTML = '<option value="">Sem parcelas disponíveis</option>';
                 }
             }
             calculateEndDate();
@@ -207,10 +312,10 @@
             const startDateVal = inicioInput.value;
             const daysStr = tipoSelect.value;
             
-            if (startDateVal && daysStr) {
+            if (startDateVal && daysStr && parseInt(daysStr) > 0) {
                 const days = parseInt(daysStr);
                 const parts = startDateVal.split('-');
-                const date = new Date(parts[0], parts[1] - 1, parts[2]);
+                const date = new Date(Date.UTC(parts[0], parts[1] - 1, parts[2]));
                 
                 date.setDate(date.getDate() + days - 1);
                 
@@ -224,8 +329,10 @@
 
         etapaSelect.addEventListener('change', function() {
             if (this.value === 'Integral') {
-                tipoSelect.value = '30';
-            } else if (tipoSelect.value === '30') {
+                // Força a seleção de 30 dias se for integral
+                $('#tipo_parcela').val('30').trigger('change');
+            } else if (this.value === '1ª Parcela' && tipoSelect.value === '30') {
+                // Se sair de integral para parcela, sugere um valor menor
                 tipoSelect.value = '10'; // Muda para um padrão de parcela se sair de Integral
             }
             calculateEndDate();
