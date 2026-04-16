@@ -366,10 +366,9 @@ class MilitarDeleteView(DeleteView):
 
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
-        self.object.deleted = True
-        self.object.deleted_at = timezone.now()
-        self.object.save()
-        messages.success(request, f"Militar {self.object.nome_guerra} movido para a lixeira.")
+        nome_guerra = self.object.nome_guerra
+        self.object.delete()
+        messages.success(request, f"Militar {nome_guerra} excluído permanentemente.")
         return redirect(self.get_success_url())
 
 @method_decorator(s1_required, name='dispatch')
@@ -669,15 +668,21 @@ def comunicacoes(request):
             messages.error(request, "Apenas usuários vinculados a um militar podem enviar mensagens.")
             return redirect('comunicacoes_global')
 
-        form = NotificacaoForm(request.POST, request.FILES)
+        # O campo 'anexo' é um input manual, não faz parte do form.
+        # Portanto, passamos apenas request.POST para o form.
+        form = NotificacaoForm(request.POST)
         if form.is_valid():
             notificacao = form.save(commit=False)
             notificacao.remetente = militar_logado
 
+            # Salva a notificação primeiro para obter um ID.
+            # Isso é mais robusto para o salvamento de arquivos.
+            notificacao.save()
+
             if 'anexo' in request.FILES:
                 notificacao.anexo = request.FILES['anexo']
+                notificacao.save() # Salva novamente para associar o anexo.
 
-            notificacao.save()
             messages.success(request, f"Notificação enviada para {notificacao.destinatario.nome_guerra}.")
             return redirect('comunicacoes_global')
     else:
@@ -1294,46 +1299,6 @@ class HistoricoInspsauListView(ListView):
         context = super().get_context_data(**kwargs)
         context['current_query'] = self.request.GET.get('q', '')
         return context
-
-@method_decorator(s1_required, name='dispatch')
-class MilitarTrashListView(ListView):
-    model = Efetivo
-    template_name = 'Secao_pessoal/militar_trash_list.html'
-    context_object_name = 'militares'
-    paginate_by = 20
-
-    def get_queryset(self):
-        return Efetivo.all_objects.filter(deleted=True).order_by('-deleted_at')
-
-    def get_context_data(self, **kwargs):
-        context = super().get_context_data(**kwargs)
-        for militar in context.get('militares', []):
-            if militar.deleted_at:
-                delta = timezone.now() - militar.deleted_at
-                dias_restantes = 30 - delta.days
-                militar.dias_para_exclusao = dias_restantes if dias_restantes > 0 else 0
-            else:
-                militar.dias_para_exclusao = None
-        return context
-
-@s1_required
-@require_POST
-def militar_restore(request, pk):
-    militar = get_object_or_404(Efetivo.all_objects, pk=pk)
-    militar.deleted = False
-    militar.deleted_at = None
-    militar.save()
-    messages.success(request, f"Militar {militar.nome_guerra} restaurado com sucesso.")
-    return redirect('Secao_pessoal:militar_trash_list')
-
-@s1_required
-@require_POST
-def militar_permanently_delete(request, pk):
-    militar = get_object_or_404(Efetivo.all_objects, pk=pk)
-    nome_guerra = militar.nome_guerra
-    militar.delete()
-    messages.success(request, f"Militar {nome_guerra} excluído permanentemente.")
-    return redirect('Secao_pessoal:militar_trash_list')
 
 @s1_required
 @require_POST

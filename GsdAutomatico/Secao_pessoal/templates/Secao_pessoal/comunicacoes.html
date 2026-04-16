@@ -370,10 +370,10 @@
                     <div class="email-content">
                         <div class="email-header">
                             <span class="email-sender" onclick="toggleMessage('msg-{{ notif.id }}')">
-                                {% if current_box == 'inbox' %}
-                                    {{ notif.remetente.posto }} {{ notif.remetente.nome_guerra }}
-                                {% else %}
+                                {% if current_box == 'sent' or current_box != 'inbox' and notif.remetente == militar_logado %}
                                     Para: {{ notif.destinatario.posto }} {{ notif.destinatario.nome_guerra }}
+                                {% else %}
+                                    De: {{ notif.remetente.posto }} {{ notif.remetente.nome_guerra }}
                                 {% endif %}
                             </span>
                             <span class="email-date">{{ notif.data_criacao|date:"d M" }}</span>
@@ -391,19 +391,21 @@
                         <!-- Conteúdo Expandido (Escondido por padrão) -->
                         <div id="msg-{{ notif.id }}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); color: var(--text-primary); cursor: default;" onclick="event.stopPropagation();">
                             <p style="white-space: pre-line;">{{ notif.mensagem }}</p>
+
+                            {% if notif.anexo %}
+                            <div class="mt-4 pt-3 border-top" style="border-color: var(--border-color) !important;">
+                                <h6 class="small text-uppercase text-muted fw-bold mb-2">Anexo</h6>
+                                <a href="{{ notif.anexo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary" style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.122 2.122l7.81-7.81" /></svg>
+                                    {{ notif.anexo.name|cut:"anexos_comunicacoes/" }}
+                                </a>
+                            </div>
+                            {% endif %}
                             
                             <div class="d-flex justify-content-end gap-2 mt-3">
                                 {% if current_box == 'trash' %}
-                                    <form method="post" action="{% url 'Secao_pessoal:acoes_em_massa_comunicacoes' %}" style="display: inline;">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="message_ids" value="{{ notif.id }}">
-                                        <button type="submit" name="action" value="restore" class="btn btn-sm btn-outline-success">Restaurar</button>
-                                    </form>
-                                    <form method="post" action="{% url 'Secao_pessoal:acoes_em_massa_comunicacoes' %}" style="display: inline;">
-                                        {% csrf_token %}
-                                        <input type="hidden" name="message_ids" value="{{ notif.id }}">
-                                        <button type="submit" name="action" value="delete" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir esta mensagem permanentemente?');">Excluir Permanentemente</button>
-                                    </form>
+                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="submitSingleAction('restore', '{{ notif.id }}')">Restaurar</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="if(confirm('Tem certeza que deseja excluir esta mensagem permanentemente?')) submitSingleAction('delete', '{{ notif.id }}')">Excluir Permanentemente</button>
                                 {% else %}
                                     <button type="button" class="btn btn-sm btn-outline-danger" title="Mover para Lixeira" onclick="openDeleteModal('{% url 'Secao_pessoal:excluir_mensagem' notif.id %}')">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16" style="vertical-align: text-bottom; margin-right: 2px;">
@@ -459,8 +461,9 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <form method="post"
-                    
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
                     <div class="mb-3">
                         <label for="{{ form.destinatario.id_for_label }}" class="form-label fw-bold text-secondary small text-uppercase">Destinatário</label>
                         {{ form.destinatario }}
@@ -543,11 +546,22 @@
 
 <script>
     function toggleMessage(id) {
-        const content = document.getElementById(id);
-        if (content.style.display === 'none') {
-            content.style.display = 'block';
+        const allMessages = document.querySelectorAll('div[id^="msg-"]');
+        const targetMessage = document.getElementById(id);
+        const isCurrentlyOpen = targetMessage.style.display === 'block';
+
+        // Fecha todas as outras mensagens
+        allMessages.forEach(msg => {
+            if (msg.id !== id) {
+                msg.style.display = 'none';
+            }
+        });
+
+        // Alterna a visibilidade da mensagem clicada
+        if (isCurrentlyOpen) {
+            targetMessage.style.display = 'none';
         } else {
-            content.style.display = 'none';
+            targetMessage.style.display = 'block';
         }
     }
 
@@ -584,6 +598,19 @@
         form.method = 'post';
         form.action = actionUrl;
         form.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">';
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function submitSingleAction(action, messageId) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = "{% url 'Secao_pessoal:acoes_em_massa_comunicacoes' %}";
+        form.innerHTML = `
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            <input type="hidden" name="action" value="${action}">
+            <input type="hidden" name="message_ids" value="${messageId}">
+        `;
         document.body.appendChild(form);
         form.submit();
     }
@@ -634,8 +661,15 @@
                 // Verifica se algum modal está aberto (Nova Mensagem, Confirmações de Exclusão, etc.)
                 let isModalOpen = document.body.classList.contains('modal-open');
 
+                // NOVA VERIFICAÇÃO: Verifica se a barra de ações em massa está visível.
+                // Se estiver, o utilizador está a meio de uma seleção, e não devemos atualizar a lista.
+                const toolbar = document.getElementById('bulk-actions-toolbar');
+                const isBulkActionActive = toolbar && toolbar.style.display === 'block';
+
+
                 // Se o utilizador não estiver ativamente interagindo com uma mensagem, atualiza
-                if (!isAnyMessageExpanded && !isModalOpen) {
+                // Adicionada a condição !isBulkActionActive para corrigir o bug do desaparecimento dos botões.
+                if (!isAnyMessageExpanded && !isModalOpen && !isBulkActionActive) {
                     const response = await fetch(window.location.href);
                     const text = await response.text();
                     const parser = new DOMParser();
@@ -652,6 +686,16 @@
                     const newNav = doc.querySelector('.email-nav');
                     if (newNav) {
                         document.querySelector('.email-nav').innerHTML = newNav.innerHTML;
+                    }
+
+                    // Adicionado para corrigir o erro de CSRF token expirado no modal de nova mensagem.
+                    // O polling atualiza o token no corpo da página, mas não no modal, que é separado.
+                    // Esta parte extrai o novo token do documento recém-buscado e o injeta no modal.
+                    const newCsrfTokenInput = doc.querySelector('#composeModal input[name="csrfmiddlewaretoken"]');
+                    const currentCsrfTokenInput = document.querySelector('#composeModal input[name="csrfmiddlewaretoken"]');
+                    
+                    if (newCsrfTokenInput && currentCsrfTokenInput && currentCsrfTokenInput.value !== newCsrfTokenInput.value) {
+                        currentCsrfTokenInput.value = newCsrfTokenInput.value;
                     }
                 }
             } catch (e) {
