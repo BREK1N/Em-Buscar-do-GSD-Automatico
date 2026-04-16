@@ -478,7 +478,7 @@
                     oficiaisListContainer.innerHTML = '<p>A carregar oficiais...</p>';
                     const url = `{% url 'Ouvidoria:lista_oficiais' %}?q=${encodeURIComponent(query)}`;
                     
-                    fetch(url)
+                    fetch(url, { cache: 'no-store' })
                         .then(response => response.json())
                         .then(data => {
                             oficiaisListContainer.innerHTML = '';
@@ -712,6 +712,7 @@
             async function loadAllNotifications(forceOpen = false) {
                 let dataOuvidoria = [];
                 let dataGeral = { count: 0, notifications: [] };
+                const prevTotal = totalNotificacoes;
 
                 try {
                     const respOuvidoria = await fetch("{% url 'Ouvidoria:patds_expirados_json' %}");
@@ -801,6 +802,7 @@
                 } catch (error) {
                     console.error('Erro ao carregar notificações:', error);
                 }
+                return totalNotificacoes !== prevTotal;
             }
 
             function prosseguirSemAlegacaoFromNotificacao(patdId) {
@@ -923,8 +925,16 @@
                 loadAllNotifications(false);
             }
         
-        // Atualização global contínua
-        setInterval(() => loadAllNotifications(false), 5000); // Polling a cada 5 segundos
+        // Atualização global contínua com backoff exponencial
+        let _pollInterval = 30_000;
+        function scheduleNextPoll() {
+            setTimeout(async () => {
+                const hadActivity = await loadAllNotifications(false);
+                _pollInterval = hadActivity ? 30_000 : Math.min(_pollInterval * 1.5, 300_000);
+                scheduleNextPoll();
+            }, _pollInterval);
+        }
+        scheduleNextPoll();
             // --- FIM DA LÓGICA DE OTIMIZAÇÃO ---
             
         });
