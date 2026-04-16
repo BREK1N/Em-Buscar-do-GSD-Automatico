@@ -218,7 +218,7 @@ p {
 .data-table { width: 100%; border-collapse: collapse; }
 .data-table th, .data-table td { padding: 12px 15px; text-align: left; border-bottom: 1px solid var(--border-color); }
 .data-table thead th { background-color: var(--bg-main); }
-.actions-cell { display: flex; gap: 10px; flex-wrap: wrap; }
+.actions-cell { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
 
 .pagination {
     margin-top: 25px;

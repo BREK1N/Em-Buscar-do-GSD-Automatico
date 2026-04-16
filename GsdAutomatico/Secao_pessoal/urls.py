@@ -18,7 +18,6 @@ urlpatterns = [
     path('controle/troca-de-setor/<int:solicitacao_id>/<str:acao>/', views.responder_troca_setor, name='responder_troca_setor'),
     path('controle/ata/', views.ata, name='ata'),
     path('controle/baixa/', views.baixa, name='baixa'),
-    path('controle/ferias/', views.ferias, name='ferias'),
     path('controle/indisponiveis/', views.indisponiveis, name='indisponiveis'),
     path('gerenciar-opcoes/', views.gerenciar_opcoes, name='gerenciar_opcoes'),
     path('ferramentas/comunicacoes/', views.comunicacoes, name='comunicacoes'),
@@ -26,4 +25,39 @@ urlpatterns = [
     path('inspsau/', views.inspsau, name='inspsau'),
     path('inspsau/historico/', views.HistoricoInspsauListView.as_view(), name='historico_inspsau_list'),
     path('api/search-militares/', views.api_search_militares, name='api_search_militares'),
+    path('inspsau/historico/delete/<int:pk>/', views.historico_inspsau_delete, name='historico_inspsau_delete'),
 ]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+print
