@@ -190,7 +190,7 @@ def inspsau(request):
             militar = None
             if nome_completo_ia:
                 # Tenta encontrar pelo nome completo e posto para maior precisão
-                candidatos = Efetivo.objects.filter(
+                candidatos = Efetivo.all_objects.filter(
                     nome_completo__icontains=nome_completo_ia,
                     posto__iexact=posto_ia
                 )
@@ -198,7 +198,7 @@ def inspsau(request):
                     militar = candidatos.first()
                 else:
                     # Se não encontrar ou houver ambiguidade, tenta só pelo nome
-                    candidatos = Efetivo.objects.filter(nome_completo__icontains=nome_completo_ia)
+                    candidatos = Efetivo.all_objects.filter(nome_completo__icontains=nome_completo_ia)
                     if candidatos.count() == 1:
                         militar = candidatos.first()
 
@@ -229,7 +229,7 @@ def inspsau(request):
 
                 if nome_completo_ia:
                     nome_normalizado_ia = normalize_name(nome_completo_ia)
-                    todos_militares = Efetivo.objects.all()
+                    todos_militares = Efetivo.all_objects.all()
 
                     for m in todos_militares:
                         nome_normalizado_db = normalize_name(m.nome_completo)
@@ -273,7 +273,7 @@ def inspsau(request):
 
     # Dashboard básico: Lista militares que estão "De Junta" ou possuem um resultado de INSPSAU a exibir
     query = request.GET.get('q')
-    militares_baixados = Efetivo.objects.filter(
+    militares_baixados = Efetivo.all_objects.filter(
         Q(situacao__iexact='De Junta') | Q(observacao__icontains='INSPSAU Finalidade')
     )
 
@@ -361,6 +361,17 @@ class MilitarDeleteView(DeleteView):
     template_name = 'Secao_pessoal/militar_confirm_delete.html'
     success_url = reverse_lazy('Secao_pessoal:militar_list')
 
+    def get_queryset(self):
+        return Efetivo.all_objects.all()
+
+    def post(self, request, *args, **kwargs):
+        self.object = self.get_object()
+        self.object.deleted = True
+        self.object.deleted_at = timezone.now()
+        self.object.save()
+        messages.success(request, f"Militar {self.object.nome_guerra} movido para a lixeira.")
+        return redirect(self.get_success_url())
+
 @method_decorator(s1_required, name='dispatch')
 class MilitarBaixadoListView(ListView):
     model = Efetivo
@@ -447,13 +458,13 @@ def importar_excel(request):
                 # LÓGICA DE SALVAMENTO INTELIGENTE:
                 if saram_db:
                     # Se tem SARAM, a chave principal é o SARAM
-                    obj, created = Efetivo.objects.update_or_create(
+                    obj, created = Efetivo.all_objects.update_or_create(
                         saram=saram_db,
                         defaults=dados_militar
                     )
                 else:
                     # Se é um recruta sem SARAM, a chave principal para não duplicar é o Nome Completo
-                    obj, created = Efetivo.objects.update_or_create(
+                    obj, created = Efetivo.all_objects.update_or_create(
                         nome_completo=nome_completo_valor,
                         defaults=dados_militar
                     )
@@ -657,11 +668,15 @@ def comunicacoes(request):
         if not militar_logado:
             messages.error(request, "Apenas usuários vinculados a um militar podem enviar mensagens.")
             return redirect('comunicacoes_global')
-            
-        form = NotificacaoForm(request.POST)
+
+        form = NotificacaoForm(request.POST, request.FILES)
         if form.is_valid():
             notificacao = form.save(commit=False)
             notificacao.remetente = militar_logado
+
+            if 'anexo' in request.FILES:
+                notificacao.anexo = request.FILES['anexo']
+
             notificacao.save()
             messages.success(request, f"Notificação enviada para {notificacao.destinatario.nome_guerra}.")
             return redirect('comunicacoes_global')
@@ -673,7 +688,11 @@ def comunicacoes(request):
     
     # --- Contadores Globais (aparecem em todas as abas) ---
     if militar_logado:
-        unread_count = Notificacao.objects.filter(destinatario=militar_logado, lida=False).count()
+        unread_count = Notificacao.objects.filter(destinatario=militar_logado, lida=False, arquivada=False).count()
+        trash_count = Notificacao.all_objects.filter(
+            (Q(destinatario=militar_logado) | Q(remetente=militar_logado)),
+            deleted=True
+        ).distinct().count()
         
         autorizacoes_count = SolicitacaoTrocaSetor.objects.filter(
             Q(chefe_atual=militar_logado, status='pendente_atual') |
@@ -681,19 +700,30 @@ def comunicacoes(request):
         ).count()
     else:
         unread_count = 0
+        trash_count = 0
         autorizacoes_count = 0
 
     autorizacoes_pendentes_troca = []
     if militar_logado and box == 'sent':
-        notificacoes = Notificacao.objects.filter(remetente=militar_logado).order_by('-data_criacao')
+        notificacoes = Notificacao.objects.filter(remetente=militar_logado, arquivada=False).order_by('-data_criacao')
     elif militar_logado and box == 'autorizacoes':
         autorizacoes_pendentes_troca = SolicitacaoTrocaSetor.objects.filter(
             Q(chefe_atual=militar_logado, status='pendente_atual') |
             Q(chefe_destino=militar_logado, status='pendente_destino')
         ).order_by('-data_solicitacao')
         notificacoes = []
+    elif militar_logado and box == 'arquivadas':
+        notificacoes = Notificacao.objects.filter(
+            (Q(destinatario=militar_logado) | Q(remetente=militar_logado)),
+            arquivada=True
+        ).distinct().order_by('-data_criacao')
+    elif militar_logado and box == 'trash':
+        notificacoes = Notificacao.all_objects.filter(
+            (Q(destinatario=militar_logado) | Q(remetente=militar_logado)),
+            deleted=True
+        ).distinct().order_by('-deleted_at')
     elif militar_logado:
-        notificacoes = Notificacao.objects.filter(destinatario=militar_logado).order_by('-data_criacao')
+        notificacoes = Notificacao.objects.filter(destinatario=militar_logado, arquivada=False).order_by('-data_criacao')
     else:
         notificacoes = []
     
@@ -725,10 +755,66 @@ def comunicacoes(request):
         'is_s1': is_s1,
         'current_box': box,
         'unread_count': unread_count,
+        'trash_count': trash_count,
         'autorizacoes_count': autorizacoes_count,
-        'base_template': base_template
+        'base_template': base_template,
+        'militar_logado': militar_logado
     }
     return render(request, 'Secao_pessoal/comunicacoes.html', context)
+
+@login_required
+@require_POST
+def acoes_em_massa_comunicacoes(request):
+    militar_logado = getattr(request.user.profile, 'militar', None)
+    if not militar_logado:
+        messages.error(request, "Ação não permitida.")
+        return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
+
+    action = request.POST.get('action')
+    message_ids = request.POST.getlist('message_ids')
+
+    if not action or not message_ids:
+        messages.warning(request, "Nenhuma ação ou mensagem selecionada.")
+        return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
+
+    # Garante que o usuário só modifique suas próprias mensagens
+    queryset = Notificacao.all_objects.filter(
+        Q(destinatario=militar_logado) | Q(remetente=militar_logado),
+        pk__in=message_ids
+    )
+
+    if action == 'delete':
+        count, _ = queryset.delete()
+        messages.success(request, f"{count} mensagem(ns) excluída(s) permanentemente.")
+    elif action == 'archive':
+        count = queryset.update(arquivada=True)
+        messages.success(request, f"{count} mensagem(ns) arquivada(s) com sucesso.")
+    elif action == 'unarchive':
+        count = queryset.update(arquivada=False)
+        messages.success(request, f"{count} mensagem(ns) desarquivada(s) com sucesso.")
+    elif action == 'trash':
+        count = queryset.update(deleted=True, deleted_at=timezone.now())
+        messages.success(request, f"{count} mensagem(ns) movida(s) para a lixeira.")
+    elif action == 'restore':
+        count = queryset.update(deleted=False, deleted_at=None, arquivada=False)
+        messages.success(request, f"{count} mensagem(ns) restaurada(s) com sucesso.")
+    else:
+        messages.error(request, "Ação desconhecida.")
+
+    return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
+
+@login_required
+@require_POST
+def arquivar_mensagem(request, notificacao_id):
+    militar_logado = getattr(request.user.profile, 'militar', None)
+    notificacao = get_object_or_404(Notificacao, pk=notificacao_id)
+    if militar_logado != notificacao.destinatario and militar_logado != notificacao.remetente:
+        messages.error(request, "Você não tem permissão para arquivar esta mensagem.")
+    else:
+        notificacao.arquivada = not notificacao.arquivada
+        notificacao.save()
+        messages.success(request, f"Mensagem {'arquivada' if notificacao.arquivada else 'desarquivada'} com sucesso.")
+    return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
 
 @login_required
 @xframe_options_sameorigin
@@ -736,15 +822,17 @@ def excluir_mensagem(request, notificacao_id):
     if request.method == 'POST':
         try:
             militar_logado = getattr(request.user.profile, 'militar', None) if hasattr(request.user, 'profile') else None
-            notificacao = get_object_or_404(Notificacao, id=notificacao_id)
+            notificacao = get_object_or_404(Notificacao.all_objects, id=notificacao_id)
             
             if request.user.is_superuser or notificacao.destinatario == militar_logado or notificacao.remetente == militar_logado:
-                notificacao.delete()
-                messages.success(request, "Mensagem excluída com sucesso.")
+                notificacao.deleted = True
+                notificacao.deleted_at = timezone.now()
+                notificacao.save()
+                messages.success(request, "Mensagem movida para a lixeira.")
             else:
-                messages.error(request, "Você não tem permissão para excluir esta mensagem.")
+                messages.error(request, "Você não tem permissão para mover esta mensagem para a lixeira.")
         except Exception as e:
-            messages.error(request, "Erro ao excluir a mensagem.")
+            messages.error(request, "Erro ao mover a mensagem para a lixeira.")
     return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
 
 @s1_required
@@ -954,7 +1042,7 @@ def indisponiveis(request):
 def reintegrar_militar(request, pk):
     if request.method == 'POST':
         try:
-            militar = Efetivo.objects.get(id=pk)
+            militar = get_object_or_404(Efetivo.all_objects, id=pk)
             
             # Se o militar tem dados de inspeção, arquiva-os no histórico e limpa os campos
             if militar.inspsau_finalidade or militar.documento_inspsau:
@@ -1206,6 +1294,46 @@ class HistoricoInspsauListView(ListView):
         context = super().get_context_data(**kwargs)
         context['current_query'] = self.request.GET.get('q', '')
         return context
+
+@method_decorator(s1_required, name='dispatch')
+class MilitarTrashListView(ListView):
+    model = Efetivo
+    template_name = 'Secao_pessoal/militar_trash_list.html'
+    context_object_name = 'militares'
+    paginate_by = 20
+
+    def get_queryset(self):
+        return Efetivo.all_objects.filter(deleted=True).order_by('-deleted_at')
+
+    def get_context_data(self, **kwargs):
+        context = super().get_context_data(**kwargs)
+        for militar in context.get('militares', []):
+            if militar.deleted_at:
+                delta = timezone.now() - militar.deleted_at
+                dias_restantes = 30 - delta.days
+                militar.dias_para_exclusao = dias_restantes if dias_restantes > 0 else 0
+            else:
+                militar.dias_para_exclusao = None
+        return context
+
+@s1_required
+@require_POST
+def militar_restore(request, pk):
+    militar = get_object_or_404(Efetivo.all_objects, pk=pk)
+    militar.deleted = False
+    militar.deleted_at = None
+    militar.save()
+    messages.success(request, f"Militar {militar.nome_guerra} restaurado com sucesso.")
+    return redirect('Secao_pessoal:militar_trash_list')
+
+@s1_required
+@require_POST
+def militar_permanently_delete(request, pk):
+    militar = get_object_or_404(Efetivo.all_objects, pk=pk)
+    nome_guerra = militar.nome_guerra
+    militar.delete()
+    messages.success(request, f"Militar {nome_guerra} excluído permanentemente.")
+    return redirect('Secao_pessoal:militar_trash_list')
 
 @s1_required
 @require_POST

@@ -29,7 +29,6 @@ urlpatterns = [
     path('comunicacoes/', secao_pessoal_views.comunicacoes, name='comunicacoes_global'),
     path('comunicacoes/api/check/', secao_pessoal_views.api_notificacoes_check, name='api_notificacoes_check_global'),
     path('comunicacoes/responder/<int:solicitacao_id>/<str:acao>/', secao_pessoal_views.responder_troca_setor, name='responder_troca_setor_global'),
-    path('comunicacoes/excluir/<int:notificacao_id>/', secao_pessoal_views.excluir_mensagem, name='excluir_mensagem_global'),
 ]
 
 handler404 = 'login.views.custom_404_view'

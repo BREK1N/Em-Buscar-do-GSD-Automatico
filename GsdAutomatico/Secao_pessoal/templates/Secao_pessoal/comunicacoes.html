@@ -86,6 +86,8 @@
         flex: 1;
         overflow-y: auto;
         background-color: var(--bg-content);
+        display: flex;
+        flex-direction: column;
     }
 
     .email-item {
@@ -263,11 +265,56 @@
                         {% endif %}
                     </a>
                 </li>
+                <li>
+                    <a href="?box=trash" class="{% if current_box == 'trash' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                        Lixeira
+                        {% if trash_count > 0 %}
+                        <span class="badge bg-secondary rounded-pill ms-2" style="font-size: 0.7em;">{{ trash_count }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                <li>
+                    <a href="?box=arquivadas" class="{% if current_box == 'arquivadas' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                        Arquivadas
+                    </a>
+                </li>
             </ul>
         </div>
 
         <!-- Lista de Emails -->
-        <div class="email-list">
+        <form id="bulk-actions-form" method="post" action="{% url 'Secao_pessoal:acoes_em_massa_comunicacoes' %}" class="email-list">
+            {% csrf_token %}
+            {% if current_box != 'autorizacoes' %}
+            <div id="bulk-actions-toolbar" class="p-3 border-bottom" style="display: none; background-color: var(--bg-main);">
+                <div class="d-flex align-items-center gap-3">
+                    <input class="form-check-input" type="checkbox" id="select-all-checkbox" style="width: 1.2em; height: 1.2em; cursor: pointer;" title="Selecionar Tudo">
+
+                    {% if current_box == 'trash' %}
+                        <button type="submit" name="action" value="restore" class="btn btn-sm btn-outline-success" title="Restaurar Selecionadas">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                        </button>
+                        <button type="submit" name="action" value="delete" class="btn btn-sm btn-outline-danger" title="Excluir Permanentemente" onclick="return confirm('Tem certeza que deseja excluir as mensagens selecionadas permanentemente? Esta ação não pode ser desfeita.');">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                        </button>
+                    {% else %}
+                        {% if current_box != 'arquivadas' %}
+                        <button type="submit" name="action" value="archive" class="btn btn-sm btn-outline-secondary" title="Arquivar Selecionadas">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                        </button>
+                        {% else %}
+                        <button type="submit" name="action" value="unarchive" class="btn btn-sm btn-outline-secondary" title="Desarquivar Selecionadas">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                        </button>
+                        {% endif %}
+                        <button type="submit" name="action" value="trash" class="btn btn-sm btn-outline-danger" title="Mover para Lixeira">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
             {% if current_box == 'autorizacoes' %}
                 {% if autorizacoes_pendentes_troca %}
                     {% for solicitacao in autorizacoes_pendentes_troca %}
@@ -291,43 +338,15 @@
                                 {% endif %}
                             </div>
                             <div class="d-flex gap-2 mt-3 justify-content-end">
-                                <button type="button" class="btn btn-sm btn-outline-danger px-3" onclick="openConfirmModal('{% url 'responder_troca_setor_global' solicitacao.id 'rejeitar' %}', 'rejeitar')">Rejeitar</button>
-                                <button type="button" class="btn btn-sm btn-success px-3" onclick="openConfirmModal('{% url 'responder_troca_setor_global' solicitacao.id 'aprovar' %}', 'aprovar')">Autorizar</button>
+                                <button type="button" class="btn btn-sm btn-outline-danger px-3" onclick="openConfirmModal('{% url 'Secao_pessoal:responder_troca_setor' solicitacao.id 'rejeitar' %}', 'rejeitar')">Rejeitar</button>
+                                <button type="button" class="btn btn-sm btn-success px-3" onclick="openConfirmModal('{% url 'Secao_pessoal:responder_troca_setor' solicitacao.id 'aprovar' %}', 'aprovar')">Autorizar</button>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 {% endif %}
 
-                {% if autorizacoes_pendentes_ferias %}
-                    {% for solicitacao in autorizacoes_pendentes_ferias %}
-                    <div class="email-item unread" style="cursor: default; align-items: flex-start;">
-                        <div class="email-avatar" style="background: linear-gradient(135deg, #17ead9 0%, #6078ea 100%); font-size: 1.2rem;">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
-                        </div>
-                        <div class="email-content">
-                            <div class="email-header">
-                                <span class="email-sender">Solicitação de Férias: {{ solicitacao.militar.posto }} {{ solicitacao.militar.nome_guerra }}</span>
-                                <span class="email-date">{{ solicitacao.data_solicitacao|date:"d M H:i" }}</span>
-                            </div>
-                            <div class="email-subject mb-2" style="color: var(--text-primary); font-weight: normal;">
-                                Período: <strong>{{ solicitacao.data_inicio|date:"d/m/Y" }}</strong> a <strong>{{ solicitacao.data_fim|date:"d/m/Y" }}</strong> ({{ solicitacao.dias_solicitados }} dias)
-                            </div>
-                            <div class="email-preview" style="color: var(--text-secondary); white-space: normal;">
-                                Parcela: {{ solicitacao.etapa_parcela }}
-                            </div>
-                            <div class="d-flex gap-2 mt-3 justify-content-end">
-                                <button type="button" class="btn btn-sm btn-outline-danger px-3" data-bs-toggle="modal" data-bs-target="#rejeitarFeriasModal{{ solicitacao.id }}">Rejeitar</button>
-                                <form method="post" action="{% url 'Secao_pessoal:responder_solicitacao_ferias' solicitacao.id 'aprovar' %}" style="margin:0;">
-                                    {% csrf_token %}
-                                    <button type="submit" class="btn btn-sm btn-success px-3">Aprovar</button>
-                                </form>
-                            </div>
-                        </div>
-                    </div>
-                    {% endfor %}
-                {% endif %}
-                {% if not autorizacoes_pendentes_troca and not autorizacoes_pendentes_ferias %}
+                {% if not autorizacoes_pendentes_troca %}
                     <div class="text-center py-5 mt-5">
                         <div class="mb-3 opacity-25">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 64px; height: 64px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
@@ -337,9 +356,12 @@
                 {% endif %}
             {% elif notificacoes %}
                 {% for notif in notificacoes %}
-                <div class="email-item {% if not notif.lida and current_box == 'inbox' %}unread{% else %}read{% endif %}" onclick="toggleMessage('msg-{{ notif.id }}')">
-                    <div class="email-avatar">
-                        {% if current_box == 'inbox' %}
+                <div class="email-item {% if not notif.lida and current_box == 'inbox' %}unread{% else %}read{% endif %}">
+                    <div class="d-flex align-items-center me-3">
+                        <input class="form-check-input message-checkbox" type="checkbox" name="message_ids" value="{{ notif.id }}" onclick="event.stopPropagation();">
+                    </div>
+                    <div class="email-avatar" onclick="toggleMessage('msg-{{ notif.id }}')">
+                        {% if current_box == 'inbox' or current_box == 'arquivadas' and notif.destinatario == militar_logado %}
                             {{ notif.remetente.nome_guerra|slice:":1" }}
                         {% else %}
                             {{ notif.destinatario.nome_guerra|slice:":1" }}
@@ -347,7 +369,7 @@
                     </div>
                     <div class="email-content">
                         <div class="email-header">
-                            <span class="email-sender">
+                            <span class="email-sender" onclick="toggleMessage('msg-{{ notif.id }}')">
                                 {% if current_box == 'inbox' %}
                                     {{ notif.remetente.posto }} {{ notif.remetente.nome_guerra }}
                                 {% else %}
@@ -356,13 +378,13 @@
                             </span>
                             <span class="email-date">{{ notif.data_criacao|date:"d M" }}</span>
                         </div>
-                        <div class="email-subject">
+                        <div class="email-subject" onclick="toggleMessage('msg-{{ notif.id }}')">
                             {{ notif.titulo }}
                             {% if not notif.lida and current_box == 'inbox' %}
                                 <span class="badge bg-danger rounded-pill ms-2" style="font-size: 0.6em;">NOVO</span>
                             {% endif %}
                         </div>
-                        <div class="email-preview">
+                        <div class="email-preview" onclick="toggleMessage('msg-{{ notif.id }}')">
                             {{ notif.mensagem|truncatechars:60 }}
                         </div>
                         
@@ -371,10 +393,32 @@
                             <p style="white-space: pre-line;">{{ notif.mensagem }}</p>
                             
                             <div class="d-flex justify-content-end gap-2 mt-3">
-                                <button type="button" class="btn btn-sm btn-outline-danger" title="Excluir Mensagem" onclick="openDeleteModal('{% url 'excluir_mensagem_global' notif.id %}')">
-                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16" style="vertical-align: text-bottom; margin-right: 2px;">
-                                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                                    </svg> Excluir
+                                {% if current_box == 'trash' %}
+                                    <form method="post" action="{% url 'Secao_pessoal:acoes_em_massa_comunicacoes' %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="message_ids" value="{{ notif.id }}">
+                                        <button type="submit" name="action" value="restore" class="btn btn-sm btn-outline-success">Restaurar</button>
+                                    </form>
+                                    <form method="post" action="{% url 'Secao_pessoal:acoes_em_massa_comunicacoes' %}" style="display: inline;">
+                                        {% csrf_token %}
+                                        <input type="hidden" name="message_ids" value="{{ notif.id }}">
+                                        <button type="submit" name="action" value="delete" class="btn btn-sm btn-outline-danger" onclick="return confirm('Tem certeza que deseja excluir esta mensagem permanentemente?');">Excluir Permanentemente</button>
+                                    </form>
+                                {% else %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Mover para Lixeira" onclick="openDeleteModal('{% url 'Secao_pessoal:excluir_mensagem' notif.id %}')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16" style="vertical-align: text-bottom; margin-right: 2px;">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                        </svg> Mover para Lixeira
+                                    </button>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Arquivar/Desarquivar" onclick="archiveMessage('{% url 'Secao_pessoal:arquivar_mensagem' notif.id %}')">
+                                    {% if notif.arquivada %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                                        Desarquivar
+                                    {% else %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                                        Arquivar
+                                    {% endif %}
                                 </button>
                                 {% if current_box == 'inbox' %}
                                 <button type="button" class="btn btn-sm btn-outline-primary" onclick="replyTo('{{ notif.remetente.id }}', '{{ notif.titulo|escapejs }}')">
@@ -401,7 +445,7 @@
                     <h5 class="text-muted fw-bold">Nenhuma mensagem encontrada</h5>
                 </div>
             {% endif %}
-        </div>
+        </form>
     </div>
 </div>
 
@@ -415,8 +459,7 @@
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body p-4">
-                <form method="post">
-                    {% csrf_token %}
+                <form method="post"
                     
                     <div class="mb-3">
                         <label for="{{ form.destinatario.id_for_label }}" class="form-label fw-bold text-secondary small text-uppercase">Destinatário</label>
@@ -434,6 +477,11 @@
                     <div class="mb-3">
                         <label for="{{ form.mensagem.id_for_label }}" class="form-label fw-bold text-secondary small text-uppercase">Mensagem</label>
                         {{ form.mensagem }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_anexo" class="form-label fw-bold text-secondary small text-uppercase">Anexo (Opcional)</label>
+                        <input type="file" name="anexo" class="form-control" id="id_anexo">
                     </div>
 
                     <div class="d-flex justify-content-end gap-2 mt-4">
@@ -493,34 +541,6 @@
     </div>
 </div>
 
-<!-- Modals for Vacation Rejection -->
-{% for solicitacao in autorizacoes_pendentes_ferias %}
-<div class="modal fade" id="rejeitarFeriasModal{{ solicitacao.id }}" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-dialog-centered">
-        <div class="modal-content">
-            <form method="post" action="{% url 'Secao_pessoal:responder_solicitacao_ferias' solicitacao.id 'rejeitar' %}">
-                {% csrf_token %}
-                <div class="modal-header">
-                    <h5 class="modal-title fw-bold">Rejeitar Solicitação de Férias</h5>
-                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-                </div>
-                <div class="modal-body">
-                    <p>Por favor, informe o motivo para rejeitar a solicitação de férias de <strong>{{ solicitacao.militar.posto }} {{ solicitacao.militar.nome_guerra }}</strong>.</p>
-                    <div class="mb-3">
-                        <label for="motivo_rejeicao_{{ solicitacao.id }}" class="form-label">Motivo:</label>
-                        <textarea class="form-control" id="motivo_rejeicao_{{ solicitacao.id }}" name="motivo_rejeicao" rows="3" required></textarea>
-                    </div>
-                </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
-                    <button type="submit" class="btn btn-danger">Confirmar Rejeição</button>
-                </div>
-            </form>
-        </div>
-    </div>
-</div>
-{% endfor %}
-
 <script>
     function toggleMessage(id) {
         const content = document.getElementById(id);
@@ -557,6 +577,15 @@
         var modal = bootstrap.Modal.getOrCreateInstance(modalElement);
         document.getElementById('confirmDeleteForm').action = actionUrl;
         modal.show();
+    }
+
+    function archiveMessage(actionUrl) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = actionUrl;
+        form.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">';
+        document.body.appendChild(form);
+        form.submit();
     }
 
     function replyTo(remetenteId, tituloOriginal) {
@@ -660,6 +689,32 @@
         if (typeof startAutoRefresh === 'function') {
             startAutoRefresh();
         }
+
+        // Lógica para ações em massa
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
+        const messageCheckboxes = document.querySelectorAll('.message-checkbox');
+        const toolbar = document.getElementById('bulk-actions-toolbar');
+
+        function toggleToolbar() {
+            const anyChecked = Array.from(messageCheckboxes).some(cb => cb.checked);
+            if (toolbar) {
+                toolbar.style.display = anyChecked ? 'block' : 'none';
+            }
+        }
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
+                messageCheckboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                toggleToolbar();
+            });
+        }
+
+        messageCheckboxes.forEach(cb => {
+            cb.addEventListener('change', toggleToolbar);
+        });
+
     });
 </script>
 {% endblock %}

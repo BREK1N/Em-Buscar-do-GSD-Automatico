@@ -1,5 +1,9 @@
 from django.db import models
 
+class EfetivoManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted=False)
+
 class Efetivo(models.Model):
     posto = models.CharField(max_length=50, blank=True, verbose_name="Posto")
     quad = models.CharField(max_length=50, blank=True, verbose_name="QUAD")
@@ -20,6 +24,11 @@ class Efetivo(models.Model):
     inspsau_validade = models.DateField(null=True, blank=True, verbose_name="Validade da INSPSAU")
     documento_inspsau = models.FileField(upload_to='inspsau_documentos/', null=True, blank=True, verbose_name="Documento da INSPSAU")
     inspsau_parecer = models.TextField(blank=True, null=True, verbose_name="Parecer da INSPSAU")
+    deleted = models.BooleanField(default=False, verbose_name="Excluído")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
+
+    objects = EfetivoManager()
+    all_objects = models.Manager()
 
     def save(self, *args, **kwargs):
         postos_de_oficiais = [
@@ -102,7 +111,9 @@ class Subsetor(models.Model):
     def __str__(self):
         return self.nome
 
-# Adicione isso em Secao_pessoal/models.py
+class NotificacaoManager(models.Manager):
+    def get_queryset(self):
+        return super().get_queryset().filter(deleted=False)
 
 class Notificacao(models.Model):
     remetente = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='notificacoes_enviadas')
@@ -110,7 +121,14 @@ class Notificacao(models.Model):
     titulo = models.CharField(max_length=200, verbose_name="Assunto")
     mensagem = models.TextField(verbose_name="Mensagem")
     lida = models.BooleanField(default=False)
+    arquivada = models.BooleanField(default=False, verbose_name="Arquivada")
+    anexo = models.FileField(upload_to='notificacoes_anexos/', null=True, blank=True, verbose_name="Anexo")
+    deleted = models.BooleanField(default=False, verbose_name="Excluído (Lixeira)")
+    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
     data_criacao = models.DateTimeField(auto_now_add=True)
+
+    objects = NotificacaoManager()
+    all_objects = models.Manager()
 
     class Meta:
         ordering = ['-data_criacao']
