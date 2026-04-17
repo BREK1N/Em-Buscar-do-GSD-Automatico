@@ -216,6 +216,39 @@ def buscar_militar_inteligente(acusado_ia):
     return None
 
 
+def _pdf_to_pages_html(pdf_path):
+    """
+    Converte cada página de um PDF em uma imagem base64 e retorna HTML
+    com cada página separada por um marcador de quebra de página.
+    Usado para exibir o PDF fielmente no visualizador de documentos.
+    """
+    try:
+        if not os.path.exists(pdf_path):
+            return '<p style="color:red;">[Erro: arquivo PDF não encontrado]</p>'
+
+        pdf_doc = fitz.open(pdf_path)
+        parts = []
+        for page_num, page in enumerate(pdf_doc):
+            # Renderiza a página em alta qualidade (150 DPI é suficiente para visualização)
+            mat = fitz.Matrix(150 / 72, 150 / 72)
+            pix = page.get_pixmap(matrix=mat)
+            img_bytes = pix.tobytes("png")
+            b64 = base64.b64encode(img_bytes).decode('utf-8')
+            img_html = (
+                f'<img src="data:image/png;base64,{b64}" '
+                f'alt="Página {page_num + 1} do ofício" '
+                f'style="width:100%; height:auto; display:block;" />'
+            )
+            if page_num > 0:
+                parts.append('<div class="manual-page-break"></div>')
+            parts.append(img_html)
+        pdf_doc.close()
+        return ''.join(parts)
+    except Exception as e:
+        logger.error(f"Erro ao converter PDF para imagens HTML: {e}")
+        return '<p style="color:red;">[Erro ao processar o PDF]</p>'
+
+
 def _get_document_context(patd, for_docx=False):
     """
     Função centralizada para coletar e formatar todos os dados
@@ -320,13 +353,19 @@ def _get_document_context(patd, for_docx=False):
     oficio_anexo = patd.anexos.filter(tipo='oficio_lancamento').first()
     oficio_lancamento_html = ''
     if oficio_anexo:
-        oficio_lancamento_html = f'<embed src="{oficio_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
+        if for_docx:
+            oficio_lancamento_html = f'<embed src="{oficio_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
+        else:
+            oficio_lancamento_html = _pdf_to_pages_html(oficio_anexo.arquivo.path)
 
     # Adiciona a ficha individual ao contexto, se existir
     ficha_individual_anexo = patd.anexos.filter(tipo='ficha_individual').first()
     ficha_individual_html = ''
     if ficha_individual_anexo:
-        ficha_individual_html = f'<embed src="{ficha_individual_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
+        if for_docx:
+            ficha_individual_html = f'<embed src="{ficha_individual_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
+        else:
+            ficha_individual_html = _pdf_to_pages_html(ficha_individual_anexo.arquivo.path)
 
     context = {
         # Placeholders Comuns
@@ -427,60 +466,341 @@ def _get_document_context(patd, for_docx=False):
     return context
 
 
+def _apply_context_to_text(text, context, template_name=''):
+    """Aplica substituição de placeholders no texto e aplica regex especiais."""
+    if template_name and ('RELATORIO_DELTA' in template_name or 'RELATORIO_JUSTIFICADO' in template_name):
+        text = re.sub(r'(à fl\.)(\s*\d+\s*)([\,\.\s])', r'\1 {pagina_alegacao}\3', text)
+    for placeholder, value in context.items():
+        text = text.replace(str(placeholder), str(value))
+    return text
+
+
+def _get_effective(pf, sf, attr):
+    """Lê atributo do paragraph_format; se None, lê do style_format (herança Word)."""
+    val = getattr(pf, attr, None)
+    if val is None and sf is not None:
+        val = getattr(sf, attr, None)
+    return val
+
+
+def _apply_fmt_to_segment(text, bold, italic, underline, font_size):
+    """Aplica formatação HTML a um segmento de texto simples."""
+    if not text:
+        return ''
+    if '<' in text:
+        # Já contém HTML (ex: botão de assinatura) — não envolver
+        return text
+    result = text
+    if font_size:
+        result = f'<span style="font-size: {font_size:.1f}pt">{result}</span>'
+    if underline:
+        result = f'<u>{result}</u>'
+    if italic:
+        result = f'<em>{result}</em>'
+    if bold:
+        result = f'<strong>{result}</strong>'
+    return result
+
+
+def _render_paragraph_with_placeholders(runs, context, template_name=''):
+    """
+    Substitui placeholders no texto completo do parágrafo preservando a formatação
+    correta por segmento.
+
+    Estratégia:
+    1. Constrói mapa char→formato a partir dos runs
+    2. Localiza placeholders no texto completo (p.text) — suporta placeholders
+       divididos entre múltiplos runs
+    3. Divide o texto em segmentos: texto-normal | placeholder | texto-normal …
+    4. Cada segmento herda a formatação do primeiro caractere correspondente no DOCX
+    5. Segmentos contíguos com mesma formatação são agrupados antes de emitir HTML
+    """
+    full_text = ''.join(r.text for r in runs)
+    if not full_text:
+        return ''
+
+    # --- 1. Mapa char → (bold, italic, underline, font_size_pt) ---
+    char_fmts = []
+    for run in runs:
+        try:
+            fs = run.font.size / 12700 if run.font.size else None
+        except Exception:
+            fs = None
+        fmt = (bool(run.bold), bool(run.italic), bool(run.underline), fs)
+        for _ in run.text:
+            char_fmts.append(fmt)
+
+    # Fallback se o mapa ficar vazio
+    default_fmt = (False, False, False, None)
+
+    def fmt_at(pos):
+        if 0 <= pos < len(char_fmts):
+            return char_fmts[pos]
+        return default_fmt
+
+    # --- 2. Localiza todos os placeholders no full_text ---
+    # Cada entrada: (start, end, substituted_value)
+    placeholder_spans = []
+    for ph, val in context.items():
+        ph_str = str(ph)
+        if not ph_str:
+            continue
+        search_start = 0
+        while True:
+            idx = full_text.find(ph_str, search_start)
+            if idx == -1:
+                break
+            placeholder_spans.append((idx, idx + len(ph_str), str(val)))
+            search_start = idx + len(ph_str)
+
+    if not placeholder_spans:
+        # Nenhum placeholder encontrado — renderiza como texto simples com fmt do 1º char
+        fmt = fmt_at(0)
+        return _apply_fmt_to_segment(full_text, *fmt)
+
+    # Ordena por posição de início; remove sobreposições simples
+    placeholder_spans.sort(key=lambda x: x[0])
+
+    # --- 3. Divide em segmentos ---
+    segments = []  # list of (text, bold, italic, underline, font_size)
+    cursor = 0
+    for start, end, val in placeholder_spans:
+        if start < cursor:
+            continue  # sobreposição — ignora
+        # Texto antes do placeholder
+        if cursor < start:
+            before = full_text[cursor:start]
+            fmt = fmt_at(cursor)
+            segments.append((before, *fmt))
+        # Valor substituído — usa formatação do primeiro char do placeholder
+        fmt = fmt_at(start)
+        segments.append((val, *fmt))
+        cursor = end
+
+    # Texto após o último placeholder
+    if cursor < len(full_text):
+        remaining = full_text[cursor:]
+        fmt = fmt_at(cursor)
+        segments.append((remaining, *fmt))
+
+    # --- 4. Aplica regex especial (ex: pagina_alegacao) ---
+    if template_name and ('RELATORIO_DELTA' in template_name or 'RELATORIO_JUSTIFICADO' in template_name):
+        new_segments = []
+        for seg_text, bold, italic, underline, fs in segments:
+            seg_text = re.sub(r'(à fl\.)(\s*\d+\s*)([\,\.\s])', r'\1 {pagina_alegacao}\3', seg_text)
+            new_segments.append((seg_text, bold, italic, underline, fs))
+        segments = new_segments
+
+    # --- 5. Emite HTML ---
+    result = ''
+    for seg_text, bold, italic, underline, fs in segments:
+        result += _apply_fmt_to_segment(seg_text, bold, italic, underline, fs)
+    return result
+
+
+def _render_paragraph_html(p, context, template_name=''):
+    """
+    Converte um parágrafo python-docx em HTML preservando fielmente o DOCX:
+    - Alinhamento (parágrafo ou herdado do estilo)
+    - Bold, Italic, Underline e tamanho de fonte por run
+    - line_spacing EXACTLY convertido para line-height em pt
+    - space_before / space_after como margin
+    - Indentação left e first_line
+    - Margem zero por padrão (sem espaço extra do browser)
+    """
+    from docx.enum.text import WD_LINE_SPACING as WD_LS
+    alignment_map = {None: 'left', 0: 'left', 1: 'center', 2: 'right', 3: 'justify'}
+
+    pf = p.paragraph_format
+    sf = p.style.paragraph_format if p.style else None
+
+    # Alinhamento — parágrafo primeiro, depois estilo
+    alignment = alignment_map.get(_get_effective(pf, sf, 'alignment'), 'left')
+
+    # Base: zeramos margem para não herdar padrão do browser
+    para_styles = [
+        f'text-align: {alignment}',
+        'margin: 0',
+        'padding: 0',
+    ]
+
+    # space_before / space_after (em pt)
+    try:
+        sb = _get_effective(pf, sf, 'space_before')
+        if sb is not None and sb.pt > 0:
+            para_styles.append(f'margin-top: {sb.pt:.2f}pt')
+    except Exception:
+        pass
+    try:
+        sa = _get_effective(pf, sf, 'space_after')
+        if sa is not None and sa.pt > 0:
+            para_styles.append(f'margin-bottom: {sa.pt:.2f}pt')
+    except Exception:
+        pass
+
+    # line_spacing — EXACTLY → line-height fixo em pt; MULTIPLE → relativo
+    try:
+        ls = _get_effective(pf, sf, 'line_spacing')
+        ls_rule = _get_effective(pf, sf, 'line_spacing_rule')
+        if ls is not None and ls_rule is not None:
+            if ls_rule == WD_LS.EXACTLY:
+                ls_pt = ls.pt if hasattr(ls, 'pt') else ls / 12700
+                para_styles.append(f'line-height: {ls_pt:.2f}pt')
+            elif ls_rule == WD_LS.AT_LEAST:
+                ls_pt = ls.pt if hasattr(ls, 'pt') else ls / 12700
+                para_styles.append(f'min-height: {ls_pt:.2f}pt')
+            # WD_LS.MULTIPLE: ls é float (ex: 1.5) → line-height relativo
+            elif isinstance(ls, (int, float)):
+                para_styles.append(f'line-height: {ls}')
+    except Exception:
+        pass
+
+    # Indentação left e first_line — parágrafo depois estilo
+    try:
+        li = _get_effective(pf, sf, 'left_indent')
+        if li is not None and li.pt != 0:
+            para_styles.append(f'padding-left: {li.pt:.2f}pt')
+    except Exception:
+        pass
+    try:
+        fi = _get_effective(pf, sf, 'first_line_indent')
+        if fi is not None:
+            para_styles.append(f'text-indent: {fi.pt:.2f}pt')
+    except Exception:
+        pass
+
+    style_attr = '; '.join(para_styles)
+
+    full_text = p.text
+
+    # Detecta se algum placeholder do contexto aparece no texto completo.
+    # Placeholders podem estar divididos entre múltiplos runs no Word — por isso
+    # a substituição deve ser feita no texto completo (p.text), não por run.
+    has_any_placeholder = any(str(ph) in full_text for ph, val in context.items() if ph and val)
+
+    if has_any_placeholder or not p.runs:
+        # Substitui placeholders preservando formatação por segmento
+        inner_html = _render_paragraph_with_placeholders(p.runs, context, template_name)
+        if not inner_html and not p.runs:
+            # Parágrafo sem runs — substitui no texto simples sem formatação
+            inner_html = _apply_context_to_text(full_text, context, template_name)
+    else:
+        # Sem placeholder: processa run a run para preservar formatação precisa
+        inner_html = _render_runs_html(p.runs, context, template_name)
+
+    return f'<p style="{style_attr}">{inner_html}</p>'
+
+
+def _render_runs_html(runs, context, template_name=''):
+    """Converte runs de um parágrafo em HTML com formatação por run."""
+    result = ''
+    for run in runs:
+        text = _apply_context_to_text(run.text, context, template_name)
+        if not text:
+            continue
+
+        # Estilo do run
+        run_styles = []
+        try:
+            if run.font.size:
+                pt = run.font.size / 12700  # EMU → pt
+                run_styles.append(f'font-size: {pt:.1f}pt')
+        except Exception:
+            pass
+        try:
+            if run.font.color and run.font.color.type is not None:
+                rgb = run.font.color.rgb
+                run_styles.append(f'color: #{str(rgb)}')
+        except Exception:
+            pass
+
+        # Formatação inline
+        bold = run.bold
+        italic = run.italic
+        underline = run.underline
+
+        if run_styles:
+            text = f'<span style="{"; ".join(run_styles)}">{text}</span>'
+        if underline:
+            text = f'<u>{text}</u>'
+        if italic:
+            text = f'<em>{text}</em>'
+        if bold:
+            text = f'<strong>{text}</strong>'
+
+        result += text
+    return result
+
+
+def _render_table_html(table, context, template_name=''):
+    """Converte uma tabela python-docx em HTML."""
+    html = '<table class="doc-table" style="width:100%; border-collapse:collapse; margin: 4pt 0;">'
+    for row in table.rows:
+        html += '<tr>'
+        for cell in row.cells:
+            cell_inner = ''
+            for p in cell.paragraphs:
+                cell_inner += _render_paragraph_html(p, context, template_name)
+            # Borda e padding mínimos para manter fidelidade visual
+            html += f'<td style="border: 1px solid #ccc; padding: 4pt 6pt; vertical-align: top;">{cell_inner}</td>'
+        html += '</tr>'
+    html += '</table>'
+    return html
+
+
 def _render_document_from_template(template_name, context):
     """
     Função genérica para renderizar um documento .docx a partir de um template,
-    preservando o alinhamento e convertendo para HTML.
-    AGORA SUPORTA O PLACEHOLDER {nova_pagina}
+    preservando alinhamento, formatação de runs (bold/italic/underline/tamanho),
+    espaçamento, indentação e tabelas.
+    Suporta o placeholder {nova_pagina} para quebras de página.
     """
     try:
         doc_path = os.path.join(settings.BASE_DIR, 'pdf', template_name)
         document = docx.Document(doc_path)
 
-        alignment_map = {
-            None: 'left',
-            0: 'left',
-            1: 'center',
-            2: 'right',
-            3: 'justify'
-        }
-
+        from docx.oxml.ns import qn as _qn
         html_content = []
 
-        for p in document.paragraphs:
-            # --- NOVA VERIFICAÇÃO DE QUEBRA DE PÁGINA ---
-            if '{nova_pagina}' in p.text:
-                html_content.append('<div class="manual-page-break"></div>')
-                continue # Pula para o próximo parágrafo
-            # --- FIM DA VERIFICAÇÃO ---
+        # Itera o body em ordem real (parágrafos e tabelas intercalados)
+        for child in document.element.body:
+            tag = child.tag.split('}')[-1] if '}' in child.tag else child.tag
 
-            inline_text = p.text
+            if tag == 'p':
+                p = docx.text.paragraph.Paragraph(child, document)
 
-            # --- INÍCIO DA NOVA LÓGICA ---
-            # Substitui o "à fl. XX" hardcoded pelo nosso placeholder dinâmico
-            if 'RELATORIO_DELTA' in template_name or 'RELATORIO_JUSTIFICADO' in template_name:
-                # Este regex procura por "à fl." seguido de espaço(s), número(s), e depois vírgula, ponto ou espaço.
-                inline_text = re.sub(r'(à fl\.)(\s*\d+\s*)([\,\.\s])', r'\1 {pagina_alegacao}\3', inline_text)
-            # --- FIM DA NOVA LÓGICA ---
+                # Quebra de página explícita
+                if '{nova_pagina}' in p.text:
+                    html_content.append('<div class="manual-page-break"></div>')
+                    continue
 
-            # --- INÍCIO DA CORREÇÃO: Substituição direta sem escapar HTML ---
-            # A lógica de escape foi removida. Os placeholders são substituídos diretamente.
-            for placeholder, value in context.items():
-                inline_text = inline_text.replace(str(placeholder), str(value))
-            # --- FIM DA CORREÇÃO ---
-            
-            # **INÍCIO DA CORREÇÃO**
-            # Tenta obter o alinhamento direto do parágrafo
-            effective_alignment = p.paragraph_format.alignment
-            # Se não houver alinhamento direto, herda do estilo
-            if effective_alignment is None and p.style and p.style.paragraph_format:
-                effective_alignment = p.style.paragraph_format.alignment
-            # **FIM DA CORREÇÃO**
+                # Parágrafo vazio: extrai só os estilos (alinhamento, line_spacing)
+                # e usa &nbsp; para garantir que o browser respeite o height definido
+                if not p.text.strip():
+                    from docx.enum.text import WD_LINE_SPACING as WD_LS
+                    alignment_map = {None: 'left', 0: 'left', 1: 'center', 2: 'right', 3: 'justify'}
+                    pf = p.paragraph_format
+                    sf = p.style.paragraph_format if p.style else None
+                    alignment = alignment_map.get(_get_effective(pf, sf, 'alignment'), 'left')
+                    empty_styles = [f'text-align: {alignment}', 'margin: 0', 'padding: 0']
+                    try:
+                        ls = _get_effective(pf, sf, 'line_spacing')
+                        ls_rule = _get_effective(pf, sf, 'line_spacing_rule')
+                        if ls is not None and ls_rule == WD_LS.EXACTLY:
+                            ls_pt = ls.pt if hasattr(ls, 'pt') else ls / 12700
+                            empty_styles.append(f'line-height: {ls_pt:.2f}pt')
+                        elif ls is not None and isinstance(ls, (int, float)):
+                            empty_styles.append(f'line-height: {ls}')
+                    except Exception:
+                        pass
+                    html_content.append(f'<p style="{"; ".join(empty_styles)}">&nbsp;</p>')
+                    continue
 
-            alignment = alignment_map.get(effective_alignment, 'left')
+                html_content.append(_render_paragraph_html(p, context, template_name))
 
-            # Adiciona o parágrafo com o conteúdo já processado
-            html_content.append(f'<p style="text-align: {alignment};">{inline_text}</p>')
+            elif tag == 'tbl':
+                table = docx.table.Table(child, document)
+                html_content.append(_render_table_html(table, context, template_name))
 
         return ''.join(html_content)
 

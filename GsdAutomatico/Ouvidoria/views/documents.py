@@ -915,38 +915,3 @@ def exportar_patd_docx(request, pk):
     return response
 
 
-@login_required
-@ouvidoria_required
-@require_POST
-def upload_oficio_lancamento(request, pk):
-    patd = get_object_or_404(PATD, pk=pk)
-    
-    if patd.status == 'finalizado':
-        messages.error(request, "Não é possível anexar arquivos em processos finalizados.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-
-    if 'oficio_lancamento' not in request.FILES:
-        messages.error(request, "Nenhum arquivo enviado.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-
-    arquivo = request.FILES['oficio_lancamento']
-    
-    # Validação manual de tamanho na View para retorno imediato
-    if arquivo.size > 10485760: # 10MB
-        messages.error(request, "Arquivo muito grande! O limite permitido é de 10MB.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-
-    try:
-        # Remove ofício antigo se existir
-        patd.anexos.filter(tipo='oficio_lancamento').delete()
-
-        Anexo.objects.create(
-            patd=patd,
-            arquivo=arquivo,
-            tipo='oficio_lancamento'
-        )
-        messages.success(request, "Ofício de Lançamento anexado com sucesso.")
-    except Exception as e:
-        messages.error(request, f"Erro ao anexar arquivo: {str(e)}")
-        
-    return redirect('Ouvidoria:patd_detail', pk=pk)

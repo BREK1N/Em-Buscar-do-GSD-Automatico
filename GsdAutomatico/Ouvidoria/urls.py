@@ -82,6 +82,4 @@ urlpatterns = [
     # API
     path('api/search-militares/', views.search_militares_json, name='search_militares_json'),
     path('anexo/<int:pk>/excluir/', views.excluir_anexo, name='excluir_anexo'),
-
-    path('patd/<int:pk>/upload_oficio_lancamento/', views.upload_oficio_lancamento, name='upload_oficio_lancamento'),
 ]

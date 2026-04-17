@@ -395,7 +395,27 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
         if _check_and_finalize_patd(patd):
              patd.save()
 
-        return JsonResponse({'status': 'success', 'message': f'Assinatura da {testemunha_num}ª testemunha salva.'})
+        # Após salvar, recarrega para garantir estado atualizado
+        patd.refresh_from_db()
+
+        # Se estiver em 'preclusao' e ambas as testemunhas já assinaram,
+        # avança automaticamente para 'apuracao_preclusao'
+        status_avancar = None
+        if patd.status == 'preclusao' and _check_preclusao_signatures(patd):
+            patd.status = 'apuracao_preclusao'
+            patd.save(update_fields=['status'])
+            status_avancar = 'apuracao_preclusao'
+            logger.info(f"PATD {pk}: ambas as testemunhas assinaram — status avançado para apuracao_preclusao.")
+
+        response_data = {
+            'status': 'success',
+            'message': f'Assinatura da {testemunha_num}ª testemunha salva.',
+        }
+        if status_avancar:
+            response_data['status_avancado'] = status_avancar
+            response_data['message'] += ' Ambas as testemunhas assinaram — PATD avançada para Em Apuração (Preclusão).'
+
+        return JsonResponse(response_data)
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da testemunha {testemunha_num} para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)

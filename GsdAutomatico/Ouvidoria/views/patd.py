@@ -399,10 +399,11 @@ def index(request):
                             'data_oficio': data_oficio_str
                         })
                 
-                if militares_para_confirmacao:
+                total_pendentes = len(militares_para_confirmacao) + len(militares_nao_encontrados)
+                if total_pendentes > 0:
                     request.session['oficio_lancamento'] = {
                         'path': temp_file_path,
-                        'count': len(militares_para_confirmacao)
+                        'count': total_pendentes
                     }
                 else:
                     try:
@@ -770,7 +771,7 @@ def prosseguir_sem_alegacao(request, pk):
         if patd.status != 'prazo_expirado':
             return JsonResponse({'status': 'error', 'message': 'Ação permitida apenas para PATDs com prazo expirado.'}, status=400)
 
-        # Testemunhas são obrigatórias para prosseguir
+        # Testemunhas devem estar atribuídas
         testemunhas_faltando = []
         if not patd.testemunha1_id:
             testemunhas_faltando.append('1ª Testemunha')
@@ -783,9 +784,12 @@ def prosseguir_sem_alegacao(request, pk):
                 'message': f'É obrigatório atribuir as testemunhas antes de prosseguir. Faltam: {", ".join(testemunhas_faltando)}.',
             }, status=400)
 
-        patd.status = 'apuracao_preclusao'
+        # Avança para 'preclusao': o Termo de Preclusão será exibido
+        # para que as testemunhas assinem. Só após ambas assinarem
+        # o status avança automaticamente para 'apuracao_preclusao'.
+        patd.status = 'preclusao'
         patd.save(update_fields=['status'])
-        return JsonResponse({'status': 'success', 'message': 'PATD atualizada para Apuração (Preclusão).'})
+        return JsonResponse({'status': 'success', 'message': 'Termo de Preclusão aberto. As testemunhas devem assinar antes de prosseguir.'})
     except Exception as e:
         logger.error(f"Erro ao prosseguir sem alegação para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)

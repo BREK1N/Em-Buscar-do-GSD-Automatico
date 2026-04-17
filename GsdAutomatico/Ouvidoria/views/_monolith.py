@@ -1404,10 +1404,11 @@ def index(request):
                             'data_oficio': data_oficio_str
                         })
                 
-                if militares_para_confirmacao:
+                total_pendentes = len(militares_para_confirmacao) + len(militares_nao_encontrados)
+                if total_pendentes > 0:
                     request.session['oficio_lancamento'] = {
                         'path': temp_file_path,
-                        'count': len(militares_para_confirmacao)
+                        'count': total_pendentes
                     }
                 else:
                     try:
@@ -2438,9 +2439,22 @@ def prosseguir_sem_alegacao(request, pk):
         patd = get_object_or_404(PATD, pk=pk)
         if patd.status != 'prazo_expirado':
             return JsonResponse({'status': 'error', 'message': 'Ação permitida apenas para PATDs com prazo expirado.'}, status=400)
-        patd.status = 'apuracao_preclusao'
+
+        testemunhas_faltando = []
+        if not patd.testemunha1_id:
+            testemunhas_faltando.append('1ª Testemunha')
+        if not patd.testemunha2_id:
+            testemunhas_faltando.append('2ª Testemunha')
+        if testemunhas_faltando:
+            return JsonResponse({
+                'status': 'error',
+                'code': 'testemunhas_ausentes',
+                'message': f'É obrigatório atribuir as testemunhas antes de prosseguir. Faltam: {", ".join(testemunhas_faltando)}.',
+            }, status=400)
+
+        patd.status = 'preclusao'
         patd.save(update_fields=['status'])
-        return JsonResponse({'status': 'success', 'message': 'PATD atualizada para Apuração (Preclusão).'})
+        return JsonResponse({'status': 'success', 'message': 'Termo de Preclusão aberto. As testemunhas devem assinar antes de prosseguir.'})
     except Exception as e:
         logger.error(f"Erro ao prosseguir sem alegação para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
@@ -2487,7 +2501,24 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
         if _check_and_finalize_patd(patd):
              patd.save()
 
-        return JsonResponse({'status': 'success', 'message': f'Assinatura da {testemunha_num}ª testemunha salva.'})
+        patd.refresh_from_db()
+
+        status_avancar = None
+        if patd.status == 'preclusao' and _check_preclusao_signatures(patd):
+            patd.status = 'apuracao_preclusao'
+            patd.save(update_fields=['status'])
+            status_avancar = 'apuracao_preclusao'
+            logger.info(f"PATD {pk}: ambas as testemunhas assinaram — status avançado para apuracao_preclusao.")
+
+        response_data = {
+            'status': 'success',
+            'message': f'Assinatura da {testemunha_num}ª testemunha salva.',
+        }
+        if status_avancar:
+            response_data['status_avancado'] = status_avancar
+            response_data['message'] += ' Ambas as testemunhas assinaram — PATD avançada para Em Apuração (Preclusão).'
+
+        return JsonResponse(response_data)
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da testemunha {testemunha_num} para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
@@ -3896,41 +3927,6 @@ def patd_permanently_delete(request, pk):
     messages.success(request, f'A PATD Nº {patd.numero_patd_anterior} foi excluída permanentemente.')
     return redirect('Ouvidoria:patd_trash')
 
-@login_required
-@ouvidoria_required
-@require_POST
-def upload_oficio_lancamento(request, pk):
-    patd = get_object_or_404(PATD, pk=pk)
-    
-    if patd.status == 'finalizado':
-        messages.error(request, "Não é possível anexar arquivos em processos finalizados.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-
-    if 'oficio_lancamento' not in request.FILES:
-        messages.error(request, "Nenhum arquivo enviado.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-
-    arquivo = request.FILES['oficio_lancamento']
-    
-    # Validação manual de tamanho na View para retorno imediato
-    if arquivo.size > 10485760: # 10MB
-        messages.error(request, "Arquivo muito grande! O limite permitido é de 10MB.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-
-    try:
-        # Remove ofício antigo se existir
-        patd.anexos.filter(tipo='oficio_lancamento').delete()
-
-        Anexo.objects.create(
-            patd=patd,
-            arquivo=arquivo,
-            tipo='oficio_lancamento'
-        )
-        messages.success(request, "Ofício de Lançamento anexado com sucesso.")
-    except Exception as e:
-        messages.error(request, f"Erro ao anexar arquivo: {str(e)}")
-        
-    return redirect('Ouvidoria:patd_detail', pk=pk)
 
 
 @login_required

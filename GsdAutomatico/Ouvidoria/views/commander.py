@@ -27,7 +27,7 @@ from .decorators import (
     comandante_redirect, ouvidoria_required, comandante_required,
     oficial_responsavel_required, ComandanteAccessMixin,
 )
-from .helpers import _sync_oficial_signature
+from .helpers import _sync_oficial_signature, get_document_pages
 
 logger = logging.getLogger(__name__)
 

@@ -64,7 +64,7 @@ from .documents import (
     extender_prazo,
     exportar_patd_docx,
     upload_ficha_individual,
-    upload_oficio_lancamento,
+
 )
 
 from .militar import (
