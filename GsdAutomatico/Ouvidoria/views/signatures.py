@@ -95,13 +95,13 @@ def salvar_assinatura_ciencia(request, pk):
             logger.error(f"Erro ao converter Base64 da assinatura de ciência para ficheiro (PATD {pk}): {e}")
             return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
 
-        if patd.assinaturas_militar is None:
-            patd.assinaturas_militar = []
+        assinaturas = list(patd.assinaturas_militar or [])
 
-        while len(patd.assinaturas_militar) <= assinatura_index:
-            patd.assinaturas_militar.append(None)
+        while len(assinaturas) <= assinatura_index:
+            assinaturas.append(None)
 
-        patd.assinaturas_militar[assinatura_index] = signature_url
+        assinaturas[assinatura_index] = signature_url
+        patd.assinaturas_militar = assinaturas
 
         if patd.status == 'ciencia_militar':
             document_pages = get_document_pages(patd)
@@ -246,7 +246,9 @@ def remover_assinatura(request, pk):
                     except Anexo.DoesNotExist:
                         logger.warning(f"Anexo for signature URL {signature_url} not found for PATD {pk}. Removing URL from list.")
                         pass
-                patd.assinaturas_militar[signature_index] = None
+                assinaturas = list(patd.assinaturas_militar)
+                assinaturas[signature_index] = None
+                patd.assinaturas_militar = assinaturas
                 patd.save(update_fields=['assinaturas_militar'])
         else:
             return JsonResponse({'status': 'error', 'message': 'Tipo de assinatura desconhecido.'}, status=400)

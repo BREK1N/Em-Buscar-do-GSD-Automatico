@@ -18,7 +18,7 @@ from Secao_pessoal.utils import get_rank_value, RANK_HIERARCHY
 from .decorators import (
     ouvidoria_required, oficial_responsavel_required, OuvidoriaAccessMixin, comandante_redirect,
 )
-from .helpers import format_militar_string, _sync_oficial_signature
+from .helpers import format_militar_string, _sync_oficial_signature, get_document_pages, _try_advance_status_from_justificativa
 
 logger = logging.getLogger(__name__)
 

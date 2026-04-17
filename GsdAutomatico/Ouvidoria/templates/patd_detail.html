@@ -418,9 +418,9 @@
             {% if patd.status != 'finalizado' %}
                 <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
             {% else %}
-                <button class="btn btn-secondary" disabled title="Processo finalizado/justificado não pode ser editado.">Editar (Bloqueado)</button>
+                <button class="btn btn-secondary" disabled title="Processo finalizado não pode ser editado.">Editar (Bloqueado)</button>
             {% endif %}
-        {% elif user|has_comandante_access %}
+        {% elif user|can_edit_patd or user|has_comandante_access or request.user.profile.militar == patd.oficial_responsavel %}
             {% if patd.status not in locked_statuses_for_edit and patd.status != 'finalizado' %}
                 <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
             {% else %}
@@ -483,10 +483,15 @@
             <h2>Ações e Prazos</h2>
         </div>
         <div class="card-body">
-            {% if patd.status == 'aguardando_justificativa' or patd.status == 'prazo_expirado' %}
+            {% if patd.status == 'aguardando_justificativa' %}
             <div id="prazo-box" class="prazo-defesa">
                 <strong>Prazo para Alegação de Defesa:</strong>
                 <span id="countdown-timer">A calcular...</span>
+            </div>
+            {% elif patd.status == 'prazo_expirado' %}
+            <div class="prazo-defesa expirado">
+                <strong>Prazo para Alegação de Defesa:</strong>
+                <span style="color:var(--danger-color);font-weight:700;">PRAZO EXPIRADO</span>
             </div>
             {% endif %}
             {% if patd.status == 'periodo_reconsideracao' %}
@@ -1205,6 +1210,7 @@ const PATD_CONFIG = {
     militarNome:    '{{ patd.militar }}',
     dataCiencia:          '{{ patd.data_ciencia }}',
     dataCienciaIso:       '{{ patd.data_ciencia|date:"c" }}',
+    prazoOverrideIso:     '{{ patd.prazo_override|date:"c" }}',
     dataPublicacaoPunicao:    '{{ patd.data_publicacao_punicao }}',
     dataPublicacaoPunicaoIso: '{{ patd.data_publicacao_punicao|date:"c" }}',
     prazoDefesaDias: parseInt('{{ prazo_defesa_dias }}', 10) || 0,
@@ -1213,8 +1219,12 @@ const PATD_CONFIG = {
     defesaSigUrl:   '{% if patd.assinatura_alegacao_defesa.name %}{{ patd.assinatura_alegacao_defesa.url }}{% endif %}',
     hasReconSig:    '{{ patd.assinatura_reconsideracao|yesno:"true,false" }}' === 'true',
     reconSigUrl:    '{% if patd.assinatura_reconsideracao.name %}{{ patd.assinatura_reconsideracao.url }}{% endif %}',
+    hasTestemunha1Sig: '{{ patd.assinatura_testemunha1|yesno:"true,false" }}' === 'true',
     testemunha1SigUrl: '{% if patd.assinatura_testemunha1.name %}{{ patd.assinatura_testemunha1.url }}{% endif %}',
+    hasTestemunha2Sig: '{{ patd.assinatura_testemunha2|yesno:"true,false" }}' === 'true',
     testemunha2SigUrl: '{% if patd.assinatura_testemunha2.name %}{{ patd.assinatura_testemunha2.url }}{% endif %}',
+    temTestemunha1: {{ patd.testemunha1_id|yesno:"true,false" }},
+    temTestemunha2: {{ patd.testemunha2_id|yesno:"true,false" }},
     oficialSigUrl:  '{% if patd.assinatura_oficial.name %}{{ patd.assinatura_oficial.url }}{% endif %}',
     comandanteSigUrl: '{{ comandante_assinatura|default:"" }}',
     anexosDefesa:               {{ anexos_defesa_json|default:'[]'|safe }},

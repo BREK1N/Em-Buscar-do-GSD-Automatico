@@ -11,8 +11,8 @@ const hasDefesaSig        = PATD_CONFIG.hasDefesaSig;
 const defesaSigData       = PATD_CONFIG.defesaSigUrl;
 const hasReconSig         = PATD_CONFIG.hasReconSig;
 const reconSigData        = PATD_CONFIG.reconSigUrl;
-const testemunha1SigData  = PATD_CONFIG.testemunha1SigUrl;
-const testemunha2SigData  = PATD_CONFIG.testemunha2SigUrl;
+const testemunha1SigData  = PATD_CONFIG.hasTestemunha1Sig ? PATD_CONFIG.testemunha1SigUrl : '';
+const testemunha2SigData  = PATD_CONFIG.hasTestemunha2Sig ? PATD_CONFIG.testemunha2SigUrl : '';
 const oficialSigData      = PATD_CONFIG.oficialSigUrl;
 const comandanteSigData   = PATD_CONFIG.comandanteSigUrl;
 
@@ -153,7 +153,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 return;
             }
             let url, body;
-            const signatureData = signaturePad.toDataURL('image/jpeg', 0.5);
+            const signatureData = signaturePad.toDataURL('image/png');
 
             switch (currentSignatureConfig.type) {
                 case 'ciencia':
@@ -440,6 +440,15 @@ document.addEventListener('DOMContentLoaded', function() {
     const extenderPrazoBtn = document.getElementById('extender-prazo-btn');
     const prosseguirBtn = document.getElementById('prosseguir-sem-defesa-btn');
     function handleProsseguirSemAlegacao() {
+        // Verifica se as testemunhas estão atribuídas
+        const faltando = [];
+        if (!PATD_CONFIG.temTestemunha1) faltando.push('1ª Testemunha');
+        if (!PATD_CONFIG.temTestemunha2) faltando.push('2ª Testemunha');
+        if (faltando.length > 0) {
+            const msg = `⚠️ Não é possível prosseguir sem alegação.\n\nAs seguintes testemunhas ainda não foram atribuídas:\n• ${faltando.join('\n• ')}\n\nAtribua as testemunhas na aba "Editar" da PATD antes de continuar.`;
+            alert(msg);
+            return;
+        }
         if (confirm('Tem certeza que deseja prosseguir sem a alegação de defesa? Esta ação registrará a preclusão e não poderá ser desfeita.')) {
             const url = PATD_CONFIG.urls.prosseguirSemAlegacao;
             fetch(url, {
@@ -449,6 +458,7 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') window.location.reload();
+                else if (data.code === 'testemunhas_ausentes') alert('⚠️ ' + data.message);
                 else alert('Erro: ' + data.message);
             })
             .catch(error => console.error('Erro:', error));
@@ -502,8 +512,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
             return currentDate;
         }
-        let deadlineDate = addBusinessDays(dataCiencia, prazoDias);
-        let deadline = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate() + 1);
+
+        // prazo_override tem prioridade sobre o cálculo por dias úteis
+        let deadline;
+        if (PATD_CONFIG.prazoOverrideIso && PATD_CONFIG.prazoOverrideIso !== 'None') {
+            deadline = new Date(PATD_CONFIG.prazoOverrideIso);
+        } else {
+            let deadlineDate = addBusinessDays(dataCiencia, prazoDias);
+            deadline = new Date(deadlineDate.getFullYear(), deadlineDate.getMonth(), deadlineDate.getDate() + 1);
+        }
 
         const interval = setInterval(() => {
             const now = new Date();
@@ -641,6 +658,13 @@ document.addEventListener('DOMContentLoaded', function() {
 
     function processPlaceholders(text) {
         let processedHtml = text;
+        if (processedHtml.includes('{Assinatura_Imagem_Testemunha_1}') || processedHtml.includes('{Botao Assinar Testemunha 1}') ||
+            processedHtml.includes('{Assinatura_Imagem_Testemunha_2}') || processedHtml.includes('{Botao Assinar Testemunha 2}')) {
+            console.log('[Assinatura Debug] hasTestemunha1Sig:', PATD_CONFIG.hasTestemunha1Sig, '| URL:', testemunha1SigData || '(vazio)');
+            console.log('[Assinatura Debug] hasTestemunha2Sig:', PATD_CONFIG.hasTestemunha2Sig, '| URL:', testemunha2SigData || '(vazio)');
+            console.log('[Assinatura Debug] placeholder T1 no doc:', processedHtml.includes('{Assinatura_Imagem_Testemunha_1}') ? 'Imagem' : (processedHtml.includes('{Botao Assinar Testemunha 1}') ? 'Botao' : 'ausente'));
+            console.log('[Assinatura Debug] placeholder T2 no doc:', processedHtml.includes('{Assinatura_Imagem_Testemunha_2}') ? 'Imagem' : (processedHtml.includes('{Botao Assinar Testemunha 2}') ? 'Botao' : 'ausente'));
+        }
 
         processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
@@ -659,6 +683,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         processedHtml = processedHtml.replace(/{Assinatura Militar Arrolado}/g, () => {
             const index = signatureIndex++;
+            console.log(`[Mil Debug] {Assinatura Militar Arrolado} index=${index}, url=${assinaturasMilitar[index] || '(vazio)'}`);
             if (assinaturasMilitar[index]) {
                 return createSignatureHtml(assinaturasMilitar[index], `Assinatura ${index + 1}`, 'ciencia', index);
             } else {
@@ -666,9 +691,15 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        processedHtml = processedHtml.replace(/{Botao Assinar Oficial}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="oficial">Assinar</button>`);
-        processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 1}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
-        processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 2}/g, `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
+        processedHtml = processedHtml.replace(/{Botao Assinar Oficial}/g, oficialSigData
+            ? createSignatureHtml(oficialSigData, 'Assinatura do Oficial Apurador', 'oficial')
+            : `<button class="btn btn-sm btn-success open-signature-modal" data-type="oficial">Assinar</button>`);
+        processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 1}/g, testemunha1SigData
+            ? createSignatureHtml(testemunha1SigData, 'Assinatura da Testemunha 1', 'testemunha1')
+            : `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
+        processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 2}/g, testemunha2SigData
+            ? createSignatureHtml(testemunha2SigData, 'Assinatura da Testemunha 2', 'testemunha2')
+            : `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
 
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
         processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -756,9 +787,6 @@ document.addEventListener('DOMContentLoaded', function() {
         tempContainer.querySelectorAll('img.signature-image-embedded').forEach(img => {
             let alt = img.getAttribute('alt');
             let placeholder = signaturePlaceholders[alt] || '{Assinatura Militar Arrolado}';
-            if (alt && alt.startsWith('Assinatura ')) {
-                placeholder = '{Assinatura Militar Arrolado}';
-            }
             img.replaceWith(document.createTextNode(placeholder));
         });
 

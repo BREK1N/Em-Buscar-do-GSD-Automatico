@@ -77,6 +77,7 @@ urlpatterns = [
     path('notificacoes/comandante-pendencias/', views.comandante_pendencias_json, name='comandante_pendencias_json'),
     path('notificacoes/extender-prazo-massa/', views.extender_prazo_massa, name='extender_prazo_massa'),
     path('notificacoes/verificar-prazos/', views.verificar_e_atualizar_prazos, name='verificar_e_atualizar_prazos'),
+    path('notificacoes/aguardando-prazo/', views.patds_aguardando_prazo_json, name='patds_aguardando_prazo_json'),
 
     # API
     path('api/search-militares/', views.search_militares_json, name='search_militares_json'),

@@ -963,14 +963,14 @@ def imprimir_cautela(request, pk):
 def ouvidoria_admin_search(request):
     """Pesquisa PATDs pelo número ou nome do militar."""
     q = request.GET.get('q', '').strip()
-    if not q:
-        return JsonResponse([], safe=False)
-
-    patds = PATD.all_objects.select_related('militar', 'oficial_responsavel').filter(
-        Q(numero_patd__icontains=q) |
-        Q(militar__nome_guerra__icontains=q) |
-        Q(militar__nome_completo__icontains=q)
-    ).order_by('-data_inicio')[:20]
+    patds = PATD.all_objects.select_related('militar', 'oficial_responsavel')
+    if q:
+        patds = patds.filter(
+            Q(numero_patd__icontains=q) |
+            Q(militar__nome_guerra__icontains=q) |
+            Q(militar__nome_completo__icontains=q)
+        )
+    patds = patds.order_by('-data_inicio')[:50]
 
     data = [{
         'id': p.id,
@@ -988,9 +988,9 @@ def ouvidoria_admin_patd_detail(request, pk):
     """Retorna detalhes completos de uma PATD para o painel admin."""
     patd = get_object_or_404(PATD.all_objects, pk=pk)
 
-    # Calcula prazo restante se status for aguardando_justificativa
+    # Calcula prazo para status relevantes de defesa
     prazo_info = None
-    if patd.status == 'aguardando_justificativa' and patd.data_ciencia:
+    if patd.status in ('aguardando_justificativa', 'prazo_expirado') and patd.data_ciencia:
         from Ouvidoria.models import Configuracao as OuvidoriaConfig
         config = OuvidoriaConfig.load()
         from datetime import timedelta
@@ -1000,11 +1000,14 @@ def ouvidoria_admin_patd_detail(request, pk):
             data_final += timedelta(days=1)
             if data_final.weekday() < 5:
                 dias_adicionados += 1
-        deadline = (data_final + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        calculated_deadline = (data_final + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        # Se houver override, usa ele como deadline efetivo
+        deadline = patd.prazo_override if patd.prazo_override else calculated_deadline
         agora = timezone.now()
         restante = deadline - agora
         prazo_info = {
-            'deadline': deadline.isoformat(),
+            'deadline': calculated_deadline.isoformat(),  # sempre o calculado (para exibição)
+            'effective_deadline': deadline.isoformat(),    # efetivo (override ou calculado)
             'restante_segundos': int(restante.total_seconds()),
             'expirado': restante.total_seconds() < 0,
         }
@@ -1061,6 +1064,7 @@ def ouvidoria_admin_patd_detail(request, pk):
         'status': patd.status,
         'status_display': patd.get_status_display(),
         'data_ciencia': patd.data_ciencia.isoformat() if patd.data_ciencia else None,
+        'prazo_override': patd.prazo_override.isoformat() if patd.prazo_override else None,
         'data_inicio': patd.data_inicio.isoformat() if patd.data_inicio else None,
         'justificado': patd.justificado,
         'deleted': patd.deleted,
@@ -1096,30 +1100,36 @@ def ouvidoria_admin_update(request, pk):
         patd.save(update_fields=['status'])
         changes.append(f'Status → {patd.get_status_display()}')
 
-    elif action == 'change_prazo':
-        # Altera data_ciencia para simular um prazo diferente
-        nova_data_ciencia_str = data.get('data_ciencia')
-        if not nova_data_ciencia_str:
-            return JsonResponse({'status': 'error', 'message': 'data_ciencia é obrigatória.'}, status=400)
-        try:
-            from datetime import datetime as dt
-            nova_data = timezone.make_aware(dt.fromisoformat(nova_data_ciencia_str))
-            patd.data_ciencia = nova_data
-            patd.save(update_fields=['data_ciencia'])
-            changes.append(f'Data de ciência → {nova_data.strftime("%d/%m/%Y %H:%M")}')
-        except (ValueError, TypeError):
-            return JsonResponse({'status': 'error', 'message': 'Formato de data inválido. Use YYYY-MM-DDTHH:MM.'}, status=400)
+    elif action == 'set_prazo_override':
+        # Define o deadline de defesa diretamente, sem tocar em data_ciencia
+        prazo_str = data.get('prazo_override')
+        if prazo_str == '' or prazo_str is None:
+            # Limpar override (volta ao cálculo normal)
+            patd.prazo_override = None
+            patd.save(update_fields=['prazo_override'])
+            changes.append('Prazo override → removido (volta ao cálculo normal)')
+        else:
+            try:
+                from datetime import datetime as dt
+                nova_data = timezone.make_aware(dt.fromisoformat(prazo_str))
+                patd.prazo_override = nova_data
+                patd.save(update_fields=['prazo_override'])
+                changes.append(f'Prazo de defesa → {nova_data.strftime("%d/%m/%Y %H:%M")}')
+            except (ValueError, TypeError):
+                return JsonResponse({'status': 'error', 'message': 'Formato de data inválido.'}, status=400)
 
     elif action == 'change_oficial':
         oficial_id = data.get('oficial_id')
         if oficial_id:
             oficial = get_object_or_404(Efetivo, pk=oficial_id, oficial=True)
             patd.oficial_responsavel = oficial
-            patd.save(update_fields=['oficial_responsavel'])
-            changes.append(f'Oficial → {oficial}')
+            # Não usar update_fields aqui para que o save() do modelo
+            # possa atualizar o status para 'aguardando_aprovacao_atribuicao' automaticamente
+            patd.save()
+            changes.append(f'Oficial → {oficial} (aguardando aceitação)')
         else:
             patd.oficial_responsavel = None
-            patd.save(update_fields=['oficial_responsavel'])
+            patd.save()
             changes.append('Oficial → Removido')
 
     elif action == 'delete_field':

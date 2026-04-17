@@ -24,7 +24,7 @@ from django.utils import timezone
 
 from ..models import PATD, Configuracao, Anexo
 from ..forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm, ComandanteAprovarForm
-from ..permissions import has_ouvidoria_access, can_delete_patd, has_comandante_access
+from ..permissions import has_ouvidoria_access, can_delete_patd, has_comandante_access, can_edit_patd
 from Secao_pessoal.models import Efetivo
 from Secao_pessoal.utils import get_rank_value, RANK_HIERARCHY
 from .decorators import (
@@ -682,38 +682,32 @@ class PATDDetailView(DetailView):
 class PATDUpdateView(UserPassesTestMixin, UpdateView):
     model = PATD
     form_class = PATDForm
-    template_name = 'Ouvidoria/patd_form.html'
+    template_name = 'patd_form.html'
 
     def test_func(self):
-        # Allow access if the user is a superuser or has 'comandante' access.
-        # The detailed status check will be handled in dispatch.
-        return has_comandante_access(self.request.user)
+        user = self.request.user
+        if can_edit_patd(user) or has_comandante_access(user):
+            return True
+        # O oficial responsável pela PATD também pode editar
+        patd = self.get_object()
+        return (hasattr(user, 'profile') and user.profile.militar and
+                user.profile.militar == patd.oficial_responsavel)
 
     def get_form_kwargs(self):
         kwargs = super().get_form_kwargs()
         kwargs['user'] = self.request.user
         return kwargs
 
-    # --- INÍCIO DA MODIFICAÇÃO: Bloquear edição em status avançados ---
     def dispatch(self, request, *args, **kwargs):
         patd = self.get_object()
-        if patd.status == 'finalizado':
-            messages.error(request, "Processos finalizados não podem ser editados.")
-            return redirect('Ouvidoria:patd_detail', pk=patd.pk)
-        return super().dispatch(request, *args, **kwargs)
-
         locked_statuses = [
             'analise_comandante', 'aguardando_assinatura_npd', 'periodo_reconsideracao',
-            'em_reconsideracao', 'aguardando_comandante_base', 
+            'em_reconsideracao', 'aguardando_comandante_base',
             'finalizado'
         ]
-
-        # Superusers can bypass the status lock.
-        # Comandantes (who are not superusers) are subject to the status lock.
         if not request.user.is_superuser and patd.status in locked_statuses:
             messages.error(request, "A PATD não pode ser editada nesta fase do processo.")
             return redirect('Ouvidoria:patd_detail', pk=patd.pk)
-
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
@@ -775,6 +769,20 @@ def prosseguir_sem_alegacao(request, pk):
         patd = get_object_or_404(PATD, pk=pk)
         if patd.status != 'prazo_expirado':
             return JsonResponse({'status': 'error', 'message': 'Ação permitida apenas para PATDs com prazo expirado.'}, status=400)
+
+        # Testemunhas são obrigatórias para prosseguir
+        testemunhas_faltando = []
+        if not patd.testemunha1_id:
+            testemunhas_faltando.append('1ª Testemunha')
+        if not patd.testemunha2_id:
+            testemunhas_faltando.append('2ª Testemunha')
+        if testemunhas_faltando:
+            return JsonResponse({
+                'status': 'error',
+                'code': 'testemunhas_ausentes',
+                'message': f'É obrigatório atribuir as testemunhas antes de prosseguir. Faltam: {", ".join(testemunhas_faltando)}.',
+            }, status=400)
+
         patd.status = 'apuracao_preclusao'
         patd.save(update_fields=['status'])
         return JsonResponse({'status': 'success', 'message': 'PATD atualizada para Apuração (Preclusão).'})

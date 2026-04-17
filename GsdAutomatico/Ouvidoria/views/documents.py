@@ -27,7 +27,9 @@ from .decorators import ouvidoria_required, oficial_responsavel_required, comand
 from .helpers import (
     _get_document_context, _render_document_from_template,
     get_document_pages, format_militar_string,
+    _try_advance_status_from_justificativa,
 )
+from ..analise_transgressao import analisar_e_resumir_defesa, reescrever_ocorrencia
 
 logger = logging.getLogger(__name__)
 

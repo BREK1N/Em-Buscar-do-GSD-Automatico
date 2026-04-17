@@ -657,6 +657,8 @@
             const cancelExtenderIndividualBtn = document.getElementById('cancel-extender-prazo-individual-btn');
 
             let ultimoNumeroNotificacoes = 0;
+            let totalNotificacoes = 0;
+            let seenNotificacoesCount = parseInt(sessionStorage.getItem('seenNotificacoesCount') || '0', 10);
 
             function loadAtribuicoesPendentes() {
                 {% if request.user.profile.militar.oficial %}
@@ -819,6 +821,8 @@
                             if (window.location.pathname.includes(`/patd/${patdId}`)) {
                                 window.location.reload();
                             }
+                        } else if (data.code === 'testemunhas_ausentes') {
+                            alert('⚠️ ' + data.message + '\n\nAcesse a PATD e atribua as testemunhas na aba "Editar" antes de prosseguir.');
                         } else {
                             alert('Erro: ' + data.message);
                         }
@@ -834,7 +838,7 @@
                     seenNotificacoesCount = totalNotificacoes;
                     sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
                     updateExpiradosBadgeUI(totalNotificacoes, seenNotificacoesCount);
-                    loadAllNotifications(true);
+                    verificarPrazosECarregarNotificacoes(true);
                 }
             });
 
@@ -908,33 +912,79 @@
             loadAtribuicoesPendentes();
             loadComandantePendencias();
 
-            // PRAZOS EXPIRADOS: Lógica otimizada.
-            if (!sessionStorage.getItem('prazosVerificadosNestaSessao')) {
-                console.log("Executando verificação de prazos expirados (primeira vez na sessão).");
-                fetch("{% url 'Ouvidoria:verificar_e_atualizar_prazos' %}", {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken },
-                })
-                .then(response => response.json())
-                .then(data => {
-                    loadAllNotifications(false);
-                })
-                .catch(error => console.error('Erro ao verificar prazos no backend:', error));
-                sessionStorage.setItem('prazosVerificadosNestaSessao', 'true'); 
-            } else {
-                loadAllNotifications(false);
+            // ---- Agendamento preciso de expiração ----
+            // Mantém um mapa de timeouts agendados para não duplicar: { patdId: timeoutId }
+            const _prazoTimeouts = {};
+
+            function agendarExpiracoesPendentes() {
+                fetch("{% url 'Ouvidoria:patds_aguardando_prazo_json' %}", { cache: 'no-store' })
+                    .then(r => r.ok ? r.json() : [])
+                    .then(patds => {
+                        patds.forEach(p => {
+                            // Se já temos um timeout para essa PATD, não recriamos
+                            if (_prazoTimeouts[p.id]) return;
+                            const msRestantes = new Date(p.deadline) - Date.now();
+                            if (msRestantes <= 0) {
+                                // Já expirou mas status ainda não foi atualizado — dispara agora
+                                dispararVerificacaoExpirada();
+                            } else {
+                                _prazoTimeouts[p.id] = setTimeout(() => {
+                                    delete _prazoTimeouts[p.id];
+                                    dispararVerificacaoExpirada();
+                                }, msRestantes);
+                            }
+                        });
+                    })
+                    .catch(() => {});
             }
-        
-        // Atualização global contínua com backoff exponencial
-        let _pollInterval = 30_000;
-        function scheduleNextPoll() {
-            setTimeout(async () => {
-                const hadActivity = await loadAllNotifications(false);
-                _pollInterval = hadActivity ? 30_000 : Math.min(_pollInterval * 1.5, 300_000);
-                scheduleNextPoll();
-            }, _pollInterval);
-        }
-        scheduleNextPoll();
+
+            function dispararVerificacaoExpirada() {
+                // Força a verificação no backend e recarrega notificações
+                _ultimaVerificacaoPrazos = 0; // reseta para forçar a chamada
+                verificarPrazosECarregarNotificacoes(false);
+                // Reagenda para pegar eventuais novos prazos que possam ter surgido
+                setTimeout(agendarExpiracoesPendentes, 5000);
+            }
+
+            // PRAZOS EXPIRADOS: verifica no backend e carrega notificações.
+            let _ultimaVerificacaoPrazos = 0;
+            const INTERVALO_VERIFICACAO_PRAZOS = 5 * 60 * 1000; // 5 minutos
+
+            function verificarPrazosECarregarNotificacoes(forceOpen) {
+                const agora = Date.now();
+                const deveVerificar = (agora - _ultimaVerificacaoPrazos) >= INTERVALO_VERIFICACAO_PRAZOS;
+                if (deveVerificar) {
+                    _ultimaVerificacaoPrazos = agora;
+                    fetch("{% url 'Ouvidoria:verificar_e_atualizar_prazos' %}", {
+                        method: 'POST',
+                        headers: { 'X-CSRFToken': csrfToken },
+                    })
+                    .then(r => r.ok ? r.json() : null)
+                    .then(() => loadAllNotifications(forceOpen))
+                    .catch(() => loadAllNotifications(forceOpen));
+                } else {
+                    loadAllNotifications(forceOpen);
+                }
+            }
+
+            // Primeira carga: verifica e agenda expirations precisas
+            verificarPrazosECarregarNotificacoes(false);
+            agendarExpiracoesPendentes();
+
+            // Reagenda a cada 10 minutos para pegar novas PATDs que entrem em aguardando_justificativa
+            setInterval(agendarExpiracoesPendentes, 10 * 60 * 1000);
+
+            // Atualização global contínua com backoff exponencial (mantida como fallback)
+            let _pollInterval = 60_000;
+            function scheduleNextPoll() {
+                setTimeout(async () => {
+                    verificarPrazosECarregarNotificacoes(false);
+                    const hadActivity = totalNotificacoes > 0;
+                    _pollInterval = hadActivity ? 60_000 : Math.min(_pollInterval * 1.5, 300_000);
+                    scheduleNextPoll();
+                }, _pollInterval);
+            }
+            scheduleNextPoll();
             // --- FIM DA LÓGICA DE OTIMIZAÇÃO ---
             
         });

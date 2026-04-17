@@ -24,6 +24,7 @@ from .notifications import (
     verificar_e_atualizar_prazos,
     search_militares_json,
     comandante_pendencias_json,
+    patds_aguardando_prazo_json,
 )
 
 from .signatures import (

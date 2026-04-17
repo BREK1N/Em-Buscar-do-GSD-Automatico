@@ -178,15 +178,26 @@
                 <button id="adm-btn-status" class="btn btn-primary" style="width:100%;margin-top:10px;border-radius:8px;" onclick="admAction('change_status')"><i class="fas fa-save me-1"></i> Aplicar</button>
             </div>
 
-            <!-- Alterar Prazo (data_ciencia) -->
+            <!-- Alterar Prazo de Defesa -->
             <div class="form-card">
-                <div class="form-card-header"><i class="fas fa-clock" style="color:var(--accent-color);"></i><h2 style="font-size:1rem;">Alterar Data de Ciência</h2></div>
-                <div class="form-item">
-                    <label>Nova data/hora</label>
-                    <input type="datetime-local" id="adm-new-ciencia" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);">
+                <div class="form-card-header"><i class="fas fa-clock" style="color:var(--accent-color);"></i><h2 style="font-size:1rem;">Prazo de Defesa</h2></div>
+                <div style="font-size:0.8rem;color:var(--text-secondary);margin-bottom:8px;">Expira em: <strong id="adm-prazo-override-display">—</strong></div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+                    <button class="btn btn-sm btn-secondary" style="border-radius:6px;font-size:0.82rem;" onclick="admAjustarPrazo(-24)">-1 dia</button>
+                    <button class="btn btn-sm btn-secondary" style="border-radius:6px;font-size:0.82rem;" onclick="admAjustarPrazo(-6)">-6 horas</button>
+                    <button class="btn btn-sm btn-secondary" style="border-radius:6px;font-size:0.82rem;" onclick="admAjustarPrazo(6)">+6 horas</button>
+                    <button class="btn btn-sm btn-secondary" style="border-radius:6px;font-size:0.82rem;" onclick="admAjustarPrazo(24)">+1 dia</button>
+                    <button class="btn btn-sm btn-secondary" style="border-radius:6px;font-size:0.82rem;" onclick="admAjustarPrazo(72)">+3 dias</button>
+                    <button class="btn btn-sm btn-secondary" style="border-radius:6px;font-size:0.82rem;" onclick="admAjustarPrazo(168)">+7 dias</button>
                 </div>
-                <small style="color:var(--text-secondary);">Define quando o militar tomou ciência, recalculando o prazo de defesa.</small>
-                <button class="btn btn-warning" style="width:100%;margin-top:10px;border-radius:8px;color:#fff;" onclick="admAction('change_prazo')"><i class="fas fa-calendar-alt me-1"></i> Aplicar</button>
+                <div class="form-item" style="margin-bottom:6px;">
+                    <label style="font-size:0.8rem;">Definir data/hora exata de expiração:</label>
+                    <input type="datetime-local" id="adm-new-prazo-override" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);">
+                </div>
+                <div style="display:flex;gap:6px;">
+                    <button class="btn btn-warning" style="flex:1;border-radius:8px;color:#fff;font-size:0.85rem;" onclick="admAplicarPrazo()"><i class="fas fa-save me-1"></i> Aplicar</button>
+                    <button class="btn btn-secondary" style="border-radius:8px;font-size:0.82rem;" onclick="admLimparPrazo()" title="Volta ao cálculo automático"><i class="fas fa-undo"></i> Reset</button>
+                </div>
             </div>
 
             <!-- Trocar Oficial -->
@@ -254,19 +265,26 @@ document.addEventListener('DOMContentLoaded', function() {
     // --- LÓGICA DAS ABAS ---
     const tabLinks = document.querySelectorAll('.tab-link');
     const tabPanels = document.querySelectorAll('.tab-panel');
+    const TAB_STORAGE_KEY = 'cfgTabActive';
 
-    function handleTabClick(tab) {
+    function handleTabClick(tab, saveToStorage) {
         tabLinks.forEach(l => l.classList.remove('active'));
         tabPanels.forEach(p => p.classList.remove('active'));
-        
+
         tab.classList.add('active');
         const targetPanelId = tab.getAttribute('data-target');
         const targetPanel = document.getElementById(targetPanelId);
         if (targetPanel) targetPanel.classList.add('active');
 
-        // Carrega dados da lista apenas se entrar na aba de assinaturas
+        if (saveToStorage !== false) {
+            localStorage.setItem(TAB_STORAGE_KEY, targetPanelId);
+        }
+
         if (targetPanelId === 'tab-assinaturas') {
-            loadOficiais(document.getElementById('search-oficial').value); 
+            loadOficiais(document.getElementById('search-oficial').value);
+        }
+        if (targetPanelId === 'tab-admin-ouvidoria') {
+            document.dispatchEvent(new CustomEvent('admTabOpened'));
         }
     }
 
@@ -452,10 +470,12 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Ativa a primeira aba logo ao carregar
-    if (tabLinks.length > 0) {
-        handleTabClick(tabLinks[0]);
-    }
+    // Restaura aba salva ou ativa a primeira
+    const savedTab = localStorage.getItem(TAB_STORAGE_KEY);
+    const tabToActivate = savedTab
+        ? Array.from(tabLinks).find(t => t.getAttribute('data-target') === savedTab) || tabLinks[0]
+        : tabLinks[0];
+    if (tabToActivate) handleTabClick(tabToActivate, false);
 });
 
 // ======================================================
@@ -464,6 +484,7 @@ document.addEventListener('DOMContentLoaded', function() {
 (function() {
     const SEARCH_URL  = "{% url 'informatica:ouvidoria_admin_search' %}";
     const csrfToken   = document.querySelector('[name=csrfmiddlewaretoken]')?.value || '';
+    const PATD_STORAGE_KEY = 'admCurrentPatdId';
     let currentPatdId = null;
 
     // ---- Pesquisa ----
@@ -471,10 +492,9 @@ document.addEventListener('DOMContentLoaded', function() {
     const searchBtn    = document.getElementById('adm-search-btn');
     const resultsList  = document.getElementById('adm-search-results');
 
-    function doSearch() {
-        const q = searchInput?.value?.trim();
-        if (!q) return;
-        resultsList.innerHTML = '<li style="color:var(--text-secondary);padding:8px 0;"><i class="fas fa-spinner fa-spin me-2"></i>Buscando...</li>';
+    function doSearch(q) {
+        if (q === undefined) q = searchInput?.value?.trim() ?? '';
+        resultsList.innerHTML = '<li style="color:var(--text-secondary);padding:8px 0;"><i class="fas fa-spinner fa-spin me-2"></i>Carregando...</li>';
         fetch(`${SEARCH_URL}?q=${encodeURIComponent(q)}`, { cache: 'no-store' })
             .then(r => r.json())
             .then(data => {
@@ -486,23 +506,37 @@ document.addEventListener('DOMContentLoaded', function() {
                 data.forEach(p => {
                     const li = document.createElement('li');
                     const deletedTag = p.deleted ? '<span style="background:#ef4444;color:#fff;font-size:0.7rem;padding:1px 7px;border-radius:10px;margin-left:6px;">LIXEIRA</span>' : '';
-                    li.style.cssText = 'padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--border-color);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;background:var(--bg-main);transition:background 0.15s;';
+                    const isActive = p.id == currentPatdId;
+                    li.style.cssText = `padding:10px 12px;border-radius:8px;cursor:pointer;border:1px solid var(--border-color);margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;background:${isActive ? 'var(--bg-content)' : 'var(--bg-main)'};transition:background 0.15s;${isActive ? 'border-color:var(--accent-color);' : ''}`;
                     li.innerHTML = `<span><strong>PATD ${p.numero_patd}</strong>${deletedTag} — ${p.militar}</span><span style="font-size:0.82rem;color:var(--text-secondary);">${p.status_display}</span>`;
-                    li.addEventListener('click', () => loadPatdDetail(p.id));
-                    li.addEventListener('mouseenter', () => li.style.background = 'var(--bg-content)');
-                    li.addEventListener('mouseleave', () => li.style.background = 'var(--bg-main)');
+                    li.addEventListener('click', () => { loadPatdDetail(p.id); doSearch(searchInput?.value?.trim() ?? ''); });
+                    li.addEventListener('mouseenter', () => { if (p.id != currentPatdId) li.style.background = 'var(--bg-content)'; });
+                    li.addEventListener('mouseleave', () => { if (p.id != currentPatdId) li.style.background = 'var(--bg-main)'; });
                     resultsList.appendChild(li);
                 });
             })
             .catch(() => { resultsList.innerHTML = '<li style="color:#ef4444;padding:8px 0;">Erro ao buscar.</li>'; });
     }
 
-    searchBtn?.addEventListener('click', doSearch);
+    let searchTimeout;
+    searchBtn?.addEventListener('click', () => doSearch());
     searchInput?.addEventListener('keydown', e => { if (e.key === 'Enter') doSearch(); });
+    searchInput?.addEventListener('input', () => {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => doSearch(), 350);
+    });
+
+    // Auto-lista ao abrir a aba
+    document.addEventListener('admTabOpened', () => {
+        doSearch(searchInput?.value?.trim() ?? '');
+        const savedId = localStorage.getItem(PATD_STORAGE_KEY);
+        if (savedId && !currentPatdId) loadPatdDetail(parseInt(savedId));
+    });
 
     // ---- Detalhe ----
     function loadPatdDetail(pk) {
         currentPatdId = pk;
+        localStorage.setItem(PATD_STORAGE_KEY, pk);
         document.getElementById('adm-detail-panel').style.display = 'block';
         document.getElementById('adm-feedback').innerHTML = '';
 
@@ -546,14 +580,26 @@ document.addEventListener('DOMContentLoaded', function() {
                     selStatus.appendChild(opt);
                 });
 
-                // Input datetime-local pré-preenchido
-                if (d.data_ciencia) {
-                    const local = new Date(d.data_ciencia);
-                    local.setMinutes(local.getMinutes() - local.getTimezoneOffset());
-                    document.getElementById('adm-new-ciencia').value = local.toISOString().slice(0,16);
-                } else {
-                    document.getElementById('adm-new-ciencia').value = '';
+                // Prazo override
+                _prazoOverrideCurrent = d.prazo_override || null;
+                const calculatedDeadline = (d.prazo_info && d.prazo_info.deadline) || null;
+                const effectiveDeadline = d.prazo_override || (d.prazo_info && d.prazo_info.effective_deadline) || calculatedDeadline;
+
+                const prazoDisplay = document.getElementById('adm-prazo-override-display');
+                if (prazoDisplay) {
+                    if (d.prazo_override) {
+                        prazoDisplay.textContent = new Date(d.prazo_override).toLocaleString('pt-BR') + ' (manual)';
+                        prazoDisplay.style.color = '#f59e0b';
+                    } else if (calculatedDeadline) {
+                        prazoDisplay.textContent = new Date(calculatedDeadline).toLocaleString('pt-BR') + ' (automático)';
+                        prazoDisplay.style.color = 'var(--text-secondary)';
+                    } else {
+                        prazoDisplay.textContent = '—';
+                        prazoDisplay.style.color = 'var(--text-secondary)';
+                    }
                 }
+                // Popula o input com o prazo efetivo (override ou calculado)
+                _setPrazoInput(effectiveDeadline);
 
                 // Select de oficial
                 const selOficial = document.getElementById('adm-new-oficial');
@@ -625,6 +671,74 @@ document.addEventListener('DOMContentLoaded', function() {
         setTimeout(() => { el.innerHTML = ''; }, 5000);
     }
 
+    // ---- Prazo override: ajustar por horas ----
+    let _prazoOverrideCurrent = null;
+
+    // Formata um Date para o formato "YYYY-MM-DDTHH:MM" em hora local (sem conversão UTC)
+    function _dateToLocalInput(d) {
+        const pad = n => String(n).padStart(2, '0');
+        return `${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    }
+
+    function _setPrazoInput(isoStr) {
+        const input = document.getElementById('adm-new-prazo-override');
+        if (!input) return;
+        if (isoStr) {
+            // new Date(isoStr) interpreta o ISO com fuso corretamente
+            // getFullYear/getMonth/etc. devolvem a hora LOCAL do navegador
+            input.value = _dateToLocalInput(new Date(isoStr));
+        } else {
+            input.value = '';
+        }
+    }
+
+    window.admAjustarPrazo = function(horas) {
+        const input = document.getElementById('adm-new-prazo-override');
+        let base;
+        if (input && input.value) {
+            // input.value é hora local sem fuso — new Date() interpreta como local
+            base = new Date(input.value);
+        } else if (_prazoOverrideCurrent) {
+            base = new Date(_prazoOverrideCurrent);
+        } else {
+            base = new Date();
+        }
+        base.setHours(base.getHours() + horas);
+        if (input) input.value = _dateToLocalInput(base);
+    };
+
+    window.admAplicarPrazo = function() {
+        if (!currentPatdId) return;
+        const input = document.getElementById('adm-new-prazo-override');
+        const val = input ? input.value : '';
+        if (!val) { showAdmFeedback('Defina uma data/hora de expiração.', 'error'); return; }
+        fetch(`/informatica/api/ouvidoria/patd/${currentPatdId}/update/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ action: 'set_prazo_override', prazo_override: val }),
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.status === 'success') { showAdmFeedback('✔ ' + d.changes.join(' | '), 'success'); loadPatdDetail(currentPatdId); doSearch(searchInput?.value?.trim() ?? ''); }
+            else showAdmFeedback(d.message || 'Erro.', 'error');
+        });
+    };
+
+    window.admLimparPrazo = function() {
+        if (!currentPatdId) return;
+        if (!confirm('Remover o prazo override? O prazo voltará ao cálculo automático por dias úteis.')) return;
+        fetch(`/informatica/api/ouvidoria/patd/${currentPatdId}/update/`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ action: 'set_prazo_override', prazo_override: '' }),
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.status === 'success') { showAdmFeedback('✔ ' + d.changes.join(' | '), 'success'); loadPatdDetail(currentPatdId); doSearch(searchInput?.value?.trim() ?? ''); }
+            else showAdmFeedback(d.message || 'Erro.', 'error');
+        });
+    };
+
     // ---- Ação genérica ----
     window.admAction = function(action) {
         if (!currentPatdId) return;
@@ -649,6 +763,7 @@ document.addEventListener('DOMContentLoaded', function() {
             if (d.status === 'success') {
                 showAdmFeedback('✔ ' + d.changes.join(' | '), 'success');
                 loadPatdDetail(currentPatdId);
+                doSearch(searchInput?.value?.trim() ?? '');
             } else {
                 showAdmFeedback(d.message || 'Erro.', 'error');
             }
@@ -667,7 +782,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(r => r.json())
         .then(d => {
-            if (d.status === 'success') { showAdmFeedback('✔ ' + d.changes.join(' | '), 'success'); loadPatdDetail(currentPatdId); }
+            if (d.status === 'success') { showAdmFeedback('✔ ' + d.changes.join(' | '), 'success'); loadPatdDetail(currentPatdId); doSearch(searchInput?.value?.trim() ?? ''); }
             else showAdmFeedback(d.message || 'Erro.', 'error');
         });
     };
@@ -682,7 +797,7 @@ document.addEventListener('DOMContentLoaded', function() {
         })
         .then(r => r.json())
         .then(d => {
-            if (d.status === 'success') { showAdmFeedback('✔ ' + d.message, 'success'); loadPatdDetail(currentPatdId); }
+            if (d.status === 'success') { showAdmFeedback('✔ ' + d.message, 'success'); loadPatdDetail(currentPatdId); doSearch(searchInput?.value?.trim() ?? ''); }
             else showAdmFeedback(d.message || 'Erro.', 'error');
         });
     };

@@ -90,21 +90,25 @@ def verificar_e_atualizar_prazos(request):
         config = Configuracao.load()
 
         for patd in patds_pendentes:
-            if patd.data_ciencia:
+            # prazo_override tem prioridade sobre o cálculo normal
+            if patd.prazo_override:
+                deadline = patd.prazo_override
+            elif patd.data_ciencia:
                 dias_uteis_a_adicionar = config.prazo_defesa_dias
                 data_final = patd.data_ciencia
                 dias_adicionados = 0
                 while dias_adicionados < dias_uteis_a_adicionar:
                     data_final += timedelta(days=1)
-                    if data_final.weekday() < 5: # 0-4 são dias úteis
+                    if data_final.weekday() < 5:
                         dias_adicionados += 1
-
                 deadline = (data_final + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+            else:
+                continue
 
-                if timezone.now() > deadline:
-                    patd.status = 'prazo_expirado'
-                    patd.save(update_fields=['status'])
-                    prazos_atualizados += 1
+            if timezone.now() > deadline:
+                patd.status = 'prazo_expirado'
+                patd.save(update_fields=['status'])
+                prazos_atualizados += 1
 
         patds_em_reconsideracao = PATD.objects.filter(status='periodo_reconsideracao')
         reconsideracoes_finalizadas = 0
@@ -122,6 +126,39 @@ def verificar_e_atualizar_prazos(request):
     except Exception as e:
         logger.error(f"Erro ao verificar e atualizar prazos: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
+
+
+@login_required
+@ouvidoria_required
+@require_GET
+def patds_aguardando_prazo_json(request):
+    """
+    Retorna PATDs em aguardando_justificativa com seus deadlines para que o
+    frontend possa agendar um setTimeout preciso e disparar a notificação
+    exatamente quando o prazo expirar.
+    """
+    patds = PATD.objects.filter(status='aguardando_justificativa').select_related('militar')
+    config = Configuracao.load()
+    data = []
+    for patd in patds:
+        if patd.prazo_override:
+            deadline = patd.prazo_override
+        elif patd.data_ciencia:
+            data_final = patd.data_ciencia
+            dias = 0
+            while dias < config.prazo_defesa_dias:
+                data_final += timedelta(days=1)
+                if data_final.weekday() < 5:
+                    dias += 1
+            deadline = (data_final + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        else:
+            continue
+        data.append({
+            'id': patd.id,
+            'numero_patd': patd.numero_patd,
+            'deadline': deadline.isoformat(),
+        })
+    return JsonResponse(data, safe=False)
 
 
 @login_required
