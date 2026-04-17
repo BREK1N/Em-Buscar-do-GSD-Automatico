@@ -229,8 +229,7 @@ def _pdf_to_pages_html(pdf_path):
         pdf_doc = fitz.open(pdf_path)
         parts = []
         for page_num, page in enumerate(pdf_doc):
-            # Renderiza a página em alta qualidade (150 DPI é suficiente para visualização)
-            mat = fitz.Matrix(150 / 72, 150 / 72)
+            mat = fitz.Matrix(220 / 72, 220 / 72)
             pix = page.get_pixmap(matrix=mat)
             img_bytes = pix.tobytes("png")
             b64 = base64.b64encode(img_bytes).decode('utf-8')

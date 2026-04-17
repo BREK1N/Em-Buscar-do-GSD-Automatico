@@ -1,5 +1,5 @@
 import io, json, os, re, logging, base64, uuid, traceback
-import tempfile
+import tempfile, subprocess
 from datetime import datetime, timedelta
 
 from django.conf import settings
@@ -238,31 +238,69 @@ def _append_anexo_content(document, anexo):
             document.add_picture(file_path, width=Inches(6.5))
         
         elif ext == '.docx':
-            # Anexa o conteúdo do DOCX, preservando a formatação
+            # Anexa o conteúdo do DOCX na posição correta do body (antes do sectPr).
+            # body.append() colocaria os elementos DEPOIS do <w:sectPr>, tornando o XML
+            # inválido e fazendo o Word mover o conteúdo para o fim do documento.
+            import copy
+            from docx.oxml.ns import qn as _qn
             sub_doc = docx.Document(file_path)
-            for element in sub_doc.element.body:
-                document.element.body.append(element)
+            body = document.element.body
+            # sectPr deve sempre ser o último filho do body
+            sect_pr = body.find(_qn('w:sectPr'))
+            for element in list(sub_doc.element.body):
+                tag = element.tag.split('}')[-1] if '}' in element.tag else element.tag
+                if tag == 'sectPr':
+                    continue  # Não copia a seção do sub-doc
+                node = copy.deepcopy(element)
+                # Remove sectPr inline em parágrafos (quebras de seção embutidas)
+                # que criariam novas seções sem rodapé
+                for pPr in node.findall('.//' + _qn('w:pPr')):
+                    inline_sect = pPr.find(_qn('w:sectPr'))
+                    if inline_sect is not None:
+                        pPr.remove(inline_sect)
+                if sect_pr is not None:
+                    body.insert(list(body).index(sect_pr), node)
+                else:
+                    body.append(node)
         
         elif ext == '.pdf':
             try:
                 pdf_doc = fitz.open(file_path)
+                n_pages = len(pdf_doc)
+                # Área útil do documento exportado (A4 retrato com as margens definidas)
+                # left=2.15cm, right=2.5cm → largura útil ≈ 21 - 2.15 - 2.5 = 16.35 cm
+                # top=1.5cm, bottom=2.54cm → altura útil ≈ 29.7 - 1.5 - 2.54 = 25.66 cm
+                max_w_cm = 16.3
+                max_h_cm = 24.0
                 for page_num, page in enumerate(pdf_doc):
-                    # Renderiza a página para um pixmap (imagem) com alta qualidade
-                    pix = page.get_pixmap(dpi=200) # DPI ajustado para equilíbrio de qualidade/tamanho
+                    rect = page.rect
+                    is_landscape = rect.width > rect.height
+                    if is_landscape:
+                        # Página em paisagem: rotaciona 90° para caber em retrato
+                        mat = fitz.Matrix(250 / 72, 250 / 72).prerotate(90)
+                    else:
+                        mat = fitz.Matrix(250 / 72, 250 / 72)
+                    pix = page.get_pixmap(matrix=mat)
                     img_bytes = pix.tobytes("png")
-                    
                     img_stream = io.BytesIO(img_bytes)
 
-                    # Adiciona a imagem ao docx, com uma largura que se ajuste à página
-                    document.add_picture(img_stream, width=Inches(6.5))
-                    
-                    # Adiciona quebra de página entre as páginas do PDF
-                    if page_num < len(pdf_doc) - 1:
-                        document.add_page_break()
+                    # Calcula qual dimensão usar para que a imagem caiba sem overflow
+                    # Após rotação eventual, usa largura como restrição principal para paisagem
+                    # Cria parágrafo com espaçamento zero para evitar página em branco após a imagem
+                    pic_p = document.add_paragraph()
+                    pic_p.paragraph_format.space_before = Pt(0)
+                    pic_p.paragraph_format.space_after = Pt(0)
+                    if is_landscape:
+                        pic_p.add_run().add_picture(img_stream, width=Cm(max_w_cm))
+                    else:
+                        pic_p.add_run().add_picture(img_stream, height=Cm(max_h_cm))
 
+                    if page_num < n_pages - 1:
+                        document.add_page_break()
+                pdf_doc.close()
             except Exception as e:
                 logger.error(f"Erro ao converter PDF para imagem {file_name}: {e}")
-                document.add_paragraph(f"[Erro ao processar o anexo PDF '{file_name}' como imagem. O ficheiro pode estar corrompido ou ter um formato não suportado.]")
+                document.add_paragraph(f"[Erro ao processar o anexo PDF '{file_name}'.]")
 
         else:
             # Tipo de ficheiro não suportado para embutir
@@ -336,7 +374,7 @@ def _append_alegacao_docx(document, patd, context):
                         is_image_placeholder = False
                         try:
                             if placeholder == '{Assinatura Alegacao Defesa}' and patd.assinatura_alegacao_defesa and patd.assinatura_alegacao_defesa.path and os.path.exists(patd.assinatura_alegacao_defesa.path):
-                                new_p.add_run().add_picture(patd.assinatura_alegacao_defesa.path, height=Cm(1.5))
+                                new_p.add_run().add_picture(patd.assinatura_alegacao_defesa.path, height=Cm(2.5))
                                 is_image_placeholder = True
                         except Exception as e:
                             logger.error(f"Erro ao processar placeholder de imagem na alegação: {placeholder}: {e}")
@@ -364,6 +402,108 @@ def _append_alegacao_docx(document, patd, context):
     except Exception as e:
         logger.error(f"Erro ao anexar documento de alegação: {e}")
         document.add_paragraph(f"[ERRO AO PROCESSAR DOCUMENTO DE ALEGAÇÃO: {e}]")
+
+
+def _remove_blank_pages_from_docx(docx_bytes, filename_base):
+    """
+    Converte o DOCX para PDF via LibreOffice, remove páginas completamente em branco
+    usando PyMuPDF e retorna os bytes do PDF limpo.
+    Retorna (pdf_bytes, True) se bem-sucedido, ou (None, False) em caso de falha.
+    """
+    try:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            docx_path = os.path.join(tmpdir, f'{filename_base}.docx')
+            with open(docx_path, 'wb') as f:
+                f.write(docx_bytes)
+
+            # Converte DOCX → PDF com LibreOffice headless
+            result = subprocess.run(
+                ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', tmpdir, docx_path],
+                capture_output=True, text=True, timeout=60
+            )
+            if result.returncode != 0:
+                logger.error(f"LibreOffice conversion failed: {result.stderr}")
+                return None, False
+
+            pdf_path = os.path.join(tmpdir, f'{filename_base}.pdf')
+            if not os.path.exists(pdf_path):
+                logger.error(f"PDF output not found after LibreOffice conversion")
+                return None, False
+
+            # Abre o PDF e detecta páginas em branco renderizando cada uma como imagem
+            # e verificando se é visualmente toda branca (>99.5% pixels brancos)
+            src_pdf = fitz.open(pdf_path)
+            blank_page_indices = set()
+            for i, page in enumerate(src_pdf):
+                # Renderiza em baixa resolução só para detecção (rápido)
+                pix = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5), colorspace=fitz.csGRAY)
+                samples = pix.samples  # bytes em escala de cinza
+                total_pixels = len(samples)
+                if total_pixels == 0:
+                    blank_page_indices.add(i)
+                    continue
+                # Conta pixels brancos (valor >= 250 em escala de cinza 0-255)
+                # bytearray permite soma rápida sem loop Python
+                arr = bytearray(samples)
+                white_pixels = sum(1 for b in arr if b >= 250)
+                white_ratio = white_pixels / total_pixels
+                if white_ratio >= 0.995:
+                    blank_page_indices.add(i)
+
+            if not blank_page_indices:
+                # Nenhuma página em branco — retorna o PDF como está
+                pdf_bytes = open(pdf_path, 'rb').read()
+                src_pdf.close()
+                return pdf_bytes, True
+
+            # Remove as páginas em branco criando um novo PDF apenas com as páginas válidas
+            clean_pdf = fitz.open()
+            for i in range(len(src_pdf)):
+                if i not in blank_page_indices:
+                    clean_pdf.insert_pdf(src_pdf, from_page=i, to_page=i)
+
+            clean_bytes = clean_pdf.tobytes(deflate=True)
+            clean_pdf.close()
+            src_pdf.close()
+            logger.info(f"Removidas {len(blank_page_indices)} página(s) em branco do PDF exportado.")
+            return clean_bytes, True
+
+    except subprocess.TimeoutExpired:
+        logger.error("LibreOffice conversion timed out")
+        return None, False
+    except Exception as e:
+        logger.error(f"Erro ao remover páginas em branco: {e}")
+        return None, False
+
+
+def _propagate_footer_to_all_sections(document):
+    """
+    Garante que todas as seções do documento (além da primeira) herdem o rodapé
+    da seção principal. Isso evita que sub-documentos inseridos que possuam
+    quebras de seção removam o número de página do rodapé.
+    """
+    from docx.oxml.ns import qn as _qn
+    import copy as _copy
+
+    body = document.element.body
+    main_sect_pr = body.find(_qn('w:sectPr'))
+    if main_sect_pr is None:
+        return
+
+    # Obtém os elementos de rodapé da seção principal para replicar
+    main_footer_refs = main_sect_pr.findall(_qn('w:footerReference'))
+
+    # Procura por sectPr inline em parágrafos (novas seções criadas por sub-docs)
+    for pPr in body.findall('.//' + _qn('w:pPr')):
+        inline_sect = pPr.find(_qn('w:sectPr'))
+        if inline_sect is None:
+            continue
+        # Remove referências de rodapé existentes nessa seção
+        for old_ref in inline_sect.findall(_qn('w:footerReference')):
+            inline_sect.remove(old_ref)
+        # Copia as referências de rodapé da seção principal
+        for ref in main_footer_refs:
+            inline_sect.insert(0, _copy.deepcopy(ref))
 
 
 def exportar_patd_docx(request, pk):
@@ -491,32 +631,188 @@ def exportar_patd_docx(request, pk):
 
     soup = BeautifulSoup(full_html_content, 'html.parser')
 
-
-
-
     militar_sig_counter = 0
-
-
-    was_last_p_empty = False
-
-
     placeholder_regex = re.compile(r'({[^}]+})')
 
+    # Controle de estado para evitar páginas em branco duplicadas
+    last_action_was_page_break = True  # Começa True para não adicionar quebra antes do 1º elemento
+    was_last_p_empty = False
 
+    def _add_run_with_text(paragraph, text, bold=False, italic=False, underline=False, font_size_pt=None):
+        """Adiciona um run de texto ao parágrafo com a formatação indicada."""
+        if not text:
+            return
+        run = paragraph.add_run(text)
+        if bold:
+            run.bold = True
+        if italic:
+            run.italic = True
+        if underline:
+            run.underline = True
+        if font_size_pt:
+            run.font.size = Pt(font_size_pt)
 
+    def _process_node(node, paragraph, bold=False, italic=False, underline=False, font_size_pt=None):
+        """
+        Percorre recursivamente os nós HTML de um parágrafo e adiciona
+        runs ao parágrafo DOCX com a formatação correta.
+        Suporta: NavigableString, <strong>, <em>, <u>, <span>, <img>, <br>, <button>, <input>
+        """
+        nonlocal militar_sig_counter
 
-    for element in soup.find_all(['p', 'div']):
+        if isinstance(node, NavigableString):
+            text = str(node)
+            if not text:
+                return
+            # Divide o texto em partes: placeholders e texto normal
+            parts = placeholder_regex.split(text)
+            for part in parts:
+                if not part:
+                    continue
+                if placeholder_regex.match(part):
+                    _resolve_placeholder(part.strip(), paragraph, bold, italic, underline, font_size_pt)
+                else:
+                    # Trata markdown **texto** que pode aparecer em campos gerados pelo LLM
+                    md_parts = re.split(r'(\*\*.*?\*\*)', part)
+                    for md in md_parts:
+                        if md.startswith('**') and md.endswith('**'):
+                            _add_run_with_text(paragraph, md[2:-2], bold=True, italic=italic, underline=underline, font_size_pt=font_size_pt)
+                        else:
+                            _add_run_with_text(paragraph, md, bold, italic, underline, font_size_pt)
+            return
 
+        tag = getattr(node, 'name', None)
+        if tag is None:
+            return
+
+        if tag == 'strong':
+            for child in node.children:
+                _process_node(child, paragraph, bold=True, italic=italic, underline=underline, font_size_pt=font_size_pt)
+        elif tag == 'em':
+            for child in node.children:
+                _process_node(child, paragraph, bold=bold, italic=True, underline=underline, font_size_pt=font_size_pt)
+        elif tag == 'u':
+            for child in node.children:
+                _process_node(child, paragraph, bold=bold, italic=italic, underline=True, font_size_pt=font_size_pt)
+        elif tag == 'span':
+            # Extrai font-size do style se existir
+            fs = font_size_pt
+            style = node.get('style', '')
+            m = re.search(r'font-size:\s*([\d.]+)pt', style)
+            if m:
+                fs = float(m.group(1))
+            for child in node.children:
+                _process_node(child, paragraph, bold=bold, italic=italic, underline=underline, font_size_pt=fs)
+        elif tag == 'img':
+            src = node.get('src', '')
+            if 'brasao.png' in src:
+                img_path = finders.find('img/brasao.png')
+                if img_path and os.path.exists(img_path):
+                    paragraph.alignment = WD_ALIGN_PARAGRAPH.CENTER
+                    paragraph.add_run().add_picture(img_path, width=Cm(3))
+            elif src.startswith('data:image'):
+                # Imagem base64 (assinatura inline)
+                try:
+                    _, b64data = src.split(';base64,')
+                    paragraph.add_run().add_picture(io.BytesIO(base64.b64decode(b64data)), height=Cm(2.5))
+                except Exception as e:
+                    logger.error(f"Erro ao processar imagem base64 inline: {e}")
+        elif tag == 'br':
+            paragraph.add_run().add_break()
+        elif tag in ('button', 'input', 'a'):
+            # Botões/links do visualizador não vão para o DOCX
+            pass
+        else:
+            # Tag desconhecida — desce nos filhos
+            for child in node.children:
+                _process_node(child, paragraph, bold=bold, italic=italic, underline=underline, font_size_pt=font_size_pt)
+
+    def _resolve_placeholder(ph, paragraph, bold=False, italic=False, underline=False, font_size_pt=None):
+        """Resolve um placeholder de assinatura/imagem no DOCX."""
+        nonlocal militar_sig_counter
+        try:
+            if ph == '{Assinatura_Imagem_Comandante_GSD}' and comandante_gsd and comandante_gsd.assinatura:
+                _, img_str = comandante_gsd.assinatura.split(';base64,')
+                paragraph.add_run().add_picture(io.BytesIO(base64.b64decode(img_str)), height=Cm(2.5))
+
+            elif ph == '{Assinatura_Imagem_Oficial_Apurador}':
+                sig = patd.assinatura_oficial
+                if sig and sig.path and os.path.exists(sig.path):
+                    paragraph.add_run().add_picture(sig.path, height=Cm(2.5))
+
+            elif ph == '{Assinatura_Imagem_Testemunha_1}':
+                sig = patd.assinatura_testemunha1
+                if sig and sig.path and os.path.exists(sig.path):
+                    paragraph.add_run().add_picture(sig.path, height=Cm(2.5))
+
+            elif ph == '{Assinatura_Imagem_Testemunha_2}':
+                sig = patd.assinatura_testemunha2
+                if sig and sig.path and os.path.exists(sig.path):
+                    paragraph.add_run().add_picture(sig.path, height=Cm(2.5))
+
+            elif ph == '{Assinatura Militar Arrolado}':
+                assinaturas = patd.assinaturas_militar or []
+                if militar_sig_counter < len(assinaturas) and assinaturas[militar_sig_counter]:
+                    url = assinaturas[militar_sig_counter]
+                    path = os.path.join(settings.MEDIA_ROOT, url.replace(settings.MEDIA_URL, '', 1))
+                    if os.path.exists(path):
+                        paragraph.add_run().add_picture(path, height=Cm(2.5))
+                militar_sig_counter += 1
+
+            elif ph == '{Assinatura Alegacao Defesa}':
+                sig = patd.assinatura_alegacao_defesa
+                if sig and sig.path and os.path.exists(sig.path):
+                    paragraph.add_run().add_picture(sig.path, height=Cm(2.5))
+
+            elif ph == '{Assinatura Reconsideracao}':
+                sig = patd.assinatura_reconsideracao
+                if sig and sig.path and os.path.exists(sig.path):
+                    paragraph.add_run().add_picture(sig.path, height=Cm(2.5))
+
+            elif ph == '{Botao Definir Nova Punicao}':
+                # Substitui pelo texto da nova punição se existir, senão omite
+                if patd.nova_punicao_tipo:
+                    nova = f"{patd.nova_punicao_dias} de {patd.nova_punicao_tipo}" if patd.nova_punicao_dias else patd.nova_punicao_tipo
+                    _add_run_with_text(paragraph, nova, bold, italic, underline, font_size_pt)
+
+            elif ph in ('{Botao Assinar Oficial}', '{Botao Assinar Testemunha 1}',
+                        '{Botao Assinar Testemunha 2}', '{Botao Adicionar Alegacao}',
+                        '{Botao Adicionar Reconsideracao}',
+                        '{Botao Assinar Defesa}', '{Botao Assinar Reconsideracao}',
+                        '{Botao Assinar Ciencia}', '{Botao Adicionar Texto Reconsideracao}'):
+                # Botões de ação não vão para o DOCX
+                pass
+
+            else:
+                # Placeholder de texto desconhecido — escreve como texto
+                _add_run_with_text(paragraph, ph, bold, italic, underline, font_size_pt)
+
+        except Exception as e:
+            logger.error(f"Erro ao resolver placeholder {ph} no DOCX: {e}")
+            _add_run_with_text(paragraph, f'[{ph}]')
+
+    # Itera em ordem correta: top-level <p> e <div class="manual-page-break">.
+    # <div> wrappers (ex: data-document-id) são transparentes — seus filhos são emitidos inline.
+    def _iter_doc_elements(node):
+        for child in node.children:
+            tag = getattr(child, 'name', None)
+            if tag == 'p':
+                yield child
+            elif tag == 'div':
+                classes = child.get('class', [])
+                if 'manual-page-break' in classes:
+                    yield child
+                else:
+                    # Div wrapper — desce transparentemente
+                    yield from _iter_doc_elements(child)
+
+    for element in _iter_doc_elements(soup):
 
         if element.name == 'div' and 'manual-page-break' in element.get('class', []):
-
-
-            document.add_page_break()
-
-
+            if not last_action_was_page_break:
+                document.add_page_break()
+                last_action_was_page_break = True
             was_last_p_empty = False
-
-
             continue
 
 
@@ -534,56 +830,30 @@ def exportar_patd_docx(request, pk):
 
 
             if "{ANEXOS_DEFESA_PLACEHOLDER}" in text_content_for_check and anexos_defesa.exists():
-
-
                 for i, anexo in enumerate(anexos_defesa):
-
-
                     if i > 0:
-
-
                         document.add_page_break()
-
-
                     _append_anexo_content(document, anexo)
-
-
+                last_action_was_page_break = False
+                was_last_p_empty = False
                 continue
-
 
             if "{ANEXOS_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao.exists():
-
-
                 for i, anexo in enumerate(anexos_reconsideracao):
-
-
                     if i > 0:
-
-
                         document.add_page_break()
-
-
                     _append_anexo_content(document, anexo)
-
-
+                last_action_was_page_break = False
+                was_last_p_empty = False
                 continue
 
-
             if "{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao_oficial.exists():
-
-
                 for i, anexo in enumerate(anexos_reconsideracao_oficial):
-
-
                     if i > 0:
-
-
                         document.add_page_break()
-
-
                     _append_anexo_content(document, anexo)
-
-
+                last_action_was_page_break = False
+                was_last_p_empty = False
                 continue
 
 
@@ -624,11 +894,9 @@ def exportar_patd_docx(request, pk):
                     
 
                     if anexo_to_append:
-
-
                         _append_anexo_content(document, anexo_to_append)
-
-
+                        last_action_was_page_break = False
+                        was_last_p_empty = False
                 continue
 
 
@@ -640,30 +908,17 @@ def exportar_patd_docx(request, pk):
             
 
             if is_empty_paragraph:
-
-
-                if not was_last_p_empty:
-
-
+                # Ignora parágrafos vazios logo após uma quebra de página
+                if not last_action_was_page_break and not was_last_p_empty:
                     p = document.add_paragraph()
-
-
                     p.paragraph_format.space_before = Pt(0)
-
-
                     p.paragraph_format.space_after = Pt(0)
-
-
                     was_last_p_empty = True
-
-
+                    last_action_was_page_break = False
                 continue
-
-
             else:
-
-
                 was_last_p_empty = False
+                last_action_was_page_break = False
 
 
 
@@ -717,200 +972,31 @@ def exportar_patd_docx(request, pk):
 
 
             for content in element.contents:
-
-
-                if isinstance(content, NavigableString):
-
-
-                    text_content = str(content)
-
-
-                    parts = placeholder_regex.split(text_content)
-
-
-                    for part in parts:
-
-
-                        if not part: continue
-
-
-                        is_image_placeholder = False
-
-
-                        if placeholder_regex.match(part):
-
-
-                            placeholder = part.strip()
-
-
-                            try:
-
-
-                                if placeholder == '{Assinatura_Imagem_Comandante_GSD}' and comandante_gsd and comandante_gsd.assinatura:
-
-
-                                    _, img_str = comandante_gsd.assinatura.split(';base64,')
-
-
-                                    p.add_run().add_picture(io.BytesIO(base64.b64decode(img_str)), height=Cm(1.5))
-
-
-                                    is_image_placeholder = True
-
-
-                                elif placeholder == '{Assinatura_Imagem_Oficial_Apurador}' and patd.assinatura_oficial and patd.assinatura_oficial.path and os.path.exists(patd.assinatura_oficial.path):
-
-
-                                    p.add_run().add_picture(patd.assinatura_oficial.path, height=Cm(1.5))
-
-
-                                    is_image_placeholder = True
-
-
-                                elif placeholder == '{Assinatura_Imagem_Testemunha_1}' and patd.assinatura_testemunha1 and patd.assinatura_testemunha1.path and os.path.exists(patd.assinatura_testemunha1.path):
-
-
-                                    p.add_run().add_picture(patd.assinatura_testemunha1.path, height=Cm(1.5))
-
-
-                                    is_image_placeholder = True
-
-
-                                elif placeholder == '{Assinatura_Imagem_Testemunha_2}' and patd.assinatura_testemunha2 and patd.assinatura_testemunha2.path and os.path.exists(patd.assinatura_testemunha2.path):
-
-
-                                    p.add_run().add_picture(patd.assinatura_testemunha2.path, height=Cm(1.5))
-
-
-                                    is_image_placeholder = True
-
-
-                                elif placeholder == '{Assinatura Militar Arrolado}':
-
-
-                                    assinaturas_arrolado = patd.assinaturas_militar or []
-
-
-                                    if militar_sig_counter < len(assinaturas_arrolado) and assinaturas_arrolado[militar_sig_counter]:
-
-
-                                        anexo_url = assinaturas_arrolado[militar_sig_counter]
-
-
-                                        anexo_path = os.path.join(settings.MEDIA_ROOT, anexo_url.replace(settings.MEDIA_URL, '', 1))
-
-
-                                        if os.path.exists(anexo_path):
-
-
-                                            p.add_run().add_picture(anexo_path, height=Cm(1.5))
-
-
-                                        militar_sig_counter += 1
-
-
-                                        is_image_placeholder = True
-
-
-                                    else:
-
-
-                                          militar_sig_counter += 1
-
-
-                                elif placeholder == '{Assinatura Alegacao Defesa}' and patd.assinatura_alegacao_defesa and patd.assinatura_alegacao_defesa.path and os.path.exists(patd.assinatura_alegacao_defesa.path):
-
-
-                                     p.add_run().add_picture(patd.assinatura_alegacao_defesa.path, height=Cm(1.5))
-
-
-                                     is_image_placeholder = True
-
-
-                                elif placeholder == '{Assinatura Reconsideracao}' and patd.assinatura_reconsideracao and patd.assinatura_reconsideracao.path and os.path.exists(patd.assinatura_reconsideracao.path):
-
-
-                                     p.add_run().add_picture(patd.assinatura_reconsideracao.path, height=Cm(1.5))
-
-
-                                     is_image_placeholder = True
-
-
-                                elif placeholder in ['{Botao Assinar Oficial}', '{Botao Assinar Testemunha 1}', '{Botao Assinar Testemunha 2}', '{Botao Adicionar Alegacao}', '{Botao Adicionar Reconsideracao}', '{Botao Definir Nova Punicao}', '{Botao Assinar Defesa}', '{Botao Assinar Reconsideracao}']: # Botões não devem ser renderizados como imagem
-
-
-                                    is_image_placeholder = True
-
-
-                                    p.add_run("[LOCAL DA ASSINATURA/AÇÃO]")
-
-
-                            except Exception as e:
-
-
-                                logger.error(f"Error processing image placeholder {placeholder}: {e}")
-
-
-                                p.add_run(f"[{placeholder} - ERRO AO PROCESSAR]")
-
-
-                                is_image_placeholder = False
-
-
-                        if not is_image_placeholder:
-
-
-                            sub_parts = re.split(r'(\*\*.*?\*\*)', part)
-
-
-                            for sub_part in sub_parts:
-
-
-                                if sub_part.startswith('**') and sub_part.endswith('**'):
-
-
-                                    p.add_run(sub_part.strip('*')).bold = True
-
-
-                                else:
-
-
-                                    p.add_run(sub_part)
-
-
-                elif content.name == 'img' and 'brasao.png' in content.get('src', ''):
-
-
-                    img_path = finders.find('img/brasao.png')
-
-
-                    if img_path and os.path.exists(img_path):
-
-
-                        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-
-                        p.add_run().add_picture(img_path, width=Cm(3))
-
-
-                        was_last_p_empty = False
-
-
-                elif content.name == 'strong':
-
-
-                    p.add_run(content.get_text()).bold = True
-
-
-                elif content.name == 'br':
-
-
-                    p.add_run().add_break()
+                _process_node(content, p)
 
     
-    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-    response['Content-Disposition'] = f'attachment; filename=PATD_{patd.numero_patd}.docx'
-    document.save(response)
+    # Garante que o rodapé com número de página apareça em TODAS as seções do documento.
+    # Seções adicionais (criadas por sub-documentos) devem herdar o rodapé da seção 1.
+    _propagate_footer_to_all_sections(document)
+
+    # Salva o DOCX em memória
+    docx_buffer = io.BytesIO()
+    document.save(docx_buffer)
+    docx_bytes = docx_buffer.getvalue()
+
+    # Tenta converter para PDF, remover páginas em branco e exportar como PDF
+    filename_base = f'PATD_{patd.numero_patd}'
+    pdf_bytes, converted = _remove_blank_pages_from_docx(docx_bytes, filename_base)
+
+    if converted and pdf_bytes:
+        response = HttpResponse(content_type='application/pdf')
+        response['Content-Disposition'] = f'attachment; filename={filename_base}.pdf'
+        response.write(pdf_bytes)
+    else:
+        # Fallback: exporta o DOCX sem conversão
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        response['Content-Disposition'] = f'attachment; filename={filename_base}.docx'
+        response.write(docx_bytes)
 
     return response
 
