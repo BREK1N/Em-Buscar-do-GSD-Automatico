@@ -630,16 +630,30 @@ document.addEventListener('DOMContentLoaded', function() {
     });
 
     function generateEmbeddedAnexoHTML(anexo) {
-        const fileType = anexo.tipo_arquivo;
+        const fileType = (anexo.tipo_arquivo || '').toLowerCase();
+        const imageTypes = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'bmp'];
+        const isImage = imageTypes.includes(fileType);
+        const isPdf = fileType === 'pdf';
+
+        let contentHtml = '';
+        if (isImage) {
+            contentHtml = `<img src="${anexo.url}" alt="${anexo.nome}" style="width:100%; height:auto; display:block; margin-top:8px;" />`;
+        } else if (isPdf) {
+            contentHtml = `<iframe src="${anexo.url}" style="width:100%; height:900px; border:none; display:block; margin-top:8px;" title="${anexo.nome}"></iframe>`;
+        } else {
+            contentHtml = `
+                <p style="margin-top:8px;">Anexo (.${fileType}). Clique abaixo para abrir ou baixar.</p>
+                <a href="${anexo.url}" class="btn-download" target="_blank" rel="noopener noreferrer">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                    Abrir/Baixar Anexo
+                </a>`;
+        }
+
         return `
             <div class="embedded-anexo-item">
                 <div class="embedded-anexo-link">
                     <h4>${anexo.nome}</h4>
-                    <p>Anexo (.${fileType}). Clique abaixo para abrir ou baixar.</p>
-                    <a href="${anexo.url}" class="btn-download" target="_blank" rel="noopener noreferrer">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                        Abrir/Baixar Anexo
-                    </a>
+                    ${contentHtml}
                 </div>
             </div>
         `;
@@ -1148,12 +1162,99 @@ document.addEventListener('DOMContentLoaded', function() {
     if (patdStatus === 'aguardando_nova_punicao' && isOficialResponsavel) {
         const analiseCard = document.getElementById('analise-disciplinar-card');
         const resumoCard = document.getElementById('resumo-analise-card');
-        if (analiseCard) {
-            analiseCard.style.display = 'none';
-        }
-        if (resumoCard) {
-            resumoCard.style.display = 'block';
-        }
+        if (analiseCard) analiseCard.style.display = 'none';
+        if (resumoCard) resumoCard.style.display = 'block';
+    }
+
+    // --- Card Nova Punição Pós-Reconsideração ---
+    const npCard = document.getElementById('nova-punicao-card');
+    if (npCard) {
+        const npDias = document.getElementById('np-dias');
+        const npTipo = document.getElementById('np-tipo');
+        const npBtnPreview = document.getElementById('np-btn-preview');
+        const npBtnSalvar = document.getElementById('np-btn-salvar');
+        const npPreviewBox = document.getElementById('np-preview');
+        const npPreviewNatureza = document.getElementById('np-preview-natureza');
+        const npPreviewComportamento = document.getElementById('np-preview-comportamento');
+
+        // Desabilita dias se repreensão
+        npTipo.addEventListener('change', () => {
+            if (npTipo.value === 'repreensão') {
+                npDias.value = 0;
+                npDias.disabled = true;
+            } else {
+                npDias.disabled = false;
+            }
+            // Limpa preview ao mudar tipo
+            npPreviewBox.style.display = 'none';
+            npBtnSalvar.disabled = true;
+        });
+
+        npBtnPreview.addEventListener('click', () => {
+            const tipo = npTipo.value;
+            if (!tipo) { alert('Selecione o tipo de punição.'); return; }
+
+            const spinner = npBtnPreview.querySelector('.spinner');
+            if (spinner) spinner.style.display = 'inline-block';
+            npBtnPreview.disabled = true;
+
+            fetch(PATD_CONFIG.urls.previewNovaPunicao, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ dias: npDias.value, tipo: tipo })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    npPreviewNatureza.textContent = data.natureza;
+                    npPreviewComportamento.textContent = data.comportamento;
+                    npPreviewComportamento.style.color = data.comportamento === 'Mau comportamento'
+                        ? 'var(--danger-color)' : 'var(--success-color)';
+                    npPreviewBox.style.display = 'block';
+                    npBtnSalvar.disabled = false;
+                } else {
+                    alert('Erro: ' + data.message);
+                }
+            })
+            .catch(err => { console.error(err); alert('Erro de comunicação.'); })
+            .finally(() => {
+                if (spinner) spinner.style.display = 'none';
+                npBtnPreview.disabled = false;
+            });
+        });
+
+        npBtnSalvar.addEventListener('click', () => {
+            const tipo = npTipo.value;
+            if (!tipo) { alert('Selecione o tipo de punição.'); return; }
+            if (!confirm('Confirmar nova punição? Esta ação avançará o processo para publicação.')) return;
+
+            const spinner = npBtnSalvar.querySelector('.spinner');
+            if (spinner) spinner.style.display = 'inline-block';
+            npBtnSalvar.disabled = true;
+
+            fetch(PATD_CONFIG.urls.salvarNovaPunicao, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ dias: npDias.value, tipo: tipo })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    alert('Nova punição salva com sucesso!');
+                    window.location.reload();
+                } else {
+                    alert('Erro: ' + data.message);
+                    if (spinner) spinner.style.display = 'none';
+                    npBtnSalvar.disabled = false;
+                }
+            })
+            .catch(err => {
+                console.error(err);
+                alert('Erro de comunicação.');
+                if (spinner) spinner.style.display = 'none';
+                npBtnSalvar.disabled = false;
+            });
+        });
     }
 
     const novaPunicaoModal = document.getElementById('nova-punicao-modal');

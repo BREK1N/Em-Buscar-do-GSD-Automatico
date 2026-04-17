@@ -96,4 +96,5 @@ from .patd import (
     finalizar_patd_completa,
     justificar_patd,
     salvar_nova_punicao,
+    preview_nova_punicao,
 )

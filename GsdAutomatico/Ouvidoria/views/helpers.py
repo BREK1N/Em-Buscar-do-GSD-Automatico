@@ -891,7 +891,7 @@ def get_document_pages(patd, for_docx=False):
     # 6. Reconsideração
     status_reconsideracao_e_posteriores = [
         'em_reconsideracao', 'aguardando_publicacao', 'finalizado',
-        'aguardando_comandante_base' # 'aguardando_preenchimento_npd_reconsideracao' removido
+        'aguardando_comandante_base', 'aguardando_nova_punicao',
     ]
     if patd.status in status_reconsideracao_e_posteriores and not patd.justificado:
          page_counter += 1
@@ -911,12 +911,16 @@ def get_document_pages(patd, for_docx=False):
              document_pages_raw.append("<p>{ANEXOS_RECONSIDERACAO_PLACEHOLDER}</p>")
 
     # 7. Anexos da reconsideração oficial
-    status_anexo_reconsideracao_oficial = ['aguardando_publicacao', 'finalizado']
+    status_anexo_reconsideracao_oficial = ['aguardando_publicacao', 'finalizado', 'aguardando_nova_punicao']
     if patd.status in status_anexo_reconsideracao_oficial:
-        # SÓ adiciona a página de anexo se houver anexos de reconsideração oficial
         if patd.anexos.filter(tipo='reconsideracao_oficial').exists():
             document_pages_raw.append('<div class="manual-page-break"></div>')
             document_pages_raw.append("<p>{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}</p>")
+
+    # 8. Nova NPD pós-reconsideração (quando nova punição já foi definida)
+    if patd.nova_punicao_tipo and patd.status in ['aguardando_publicacao', 'finalizado']:
+        page_counter += 1
+        document_pages_raw.append(_render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', base_context))
 
     # --- INÍCIO DA LÓGICA DE DUAS PASSAGENS ---
     # 1. Primeira Passagem: Contar páginas físicas

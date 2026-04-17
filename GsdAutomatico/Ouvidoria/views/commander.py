@@ -246,8 +246,8 @@ def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
 
     if not patd.testemunha1 or not patd.testemunha2:
-        detail_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': pk})
-        return redirect(f'{detail_url}?erro=testemunhas')
+        messages.error(request, "As testemunhas devem estar definidas antes de avançar para o Comandante.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
 
     patd.status = 'analise_comandante'
     patd.save()

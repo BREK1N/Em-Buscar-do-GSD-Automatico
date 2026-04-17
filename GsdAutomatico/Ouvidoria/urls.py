@@ -41,6 +41,7 @@ urlpatterns = [
     path('patd/<int:pk>/finalizar/', views.finalizar_publicacao, name='finalizar_publicacao'),
     path('patd/<int:pk>/finalizar_completa/', views.finalizar_patd_completa, name='finalizar_patd_completa'),
     path('patd/<int:pk>/salvar_nova_punicao/', views.salvar_nova_punicao, name='salvar_nova_punicao'),
+    path('patd/<int:pk>/preview_nova_punicao/', views.preview_nova_punicao, name='preview_nova_punicao'),
 
     path('patds/<int:pk>/regenerar-ocorrencia/', views.regenerar_ocorrencia, name='regenerar_ocorrencia'),
     path('patds/<int:pk>/regenerar-resumo-defesa/', views.regenerar_resumo_defesa, name='regenerar_resumo_defesa'),

@@ -2878,8 +2878,8 @@ def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
 
     if not patd.testemunha1 or not patd.testemunha2:
-        detail_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': pk})
-        return redirect(f'{detail_url}?erro=testemunhas')
+        messages.error(request, "As testemunhas devem estar definidas antes de avançar para o Comandante.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
 
     patd.status = 'analise_comandante'
     patd.save()
@@ -2989,6 +2989,15 @@ def finalizar_publicacao(request, pk):
         patd.boletim_publicacao = boletim
         patd.status = 'finalizado'
         patd.data_termino = timezone.now()
+
+        # Se houve reconsideração com nova punição, promove para os campos principais
+        if patd.nova_punicao_tipo:
+            patd.dias_punicao = patd.nova_punicao_dias or ""
+            patd.punicao = patd.nova_punicao_tipo
+            patd.punicao_sugerida = f"{patd.dias_punicao} de {patd.punicao}" if patd.dias_punicao else patd.punicao
+            patd.definir_natureza_transgressao()
+            patd.calcular_e_atualizar_comportamento()
+
         patd.save()
 
         messages.success(request, f"PATD Nº {patd.numero_patd} finalizada com sucesso e publicada no boletim {boletim}.")
@@ -3098,22 +3107,23 @@ def salvar_nova_punicao(request, pk):
         if dias < 0 or not tipo:
             return JsonResponse({'status': 'error', 'message': 'Dados inválidos.'}, status=400)
 
-        # Atualiza a punição principal com os novos valores
+        # Salva a nova punição nos campos dedicados sem sobrescrever a punição original
         if tipo == 'repreensão':
-            patd.dias_punicao = ""
-            patd.punicao = "repreensão"
+            patd.nova_punicao_dias = ""
+            patd.nova_punicao_tipo = "repreensão"
         else:
             dias_texto = num2words(dias, lang='pt_BR')
-            punicao_dias_str = f"{dias_texto} ({dias:02d}) dias"
-            patd.dias_punicao = punicao_dias_str
-            patd.punicao = tipo
+            patd.nova_punicao_dias = f"{dias_texto} ({dias:02d}) dias"
+            patd.nova_punicao_tipo = tipo
 
-        # Atualiza a string de punição sugerida para refletir a nova decisão
-        patd.punicao_sugerida = f"{patd.dias_punicao} de {patd.punicao}" if patd.dias_punicao else patd.punicao
-
-        # Recalcula os campos derivados com base na nova punição
-        patd.definir_natureza_transgressao()
-        patd.calcular_e_atualizar_comportamento()
+        # Recalcula comportamento com base na nova punição
+        import copy
+        patd_simulado = copy.copy(patd)
+        patd_simulado._state = copy.copy(patd._state)
+        patd_simulado.dias_punicao = patd.nova_punicao_dias
+        patd_simulado.punicao = patd.nova_punicao_tipo
+        patd_simulado.calcular_e_atualizar_comportamento()
+        patd.comportamento = patd_simulado.comportamento
 
         patd.status = 'aguardando_publicacao'
         patd.save()
@@ -3121,6 +3131,50 @@ def salvar_nova_punicao(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Nova punição salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar nova punição para PATD {pk}: {e}", exc_info=True)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
+
+
+@login_required
+@oficial_responsavel_required
+@require_POST
+def preview_nova_punicao(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
+
+        dias_str = data.get('dias', 0)
+        tipo = data.get('tipo', '')
+
+        if not tipo:
+            return JsonResponse({'status': 'error', 'message': 'Tipo de punição obrigatório.'}, status=400)
+
+        dias = int(dias_str)
+
+        import copy
+        patd_simulado = copy.copy(patd)
+        patd_simulado._state = copy.copy(patd._state)
+
+        if tipo == 'repreensão':
+            patd_simulado.dias_punicao = ""
+            patd_simulado.punicao = "repreensão"
+        else:
+            dias_texto = num2words(dias, lang='pt_BR')
+            patd_simulado.dias_punicao = f"{dias_texto} ({dias:02d}) dias"
+            patd_simulado.punicao = tipo
+
+        patd_simulado.definir_natureza_transgressao()
+        patd_simulado.calcular_e_atualizar_comportamento()
+
+        return JsonResponse({
+            'status': 'success',
+            'comportamento': patd_simulado.comportamento,
+            'natureza': patd_simulado.natureza_transgressao or 'Não definida',
+        })
+    except Exception as e:
+        logger.error(f"Erro ao calcular preview de nova punição para PATD {pk}: {e}", exc_info=True)
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 

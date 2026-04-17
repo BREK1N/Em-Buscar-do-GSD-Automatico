@@ -574,6 +574,12 @@
                 </button>
                 <button type="button" class="btn btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
                 {% endif %}
+                {% if patd.status == 'aguardando_publicacao' and request.user.profile.militar == patd.oficial_responsavel %}
+                <button type="button" class="btn btn-success" id="btn-finalizar-modal">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;margin-right:5px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75 11.25 15 15 9.75M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0Z" /></svg>
+                    Registrar Publicação
+                </button>
+                {% endif %}
             </div>
         </div>
     </div>
@@ -750,6 +756,58 @@
     {% endif %}
     {% endif %}
 
+
+    {% if request.user.profile.militar == patd.oficial_responsavel and patd.status == 'aguardando_nova_punicao' %}
+    <div class="card" id="nova-punicao-card">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126ZM12 15.75h.007v.008H12v-.008Z" /></svg>
+            <h2>Nova Punição Pós-Reconsideração</h2>
+        </div>
+        <div class="card-body">
+            <p style="margin-bottom: 16px; color: var(--text-secondary);">Defina a nova punição a ser aplicada após a reconsideração. O comportamento resultante será calculado automaticamente.</p>
+            <div class="form-grid" style="grid-template-columns: 120px 1fr; gap: 20px; align-items: flex-end; margin-bottom: 20px;">
+                <div class="form-item">
+                    <label for="np-dias">Dias:</label>
+                    <input type="number" id="np-dias" min="0" value="0">
+                </div>
+                <div class="form-item">
+                    <label for="np-tipo">Tipo de Punição:</label>
+                    <select id="np-tipo">
+                        <option value="">Selecione...</option>
+                        <option value="detenção">Detenção</option>
+                        <option value="prisão">Prisão</option>
+                        <option value="repreensão">Repreensão</option>
+                    </select>
+                </div>
+            </div>
+
+            <div id="np-preview" style="display:none; background: var(--bg-secondary); border-radius: 8px; padding: 16px; margin-bottom: 20px; border-left: 4px solid var(--info-color);">
+                <strong>Preview do resultado:</strong>
+                <div style="margin-top: 10px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                    <div>
+                        <span style="font-size: 0.85em; color: var(--text-secondary);">Natureza da Transgressão</span>
+                        <p id="np-preview-natureza" style="margin: 4px 0 0; font-weight: 600;"></p>
+                    </div>
+                    <div>
+                        <span style="font-size: 0.85em; color: var(--text-secondary);">Comportamento Resultante</span>
+                        <p id="np-preview-comportamento" style="margin: 4px 0 0; font-weight: 600;"></p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="form-actions" style="justify-content: flex-start;">
+                <button type="button" class="btn btn-secondary" id="np-btn-preview">
+                    <span class="spinner" style="display:none;"></span>
+                    Calcular Preview
+                </button>
+                <button type="button" class="btn btn-primary" id="np-btn-salvar" disabled>
+                    <span class="spinner" style="display:none;"></span>
+                    Salvar Nova Punição
+                </button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
 
      {% if request.user.profile.militar == patd.oficial_responsavel and patd.status == 'em_apuracao' or request.user.profile.militar == patd.oficial_responsavel and patd.status == 'apuracao_preclusao' or request.user.profile.militar == patd.oficial_responsavel and patd.status == 'aguardando_punicao' or request.user.profile.militar == patd.oficial_responsavel and patd.status == 'aguardando_punicao_alterar' %}
     <div class="card" id="analise-disciplinar-card">
@@ -1255,6 +1313,7 @@ const PATD_CONFIG = {
         salvarDocumento:              "{% url 'Ouvidoria:salvar_documento_patd' patd.pk %}",
         justificarPatd:               "{% url 'Ouvidoria:justificar_patd' patd.pk %}",
         salvarNovaPunicao:            "{% url 'Ouvidoria:salvar_nova_punicao' patd.pk %}",
+        previewNovaPunicao:           "{% url 'Ouvidoria:preview_nova_punicao' patd.pk %}",
         analisarPunicao:              "{% url 'Ouvidoria:analisar_punicao' patd.pk %}",
         salvarApuracao:               "{% url 'Ouvidoria:salvar_apuracao' patd.pk %}",
         solicitarReconsideracao:      "{% url 'Ouvidoria:solicitar_reconsideracao' patd.pk %}",
