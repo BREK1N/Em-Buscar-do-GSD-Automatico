@@ -18,16 +18,15 @@ class AtribuirOficialForm(forms.ModelForm):
         user = kwargs.pop('user', None)
         super().__init__(*args, **kwargs)
 
-        # --- MODIFICAÇÃO: Filtrar apenas oficiais com assinatura ---
+        # Sempre filtra por oficial=True com assinatura cadastrada.
         # A assinatura é um campo de texto, então excluímos nulos e strings vazias.
-        base_queryset = Efetivo.objects.exclude(assinatura__isnull=True).exclude(assinatura__exact='')
-        
-        if user and user.is_superuser:
-            # Superusuários veem todos os usuários com assinatura
-            self.fields['oficial_responsavel'].queryset = base_queryset.order_by('posto', 'nome_guerra')
-        else:
-            # Outros usuários veem apenas oficiais com assinatura
-            self.fields['oficial_responsavel'].queryset = base_queryset.filter(oficial=True).order_by('posto', 'nome_guerra')
+        self.fields['oficial_responsavel'].queryset = (
+            Efetivo.objects
+            .filter(oficial=True)
+            .exclude(assinatura__isnull=True)
+            .exclude(assinatura__exact='')
+            .order_by('posto', 'nome_guerra')
+        )
             
         self.fields['oficial_responsavel'].empty_label = "--- Selecione um Oficial (com assinatura) ---"
 

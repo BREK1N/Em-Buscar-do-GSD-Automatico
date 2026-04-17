@@ -19,7 +19,6 @@ try:
 except ImportError:
     pytesseract = None
 from PIL import Image
-import io
 # Se estiver no Windows e der erro, descomente e ajuste o caminho do seu tesseract:
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 from langchain_openai import ChatOpenAI
@@ -63,7 +62,6 @@ from difflib import SequenceMatcher # Importado para a verificação de similari
 from django.utils.decorators import method_decorator
 from num2words import num2words # Importação para converter números em texto
 from functools import wraps # Importado para criar o decorator
-import os # Importado para verificar a existência de ficheiros
 import threading # Importado para tarefas em background
 from .permissions import has_comandante_access, has_ouvidoria_access, can_delete_patd, can_change_patd_date
 from Secao_pessoal.utils import get_rank_value, RANK_HIERARCHY
@@ -152,7 +150,8 @@ def regenerar_ocorrencia(request, pk):
         patd.save(update_fields=['ocorrencia_reescrita', 'comprovante'])
         return JsonResponse({'status': 'success', 'novo_texto': nova_ocorrencia})
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        logger.error("Erro em regenerar_ocorrencia (pk=%s): %s", pk, e, exc_info=True)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @oficial_responsavel_required
@@ -167,7 +166,8 @@ def regenerar_resumo_defesa(request, pk):
         patd.save(update_fields=['alegacao_defesa_resumo'])
         return JsonResponse({'status': 'success', 'novo_texto': novo_resumo})
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        logger.error("Erro em regenerar_resumo_defesa (pk=%s): %s", pk, e, exc_info=True)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @oficial_responsavel_required
@@ -180,7 +180,8 @@ def regenerar_texto_relatorio(request, pk):
         patd.save(update_fields=['texto_relatorio'])
         return JsonResponse({'status': 'success', 'novo_texto': novo_relatorio})
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        logger.error("Erro em regenerar_texto_relatorio (pk=%s): %s", pk, e, exc_info=True)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @oficial_responsavel_required
@@ -200,7 +201,8 @@ def regenerar_punicao(request, pk):
         patd.save(update_fields=['punicao_sugerida'])
         return JsonResponse({'status': 'success', 'novo_texto': nova_punicao_sugerida})
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        logger.error("Erro em regenerar_punicao (pk=%s): %s", pk, e, exc_info=True)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 def _check_and_advance_reconsideracao_status(patd_pk):
     """
@@ -1234,7 +1236,7 @@ def index(request):
                 })
             except Exception as e:
                 logger.error(f"Erro ao associar PATD: {e}")
-                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+                return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
             
         elif action == 'create_manual_patd':
             militar_id = request.POST.get('militar_id')
@@ -1292,7 +1294,7 @@ def index(request):
                 })
             except Exception as e:
                 logger.error(f"Erro ao criar PATD manual: {e}")
-                return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+                return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
         # --- Modificação na ação 'analyze' ---
         elif action == 'analyze':
@@ -1402,10 +1404,11 @@ def index(request):
                             'data_oficio': data_oficio_str
                         })
                 
-                if militares_para_confirmacao:
+                total_pendentes = len(militares_para_confirmacao) + len(militares_nao_encontrados)
+                if total_pendentes > 0:
                     request.session['oficio_lancamento'] = {
                         'path': temp_file_path,
-                        'count': len(militares_para_confirmacao)
+                        'count': total_pendentes
                     }
                 else:
                     try:
@@ -1585,7 +1588,7 @@ class PatdFinalizadoListView(ListView):
     paginate_by = 15
 
     def get_queryset(self):
-        return PATD.objects.filter(status='finalizado').select_related('militar').order_by('-data_inicio')
+        return PATD.objects.filter(status='finalizado').select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
 
 @method_decorator([login_required, user_passes_test(lambda u: u.is_superuser)], name='dispatch')
 class PATDTrashListView(ListView):
@@ -1844,7 +1847,7 @@ class MilitarPATDListView(ListView):
     def get_queryset(self):
         self.militar = get_object_or_404(Efetivo, pk=self.kwargs['pk'])
         # Verifique se no seu model PATD o campo é 'militar_envolvido' ou 'militar'
-        return PATD.objects.filter(militar=self.militar).order_by('-id')
+        return PATD.objects.filter(militar=self.militar).select_related('militar', 'oficial_responsavel').order_by('-id')
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1857,7 +1860,10 @@ class MilitarPATDListView(ListView):
 def salvar_assinatura(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         signature_data_base64 = data.get('signature_data')
 
         if not signature_data_base64:
@@ -1881,7 +1887,7 @@ def salvar_assinatura(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Assinatura salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura do oficial para PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -1889,7 +1895,10 @@ def salvar_assinatura(request, pk):
 def salvar_assinatura_ciencia(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         signature_data_base64 = data.get('signature_data')
         assinatura_index = int(data.get('assinatura_index', -1))
 
@@ -1936,7 +1945,7 @@ def salvar_assinatura_ciencia(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Assinatura registrada com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura de ciência da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -1985,7 +1994,7 @@ def salvar_alegacao_defesa(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Alegação de defesa e anexos salvos com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar alegação de defesa da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -1993,7 +2002,10 @@ def salvar_alegacao_defesa(request, pk):
 def salvar_assinatura_defesa(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         signature_data_base64 = data.get('signature_data')
 
         if not signature_data_base64:
@@ -2015,7 +2027,7 @@ def salvar_assinatura_defesa(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Assinatura da defesa salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da defesa da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -2027,7 +2039,10 @@ def salvar_assinatura_reconsideracao(request, pk):
         if patd.status != 'em_reconsideracao':
             return JsonResponse({'status': 'error', 'message': 'A PATD não está na fase correta para assinar a reconsideração.'}, status=400)
 
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         signature_data_base64 = data.get('signature_data')
 
         if not signature_data_base64:
@@ -2057,7 +2072,7 @@ def salvar_assinatura_reconsideracao(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Assinatura salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da reconsideração da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @require_POST
@@ -2067,7 +2082,10 @@ def remover_assinatura(request, pk):
 
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         signature_type = data.get('signature_type')
         signature_index = data.get('signature_index')
 
@@ -2107,7 +2125,7 @@ def remover_assinatura(request, pk):
 
     except Exception as e:
         logger.error(f"Erro ao remover assinatura da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -2118,7 +2136,10 @@ def extender_prazo(request, pk):
         if patd.status != 'prazo_expirado':
             return JsonResponse({'status': 'error', 'message': 'O prazo só pode ser estendido se estiver expirado.'}, status=400)
 
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         dias_extensao = int(data.get('dias', 0))
         minutos_extensao = int(data.get('minutos', 0))
 
@@ -2144,7 +2165,7 @@ def extender_prazo(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Dados de entrada inválidos.'}, status=400)
     except Exception as e:
         logger.error(f"Erro ao estender prazo da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -2161,8 +2182,11 @@ def salvar_documento_patd(request, pk):
         }, status=403)
         
     try:
-        data = json.loads(request.body)
-        
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
+
         # Obtém os dados
         texto_documento = data.get('texto_documento')
         dates = data.get('dates', {})
@@ -2229,7 +2253,10 @@ def salvar_assinatura_padrao(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem alterar assinaturas.'}, status=403)
     try:
         oficial = get_object_or_404(Efetivo, pk=pk, oficial=True)
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         signature_data = data.get('signature_data', '')
         oficial.assinatura = signature_data
         oficial.save()
@@ -2237,7 +2264,7 @@ def salvar_assinatura_padrao(request, pk):
     except Efetivo.DoesNotExist:
         return JsonResponse({'status': 'error', 'message': 'Oficial não encontrado.'}, status=404)
     except Exception as e:
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
@@ -2247,7 +2274,10 @@ def gerenciar_configuracoes_padrao(request):
         if not request.user.is_superuser:
             return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem alterar as configurações.'}, status=403)
         try:
-            data = json.loads(request.body)
+            try:
+                data = json.loads(request.body)
+            except (json.JSONDecodeError, ValueError):
+                return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
             comandante_gsd_id = data.get('comandante_gsd_id')
             comandante_bagl_id = data.get('comandante_bagl_id')
             prazo_dias = data.get('prazo_defesa_dias')
@@ -2275,7 +2305,7 @@ def gerenciar_configuracoes_padrao(request):
         except (ValueError, TypeError):
             return JsonResponse({'status': 'error', 'message': 'Prazo de defesa inválido.'}, status=400)
         except Exception as e:
-            return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+            return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
     oficiais = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
     oficiais_data = [{'id': o.id, 'texto': f"{o.posto} {o.nome_guerra}"} for o in oficiais]
@@ -2331,7 +2361,10 @@ def patds_expirados_json(request):
 @require_POST
 def extender_prazo_massa(request):
     try:
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         dias_extensao = int(data.get('dias', 5))
         minutos_extensao = int(data.get('minutos', 0))
         if dias_extensao < 0 or minutos_extensao < 0:
@@ -2353,7 +2386,7 @@ def extender_prazo_massa(request):
         return JsonResponse({'status': 'error', 'message': 'Dados de entrada inválidos.'}, status=400)
     except Exception as e:
         logger.error(f"Erro ao estender prazos em massa: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -2396,7 +2429,7 @@ def verificar_e_atualizar_prazos(request):
 
     except Exception as e:
         logger.error(f"Erro ao verificar e atualizar prazos: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -2406,12 +2439,25 @@ def prosseguir_sem_alegacao(request, pk):
         patd = get_object_or_404(PATD, pk=pk)
         if patd.status != 'prazo_expirado':
             return JsonResponse({'status': 'error', 'message': 'Ação permitida apenas para PATDs com prazo expirado.'}, status=400)
-        patd.status = 'apuracao_preclusao'
+
+        testemunhas_faltando = []
+        if not patd.testemunha1_id:
+            testemunhas_faltando.append('1ª Testemunha')
+        if not patd.testemunha2_id:
+            testemunhas_faltando.append('2ª Testemunha')
+        if testemunhas_faltando:
+            return JsonResponse({
+                'status': 'error',
+                'code': 'testemunhas_ausentes',
+                'message': f'É obrigatório atribuir as testemunhas antes de prosseguir. Faltam: {", ".join(testemunhas_faltando)}.',
+            }, status=400)
+
+        patd.status = 'preclusao'
         patd.save(update_fields=['status'])
-        return JsonResponse({'status': 'success', 'message': 'PATD atualizada para Apuração (Preclusão).'})
+        return JsonResponse({'status': 'success', 'message': 'Termo de Preclusão aberto. As testemunhas devem assinar antes de prosseguir.'})
     except Exception as e:
         logger.error(f"Erro ao prosseguir sem alegação para PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -2419,7 +2465,10 @@ def prosseguir_sem_alegacao(request, pk):
 def salvar_assinatura_testemunha(request, pk, testemunha_num):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         signature_data_base64 = data.get('signature_data')
 
         if not signature_data_base64:
@@ -2452,10 +2501,27 @@ def salvar_assinatura_testemunha(request, pk, testemunha_num):
         if _check_and_finalize_patd(patd):
              patd.save()
 
-        return JsonResponse({'status': 'success', 'message': f'Assinatura da {testemunha_num}ª testemunha salva.'})
+        patd.refresh_from_db()
+
+        status_avancar = None
+        if patd.status == 'preclusao' and _check_preclusao_signatures(patd):
+            patd.status = 'apuracao_preclusao'
+            patd.save(update_fields=['status'])
+            status_avancar = 'apuracao_preclusao'
+            logger.info(f"PATD {pk}: ambas as testemunhas assinaram — status avançado para apuracao_preclusao.")
+
+        response_data = {
+            'status': 'success',
+            'message': f'Assinatura da {testemunha_num}ª testemunha salva.',
+        }
+        if status_avancar:
+            response_data['status_avancado'] = status_avancar
+            response_data['message'] += ' Ambas as testemunhas assinaram — PATD avançada para Em Apuração (Preclusão).'
+
+        return JsonResponse(response_data)
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da testemunha {testemunha_num} para PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @oficial_responsavel_required
@@ -2572,7 +2638,10 @@ def analisar_punicao(request, pk):
 def salvar_apuracao(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
 
         if patd.status == 'apuracao_preclusao':
             if not _check_preclusao_signatures(patd):
@@ -2654,7 +2723,7 @@ def salvar_apuracao(request, pk):
 
     except Exception as e:
         logger.error(f"Erro ao salvar apuração da PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @require_GET
@@ -2809,8 +2878,8 @@ def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
 
     if not patd.testemunha1 or not patd.testemunha2:
-        detail_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': pk})
-        return redirect(f'{detail_url}?erro=testemunhas')
+        messages.error(request, "As testemunhas devem estar definidas antes de avançar para o Comandante.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
 
     patd.status = 'analise_comandante'
     patd.save()
@@ -2832,7 +2901,7 @@ def solicitar_reconsideracao(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Status atualizado com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao solicitar reconsideração para PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @ouvidoria_required
@@ -2865,7 +2934,7 @@ def salvar_reconsideracao(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Pedido de reconsideração e anexos salvos com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar texto de reconsideração para PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @require_GET
@@ -2897,7 +2966,7 @@ def excluir_anexo(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Anexo excluído com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao excluir anexo {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @oficial_responsavel_required # Alterado para oficial_responsavel_required
@@ -2920,6 +2989,15 @@ def finalizar_publicacao(request, pk):
         patd.boletim_publicacao = boletim
         patd.status = 'finalizado'
         patd.data_termino = timezone.now()
+
+        # Se houve reconsideração com nova punição, promove para os campos principais
+        if patd.nova_punicao_tipo:
+            patd.dias_punicao = patd.nova_punicao_dias or ""
+            patd.punicao = patd.nova_punicao_tipo
+            patd.punicao_sugerida = f"{patd.dias_punicao} de {patd.punicao}" if patd.dias_punicao else patd.punicao
+            patd.definir_natureza_transgressao()
+            patd.calcular_e_atualizar_comportamento()
+
         patd.save()
 
         messages.success(request, f"PATD Nº {patd.numero_patd} finalizada com sucesso e publicada no boletim {boletim}.")
@@ -2939,9 +3017,10 @@ def finalizar_publicacao(request, pk):
 def justificar_patd(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-
-        # Alterado para ler o JSON do corpo da requisição
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
         motivo = data.get('motivo_justificativa')
 
         if not motivo or not motivo.strip():
@@ -2975,7 +3054,7 @@ def justificar_patd(request, pk):
         return JsonResponse({'status': 'success', 'message': 'A transgressão foi justificada e o processo finalizado com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao justificar a PATD {pk}: {e}")
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 @login_required
 @oficial_responsavel_required
@@ -3011,9 +3090,12 @@ def anexar_documento_reconsideracao_oficial(request, pk):
 @oficial_responsavel_required
 @require_POST
 def salvar_nova_punicao(request, pk):
-    try:        
+    try:
         patd = get_object_or_404(PATD, pk=pk)
-        data = json.loads(request.body)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
 
         dias_str = data.get('dias')
         if dias_str is None:
@@ -3025,22 +3107,23 @@ def salvar_nova_punicao(request, pk):
         if dias < 0 or not tipo:
             return JsonResponse({'status': 'error', 'message': 'Dados inválidos.'}, status=400)
 
-        # Atualiza a punição principal com os novos valores
+        # Salva a nova punição nos campos dedicados sem sobrescrever a punição original
         if tipo == 'repreensão':
-            patd.dias_punicao = ""
-            patd.punicao = "repreensão"
+            patd.nova_punicao_dias = ""
+            patd.nova_punicao_tipo = "repreensão"
         else:
             dias_texto = num2words(dias, lang='pt_BR')
-            punicao_dias_str = f"{dias_texto} ({dias:02d}) dias"
-            patd.dias_punicao = punicao_dias_str
-            patd.punicao = tipo
+            patd.nova_punicao_dias = f"{dias_texto} ({dias:02d}) dias"
+            patd.nova_punicao_tipo = tipo
 
-        # Atualiza a string de punição sugerida para refletir a nova decisão
-        patd.punicao_sugerida = f"{patd.dias_punicao} de {patd.punicao}" if patd.dias_punicao else patd.punicao
-
-        # Recalcula os campos derivados com base na nova punição
-        patd.definir_natureza_transgressao()
-        patd.calcular_e_atualizar_comportamento()
+        # Recalcula comportamento com base na nova punição
+        import copy
+        patd_simulado = copy.copy(patd)
+        patd_simulado._state = copy.copy(patd._state)
+        patd_simulado.dias_punicao = patd.nova_punicao_dias
+        patd_simulado.punicao = patd.nova_punicao_tipo
+        patd_simulado.calcular_e_atualizar_comportamento()
+        patd.comportamento = patd_simulado.comportamento
 
         patd.status = 'aguardando_publicacao'
         patd.save()
@@ -3048,7 +3131,51 @@ def salvar_nova_punicao(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Nova punição salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar nova punição para PATD {pk}: {e}", exc_info=True)
-        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
+
+
+@login_required
+@oficial_responsavel_required
+@require_POST
+def preview_nova_punicao(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        try:
+            data = json.loads(request.body)
+        except (json.JSONDecodeError, ValueError):
+            return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
+
+        dias_str = data.get('dias', 0)
+        tipo = data.get('tipo', '')
+
+        if not tipo:
+            return JsonResponse({'status': 'error', 'message': 'Tipo de punição obrigatório.'}, status=400)
+
+        dias = int(dias_str)
+
+        import copy
+        patd_simulado = copy.copy(patd)
+        patd_simulado._state = copy.copy(patd._state)
+
+        if tipo == 'repreensão':
+            patd_simulado.dias_punicao = ""
+            patd_simulado.punicao = "repreensão"
+        else:
+            dias_texto = num2words(dias, lang='pt_BR')
+            patd_simulado.dias_punicao = f"{dias_texto} ({dias:02d}) dias"
+            patd_simulado.punicao = tipo
+
+        patd_simulado.definir_natureza_transgressao()
+        patd_simulado.calcular_e_atualizar_comportamento()
+
+        return JsonResponse({
+            'status': 'success',
+            'comportamento': patd_simulado.comportamento,
+            'natureza': patd_simulado.natureza_transgressao or 'Não definida',
+        })
+    except Exception as e:
+        logger.error(f"Erro ao calcular preview de nova punição para PATD {pk}: {e}", exc_info=True)
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
 
 
 # --- INÍCIO DA MODIFICAÇÃO: exportar_patd_docx ---
@@ -3755,34 +3882,6 @@ def exportar_patd_docx(request, pk):
 
     return response
 
-@login_required
-@user_passes_test(can_change_patd_date)
-@require_POST
-def update_document_dates(request, pk):
-    try:
-        patd = get_object_or_404(PATD, pk=pk)
-        day = request.POST.get("day")
-        month = request.POST.get("month")
-        year = request.POST.get("year")
-        
-        date_fields = request.POST.getlist("date_fields[]")
-
-        if not all([day, month, year, date_fields]):
-            return JsonResponse({"status": "error", "message": "Todos os campos são obrigatórios."}, status=400)
-
-        for field in date_fields:
-            if hasattr(patd, field):
-                new_date = datetime(int(year), int(month), int(day)).date()
-                setattr(patd, field, new_date)
-        
-        patd.save()
-        return JsonResponse({"status": "success", "message": "Datas atualizadas com sucesso."})
-    except (ValueError, TypeError):
-        return JsonResponse({"status": "error", "message": "Formato de data inválido."}, status=400)
-    except Exception as e:
-        logger.error(f"Erro ao atualizar as datas do documento da PATD {pk}: {e}")
-        return JsonResponse({"status": "error", "message": str(e)}, status=500)
-
 
 @method_decorator([login_required, comandante_redirect, ouvidoria_required], name='dispatch')
 class PatdArquivadoListView(ListView):
@@ -3882,41 +3981,6 @@ def patd_permanently_delete(request, pk):
     messages.success(request, f'A PATD Nº {patd.numero_patd_anterior} foi excluída permanentemente.')
     return redirect('Ouvidoria:patd_trash')
 
-@login_required
-@ouvidoria_required
-@require_POST
-def upload_oficio_lancamento(request, pk):
-    patd = get_object_or_404(PATD, pk=pk)
-    
-    if patd.status == 'finalizado':
-        messages.error(request, "Não é possível anexar arquivos em processos finalizados.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-
-    if 'oficio_lancamento' not in request.FILES:
-        messages.error(request, "Nenhum arquivo enviado.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-
-    arquivo = request.FILES['oficio_lancamento']
-    
-    # Validação manual de tamanho na View para retorno imediato
-    if arquivo.size > 10485760: # 10MB
-        messages.error(request, "Arquivo muito grande! O limite permitido é de 10MB.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-
-    try:
-        # Remove ofício antigo se existir
-        patd.anexos.filter(tipo='oficio_lancamento').delete()
-
-        Anexo.objects.create(
-            patd=patd,
-            arquivo=arquivo,
-            tipo='oficio_lancamento'
-        )
-        messages.success(request, "Ofício de Lançamento anexado com sucesso.")
-    except Exception as e:
-        messages.error(request, f"Erro ao anexar arquivo: {str(e)}")
-        
-    return redirect('Ouvidoria:patd_detail', pk=pk)
 
 
 @login_required

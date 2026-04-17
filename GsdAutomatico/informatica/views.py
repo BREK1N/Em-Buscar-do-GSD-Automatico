@@ -953,3 +953,222 @@ def exportar_armarios_excel(request):
 def imprimir_cautela(request, pk):
     cautela = get_object_or_404(Cautela, id=pk)
     return render(request, 'informatica/cautela_print.html', {'cautela': cautela})
+
+
+# ==========================================
+# PAINEL ADMIN OUVIDORIA
+# ==========================================
+
+@staff_member_required
+def ouvidoria_admin_search(request):
+    """Pesquisa PATDs pelo número ou nome do militar."""
+    q = request.GET.get('q', '').strip()
+    patds = PATD.all_objects.select_related('militar', 'oficial_responsavel')
+    if q:
+        patds = patds.filter(
+            Q(numero_patd__icontains=q) |
+            Q(militar__nome_guerra__icontains=q) |
+            Q(militar__nome_completo__icontains=q)
+        )
+    patds = patds.order_by('-data_inicio')[:50]
+
+    data = [{
+        'id': p.id,
+        'numero_patd': p.numero_patd,
+        'militar': str(p.militar),
+        'status': p.status,
+        'status_display': p.get_status_display(),
+        'deleted': p.deleted,
+    } for p in patds]
+    return JsonResponse(data, safe=False)
+
+
+@staff_member_required
+def ouvidoria_admin_patd_detail(request, pk):
+    """Retorna detalhes completos de uma PATD para o painel admin."""
+    patd = get_object_or_404(PATD.all_objects, pk=pk)
+
+    # Calcula prazo para status relevantes de defesa
+    prazo_info = None
+    if patd.status in ('aguardando_justificativa', 'prazo_expirado') and patd.data_ciencia:
+        from Ouvidoria.models import Configuracao as OuvidoriaConfig
+        config = OuvidoriaConfig.load()
+        from datetime import timedelta
+        data_final = patd.data_ciencia
+        dias_adicionados = 0
+        while dias_adicionados < config.prazo_defesa_dias:
+            data_final += timedelta(days=1)
+            if data_final.weekday() < 5:
+                dias_adicionados += 1
+        calculated_deadline = (data_final + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+        # Se houver override, usa ele como deadline efetivo
+        deadline = patd.prazo_override if patd.prazo_override else calculated_deadline
+        agora = timezone.now()
+        restante = deadline - agora
+        prazo_info = {
+            'deadline': calculated_deadline.isoformat(),  # sempre o calculado (para exibição)
+            'effective_deadline': deadline.isoformat(),    # efetivo (override ou calculado)
+            'restante_segundos': int(restante.total_seconds()),
+            'expirado': restante.total_seconds() < 0,
+        }
+
+    # Anexos
+    anexos = [{
+        'id': a.id,
+        'tipo': a.tipo,
+        'tipo_display': a.get_tipo_display(),
+        'nome': os.path.basename(a.arquivo.name) if a.arquivo else '',
+        'url': a.arquivo.url if a.arquivo else '',
+        'data_upload': a.data_upload.isoformat(),
+    } for a in patd.anexos.all().order_by('-data_upload')]
+
+    # Documentos / assinaturas geradas
+    docs_gerados = []
+    if patd.assinatura_oficial:
+        docs_gerados.append({'campo': 'assinatura_oficial', 'label': 'Assinatura do Oficial', 'url': patd.assinatura_oficial.url})
+    if patd.assinatura_testemunha1:
+        docs_gerados.append({'campo': 'assinatura_testemunha1', 'label': 'Assinatura Testemunha 1', 'url': patd.assinatura_testemunha1.url})
+    if patd.assinatura_testemunha2:
+        docs_gerados.append({'campo': 'assinatura_testemunha2', 'label': 'Assinatura Testemunha 2', 'url': patd.assinatura_testemunha2.url})
+    if patd.assinatura_alegacao_defesa:
+        docs_gerados.append({'campo': 'assinatura_alegacao_defesa', 'label': 'Assinatura Alegação de Defesa', 'url': patd.assinatura_alegacao_defesa.url})
+    if patd.assinatura_reconsideracao:
+        docs_gerados.append({'campo': 'assinatura_reconsideracao', 'label': 'Assinatura Reconsideração', 'url': patd.assinatura_reconsideracao.url})
+    if patd.assinaturas_militar:
+        sigs_validas = [s for s in (patd.assinaturas_militar or []) if s]
+        if sigs_validas:
+            docs_gerados.append({'campo': 'assinaturas_militar', 'label': f'Assinaturas do Militar ({len(sigs_validas)})', 'url': None})
+    if patd.alegacao_defesa:
+        docs_gerados.append({'campo': 'alegacao_defesa', 'label': 'Alegação de Defesa (texto)', 'url': None})
+    if patd.texto_relatorio:
+        docs_gerados.append({'campo': 'texto_relatorio', 'label': 'Relatório de Apuração', 'url': None})
+    if patd.relatorio_final:
+        docs_gerados.append({'campo': 'relatorio_final', 'label': 'Relatório Final', 'url': None})
+
+    # Oficiais disponíveis (para troca)
+    oficiais = list(
+        Efetivo.objects.filter(oficial=True)
+        .exclude(assinatura__isnull=True).exclude(assinatura__exact='')
+        .order_by('posto', 'nome_guerra')
+        .values('id', 'posto', 'nome_guerra')
+    )
+
+    status_choices = [{'value': k, 'label': v} for k, v in PATD.STATUS_CHOICES]
+
+    data = {
+        'id': patd.id,
+        'numero_patd': patd.numero_patd,
+        'militar': str(patd.militar),
+        'oficial_responsavel_id': patd.oficial_responsavel_id,
+        'oficial_responsavel': str(patd.oficial_responsavel) if patd.oficial_responsavel else None,
+        'status': patd.status,
+        'status_display': patd.get_status_display(),
+        'data_ciencia': patd.data_ciencia.isoformat() if patd.data_ciencia else None,
+        'prazo_override': patd.prazo_override.isoformat() if patd.prazo_override else None,
+        'data_inicio': patd.data_inicio.isoformat() if patd.data_inicio else None,
+        'justificado': patd.justificado,
+        'deleted': patd.deleted,
+        'arquivado': patd.arquivado,
+        'prazo_info': prazo_info,
+        'anexos': anexos,
+        'docs_gerados': docs_gerados,
+        'oficiais_disponiveis': oficiais,
+        'status_choices': status_choices,
+    }
+    return JsonResponse(data)
+
+
+@staff_member_required
+@require_POST
+def ouvidoria_admin_update(request, pk):
+    """Aplica alterações administrativas a uma PATD."""
+    patd = get_object_or_404(PATD.all_objects, pk=pk)
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
+
+    action = data.get('action')
+    changes = []
+
+    if action == 'change_status':
+        novo_status = data.get('status')
+        valid_statuses = [k for k, _ in PATD.STATUS_CHOICES]
+        if novo_status not in valid_statuses:
+            return JsonResponse({'status': 'error', 'message': 'Status inválido.'}, status=400)
+        patd.status = novo_status
+        patd.save(update_fields=['status'])
+        changes.append(f'Status → {patd.get_status_display()}')
+
+    elif action == 'set_prazo_override':
+        # Define o deadline de defesa diretamente, sem tocar em data_ciencia
+        prazo_str = data.get('prazo_override')
+        if prazo_str == '' or prazo_str is None:
+            # Limpar override (volta ao cálculo normal)
+            patd.prazo_override = None
+            patd.save(update_fields=['prazo_override'])
+            changes.append('Prazo override → removido (volta ao cálculo normal)')
+        else:
+            try:
+                from datetime import datetime as dt
+                nova_data = timezone.make_aware(dt.fromisoformat(prazo_str))
+                patd.prazo_override = nova_data
+                patd.save(update_fields=['prazo_override'])
+                changes.append(f'Prazo de defesa → {nova_data.strftime("%d/%m/%Y %H:%M")}')
+            except (ValueError, TypeError):
+                return JsonResponse({'status': 'error', 'message': 'Formato de data inválido.'}, status=400)
+
+    elif action == 'change_oficial':
+        oficial_id = data.get('oficial_id')
+        if oficial_id:
+            oficial = get_object_or_404(Efetivo, pk=oficial_id, oficial=True)
+            patd.oficial_responsavel = oficial
+            # Não usar update_fields aqui para que o save() do modelo
+            # possa atualizar o status para 'aguardando_aprovacao_atribuicao' automaticamente
+            patd.save()
+            changes.append(f'Oficial → {oficial} (aguardando aceitação)')
+        else:
+            patd.oficial_responsavel = None
+            patd.save()
+            changes.append('Oficial → Removido')
+
+    elif action == 'delete_field':
+        # Apaga um campo de assinatura/documento
+        campo = data.get('campo')
+        campos_permitidos = [
+            'assinatura_oficial', 'assinatura_testemunha1', 'assinatura_testemunha2',
+            'assinatura_alegacao_defesa', 'assinatura_reconsideracao',
+            'alegacao_defesa', 'texto_relatorio', 'relatorio_final', 'assinaturas_militar',
+        ]
+        if campo not in campos_permitidos:
+            return JsonResponse({'status': 'error', 'message': 'Campo não permitido.'}, status=400)
+        field = getattr(patd, campo)
+        if hasattr(field, 'delete'):  # FileField
+            field.delete(save=False)
+        setattr(patd, campo, None if campo not in ('alegacao_defesa', 'texto_relatorio', 'relatorio_final') else '')
+        if campo == 'assinaturas_militar':
+            patd.assinaturas_militar = []
+        patd.save(update_fields=[campo])
+        changes.append(f'Campo {campo} → removido')
+
+    else:
+        return JsonResponse({'status': 'error', 'message': 'Ação desconhecida.'}, status=400)
+
+    logger.info(f"[ADMIN OUVIDORIA] PATD {patd.numero_patd} — {'; '.join(changes)} por {request.user.username}")
+    return JsonResponse({'status': 'success', 'changes': changes})
+
+
+@staff_member_required
+@require_POST
+def ouvidoria_admin_delete_anexo(request, patd_pk, anexo_pk):
+    """Remove um anexo específico de uma PATD."""
+    patd = get_object_or_404(PATD.all_objects, pk=patd_pk)
+    anexo = get_object_or_404(Anexo, pk=anexo_pk, patd=patd)
+    nome = os.path.basename(anexo.arquivo.name) if anexo.arquivo else str(anexo_pk)
+    try:
+        anexo.arquivo.delete(save=False)
+    except Exception:
+        pass
+    anexo.delete()
+    logger.info(f"[ADMIN OUVIDORIA] Anexo '{nome}' removido da PATD {patd.numero_patd} por {request.user.username}")
+    return JsonResponse({'status': 'success', 'message': f'Anexo "{nome}" removido.'})

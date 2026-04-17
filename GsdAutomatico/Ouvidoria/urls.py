@@ -41,6 +41,7 @@ urlpatterns = [
     path('patd/<int:pk>/finalizar/', views.finalizar_publicacao, name='finalizar_publicacao'),
     path('patd/<int:pk>/finalizar_completa/', views.finalizar_patd_completa, name='finalizar_patd_completa'),
     path('patd/<int:pk>/salvar_nova_punicao/', views.salvar_nova_punicao, name='salvar_nova_punicao'),
+    path('patd/<int:pk>/preview_nova_punicao/', views.preview_nova_punicao, name='preview_nova_punicao'),
 
     path('patds/<int:pk>/regenerar-ocorrencia/', views.regenerar_ocorrencia, name='regenerar_ocorrencia'),
     path('patds/<int:pk>/regenerar-resumo-defesa/', views.regenerar_resumo_defesa, name='regenerar_resumo_defesa'),
@@ -77,10 +78,9 @@ urlpatterns = [
     path('notificacoes/comandante-pendencias/', views.comandante_pendencias_json, name='comandante_pendencias_json'),
     path('notificacoes/extender-prazo-massa/', views.extender_prazo_massa, name='extender_prazo_massa'),
     path('notificacoes/verificar-prazos/', views.verificar_e_atualizar_prazos, name='verificar_e_atualizar_prazos'),
+    path('notificacoes/aguardando-prazo/', views.patds_aguardando_prazo_json, name='patds_aguardando_prazo_json'),
 
     # API
     path('api/search-militares/', views.search_militares_json, name='search_militares_json'),
     path('anexo/<int:pk>/excluir/', views.excluir_anexo, name='excluir_anexo'),
-
-    path('patd/<int:pk>/upload_oficio_lancamento/', views.upload_oficio_lancamento, name='upload_oficio_lancamento'),
 ]

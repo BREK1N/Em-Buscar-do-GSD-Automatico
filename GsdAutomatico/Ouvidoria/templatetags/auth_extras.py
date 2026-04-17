@@ -13,6 +13,11 @@ def has_ouvidoria_access_filter(user):
     """Verifica se o usuário pertence a algum dos grupos da Ouvidoria ou é superuser."""
     return permissions.is_ouvidoria_member(user)
 
+@register.filter(name='can_edit_patd')
+def can_edit_patd_filter(user):
+    """Verifica se o usuário pode editar uma PATD."""
+    return permissions.can_edit_patd(user)
+
 @register.filter(name='can_delete_patd')
 def can_delete_patd_filter(user):
     """Verifica se o usuário pode excluir uma PATD."""

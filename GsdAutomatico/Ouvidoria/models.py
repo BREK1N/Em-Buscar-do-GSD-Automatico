@@ -219,6 +219,7 @@ class PATD(models.Model):
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
     restored_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Restauração")
     restored_by = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, null=True, blank=True, related_name='restored_patds', verbose_name="Restaurado por")
+    prazo_override = models.DateTimeField(null=True, blank=True, verbose_name="Prazo de Defesa (override)")
 
     # --- INÍCIO DAS MODIFICAÇÕES SOLICITADAS ---
     def calcular_e_atualizar_comportamento(self):

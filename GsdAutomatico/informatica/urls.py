@@ -65,4 +65,12 @@ urlpatterns = [
     path('api/logs/', views.system_logs_api, name='system_logs_api'),
     path('monitoramento/', views.monitoramento_backup, name='monitoramento_backup'),
     path('logs-backup/', views.visualizar_logs_backup, name='logs_backup'),
+
+    # ===============================================
+    # PAINEL ADMIN OUVIDORIA
+    # ===============================================
+    path('api/ouvidoria/search/', views.ouvidoria_admin_search, name='ouvidoria_admin_search'),
+    path('api/ouvidoria/patd/<int:pk>/', views.ouvidoria_admin_patd_detail, name='ouvidoria_admin_patd_detail'),
+    path('api/ouvidoria/patd/<int:pk>/update/', views.ouvidoria_admin_update, name='ouvidoria_admin_update'),
+    path('api/ouvidoria/patd/<int:patd_pk>/anexo/<int:anexo_pk>/delete/', views.ouvidoria_admin_delete_anexo, name='ouvidoria_admin_delete_anexo'),
 ]
