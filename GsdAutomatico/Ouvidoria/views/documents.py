@@ -18,6 +18,7 @@ import docx
 from docx import Document
 from docx.shared import Cm, Pt, Inches
 from docx.enum.text import WD_ALIGN_PARAGRAPH, WD_LINE_SPACING
+from docx.enum.text import WD_BREAK
 from bs4 import BeautifulSoup, NavigableString
 import fitz
 
@@ -266,37 +267,49 @@ def _append_anexo_content(document, anexo):
         elif ext == '.pdf':
             try:
                 pdf_doc = fitz.open(file_path)
-                n_pages = len(pdf_doc)
                 # Área útil do documento exportado (A4 retrato com as margens definidas)
                 # left=2.15cm, right=2.5cm → largura útil ≈ 21 - 2.15 - 2.5 = 16.35 cm
                 # top=1.5cm, bottom=2.54cm → altura útil ≈ 29.7 - 1.5 - 2.54 = 25.66 cm
                 max_w_cm = 16.3
                 max_h_cm = 24.0
-                for page_num, page in enumerate(pdf_doc):
+
+                # Pré-filtra páginas em branco do PDF antes de inserir no DOCX.
+                # Critério combinado: brancura visual >= 99% E texto < 50 chars.
+                # Isso remove páginas com artefato "tsteteetetlçask" (15 chars, ~100% branco)
+                # sem remover páginas reais (que têm <99% brancura OU 116+ chars de texto).
+                non_blank_pages = []
+                for page in pdf_doc:
+                    check_pix = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5), colorspace=fitz.csGRAY)
+                    arr = bytearray(check_pix.samples)
+                    total = len(arr)
+                    white_ratio = sum(1 for b in arr if b >= 250) / total if total > 0 else 0
+                    if white_ratio >= 0.99:
+                        page_text = page.get_text().strip()
+                        if len(page_text) < 50:
+                            continue  # Página em branco ou com apenas artefato de texto → pula
                     rect = page.rect
                     is_landscape = rect.width > rect.height
                     if is_landscape:
-                        # Página em paisagem: rotaciona 90° para caber em retrato
                         mat = fitz.Matrix(250 / 72, 250 / 72).prerotate(90)
                     else:
                         mat = fitz.Matrix(250 / 72, 250 / 72)
                     pix = page.get_pixmap(matrix=mat)
-                    img_bytes = pix.tobytes("png")
-                    img_stream = io.BytesIO(img_bytes)
+                    non_blank_pages.append((pix.tobytes("png"), is_landscape))
 
-                    # Calcula qual dimensão usar para que a imagem caiba sem overflow
-                    # Após rotação eventual, usa largura como restrição principal para paisagem
-                    # Cria parágrafo com espaçamento zero para evitar página em branco após a imagem
+                for i, (img_bytes, is_landscape) in enumerate(non_blank_pages):
+                    if i > 0:
+                        pb_para = document.add_paragraph()
+                        pb_para.paragraph_format.space_before = Pt(0)
+                        pb_para.paragraph_format.space_after = Pt(0)
+                        pb_para.add_run().add_break(WD_BREAK.PAGE)
                     pic_p = document.add_paragraph()
                     pic_p.paragraph_format.space_before = Pt(0)
                     pic_p.paragraph_format.space_after = Pt(0)
                     if is_landscape:
-                        pic_p.add_run().add_picture(img_stream, width=Cm(max_w_cm))
+                        pic_p.add_run().add_picture(io.BytesIO(img_bytes), width=Cm(max_w_cm))
                     else:
-                        pic_p.add_run().add_picture(img_stream, height=Cm(max_h_cm))
+                        pic_p.add_run().add_picture(io.BytesIO(img_bytes), height=Cm(max_h_cm))
 
-                    if page_num < n_pages - 1:
-                        document.add_page_break()
                 pdf_doc.close()
             except Exception as e:
                 logger.error(f"Erro ao converter PDF para imagem {file_name}: {e}")
@@ -346,7 +359,10 @@ def _append_alegacao_docx(document, patd, context):
     placeholder_regex = re.compile(r'({[^}]+})')
     # --- FIM DA CORREÇÃO ---
     try:
-        document.add_page_break()
+        pb_para = document.add_paragraph()
+        pb_para.paragraph_format.space_before = Pt(0)
+        pb_para.paragraph_format.space_after = Pt(0)
+        pb_para.add_run().add_break(WD_BREAK.PAGE)
 
         doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PATD_Alegacao_DF.docx')
         alegacao_doc = Document(doc_path)
@@ -447,7 +463,7 @@ def _remove_blank_pages_from_docx(docx_bytes, filename_base):
                 arr = bytearray(samples)
                 white_pixels = sum(1 for b in arr if b >= 250)
                 white_ratio = white_pixels / total_pixels
-                if white_ratio >= 0.995:
+                if white_ratio >= 0.980:
                     blank_page_indices.add(i)
 
             if not blank_page_indices:
@@ -810,7 +826,10 @@ def exportar_patd_docx(request, pk):
 
         if element.name == 'div' and 'manual-page-break' in element.get('class', []):
             if not last_action_was_page_break:
-                document.add_page_break()
+                pb_para = document.add_paragraph()
+                pb_para.paragraph_format.space_before = Pt(0)
+                pb_para.paragraph_format.space_after = Pt(0)
+                pb_para.add_run().add_break(WD_BREAK.PAGE)
                 last_action_was_page_break = True
             was_last_p_empty = False
             continue
@@ -821,7 +840,7 @@ def exportar_patd_docx(request, pk):
         if element.name == 'p':
 
 
-            text_content_for_check = element.get_text().strip()
+            text_content_for_check = element.get_text().replace('\xa0', '').strip()
 
 
 
@@ -832,27 +851,36 @@ def exportar_patd_docx(request, pk):
             if "{ANEXOS_DEFESA_PLACEHOLDER}" in text_content_for_check and anexos_defesa.exists():
                 for i, anexo in enumerate(anexos_defesa):
                     if i > 0:
-                        document.add_page_break()
+                        pb_para = document.add_paragraph()
+                        pb_para.paragraph_format.space_before = Pt(0)
+                        pb_para.paragraph_format.space_after = Pt(0)
+                        pb_para.add_run().add_break(WD_BREAK.PAGE)
                     _append_anexo_content(document, anexo)
-                last_action_was_page_break = False
+                last_action_was_page_break = True
                 was_last_p_empty = False
                 continue
 
             if "{ANEXOS_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao.exists():
                 for i, anexo in enumerate(anexos_reconsideracao):
                     if i > 0:
-                        document.add_page_break()
+                        pb_para = document.add_paragraph()
+                        pb_para.paragraph_format.space_before = Pt(0)
+                        pb_para.paragraph_format.space_after = Pt(0)
+                        pb_para.add_run().add_break(WD_BREAK.PAGE)
                     _append_anexo_content(document, anexo)
-                last_action_was_page_break = False
+                last_action_was_page_break = True
                 was_last_p_empty = False
                 continue
 
             if "{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao_oficial.exists():
                 for i, anexo in enumerate(anexos_reconsideracao_oficial):
                     if i > 0:
-                        document.add_page_break()
+                        pb_para = document.add_paragraph()
+                        pb_para.paragraph_format.space_before = Pt(0)
+                        pb_para.paragraph_format.space_after = Pt(0)
+                        pb_para.add_run().add_break(WD_BREAK.PAGE)
                     _append_anexo_content(document, anexo)
-                last_action_was_page_break = False
+                last_action_was_page_break = True
                 was_last_p_empty = False
                 continue
 
@@ -895,7 +923,7 @@ def exportar_patd_docx(request, pk):
 
                     if anexo_to_append:
                         _append_anexo_content(document, anexo_to_append)
-                        last_action_was_page_break = False
+                        last_action_was_page_break = True
                         was_last_p_empty = False
                 continue
 
