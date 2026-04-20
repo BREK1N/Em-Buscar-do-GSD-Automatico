@@ -366,6 +366,25 @@ def _get_document_context(patd, for_docx=False):
         else:
             ficha_individual_html = _pdf_to_pages_html(ficha_individual_anexo.arquivo.path)
 
+    # Lógica de {comportamento} e {mudou}
+    comportamento_atual_eh_mau = (patd.comportamento == "Mau comportamento")
+    comportamento_display = "Mau comportamento" if comportamento_atual_eh_mau else "Bom comportamento"
+
+    # Verifica se o militar já estava no "Mau comportamento" em alguma PATD anterior
+    patd_anteriores_mau = PATD.objects.filter(
+        militar=patd.militar,
+        comportamento="Mau comportamento"
+    )
+    if patd.pk:
+        patd_anteriores_mau = patd_anteriores_mau.exclude(pk=patd.pk)
+    comportamento_anterior_era_mau = patd_anteriores_mau.exists()
+
+    # "Entrou no" somente quando passa de bom → mau nesta PATD
+    if comportamento_atual_eh_mau and not comportamento_anterior_era_mau:
+        mudou_display = "Entrou no"
+    else:
+        mudou_display = "Permanece no"
+
     context = {
         # Placeholders Comuns
         # --- CORREÇÃO: Usar staticfiles_storage.url ---
@@ -422,7 +441,8 @@ def _get_document_context(patd, for_docx=False):
         '{punicao}': punicao_final_str,
         '{punição_botao}': f"{patd.nova_punicao_dias} de {patd.nova_punicao_tipo}" if patd.nova_punicao_dias else '{Botao Definir Nova Punicao}',
         '{dias_punicao}': "",
-        '{comportamento}': patd.comportamento or "[Não avaliado]",
+        '{comportamento}': comportamento_display,
+        '{mudou}': mudou_display,
         '{data_publicacao_punicao}': data_publicacao_fmt,
 
         # Placeholders de Assinatura

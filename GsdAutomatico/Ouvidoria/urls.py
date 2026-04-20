@@ -40,6 +40,7 @@ urlpatterns = [
     path('patd/<int:pk>/justificar/', views.justificar_patd, name='justificar_patd'),
     path('patd/<int:pk>/finalizar/', views.finalizar_publicacao, name='finalizar_publicacao'),
     path('patd/<int:pk>/finalizar_completa/', views.finalizar_patd_completa, name='finalizar_patd_completa'),
+    path('patd/<int:pk>/aceitar_atribuicao_patd/', views.aceitar_atribuicao_patd, name='aceitar_atribuicao_patd'),
     path('patd/<int:pk>/salvar_nova_punicao/', views.salvar_nova_punicao, name='salvar_nova_punicao'),
     path('patd/<int:pk>/preview_nova_punicao/', views.preview_nova_punicao, name='preview_nova_punicao'),
 
@@ -60,6 +61,8 @@ urlpatterns = [
 
     # ROTAS PARA O COMANDANTE
     path('comandante/dashboard/', views.ComandanteDashboardView.as_view(), name='comandante_dashboard'),
+    path('comandante/relatorio.json', views.relatorio_json, name='relatorio_json'),
+    path('comandante/relatorio.xlsx', views.relatorio_excel, name='relatorio_excel'),
     path('patd/<int:pk>/aprovar/', views.patd_aprovar, name='patd_aprovar'),
     path('patd/<int:pk>/retornar/', views.patd_retornar, name='patd_retornar'),
     path('patd/<int:pk>/solicitar_reconsideracao/', views.solicitar_reconsideracao, name='solicitar_reconsideracao'),

@@ -56,6 +56,8 @@ from .commander import (
     solicitar_reconsideracao,
     salvar_reconsideracao,
     anexar_documento_reconsideracao_oficial,
+    relatorio_json,
+    relatorio_excel,
 )
 
 from .documents import (
@@ -94,6 +96,7 @@ from .patd import (
     excluir_anexo,
     finalizar_publicacao,
     finalizar_patd_completa,
+    aceitar_atribuicao_patd,
     justificar_patd,
     salvar_nova_punicao,
     preview_nova_punicao,

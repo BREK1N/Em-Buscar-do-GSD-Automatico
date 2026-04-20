@@ -175,6 +175,8 @@ class PATD(models.Model):
         verbose_name="Status Anterior"
     )
     
+    oficial_aceitou = models.BooleanField(null=True, blank=True, default=None, verbose_name="Oficial Aceitou Atribuição")
+
     assinatura_oficial = models.FileField(upload_to=patd_signature_path, max_length=255, blank=True, null=True, verbose_name="Assinatura do Oficial")
     assinaturas_militar = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas do Militar Arrolado (Caminhos)")
     assinatura_testemunha1 = models.FileField(upload_to=patd_signature_path, blank=True, null=True, verbose_name="Assinatura da 1ª Testemunha")

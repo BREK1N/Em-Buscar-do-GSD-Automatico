@@ -131,9 +131,12 @@
     .full-width {
         grid-column: 1 / -1;
     }
-    .tabs-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
-    .tabs-nav a { padding: 10px 20px; text-decoration: none; color: var(--text-secondary); border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: pointer; }
-    .tabs-nav a.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+    .tabs-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; background: var(--bg-content); transition: box-shadow 0.2s; }
+    .tabs-nav.is-fixed { position: fixed; top: 0; left: 240px; right: 0; z-index: 200; box-shadow: 0 2px 10px rgba(0,0,0,0.12); border-bottom: 1px solid var(--border-color); padding: 0 25px; margin-bottom: 0; }
+    .tabs-nav a { padding: 12px 24px; text-decoration: none; color: var(--text-secondary); border-bottom: 3px solid transparent; margin-bottom: -1px; cursor: pointer; font-weight: 500; transition: color 0.15s; }
+    .tabs-nav a.active { color: var(--accent-color); border-bottom-color: var(--accent-color); font-weight: 600; }
+    .tabs-nav-placeholder { display: none; height: 0; }
+    .tabs-nav-placeholder.visible { display: block; height: 46px; }
     .tab-panel { display: none; }
     .tab-panel.active { display: block; }
     .btn-success { background: linear-gradient(45deg, var(--success-color), #5cb85c); color: #fff; }
@@ -411,8 +414,73 @@
         width: 24px;
         height: 24px;
     }
+    #back-to-top-btn {
+        position: fixed;
+        left: 260px;
+        bottom: 40px;
+        z-index: 1050;
+        display: none;
+        align-items: center;
+        justify-content: center;
+        background-color: var(--bg-content);
+        color: var(--text-secondary);
+        border: 1px solid var(--border-color);
+        padding: 12px;
+        border-radius: 50%;
+        cursor: pointer;
+        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        transition: background-color 0.2s, transform 0.2s, color 0.2s;
+        width: 48px;
+        height: 48px;
+    }
+    #back-to-top-btn:hover {
+        background-color: var(--accent-color);
+        color: #fff;
+        border-color: var(--accent-color);
+        transform: scale(1.08);
+    }
+    #back-to-top-btn svg { width: 22px; height: 22px; }
 
 </style>
+
+{% if patd.oficial_responsavel and patd.oficial_aceitou == None and request.user.profile.militar == patd.oficial_responsavel %}
+<div id="banner-aceitacao-patd" class="prazo-defesa" style="display: flex; align-items: center; gap: 16px; flex-wrap: wrap; margin-bottom: 16px;">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:22px; height:22px; flex-shrink:0; color: var(--warning-color);"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z" /></svg>
+    <div style="flex: 1; min-width: 200px;">
+        <strong style="font-size: 1rem; color: var(--text-primary);">Você foi atribuído como Oficial Responsável por esta PATD.</strong>
+        <p style="margin: 4px 0 0; color: var(--text-muted); font-size: 0.9rem;">Aceite para que ela apareça no seu histórico de PATDs.</p>
+    </div>
+    <div style="display: flex; gap: 10px; flex-shrink: 0;">
+        <button class="btn btn-success" id="btn-aceitar-atribuicao" style="font-size: 0.9rem;">Aceitar</button>
+        <button class="btn btn-secondary" id="btn-recusar-atribuicao" style="font-size: 0.9rem;">Recusar</button>
+    </div>
+</div>
+<script>
+(function(){
+    const csrfToken = '{{ csrf_token }}';
+    const url = '{% url "Ouvidoria:aceitar_atribuicao_patd" patd.pk %}';
+    function enviarAcao(acao) {
+        fetch(url, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/x-www-form-urlencoded', 'X-CSRFToken': csrfToken},
+            body: 'acao=' + acao
+        })
+        .then(r => r.json())
+        .then(data => {
+            const banner = document.getElementById('banner-aceitacao-patd');
+            if (data.status === 'success') {
+                banner.style.borderLeftColor = acao === 'aceitar' ? 'var(--success-color, #28a745)' : 'var(--danger-color)';
+                banner.innerHTML = '<p style="margin:0; font-weight:600; color: var(--text-primary);">' + data.message + '</p>';
+            } else {
+                alert(data.message);
+            }
+        });
+    }
+    document.getElementById('btn-aceitar-atribuicao').addEventListener('click', () => enviarAcao('aceitar'));
+    document.getElementById('btn-recusar-atribuicao').addEventListener('click', () => enviarAcao('recusar'));
+})();
+</script>
+{% endif %}
 
 <div class="patd-header">
     <h1>PATD Nº {{ patd.numero_patd }}</h1>
@@ -487,7 +555,33 @@
     {% endwith %}
 </ul>
 
-<nav class="tabs-nav">
+{% if assinaturas_pendentes %}
+<div style="background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 10px; padding: 16px 20px; margin-bottom: 16px; box-shadow: var(--box-shadow);">
+    <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 12px;">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:20px;height:20px;color:var(--warning-color);flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+        <span style="font-weight:700;font-size:0.95rem;color:var(--text-primary);">
+            Assinaturas Pendentes — {{ assinaturas_pendentes|length }} faltando nesta fase
+        </span>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:8px;">
+        {% for item in assinaturas_pendentes %}
+        <div style="display:flex;align-items:flex-start;gap:10px;padding:10px 14px;border-radius:8px;background:var(--bg-main);border-left:3px solid {% if item.urgente %}var(--danger-color){% else %}var(--warning-color){% endif %};">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;margin-top:2px;flex-shrink:0;color:{% if item.urgente %}var(--danger-color){% else %}var(--warning-color){% endif %};"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z" /></svg>
+            <div>
+                <span style="font-weight:600;font-size:0.85rem;color:var(--text-primary);">{{ item.quem }}</span>
+                <span style="font-size:0.82rem;color:var(--text-muted);margin-left:6px;">— {{ item.descricao }}</span>
+                {% if item.urgente %}
+                <span style="display:inline-block;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.05em;padding:1px 6px;border-radius:10px;background:var(--danger-color);color:#fff;margin-left:6px;">Urgente</span>
+                {% endif %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<div class="tabs-nav-placeholder" id="tabs-nav-placeholder"></div>
+<nav class="tabs-nav" id="tabs-nav">
     <a class="tab-link active" data-target="tab-detalhes">Visão Geral</a>
     <a class="tab-link" data-target="tab-visualizador">Visualizador de Documentos</a>
 </nav>
@@ -560,8 +654,37 @@
                     </div>
                 </div>
                 {% endif %}
-                {% if request.user.profile.militar == patd.oficial_responsavel %}
-                    {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
+                {% if patd.status == 'em_apuracao' %}
+                <div style="width:100%; padding: 12px 16px; background: var(--bg-main); border-left: 4px solid var(--accent-color); border-radius: 6px; color: var(--text-primary);">
+                    <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px;">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:18px;height:18px;color:var(--accent-color);flex-shrink:0;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+                        <strong style="font-size:0.9rem;">Testemunhas do Processo</strong>
+                    </div>
+                    <div style="display:flex; gap:16px; flex-wrap:wrap; font-size:0.88rem;">
+                        <span>
+                            <span style="color:var(--text-muted);">1ª Testemunha:</span>
+                            {% if patd.testemunha1 %}
+                                <strong>{{ patd.testemunha1.posto }} {{ patd.testemunha1.nome_guerra }}</strong>
+                            {% else %}
+                                <span style="color:var(--danger-color);">Não atribuída</span>
+                                — <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" style="color:var(--accent-color);">Editar PATD</a>
+                            {% endif %}
+                        </span>
+                        <span>
+                            <span style="color:var(--text-muted);">2ª Testemunha:</span>
+                            {% if patd.testemunha2 %}
+                                <strong>{{ patd.testemunha2.posto }} {{ patd.testemunha2.nome_guerra }}</strong>
+                            {% else %}
+                                <span style="color:var(--danger-color);">Não atribuída</span>
+                                — <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" style="color:var(--accent-color);">Editar PATD</a>
+                            {% endif %}
+                        </span>
+                    </div>
+                    <p style="font-size:0.8rem;color:var(--text-muted);margin:8px 0 0;">Após gerar o documento de apuração, as testemunhas deverão assinar antes de avançar para o Comandante.</p>
+                </div>
+                {% endif %}
+                {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
+                    {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel %}
                     <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
                     {% endif %}
                 {% endif %}
@@ -809,7 +932,7 @@
     </div>
     {% endif %}
 
-     {% if request.user.profile.militar == patd.oficial_responsavel and patd.status == 'em_apuracao' or request.user.profile.militar == patd.oficial_responsavel and patd.status == 'apuracao_preclusao' or request.user.profile.militar == patd.oficial_responsavel and patd.status == 'aguardando_punicao' or request.user.profile.militar == patd.oficial_responsavel and patd.status == 'aguardando_punicao_alterar' %}
+     {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel %}{% if patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao' or patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
     <div class="card" id="analise-disciplinar-card">
         <div class="card-header">
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-1.5 5.25H12" /></svg>
@@ -930,6 +1053,7 @@
         </div>
     </div>
     {% endif %}
+    {% endif %}
 
 </div>
 
@@ -940,6 +1064,11 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
         </svg>
     </div>
+    <button id="back-to-top-btn" title="Voltar ao topo">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
+        </svg>
+    </button>
     <div id="document-preview-container" class="document-preview-container">
         </div>
 </div>
@@ -947,7 +1076,13 @@
 <style>
     /* Aumenta a área de assinatura para mesas digitalizadoras */
     #signature-modal-generic .modal-content {
-        max-width: 800px; /* Aumenta a largura do modal */
+        max-width: 800px;
+    }
+    #finalizar-completa-modal .modal-content {
+        max-width: 920px;
+        width: 95%;
+        max-height: 90vh;
+        overflow-y: auto;
     }
     #signature-canvas-generic {
         height: 400px; /* Aumenta a altura do canvas */
@@ -968,37 +1103,78 @@
         
         <form id="finalizar-completa-form" method="post" action="{% url 'Ouvidoria:finalizar_patd_completa' patd.pk %}" enctype="multipart/form-data" class="model-form">
             {% csrf_token %}
-            
-            <div class="form-grid" style="grid-template-columns: 1fr; gap: 15px;">
+
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
+
+                <!-- Linha 1: Oficial Responsável | Documento Final -->
+                <div class="form-item" style="background-color: var(--bg-main); padding: 15px; border-radius: 6px; border-left: 4px solid var(--primary-color);">
+                    <label for="id_oficial_responsavel_final">Oficial Responsável pela PATD:</label>
+                    <select name="oficial_responsavel_id" id="id_oficial_responsavel_final" style="width: 100%; padding: 10px;">
+                        <option value="">— Manter atual / Não atribuir —</option>
+                        {% for of in oficiais_lista %}
+                        <option value="{{ of.pk }}" {% if patd.oficial_responsavel_id == of.pk %}selected{% endif %}>
+                            {{ of.posto }} {{ of.nome_guerra }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                    <small style="color: var(--text-muted);">O oficial receberá uma solicitação de confirmação para aparecer no histórico dele.</small>
+                </div>
+
                 <div class="form-item">
                     <label for="id_doc_final">Documento Final da PATD (Completo):</label>
                     <input type="file" name="documento_final" accept=".pdf,.doc,.docx" required id="id_doc_final" style="width: 100%; padding: 10px;">
                 </div>
 
-                <div class="form-item" style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                    <div>
-                        <label for="id_tipo_punicao_final">Decisão/Punição Aplicada:</label>
-                        <select name="tipo_punicao" id="id_tipo_punicao_final" required style="width: 100%; padding: 10px;">
-                            <option value="">Selecione...</option>
-                            <option value="detenção">Detenção</option>
-                            <option value="prisão">Prisão</option>
-                            <option value="repreensão por escrito">Repreensão por Escrito</option>
-                            <option value="repreensão verbal">Repreensão Verbal</option>
-                            <option value="justificada">Transgressão Justificada</option>
-                        </select>
-                    </div>
-                    
-                    <div id="div_dias_final" style="display: none;">
-                        <label for="id_dias_final">Quantidade de Dias:</label>
-                        <input type="number" name="dias_punicao" id="id_dias_final" min="1" value="1" style="width: 100%; padding: 10px;">
-                    </div>
+                <!-- Linha 2: 1ª Testemunha | 2ª Testemunha -->
+                <div class="form-item">
+                    <label for="id_testemunha1_final">1ª Testemunha (Ouvidoria):</label>
+                    <select name="testemunha1_id" id="id_testemunha1_final" style="width: 100%; padding: 10px;">
+                        <option value="">— Manter atual / Nenhuma —</option>
+                        {% for ef in efetivos_ouvidoria %}
+                        <option value="{{ ef.pk }}" {% if patd.testemunha1_id == ef.pk %}selected{% endif %}>
+                            {{ ef.posto }} {{ ef.nome_guerra }}
+                        </option>
+                        {% endfor %}
+                    </select>
                 </div>
 
-                <div class="form-item" id="div_motivo_final" style="display: none;">
+                <div class="form-item">
+                    <label for="id_testemunha2_final">2ª Testemunha (Ouvidoria):</label>
+                    <select name="testemunha2_id" id="id_testemunha2_final" style="width: 100%; padding: 10px;">
+                        <option value="">— Manter atual / Nenhuma —</option>
+                        {% for ef in efetivos_ouvidoria %}
+                        <option value="{{ ef.pk }}" {% if patd.testemunha2_id == ef.pk %}selected{% endif %}>
+                            {{ ef.posto }} {{ ef.nome_guerra }}
+                        </option>
+                        {% endfor %}
+                    </select>
+                </div>
+
+                <!-- Linha 3: Punição | Dias -->
+                <div class="form-item">
+                    <label for="id_tipo_punicao_final">Decisão/Punição Aplicada:</label>
+                    <select name="tipo_punicao" id="id_tipo_punicao_final" required style="width: 100%; padding: 10px;">
+                        <option value="">Selecione...</option>
+                        <option value="detenção">Detenção</option>
+                        <option value="prisão">Prisão</option>
+                        <option value="repreensão por escrito">Repreensão por Escrito</option>
+                        <option value="repreensão verbal">Repreensão Verbal</option>
+                        <option value="justificada">Transgressão Justificada</option>
+                    </select>
+                </div>
+
+                <div class="form-item" id="div_dias_final" style="display: none;">
+                    <label for="id_dias_final">Quantidade de Dias:</label>
+                    <input type="number" name="dias_punicao" id="id_dias_final" min="1" value="1" style="width: 100%; padding: 10px;">
+                </div>
+
+                <!-- Motivo justificativa (full width, condicional) -->
+                <div class="form-item" id="div_motivo_final" style="display: none; grid-column: 1 / -1;">
                     <label for="id_motivo_final">Motivo da Justificativa (Obrigatório se justificada):</label>
                     <textarea name="motivo_justificativa" id="id_motivo_final" rows="3" style="width: 100%; padding: 10px;" placeholder="Explique por que foi justificada..."></textarea>
                 </div>
 
+                <!-- Linha 4: Boletim | Senha -->
                 <div class="form-item">
                     <label for="id_boletim_final">Boletim de Publicação:</label>
                     <input type="text" name="boletim_publicacao" required id="id_boletim_final" placeholder="Ex: BCA Nº 123 - 25/12/2025" style="width: 100%; padding: 10px;">
@@ -1009,7 +1185,7 @@
                     <input type="password" name="senha" required id="id_senha_ouvidoria" style="width: 100%; padding: 10px;">
                 </div>
             </div>
-            
+
             <div class="form-actions" style="justify-content: flex-end; margin-top: 20px;">
                 <button type="button" class="btn btn-secondary" id="cancel-finalizar-completa-btn">Cancelar</button>
                 <button type="submit" class="btn btn-danger">Confirmar e Finalizar</button>
@@ -1322,5 +1498,27 @@ const PATD_CONFIG = {
 };
 </script>
 <script src="{% static 'Ouvidoria/js/patd_detail.js' %}"></script>
+
+<script>
+(function () {
+    const btn = document.getElementById('back-to-top-btn');
+
+    function onScroll() {
+        const mc = document.querySelector('.main-container');
+        const scrollY = (mc && mc.scrollTop > 0) ? mc.scrollTop : window.scrollY;
+        btn.style.display = scrollY > 300 ? 'flex' : 'none';
+    }
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    const mc = document.querySelector('.main-container');
+    if (mc) mc.addEventListener('scroll', onScroll, { passive: true });
+
+    btn.addEventListener('click', () => {
+        const mc = document.querySelector('.main-container');
+        if (mc && mc.scrollTop > 0) mc.scrollTo({ top: 0, behavior: 'smooth' });
+        else window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+})();
+</script>
 
 {% endblock %}

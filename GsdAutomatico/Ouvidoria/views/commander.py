@@ -1,3 +1,4 @@
+import io
 import json
 import logging
 import os
@@ -14,7 +15,7 @@ from django.views.decorators.http import require_POST
 from django.utils.decorators import method_decorator
 from django.utils import timezone
 from django.urls import reverse
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from django.core.files.base import ContentFile
 from django.core.files import File
 from django.db import transaction
@@ -22,6 +23,7 @@ from django.db.models import Q, Count
 from django.db.models.functions import TruncMonth
 
 from ..models import PATD, Configuracao, Anexo
+from Secao_pessoal.models import Efetivo
 from ..forms import ComandanteAprovarForm
 from .decorators import (
     comandante_redirect, ouvidoria_required, comandante_required,
@@ -176,7 +178,11 @@ class ComandanteDashboardView(ListView):
         context['chart_labels'] = json.dumps(labels)
         context['chart_data_criadas'] = json.dumps(criadas_counts)
         context['chart_data_finalizadas'] = json.dumps(finalizadas_counts)
-        
+
+        context['status_choices'] = PATD.STATUS_CHOICES
+        context['oficiais_list'] = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
+        context['militares_list'] = Efetivo.objects.filter(deleted=False).order_by('posto', 'nome_guerra')
+
         return context
 
 
@@ -336,3 +342,291 @@ def anexar_documento_reconsideracao_oficial(request, pk):
         logger.error(f"Erro ao anexar documento de reconsideração oficial para PATD {pk}: {e}")
         messages.error(request, f"Ocorreu um erro ao anexar o documento: {e}")
         return redirect('Ouvidoria:patd_detail', pk=pk)
+
+
+@login_required
+@comandante_required
+def relatorio_json(request):
+    qs = PATD.objects.select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
+
+    data_inicio = request.GET.get('data_inicio')
+    data_fim = request.GET.get('data_fim')
+    status = request.GET.get('status')
+    oficial_pk = request.GET.get('oficial')
+    militar_pk = request.GET.get('militar')
+
+    if data_inicio:
+        qs = qs.filter(data_inicio__date__gte=data_inicio)
+    if data_fim:
+        qs = qs.filter(data_inicio__date__lte=data_fim)
+    if status:
+        qs = qs.filter(status=status)
+    if oficial_pk:
+        qs = qs.filter(oficial_responsavel__pk=oficial_pk)
+    if militar_pk:
+        qs = qs.filter(militar__pk=militar_pk)
+
+    patds_data = []
+    for p in qs[:200]:
+        patds_data.append({
+            'pk': p.pk,
+            'numero': p.numero_patd or '—',
+            'militar': str(p.militar) if p.militar else '—',
+            'oficial': str(p.oficial_responsavel) if p.oficial_responsavel else '—',
+            'data_inicio': p.data_inicio.strftime('%d/%m/%Y') if p.data_inicio else '—',
+            'data_ocorrencia': p.data_ocorrencia.strftime('%d/%m/%Y') if p.data_ocorrencia else '—',
+            'status_display': p.get_status_display(),
+            'status': p.status,
+        })
+
+    total = qs.count()
+    finalizadas = qs.filter(status='finalizado').count()
+    aguardando = qs.filter(status='analise_comandante').count()
+    em_andamento = total - finalizadas
+
+    return JsonResponse({
+        'patds': patds_data,
+        'kpis': {
+            'total': total,
+            'finalizadas': finalizadas,
+            'em_andamento': em_andamento,
+            'aguardando_decisao': aguardando,
+        }
+    })
+
+
+@login_required
+@comandante_required
+def relatorio_excel(request):
+    import openpyxl
+    from openpyxl.styles import Font, PatternFill, Alignment, Border, Side
+    from openpyxl.utils import get_column_letter
+    from openpyxl.chart import BarChart, PieChart, Reference, Series
+    from openpyxl.chart.label import DataLabelList
+
+    qs = PATD.objects.select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
+
+    data_inicio = request.GET.get('data_inicio')
+    data_fim    = request.GET.get('data_fim')
+    status      = request.GET.get('status')
+    oficial_pk  = request.GET.get('oficial')
+    militar_pk  = request.GET.get('militar')
+
+    if data_inicio: qs = qs.filter(data_inicio__date__gte=data_inicio)
+    if data_fim:    qs = qs.filter(data_inicio__date__lte=data_fim)
+    if status:      qs = qs.filter(status=status)
+    if oficial_pk:  qs = qs.filter(oficial_responsavel__pk=oficial_pk)
+    if militar_pk:  qs = qs.filter(militar__pk=militar_pk)
+
+    # Estatísticas
+    total           = qs.count()
+    n_finalizadas   = qs.filter(status='finalizado').count()
+    n_aguardando    = qs.filter(status='analise_comandante').count()
+    n_em_andamento  = total - n_finalizadas
+
+    wb = openpyxl.Workbook()
+
+    # ── Estilos compartilhados ──────────────────────────────────────────
+    def make_fill(hex_color):
+        return PatternFill('solid', fgColor=hex_color)
+
+    def make_border(color='D1D5DB'):
+        s = Side(style='thin', color=color)
+        return Border(left=s, right=s, top=s, bottom=s)
+
+    fill_dark    = make_fill('1E293B')
+    fill_amber   = make_fill('F59E0B')
+    fill_green   = make_fill('22C55E')
+    fill_red     = make_fill('EF4444')
+    fill_blue    = make_fill('3B82F6')
+    fill_alt     = make_fill('F8FAFC')
+    fill_kpi_bg  = make_fill('F1F5F9')
+    border       = make_border()
+    center       = Alignment(horizontal='center', vertical='center', wrap_text=True)
+    left_mid     = Alignment(horizontal='left',   vertical='center')
+
+    # ══════════════════════════════════════════════════════════════════════
+    # ABA 1 — RESUMO + GRÁFICO
+    # ══════════════════════════════════════════════════════════════════════
+    ws_resumo = wb.active
+    ws_resumo.title = 'Resumo'
+
+    # Título
+    ws_resumo.merge_cells('A1:F1')
+    ws_resumo['A1'] = 'RELATÓRIO DE PROCESSOS PATD'
+    ws_resumo['A1'].font = Font(bold=True, color='FFFFFF', size=16)
+    ws_resumo['A1'].fill = fill_amber
+    ws_resumo['A1'].alignment = center
+    ws_resumo.row_dimensions[1].height = 36
+
+    # Filtros
+    filtros = []
+    if data_inicio: filtros.append(f'De: {data_inicio}')
+    if data_fim:    filtros.append(f'Até: {data_fim}')
+    if status:      filtros.append(f'Status: {dict(PATD.STATUS_CHOICES).get(status, status)}')
+    ws_resumo.merge_cells('A2:F2')
+    ws_resumo['A2'] = ('Filtros aplicados: ' + ' | '.join(filtros)) if filtros else 'Filtros: Todos os registros'
+    ws_resumo['A2'].font = Font(italic=True, color='64748B', size=9)
+    ws_resumo['A2'].alignment = left_mid
+    ws_resumo.row_dimensions[2].height = 16
+
+    # Gerado em
+    from django.utils import timezone as tz
+    ws_resumo.merge_cells('A3:F3')
+    ws_resumo['A3'] = f'Gerado em: {tz.now().strftime("%d/%m/%Y %H:%M")}'
+    ws_resumo['A3'].font = Font(italic=True, color='94A3B8', size=9)
+    ws_resumo['A3'].alignment = left_mid
+    ws_resumo.row_dimensions[3].height = 14
+
+    ws_resumo.row_dimensions[4].height = 10  # espaço
+
+    # KPIs — cabeçalhos
+    kpi_headers = ['Total', 'Em Andamento', 'Finalizadas', 'Aguardando Decisão']
+    kpi_values  = [total, n_em_andamento, n_finalizadas, n_aguardando]
+    kpi_fills   = [fill_dark, fill_blue, fill_green, fill_red]
+
+    for col, (hdr, val, fill) in enumerate(zip(kpi_headers, kpi_values, kpi_fills), start=1):
+        # Header
+        h = ws_resumo.cell(row=5, column=col, value=hdr)
+        h.font = Font(bold=True, color='FFFFFF', size=10)
+        h.fill = fill
+        h.alignment = center
+        h.border = border
+        ws_resumo.row_dimensions[5].height = 20
+        # Valor
+        v = ws_resumo.cell(row=6, column=col, value=val)
+        v.font = Font(bold=True, size=22)
+        v.fill = fill_kpi_bg
+        v.alignment = center
+        v.border = border
+        ws_resumo.row_dimensions[6].height = 40
+
+    # Dados ocultos para o gráfico (linha 9-12)
+    ws_resumo['A9'] = 'Situação'
+    ws_resumo['B9'] = 'Quantidade'
+    chart_labels = ['Em Andamento', 'Finalizadas', 'Aguardando Decisão']
+    chart_values = [n_em_andamento, n_finalizadas, n_aguardando]
+    for i, (lbl, val) in enumerate(zip(chart_labels, chart_values)):
+        ws_resumo.cell(row=10 + i, column=1, value=lbl)
+        ws_resumo.cell(row=10 + i, column=2, value=val)
+
+    # Gráfico de pizza
+    pie = PieChart()
+    pie.title = 'Distribuição de Processos PATD'
+    pie.style = 10
+    pie.width  = 18
+    pie.height = 12
+
+    data_ref   = Reference(ws_resumo, min_col=2, min_row=9, max_row=12)
+    labels_ref = Reference(ws_resumo, min_col=1, min_row=10, max_row=12)
+    pie.add_data(data_ref, titles_from_data=True)
+    pie.set_categories(labels_ref)
+    pie.dataLabels = DataLabelList()
+    pie.dataLabels.showPercent = True
+    pie.dataLabels.showCatName = True
+    pie.dataLabels.showVal = False
+    pie.series[0].dLbls = pie.dataLabels
+
+    ws_resumo.add_chart(pie, 'A8')
+
+    # Gráfico de barras (ao lado)
+    bar = BarChart()
+    bar.type    = 'col'
+    bar.title   = 'Quantidade por Situação'
+    bar.style   = 10
+    bar.width   = 18
+    bar.height  = 12
+    bar.y_axis.title = 'Processos'
+    bar.x_axis.title = 'Situação'
+
+    bar_data   = Reference(ws_resumo, min_col=2, min_row=9, max_row=12)
+    bar_labels = Reference(ws_resumo, min_col=1, min_row=10, max_row=12)
+    bar.add_data(bar_data, titles_from_data=True)
+    bar.set_categories(bar_labels)
+    bar.dataLabels = DataLabelList()
+    bar.dataLabels.showVal = True
+
+    ws_resumo.add_chart(bar, 'D8')
+
+    # Larguras colunas resumo
+    for col, w in zip('ABCDEF', [20, 20, 20, 22, 10, 10]):
+        ws_resumo.column_dimensions[col].width = w
+
+    # Ocultar linhas de dados do gráfico
+    for r in range(9, 13):
+        ws_resumo.row_dimensions[r].hidden = True
+
+    # ══════════════════════════════════════════════════════════════════════
+    # ABA 2 — PROCESSOS (tabela completa)
+    # ══════════════════════════════════════════════════════════════════════
+    ws = wb.create_sheet('Processos')
+
+    # Título
+    ws.merge_cells('A1:H1')
+    ws['A1'] = 'LISTA DE PROCESSOS'
+    ws['A1'].font = Font(bold=True, color='FFFFFF', size=13)
+    ws['A1'].fill = fill_dark
+    ws['A1'].alignment = center
+    ws.row_dimensions[1].height = 28
+
+    # Cabeçalho tabela
+    headers = ['N° PATD', 'Militar Acusado', 'Posto', 'Oficial Apurador', 'Data Início', 'Data Ocorrência', 'Status', 'Punição']
+    for col, hdr in enumerate(headers, start=1):
+        cell = ws.cell(row=2, column=col, value=hdr)
+        cell.font = Font(bold=True, color='FFFFFF', size=10)
+        cell.fill = fill_dark
+        cell.alignment = center
+        cell.border = border
+    ws.row_dimensions[2].height = 22
+
+    # Dados
+    for row_idx, patd in enumerate(qs, start=3):
+        is_alt  = (row_idx % 2 == 0)
+        row_fill = fill_alt if is_alt else None
+        row_data = [
+            patd.numero_patd or '—',
+            patd.militar.nome_guerra if patd.militar else '—',
+            patd.militar.posto if patd.militar else '—',
+            str(patd.oficial_responsavel) if patd.oficial_responsavel else '—',
+            patd.data_inicio.strftime('%d/%m/%Y') if patd.data_inicio else '—',
+            patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else '—',
+            patd.get_status_display(),
+            getattr(patd, 'punicao', '') or '—',
+        ]
+        for col, value in enumerate(row_data, start=1):
+            cell = ws.cell(row=row_idx, column=col, value=value)
+            cell.border = border
+            cell.alignment = left_mid
+            if row_fill:
+                cell.fill = row_fill
+        ws.row_dimensions[row_idx].height = 18
+
+    # Total
+    total_row = ws.max_row + 1
+    ws.cell(row=total_row, column=1, value='TOTAL').font = Font(bold=True, color='FFFFFF')
+    ws.cell(row=total_row, column=1).fill = fill_amber
+    ws.cell(row=total_row, column=1).alignment = center
+    ws.cell(row=total_row, column=2, value=total).font = Font(bold=True, color='FFFFFF')
+    ws.cell(row=total_row, column=2).fill = fill_amber
+    ws.cell(row=total_row, column=2).alignment = center
+
+    # Larguras colunas processos
+    for col, w in enumerate([10, 22, 14, 24, 14, 16, 30, 20], start=1):
+        ws.column_dimensions[get_column_letter(col)].width = w
+
+    # Auto-filter e freeze
+    ws.auto_filter.ref = f'A2:H{ws.max_row}'
+    ws.freeze_panes = 'A3'
+
+    # Salvar e retornar
+    output = io.BytesIO()
+    wb.save(output)
+    output.seek(0)
+
+    filename = f'relatorio_patd_{tz.now().strftime("%Y%m%d_%H%M")}.xlsx'
+    response = HttpResponse(
+        output.getvalue(),
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = f'attachment; filename="{filename}"'
+    return response

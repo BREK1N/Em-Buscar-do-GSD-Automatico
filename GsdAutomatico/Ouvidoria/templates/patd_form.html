@@ -3,307 +3,675 @@
 
 {% block title %}Editar PATD Nº {{ form.instance.numero_patd }}{% endblock %}
 
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/css/tom-select.min.css">
+{% endblock %}
+
 {% block content %}
 <style>
-    /* Estilos (mantêm-se os mesmos) */
-    .form-card {
-        background-color: var(--bg-content);
+    /* ── Layout base ───────────────────────────────────────────── */
+    .edit-layout {
+        display: grid;
+        grid-template-columns: 240px 1fr;
+        gap: 24px;
+        align-items: start;
+    }
+
+    /* ── Sidebar de navegação ──────────────────────────────────── */
+    .edit-nav {
+        position: sticky;
+        top: 20px;
+        background: var(--bg-content);
         border: 1px solid var(--border-color);
         border-radius: 12px;
-        padding: 25px;
-        margin-bottom: 25px;
+        padding: 16px;
         box-shadow: var(--box-shadow);
     }
-    .form-card-header {
+    .edit-nav-title {
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: var(--text-muted);
+        margin-bottom: 10px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid var(--border-color);
+    }
+    .edit-nav a {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 10px;
+        border-radius: 8px;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-size: 0.88rem;
+        transition: background 0.15s, color 0.15s;
+        margin-bottom: 2px;
+    }
+    .edit-nav a:hover { background: var(--bg-main); color: var(--text-primary); }
+    .edit-nav a.active { background: var(--accent-color); color: #fff; font-weight: 600; }
+    .edit-nav a svg { width: 16px; height: 16px; flex-shrink: 0; }
+
+    /* Militar info no nav */
+    .edit-nav-militar {
+        background: var(--bg-main);
+        border-radius: 8px;
+        padding: 12px;
+        margin-bottom: 14px;
+        border-left: 3px solid var(--accent-color);
+    }
+    .edit-nav-militar .patd-num {
+        font-size: 1.1rem;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    .edit-nav-militar .militar-nome {
+        font-size: 0.82rem;
+        color: var(--text-muted);
+        margin-top: 2px;
+    }
+    .status-badge {
+        display: inline-block;
+        font-size: 0.7rem;
+        font-weight: 600;
+        padding: 3px 8px;
+        border-radius: 20px;
+        margin-top: 6px;
+        background: rgba(var(--accent-rgb, 59,130,246), 0.15);
+        color: var(--accent-color);
+    }
+
+    /* ── Conteúdo principal ────────────────────────────────────── */
+    .edit-main { min-width: 0; }
+
+    /* ── Cards de seção ────────────────────────────────────────── */
+    .section-card {
+        background: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        margin-bottom: 20px;
+        box-shadow: var(--box-shadow);
+        scroll-margin-top: 80px;
+    }
+    .section-card-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 16px 20px;
+        cursor: pointer;
+        user-select: none;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-content);
+        transition: background 0.15s;
+    }
+    .section-card-header:hover { background: var(--bg-main); }
+    .section-card-header-left {
         display: flex;
         align-items: center;
         gap: 10px;
-        border-bottom: 1px solid var(--border-color);
-        padding-bottom: 15px;
-        margin-bottom: 20px;
     }
-    .form-card-header svg {
-        width: 24px;
-        height: 24px;
+    .section-card-header svg.section-icon {
+        width: 20px;
+        height: 20px;
         color: var(--accent-color);
     }
-    .form-card-header h2 {
+    .section-card-header h2 {
         margin: 0;
-        font-size: 1.2rem;
+        font-size: 1rem;
+        font-weight: 600;
+        color: var(--text-primary);
     }
-    .form-card-body .form-grid {
+    .section-card-header .chevron {
+        width: 18px;
+        height: 18px;
+        color: var(--text-muted);
+        transition: transform 0.2s;
+    }
+    .section-card-header.collapsed .chevron { transform: rotate(-90deg); }
+    .section-card-body {
+        padding: 20px;
+    }
+    .section-card-body.hidden { display: none; }
+
+    /* ── Grid de campos ────────────────────────────────────────── */
+    .field-grid {
         display: grid;
-        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
-        gap: 20px;
+        grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+        gap: 16px;
     }
-    .form-card-body .form-item {
+    .field-item {
         display: flex;
         flex-direction: column;
     }
-    .form-card-body .form-item.full-width {
-        grid-column: 1 / -1;
-    }
-    .form-card-body .form-item label {
-        margin-bottom: 8px;
-        font-weight: 500;
+    .field-item.full { grid-column: 1 / -1; }
+    .field-item.half { grid-column: span 1; }
+
+    .field-item label {
+        font-size: 0.8rem;
+        font-weight: 600;
         color: var(--text-secondary);
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 0.04em;
     }
-    .form-card-body .form-item input,
-    .form-card-body .form-item select,
-    .form-card-body .form-item textarea {
+    .field-item input,
+    .field-item select,
+    .field-item textarea {
         width: 100%;
-        padding: 10px;
-        border-radius: 6px;
+        padding: 10px 12px;
+        border-radius: 8px;
         border: 1px solid var(--border-color);
-        background-color: var(--bg-main);
+        background: var(--bg-main);
         color: var(--text-primary);
+        font-size: 0.92rem;
         box-sizing: border-box;
+        transition: border-color 0.15s, box-shadow 0.15s;
     }
-    .form-card-body .form-item textarea {
-        min-height: 100px;
-        resize: vertical;
+    .field-item input:focus,
+    .field-item select:focus,
+    .field-item textarea:focus {
+        outline: none;
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.15);
     }
-    .form-card-body .form-item small {
-        margin-top: 5px;
-        font-size: 0.8rem;
-        color: var(--text-secondary);
+    .field-item input[disabled],
+    .field-item select[disabled] {
+        opacity: 0.55;
+        cursor: not-allowed;
     }
-    .form-item-header {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        margin-bottom: 8px;
+    .field-item textarea { resize: vertical; min-height: 90px; }
+    .field-hint {
+        font-size: 0.76rem;
+        color: var(--text-muted);
+        margin-top: 4px;
     }
-    .regenerate-btn {
-        background: none;
-        border: 1px solid var(--accent-color);
-        color: var(--accent-color);
-        padding: 4px 8px;
-        border-radius: 4px;
-        cursor: pointer;
-        font-size: 0.8rem;
-    }
-    .alert-error { /* Adicionado para erros */
+    .field-error {
+        font-size: 0.76rem;
         color: var(--danger-color);
-        font-size: 0.8rem;
-        margin-top: 5px;
+        margin-top: 4px;
     }
+
+    /* ── Header do campo com botão IA ──────────────────────────── */
+    .field-label-row {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 6px;
+    }
+    .field-label-row label { margin-bottom: 0; }
+    .ia-btn {
+        display: inline-flex;
+        align-items: center;
+        gap: 5px;
+        font-size: 0.75rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 6px;
+        border: 1px solid var(--accent-color);
+        background: transparent;
+        color: var(--accent-color);
+        cursor: pointer;
+        transition: background 0.15s, color 0.15s;
+        white-space: nowrap;
+    }
+    .ia-btn:hover { background: var(--accent-color); color: #fff; }
+    .ia-btn:disabled { opacity: 0.5; cursor: not-allowed; }
+    .ia-btn svg { width: 13px; height: 13px; }
+
+    /* ── Barra de ações fixa ───────────────────────────────────── */
+    .action-bar {
+        position: sticky;
+        bottom: 0;
+        background: var(--bg-content);
+        border-top: 1px solid var(--border-color);
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 10px;
+        z-index: 100;
+        border-radius: 0 0 12px 12px;
+        margin-top: -1px;
+        box-shadow: 0 -4px 16px rgba(0,0,0,0.08);
+    }
+    .action-bar-last { /* last section card gets the sticky bar */ }
+
+    /* override for sticky bar inside the last card */
+    .edit-sticky-bar {
+        position: sticky;
+        bottom: 0;
+        z-index: 50;
+        background: var(--bg-content);
+        border-top: 1px solid var(--border-color);
+        padding: 14px 20px;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 10px;
+        margin-top: 20px;
+        border-radius: 12px;
+        box-shadow: 0 -2px 12px rgba(0,0,0,0.1);
+    }
+    .edit-sticky-bar .save-hint {
+        font-size: 0.8rem;
+        color: var(--text-muted);
+    }
+
+    /* ── Divider entre grupos de campos ────────────────────────── */
+    .field-group-label {
+        grid-column: 1 / -1;
+        font-size: 0.72rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.06em;
+        color: var(--text-muted);
+        border-bottom: 1px dashed var(--border-color);
+        padding-bottom: 4px;
+        margin-top: 4px;
+    }
+
+    /* ── Responsivo ────────────────────────────────────────────── */
+    @media (max-width: 900px) {
+        .edit-layout { grid-template-columns: 1fr; }
+        .edit-nav { position: static; }
+    }
+
+    /* ── Tom Select – integração com o tema ────────────────────── */
+    .ts-wrapper { width: 100%; }
+    .ts-control {
+        background: var(--bg-main) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+        color: var(--text-primary) !important;
+        padding: 9px 12px !important;
+        font-size: 0.92rem !important;
+        box-shadow: none !important;
+        min-height: unset !important;
+    }
+    .ts-control input {
+        color: var(--text-primary) !important;
+        background: transparent !important;
+        padding: 0 !important;
+        border: none !important;
+    }
+    .ts-control input::placeholder { color: var(--text-muted) !important; }
+    .ts-wrapper.focus .ts-control {
+        border-color: var(--accent-color) !important;
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.15) !important;
+    }
+    .ts-dropdown {
+        background: var(--bg-content) !important;
+        border: 1px solid var(--border-color) !important;
+        border-radius: 8px !important;
+        box-shadow: 0 8px 24px rgba(0,0,0,0.15) !important;
+        margin-top: 4px !important;
+    }
+    .ts-dropdown .option {
+        color: var(--text-primary) !important;
+        padding: 8px 12px !important;
+        font-size: 0.9rem !important;
+    }
+    .ts-dropdown .option:hover,
+    .ts-dropdown .option.active { background: var(--accent-color) !important; color: #fff !important; }
+    .ts-dropdown .no-results { color: var(--text-muted) !important; padding: 10px 12px !important; }
+    /* item selecionado (single mode) */
+    .ts-control .item { color: var(--text-primary) !important; }
 </style>
 
-<div class="patd-header">
-    <h1>Editar PATD Nº {{ form.instance.numero_patd }}</h1>
-    <p>Militar: <strong>{{ form.instance.militar }}</strong></p>
-</div>
+<div class="edit-layout">
 
-<form method="post" class="model-form">
-    {% csrf_token %}
-    {{ form.non_field_errors }} {# Exibe erros gerais do formulário #}
-
-    <div class="form-card">
-        <div class="form-card-header">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12.75h.008M8.25 15h.008M8.25 18h.008m3.75-12h.008m2.25-3h.008M12 6h.008m-2.25 6h.008m2.25 6h.008M12 18h.008m-3.75-6h.008m2.25-6h.008" /></svg>
-            <h2>Informações da Transgressão</h2>
+    <!-- ── Sidebar ─────────────────────────────────────────────── -->
+    <aside class="edit-nav">
+        <div class="edit-nav-militar">
+            <div class="patd-num">PATD Nº {{ form.instance.numero_patd }}</div>
+            <div class="militar-nome">{{ form.instance.militar }}</div>
+            <span class="status-badge">{{ form.instance.get_status_display }}</span>
         </div>
-        <div class="form-card-body">
-            <div class="form-card-body">
-            <div class="form-grid">
-                <div class="form-item">
-                    <label for="{{ form.numero_patd.id_for_label }}">{{ form.numero_patd.label }}:</label>
-                    {{ form.numero_patd }}
-                    {% for error in form.numero_patd.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                    <small>Ao alterar este número, a próxima PATD criada seguirá a sequência a partir do maior número existente.</small>
-                </div>
-                <div class="form-item">
-                    <label for="{{ form.data_ocorrencia.id_for_label }}">{{ form.data_ocorrencia.label }}:</label>
-                    {{ form.data_ocorrencia }}
-                    {% for error in form.data_ocorrencia.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item full-width">
-                    <label for="{{ form.transgressao.id_for_label }}">{{ form.transgressao.label }}:</label>
-                    {{ form.transgressao }}
-                    {% for error in form.transgressao.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="form-card">
-        <div class="form-card-header">
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m-7.5-2.228a4.5 4.5 0 00-1.897 1.13l-2.685.8.8-2.685a4.5 4.5 0 001.13-1.897M16.5 7.5V18L18 15.75l-1.5-3.75V7.5z" /></svg>
-            <h2>Envolvidos</h2>
-        </div>
-        <div class="form-card-body">
-            <div class="form-grid">
-                 <div class="form-item">
-                    <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}:</label>
-                    {{ form.oficial_responsavel }}
-                    {% for error in form.oficial_responsavel.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item">
-                    <label for="{{ form.testemunha1.id_for_label }}">{{ form.testemunha1.label }}:</label>
-                    {{ form.testemunha1 }}
-                    {% for error in form.testemunha1.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item">
-                    <label for="{{ form.testemunha2.id_for_label }}">{{ form.testemunha2.label }}:</label>
-                    {{ form.testemunha2 }}
-                    {% for error in form.testemunha2.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <div class="form-card">
-        <div class="form-card-header">
+        <div class="edit-nav-title">Seções</div>
+        <a href="#sec-identificacao" class="nav-link active">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25" /></svg>
+            Identificação
+        </a>
+        <a href="#sec-envolvidos" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+            Envolvidos
+        </a>
+        <a href="#sec-apuracao" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+            Dados com IA
+        </a>
+        <a href="#sec-enquadramento" class="nav-link">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
-             <h2>Dados da Apuração (IA)</h2>
-        </div>
-        <div class="form-card-body">
-            <div class="form-grid">
-                <div class="form-item full-width">
-                    <div class="form-item-header">
-                        <label for="{{ form.ocorrencia_reescrita.id_for_label }}">{{ form.ocorrencia_reescrita.label }}:</label>
-                        <button type="button" class="regenerate-btn" id="regenerate-ocorrencia">Gerar com IA</button>
+            Enquadramento
+        </a>
+        {% if form.instance.status == 'aguardando_preenchimento_npd_reconsideracao' or form.instance.status == 'aguardando_publicacao' %}
+        <a href="#sec-reconsideracao" class="nav-link">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
+            Reconsideração
+        </a>
+        {% endif %}
+    </aside>
+
+    <!-- ── Formulário principal ─────────────────────────────────── -->
+    <div class="edit-main">
+        <form method="post" class="model-form" id="patd-edit-form">
+            {% csrf_token %}
+            {{ form.non_field_errors }}
+
+            <!-- 1. Identificação -->
+            <div class="section-card" id="sec-identificacao">
+                <div class="section-card-header" onclick="toggleSection(this)">
+                    <div class="section-card-header-left">
+                        <svg class="section-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25" /></svg>
+                        <h2>Identificação da Transgressão</h2>
                     </div>
-                    {{ form.ocorrencia_reescrita }}
-                    {% for error in form.ocorrencia_reescrita.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                    <svg class="chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </div>
-                <div class="form-item full-width">
-                    <div class="form-item-header">
-                        <label for="{{ form.alegacao_defesa_resumo.id_for_label }}">{{ form.alegacao_defesa_resumo.label }}:</label>
-                        <button type="button" class="regenerate-btn" id="regenerate-resumo">Gerar com IA</button>
+                <div class="section-card-body">
+                    <div class="field-grid">
+                        <div class="field-item">
+                            <label for="{{ form.numero_patd.id_for_label }}">{{ form.numero_patd.label }}</label>
+                            {{ form.numero_patd }}
+                            <span class="field-hint">Alterar redefine a sequência da próxima PATD.</span>
+                            {% for e in form.numero_patd.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.data_ocorrencia.id_for_label }}">{{ form.data_ocorrencia.label }}</label>
+                            {{ form.data_ocorrencia }}
+                            {% for e in form.data_ocorrencia.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.status.id_for_label }}">Status Atual</label>
+                            {{ form.status }}
+                            <span class="field-hint">O status é gerenciado automaticamente pelo sistema.</span>
+                        </div>
+                        <div class="field-item full">
+                            <label for="{{ form.transgressao.id_for_label }}">{{ form.transgressao.label }}</label>
+                            {{ form.transgressao }}
+                            {% for e in form.transgressao.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item full">
+                            <label for="{{ form.comprovante.id_for_label }}">{{ form.comprovante.label }}</label>
+                            {{ form.comprovante }}
+                            {% for e in form.comprovante.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
                     </div>
-                    {{ form.alegacao_defesa_resumo }}
-                    {% for error in form.alegacao_defesa_resumo.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item full-width">
-                    <div class="form-item-header">
-                        <label for="{{ form.texto_relatorio.id_for_label }}">{{ form.texto_relatorio.label }}:</label>
-                        <button type="button" class="regenerate-btn" id="regenerate-relatorio">Gerar com IA</button>
-                    </div>
-                    {{ form.texto_relatorio }}
-                    {% for error in form.texto_relatorio.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item full-width">
-                    <label for="{{ form.itens_enquadrados_text.id_for_label }}">{{ form.itens_enquadrados_text.label }}:</label>
-                    {{ form.itens_enquadrados_text }}
-                    <small>{{ form.itens_enquadrados_text.help_text }}</small>
-                    {% for error in form.itens_enquadrados_text.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item">
-                    <label for="{{ form.atenuantes.id_for_label }}">{{ form.atenuantes.label }}:</label>
-                    {{ form.atenuantes }}
-                    <small>{{ form.atenuantes.help_text }}</small>
-                    {% for error in form.atenuantes.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item">
-                    <label for="{{ form.agravantes.id_for_label }}">{{ form.agravantes.label }}:</label>
-                    {{ form.agravantes }}
-                    <small>{{ form.agravantes.help_text }}</small>
-                    {% for error in form.agravantes.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item">
-                    <label for="{{ form.punicao_sugerida_dias.id_for_label }}">{{ form.punicao_sugerida_dias.label }}:</label>
-                    {{ form.punicao_sugerida_dias }}
-                    <small>{{ form.punicao_sugerida_dias.help_text }}</small>
-                    {% for error in form.punicao_sugerida_dias.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-                </div>
-                <div class="form-item">
-                    <label for="{{ form.punicao_sugerida_tipo.id_for_label }}">{{ form.punicao_sugerida_tipo.label }}:</label>
-                    {{ form.punicao_sugerida_tipo }}
-                    <small>{{ form.punicao_sugerida_tipo.help_text }}</small>
-                    {% for error in form.punicao_sugerida_tipo.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
                 </div>
             </div>
-        </div>
-    </div>
 
-    {% if form.instance.status == 'aguardando_preenchimento_npd_reconsideracao' or form.instance.status == 'aguardando_publicacao' %}
-    <div class="form-card">
-        <div class="form-card-header">
-             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="24" height="24"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
-            <h2>Punição Pós-Reconsideração</h2>
-        </div>
-        <div class="form-card-body">
-            <div class="form-grid">
-                 <div class="form-item">
-                    <label for="{{ form.nova_punicao_dias_num.id_for_label }}">{{ form.nova_punicao_dias_num.label }}:</label>
-                    {{ form.nova_punicao_dias_num }}
-                    <small>{{ form.nova_punicao_dias_num.help_text }}</small>
-                     {% for error in form.nova_punicao_dias_num.errors %}<div class="alert-error" style="margin-top: 5px;">{{ error }}</div>{% endfor %}
+            <!-- 2. Envolvidos -->
+            <div class="section-card" id="sec-envolvidos">
+                <div class="section-card-header" onclick="toggleSection(this)">
+                    <div class="section-card-header-left">
+                        <svg class="section-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+                        <h2>Envolvidos no Processo</h2>
+                    </div>
+                    <svg class="chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
                 </div>
-                <div class="form-item">
-                    <label for="{{ form.nova_punicao_tipo.id_for_label }}">{{ form.nova_punicao_tipo.label }}:</label>
-                    {{ form.nova_punicao_tipo }}
-                     {% for error in form.nova_punicao_tipo.errors %}<div class="alert-error" style="margin-top: 5px;">{{ error }}</div>{% endfor %}
+                <div class="section-card-body">
+                    <div class="field-grid">
+                        <div class="field-item">
+                            <label for="{{ form.oficial_responsavel.id_for_label }}">{{ form.oficial_responsavel.label }}</label>
+                            {{ form.oficial_responsavel }}
+                            {% for e in form.oficial_responsavel.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.testemunha1.id_for_label }}">{{ form.testemunha1.label }}</label>
+                            {{ form.testemunha1 }}
+                            {% for e in form.testemunha1.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.testemunha2.id_for_label }}">{{ form.testemunha2.label }}</label>
+                            {{ form.testemunha2 }}
+                            {% for e in form.testemunha2.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
-    </div>
-    {% endif %}
 
-    <div class="form-actions">
-        <button type="submit" class="btn btn-primary">Salvar Alterações</button>
-        <a href="{% url 'Ouvidoria:patd_detail' form.instance.pk %}" class="btn btn-secondary">Cancelar</a>
-    </div>
-</form>
+            <!-- 3. Dados da Apuração (IA) -->
+            <div class="section-card" id="sec-apuracao">
+                <div class="section-card-header" onclick="toggleSection(this)">
+                    <div class="section-card-header-left">
+                        <svg class="section-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                        <h2>Dados da Apuração</h2>
+                    </div>
+                    <svg class="chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </div>
+                <div class="section-card-body">
+                    <div class="field-grid">
+                        <div class="field-item full">
+                            <div class="field-label-row">
+                                <label for="{{ form.ocorrencia_reescrita.id_for_label }}">{{ form.ocorrencia_reescrita.label }}</label>
+                                <button type="button" class="ia-btn" id="regenerate-ocorrencia">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                                    Gerar com IA
+                                </button>
+                            </div>
+                            {{ form.ocorrencia_reescrita }}
+                            {% for e in form.ocorrencia_reescrita.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item full">
+                            <div class="field-label-row">
+                                <label for="{{ form.alegacao_defesa_resumo.id_for_label }}">{{ form.alegacao_defesa_resumo.label }}</label>
+                                <button type="button" class="ia-btn" id="regenerate-resumo">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                                    Gerar com IA
+                                </button>
+                            </div>
+                            {{ form.alegacao_defesa_resumo }}
+                            {% for e in form.alegacao_defesa_resumo.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item full">
+                            <div class="field-label-row">
+                                <label for="{{ form.texto_relatorio.id_for_label }}">{{ form.texto_relatorio.label }}</label>
+                                <button type="button" class="ia-btn" id="regenerate-relatorio">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9.813 15.904L9 18.75l-.813-2.846a4.5 4.5 0 00-3.09-3.09L2.25 12l2.846-.813a4.5 4.5 0 003.09-3.09L9 5.25l.813 2.846a4.5 4.5 0 003.09 3.09L15.75 12l-2.846.813a4.5 4.5 0 00-3.09 3.09z" /></svg>
+                                    Gerar com IA
+                                </button>
+                            </div>
+                            {{ form.texto_relatorio }}
+                            {% for e in form.texto_relatorio.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item full">
+                            <label for="{{ form.transgressao_afirmativa.id_for_label }}">{{ form.transgressao_afirmativa.label }}</label>
+                            {{ form.transgressao_afirmativa }}
+                            {% for e in form.transgressao_afirmativa.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.natureza_transgressao.id_for_label }}">{{ form.natureza_transgressao.label }}</label>
+                            {{ form.natureza_transgressao }}
+                            {% for e in form.natureza_transgressao.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.comportamento.id_for_label }}">{{ form.comportamento.label }}</label>
+                            {{ form.comportamento }}
+                            {% for e in form.comportamento.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 4. Enquadramento e Punição -->
+            <div class="section-card" id="sec-enquadramento">
+                <div class="section-card-header" onclick="toggleSection(this)">
+                    <div class="section-card-header-left">
+                        <svg class="section-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25H12" /></svg>
+                        <h2>Enquadramento e Punição Sugerida</h2>
+                    </div>
+                    <svg class="chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </div>
+                <div class="section-card-body">
+                    <div class="field-grid">
+                        <div class="field-item full">
+                            <label for="{{ form.itens_enquadrados_text.id_for_label }}">{{ form.itens_enquadrados_text.label }}</label>
+                            {{ form.itens_enquadrados_text }}
+                            <span class="field-hint">{{ form.itens_enquadrados_text.help_text }}</span>
+                            {% for e in form.itens_enquadrados_text.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.atenuantes.id_for_label }}">{{ form.atenuantes.label }}</label>
+                            {{ form.atenuantes }}
+                            <span class="field-hint">{{ form.atenuantes.help_text }}</span>
+                            {% for e in form.atenuantes.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.agravantes.id_for_label }}">{{ form.agravantes.label }}</label>
+                            {{ form.agravantes }}
+                            <span class="field-hint">{{ form.agravantes.help_text }}</span>
+                            {% for e in form.agravantes.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-group-label">Punição Sugerida pela IA</div>
+                        <div class="field-item">
+                            <label for="{{ form.punicao_sugerida_tipo.id_for_label }}">{{ form.punicao_sugerida_tipo.label }}</label>
+                            {{ form.punicao_sugerida_tipo }}
+                            <span class="field-hint">{{ form.punicao_sugerida_tipo.help_text }}</span>
+                            {% for e in form.punicao_sugerida_tipo.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.punicao_sugerida_dias.id_for_label }}">{{ form.punicao_sugerida_dias.label }}</label>
+                            {{ form.punicao_sugerida_dias }}
+                            <span class="field-hint">{{ form.punicao_sugerida_dias.help_text }}</span>
+                            {% for e in form.punicao_sugerida_dias.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- 5. Reconsideração (condicional) -->
+            {% if form.instance.status == 'aguardando_preenchimento_npd_reconsideracao' or form.instance.status == 'aguardando_publicacao' %}
+            <div class="section-card" id="sec-reconsideracao">
+                <div class="section-card-header" onclick="toggleSection(this)">
+                    <div class="section-card-header-left">
+                        <svg class="section-icon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
+                        <h2>Punição Pós-Reconsideração</h2>
+                    </div>
+                    <svg class="chevron" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19 9l-7 7-7-7"/></svg>
+                </div>
+                <div class="section-card-body">
+                    <div class="field-grid">
+                        <div class="field-item">
+                            <label for="{{ form.nova_punicao_tipo.id_for_label }}">{{ form.nova_punicao_tipo.label }}</label>
+                            {{ form.nova_punicao_tipo }}
+                            {% for e in form.nova_punicao_tipo.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                        <div class="field-item">
+                            <label for="{{ form.nova_punicao_dias_num.id_for_label }}">{{ form.nova_punicao_dias_num.label }}</label>
+                            {{ form.nova_punicao_dias_num }}
+                            <span class="field-hint">{{ form.nova_punicao_dias_num.help_text }}</span>
+                            {% for e in form.nova_punicao_dias_num.errors %}<span class="field-error">{{ e }}</span>{% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+
+            <!-- Barra de ações -->
+            <div class="edit-sticky-bar">
+                <span class="save-hint">Todas as alterações serão salvas ao confirmar.</span>
+                <div style="display:flex; gap:10px;">
+                    <a href="{% url 'Ouvidoria:patd_detail' form.instance.pk %}" class="btn btn-secondary">Cancelar</a>
+                    <button type="submit" class="btn btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;margin-right:5px;vertical-align:-2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5" /></svg>
+                        Salvar Alterações
+                    </button>
+                </div>
+            </div>
+
+        </form>
+    </div><!-- /.edit-main -->
+</div><!-- /.edit-layout -->
 
 <script>
-// JavaScript existente para os botões "Gerar com IA"
-document.addEventListener('DOMContentLoaded', function() {
-    function getCookie(name) {
-        let cookieValue = null;
-        if (document.cookie && document.cookie !== '') {
-            const cookies = document.cookie.split(';');
-            for (let i = 0; i < cookies.length; i++) {
-                const cookie = cookies[i].trim();
-                if (cookie.substring(0, name.length + 1) === (name + '=')) {
-                    cookieValue = decodeURIComponent(cookie.substring(name.length + 1));
-                    break;
-                }
-            }
+function toggleSection(header) {
+    header.classList.toggle('collapsed');
+    const body = header.nextElementSibling;
+    body.classList.toggle('hidden');
+}
+
+// Destaque do link ativo na sidebar ao rolar
+const navLinks = document.querySelectorAll('.edit-nav .nav-link');
+const sections = document.querySelectorAll('.section-card');
+const observer = new IntersectionObserver(entries => {
+    entries.forEach(entry => {
+        if (entry.isIntersecting) {
+            navLinks.forEach(l => l.classList.remove('active'));
+            const link = document.querySelector(`.edit-nav a[href="#${entry.target.id}"]`);
+            if (link) link.classList.add('active');
         }
-        return cookieValue;
-    }
+    });
+}, { rootMargin: '-30% 0px -60% 0px' });
+sections.forEach(s => observer.observe(s));
 
-    function handleRegenerate(buttonId, url, textareaId) {
-        const button = document.getElementById(buttonId);
-        if (!button) return;
+// Navegação suave da sidebar
+navLinks.forEach(link => {
+    link.addEventListener('click', e => {
+        e.preventDefault();
+        const target = document.querySelector(link.getAttribute('href'));
+        if (target) target.scrollIntoView({ behavior: 'smooth', block: 'start' });
+    });
+});
 
-        button.addEventListener('click', function() {
-            button.textContent = 'Gerando...';
-            button.disabled = true;
-
-            fetch(url, {
-                method: 'POST',
-                headers: {
-                    'X-CSRFToken': getCookie('csrftoken'),
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({})
-            })
-            .then(response => response.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById(textareaId).value = data.novo_texto;
-                } else {
-                    alert('Erro: ' + data.message);
-                }
-            })
-            .catch(error => {
-                console.error('Erro:', error);
-                alert('Ocorreu um erro de comunicação.');
-            })
-            .finally(() => {
-                button.textContent = 'Gerar com IA';
-                button.disabled = false;
-            });
+// Botões IA
+function getCookie(name) {
+    let v = null;
+    if (document.cookie) {
+        document.cookie.split(';').forEach(c => {
+            c = c.trim();
+            if (c.startsWith(name + '=')) v = decodeURIComponent(c.slice(name.length + 1));
         });
     }
+    return v;
+}
 
-    handleRegenerate('regenerate-ocorrencia', `{% url 'Ouvidoria:regenerar_ocorrencia' form.instance.pk %}`, '{{ form.ocorrencia_reescrita.id_for_label }}');
-    handleRegenerate('regenerate-resumo', `{% url 'Ouvidoria:regenerar_resumo_defesa' form.instance.pk %}`, '{{ form.alegacao_defesa_resumo.id_for_label }}');
-    handleRegenerate('regenerate-relatorio', `{% url 'Ouvidoria:regenerar_texto_relatorio' form.instance.pk %}`, '{{ form.texto_relatorio.id_for_label }}');
+function handleRegenerate(buttonId, url, fieldId) {
+    const btn = document.getElementById(buttonId);
+    if (!btn) return;
+    btn.addEventListener('click', function() {
+        const orig = btn.innerHTML;
+        btn.textContent = 'Gerando…';
+        btn.disabled = true;
+        fetch(url, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' },
+            body: JSON.stringify({})
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') document.getElementById(fieldId).value = data.novo_texto;
+            else alert('Erro: ' + data.message);
+        })
+        .catch(() => alert('Erro de comunicação.'))
+        .finally(() => { btn.innerHTML = orig; btn.disabled = false; });
+    });
+}
+
+handleRegenerate('regenerate-ocorrencia', `{% url 'Ouvidoria:regenerar_ocorrencia' form.instance.pk %}`, '{{ form.ocorrencia_reescrita.id_for_label }}');
+handleRegenerate('regenerate-resumo', `{% url 'Ouvidoria:regenerar_resumo_defesa' form.instance.pk %}`, '{{ form.alegacao_defesa_resumo.id_for_label }}');
+handleRegenerate('regenerate-relatorio', `{% url 'Ouvidoria:regenerar_texto_relatorio' form.instance.pk %}`, '{{ form.texto_relatorio.id_for_label }}');
+</script>
+
+<script src="https://cdn.jsdelivr.net/npm/tom-select@2.3.1/dist/js/tom-select.complete.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    const tsConfig = {
+        create: false,
+        sortField: { field: 'text', direction: 'asc' },
+        placeholder: 'Digite para pesquisar...',
+        allowEmptyOption: true,
+        dropdownParent: 'body',
+        render: {
+            no_results: () => '<div class="no-results">Nenhum resultado encontrado.</div>'
+        }
+    };
+
+    ['{{ form.oficial_responsavel.id_for_label }}',
+     '{{ form.testemunha1.id_for_label }}',
+     '{{ form.testemunha2.id_for_label }}'].forEach(id => {
+        const el = document.getElementById(id);
+        if (el) new TomSelect(el, tsConfig);
+    });
 });
 </script>
 

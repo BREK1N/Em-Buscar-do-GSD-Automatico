@@ -31,6 +31,10 @@ def oficial_responsavel_required(view_func):
     def _wrapped_view(request, pk, *args, **kwargs):
         patd = get_object_or_404(PATD, pk=pk)
 
+        # Superusuário sempre tem acesso
+        if request.user.is_superuser:
+            return view_func(request, pk, *args, **kwargs)
+
         # Verifica se o usuário tem um perfil militar e se ele é o oficial responsável
         if (hasattr(request.user, 'profile') and
             request.user.profile.militar and

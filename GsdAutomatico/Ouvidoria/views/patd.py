@@ -492,6 +492,15 @@ class PATDListView(ListView):
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
         context['status_groups'] = STATUS_GROUPS
+
+        # Notificação: PATDs aguardando aceitação do oficial logado
+        user_militar = getattr(getattr(self.request.user, 'profile', None), 'militar', None)
+        if user_militar:
+            context['patds_pendentes_aceitacao'] = PATD.objects.filter(
+                oficial_responsavel=user_militar,
+                oficial_aceitou=None,
+                status='finalizado'
+            ).count()
         context['current_status'] = self.request.GET.get('status', '')
 
         # --- Sorting Context ---
@@ -637,6 +646,107 @@ class PATDDetailView(DetailView):
                 })
 
         context['historico_punicoes'] = historico_punicoes
+
+        # ── Avisos de assinaturas pendentes por fase ─────────────────────────
+        assinaturas_pendentes = []
+        s = patd.status
+
+        if s == 'ciencia_militar':
+            if not (patd.assinaturas_militar and len(patd.assinaturas_militar) > 0):
+                assinaturas_pendentes.append({
+                    'quem': 'Militar Arrolado',
+                    'descricao': 'Assinatura de Ciência (tomar conhecimento da instauração)',
+                    'urgente': True,
+                })
+
+        if s in ('aguardando_justificativa',):
+            if not patd.assinatura_alegacao_defesa:
+                assinaturas_pendentes.append({
+                    'quem': 'Militar Arrolado',
+                    'descricao': 'Assinatura na Alegação de Defesa',
+                    'urgente': True,
+                })
+
+        # Em apuração: apenas aviso de oficial (doc ainda não gerado, testemunhas assinam depois)
+        if s in ('preclusao', 'em_apuracao', 'apuracao_preclusao'):
+            if not patd.assinatura_oficial:
+                assinaturas_pendentes.append({
+                    'quem': 'Oficial Responsável',
+                    'descricao': f'Assinatura do Oficial ({patd.oficial_responsavel or "não atribuído"})',
+                    'urgente': False,
+                })
+
+        # Aguardando punição: apenas assinatura do oficial pendente (testemunhas e militar assinam após retorno do comandante)
+        if s in ('aguardando_punicao', 'aguardando_punicao_alterar'):
+            if not patd.assinatura_oficial:
+                assinaturas_pendentes.append({
+                    'quem': 'Oficial Responsável',
+                    'descricao': f'Assinatura do Oficial ({patd.oficial_responsavel or "não atribuído"})',
+                    'urgente': False,
+                })
+
+        if s == 'aguardando_assinatura_npd':
+            if not patd.assinatura_oficial:
+                assinaturas_pendentes.append({
+                    'quem': f'Oficial Responsável — {patd.oficial_responsavel}' if patd.oficial_responsavel else 'Oficial Responsável',
+                    'descricao': 'Assinatura na NPD',
+                    'urgente': True,
+                })
+            num_sig_militar = len(patd.assinaturas_militar or [])
+            if num_sig_militar == 0:
+                assinaturas_pendentes.append({
+                    'quem': f'Militar Arrolado — {patd.militar}',
+                    'descricao': 'Assinatura na NPD (ainda nenhuma registrada)',
+                    'urgente': True,
+                })
+            if patd.testemunha1 and not patd.assinatura_testemunha1:
+                assinaturas_pendentes.append({
+                    'quem': f'1ª Testemunha — {patd.testemunha1}',
+                    'descricao': 'Assinatura na NPD',
+                    'urgente': True,
+                })
+            if patd.testemunha2 and not patd.assinatura_testemunha2:
+                assinaturas_pendentes.append({
+                    'quem': f'2ª Testemunha — {patd.testemunha2}',
+                    'descricao': 'Assinatura na NPD',
+                    'urgente': True,
+                })
+
+        if s == 'em_reconsideracao':
+            if not patd.assinatura_reconsideracao:
+                assinaturas_pendentes.append({
+                    'quem': 'Militar Arrolado',
+                    'descricao': 'Assinatura no Pedido de Reconsideração',
+                    'urgente': True,
+                })
+
+        if s in ('aguardando_preenchimento_npd_reconsideracao',):
+            num_npd_recon = len(patd.assinaturas_npd_reconsideracao or [])
+            if num_npd_recon == 0:
+                assinaturas_pendentes.append({
+                    'quem': 'Militar Arrolado',
+                    'descricao': 'Assinatura na NPD de Reconsideração (ainda nenhuma registrada)',
+                    'urgente': True,
+                })
+            if not patd.assinatura_oficial:
+                assinaturas_pendentes.append({
+                    'quem': 'Oficial Responsável',
+                    'descricao': 'Assinatura na NPD de Reconsideração',
+                    'urgente': False,
+                })
+
+        context['assinaturas_pendentes'] = assinaturas_pendentes
+        # ── Fim avisos de assinaturas ─────────────────────────────────────────
+
+        # Listas para os dropdowns do modal de finalizar
+        from Secao_pessoal.models import Efetivo as _Efetivo
+        from django.db.models import Q as _Q
+        context['oficiais_lista'] = _Efetivo.objects.filter(oficial=True, deleted=False).order_by('nome_guerra')
+        # Testemunhas: militares cujo setor ou subsetor contenha "ouvidoria"
+        context['efetivos_ouvidoria'] = _Efetivo.objects.filter(
+            _Q(setor__icontains='ouvidoria') | _Q(subsetor__icontains='ouvidoria'),
+            deleted=False
+        ).order_by('nome_guerra')
 
         # --- INÍCIO DA MODIFICAÇÃO AQUI ---
         # Não vamos mais extrair o HTML, apenas passar os metadados do arquivo.
@@ -1125,6 +1235,9 @@ def finalizar_patd_completa(request, pk):
         dias = request.POST.get('dias_punicao', 0)
         motivo = request.POST.get('motivo_justificativa')
         boletim = request.POST.get('boletim_publicacao')
+        oficial_id = request.POST.get('oficial_responsavel_id')
+        testemunha1_id = request.POST.get('testemunha1_id')
+        testemunha2_id = request.POST.get('testemunha2_id')
 
         if not boletim or not tipo_punicao or not documento:
             messages.error(request, "Preencha todos os campos obrigatórios (Boletim, Punição e Documento Final).")
@@ -1161,6 +1274,36 @@ def finalizar_patd_completa(request, pk):
         # Salva o número do boletim
         patd.boletim_publicacao = boletim
 
+        # Atribuição de oficial e testemunhas (com rastreamento de aceitação)
+        from Secao_pessoal.models import Efetivo as _Efetivo
+        if oficial_id:
+            try:
+                novo_oficial = _Efetivo.objects.get(pk=oficial_id, oficial=True)
+                if patd.oficial_responsavel_id != novo_oficial.pk:
+                    patd.oficial_responsavel = novo_oficial
+                    patd.oficial_aceitou = None  # pendente aceitação
+            except _Efetivo.DoesNotExist:
+                pass
+        from django.db.models import Q as _Q
+        _ouvidoria_ids = set(_Efetivo.objects.filter(
+            _Q(setor__icontains='ouvidoria') | _Q(subsetor__icontains='ouvidoria'),
+            deleted=False
+        ).values_list('pk', flat=True))
+        if testemunha1_id:
+            try:
+                t1 = _Efetivo.objects.get(pk=testemunha1_id)
+                if int(testemunha1_id) in _ouvidoria_ids:
+                    patd.testemunha1 = t1
+            except _Efetivo.DoesNotExist:
+                pass
+        if testemunha2_id:
+            try:
+                t2 = _Efetivo.objects.get(pk=testemunha2_id)
+                if int(testemunha2_id) in _ouvidoria_ids:
+                    patd.testemunha2 = t2
+            except _Efetivo.DoesNotExist:
+                pass
+
         # 4. Anexar o Documento Final Completo
         Anexo.objects.create(patd=patd, arquivo=documento, tipo='documento_final')
 
@@ -1180,3 +1323,26 @@ def finalizar_patd_completa(request, pk):
         logger.error(f"Erro ao finalizar PATD Completa {pk}: {e}", exc_info=True)
         messages.error(request, "Ocorreu um erro ao tentar finalizar o processo.")
         return redirect('Ouvidoria:patd_detail', pk=pk)
+
+
+@login_required
+@require_POST
+def aceitar_atribuicao_patd(request, pk):
+    """Oficial aceita ou recusa a atribuição como responsável pela PATD."""
+    patd = get_object_or_404(PATD, pk=pk)
+
+    user_militar = getattr(getattr(request.user, 'profile', None), 'militar', None)
+    if not user_militar or patd.oficial_responsavel_id != user_militar.pk:
+        return JsonResponse({'status': 'error', 'message': 'Não autorizado.'}, status=403)
+
+    acao = request.POST.get('acao')
+    if acao == 'aceitar':
+        patd.oficial_aceitou = True
+        patd.save(update_fields=['oficial_aceitou'])
+        return JsonResponse({'status': 'success', 'message': 'Atribuição aceita. A PATD aparece agora no seu histórico.'})
+    elif acao == 'recusar':
+        patd.oficial_aceitou = False
+        patd.save(update_fields=['oficial_aceitou'])
+        return JsonResponse({'status': 'success', 'message': 'Atribuição recusada.'})
+
+    return JsonResponse({'status': 'error', 'message': 'Ação inválida.'}, status=400)

@@ -1,118 +1,501 @@
 {% extends 'base.html' %}
+{% load static %}
 
-{% block title %}Dashboard do Comandante{% endblock %}
+{% block title %}Painel do Comandante{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ===== CABEÇALHO ===== */
+.cmd-header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 24px;
+    padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+.cmd-header-icon {
+    width: 48px; height: 48px;
+    border-radius: 12px;
+    background: var(--accent-color);
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.cmd-header-icon svg { width: 24px; height: 24px; color: #fff; }
+.cmd-header-text h1 {
+    font-size: 1.3rem; font-weight: 700; margin: 0 0 2px;
+    border: none; padding: 0;
+}
+.cmd-header-text p { font-size: .85rem; color: var(--text-secondary); margin: 0; }
+
+/* ===== KPI BAR ===== */
+.kpi-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 12px;
+    margin-bottom: 24px;
+}
+.kpi-card {
+    background: var(--bg-content);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 16px;
+    text-align: center;
+    box-shadow: var(--box-shadow);
+}
+.kpi-num  { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--accent-color); }
+.kpi-label{ font-size: .72rem; color: var(--text-secondary); margin-top: 6px; line-height: 1.3; }
+.kpi-card.kpi-danger  .kpi-num { color: var(--danger-color); }
+.kpi-card.kpi-success .kpi-num { color: var(--success-color); }
+.kpi-card.kpi-warning .kpi-num { color: var(--warning-color); }
+
+/* ===== BADGES ===== */
+.patd-num-badge {
+    display: inline-block;
+    background: var(--badge-bg);
+    color: var(--accent-color);
+    font-weight: 700; font-size: .8rem;
+    padding: 2px 10px; border-radius: 20px;
+    border: 1px solid var(--border-color);
+}
+.status-pill {
+    display: inline-block; font-size: .75rem; font-weight: 600;
+    padding: 3px 10px; border-radius: 20px;
+    background: var(--badge-bg);
+    color: var(--text-secondary);
+    border: 1px solid var(--border-color);
+}
+.actions-cell { white-space: nowrap; }
+
+/* ===== RELATÓRIO: LAYOUT ===== */
+.report-layout {
+    display: grid;
+    grid-template-columns: 260px 1fr;
+    gap: 20px;
+    align-items: start;
+}
+@media (max-width: 860px) {
+    .report-layout { grid-template-columns: 1fr; }
+}
+
+/* ===== PAINEL DE FILTROS ===== */
+.filter-panel {
+    background: var(--bg-content);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    box-shadow: var(--box-shadow);
+    position: sticky;
+    top: 16px;
+}
+.filter-panel-hd {
+    padding: 12px 16px;
+    background: var(--badge-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex; justify-content: space-between; align-items: center;
+}
+.filter-panel-hd h4 { margin: 0; font-size: .875rem; font-weight: 700; color: var(--text-primary); }
+.filter-body { padding: 16px; display: flex; flex-direction: column; gap: 14px; }
+
+.f-divider {
+    font-size: .7rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .06em;
+    color: var(--text-secondary);
+    display: flex; align-items: center; gap: 8px;
+}
+.f-divider::after { content: ''; flex: 1; height: 1px; background: var(--border-color); }
+
+.f-group label {
+    display: block; font-size: .72rem; font-weight: 700;
+    color: var(--text-secondary); text-transform: uppercase;
+    letter-spacing: .05em; margin-bottom: 5px;
+}
+.f-group input,
+.f-group select {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    font-size: .85rem; box-sizing: border-box;
+    transition: border-color .18s;
+}
+.f-group input:focus,
+.f-group select:focus { outline: none; border-color: var(--accent-color); }
+
+.quick-btns { display: flex; flex-wrap: wrap; gap: 5px; }
+.quick-btn {
+    padding: 4px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 20px;
+    background: var(--bg-main);
+    font-size: .73rem; color: var(--text-secondary);
+    cursor: pointer; transition: all .15s;
+}
+.quick-btn:hover, .quick-btn.active {
+    border-color: var(--accent-color);
+    color: var(--accent-color);
+    background: var(--bg-content);
+}
+
+.btn-apply-filter {
+    width: 100%; padding: 10px; border: none; border-radius: 8px;
+    background: var(--accent-color); color: #fff;
+    font-size: .875rem; font-weight: 700; cursor: pointer;
+    transition: opacity .18s;
+}
+.btn-apply-filter:hover { opacity: .85; }
+
+.btn-clear-filter {
+    padding: 3px 10px; background: none;
+    border: 1px solid var(--border-color);
+    border-radius: 6px; color: var(--text-secondary);
+    font-size: .72rem; cursor: pointer; transition: all .15s;
+}
+.btn-clear-filter:hover { border-color: var(--danger-color); color: var(--danger-color); }
+
+.btn-export-excel {
+    display: flex; align-items: center; justify-content: center; gap: 7px;
+    width: 100%; padding: 9px; border-radius: 8px;
+    background: none;
+    border: 1px solid #22c55e;
+    color: #22c55e;
+    font-size: .875rem; font-weight: 600;
+    text-decoration: none;
+    transition: all .18s;
+}
+.btn-export-excel:hover {
+    background: #22c55e; color: #fff;
+}
+
+/* ===== PAINEL DE RESULTADOS ===== */
+.result-panel { display: flex; flex-direction: column; gap: 18px; }
+
+/* KPIs do relatório */
+.report-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+@media (max-width: 600px) { .report-kpis { grid-template-columns: repeat(2, 1fr); } }
+
+.rkpi {
+    background: var(--bg-content);
+    border: 1px solid var(--border-color);
+    border-left-width: 3px;
+    border-radius: 10px;
+    padding: 14px 12px; text-align: center;
+    box-shadow: var(--box-shadow);
+}
+.rkpi.rk-a { border-left-color: var(--accent-color); }
+.rkpi.rk-s { border-left-color: var(--success-color); }
+.rkpi.rk-w { border-left-color: var(--warning-color); }
+.rkpi.rk-d { border-left-color: var(--danger-color); }
+.rkpi .rk-num { font-size: 1.6rem; font-weight: 800; color: var(--accent-color); }
+.rkpi.rk-s .rk-num { color: var(--success-color); }
+.rkpi.rk-w .rk-num { color: var(--warning-color); }
+.rkpi.rk-d .rk-num { color: var(--danger-color); }
+.rkpi .rk-lbl { font-size: .7rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.3; }
+
+/* Gráfico */
+.chart-wrapper { position: relative; height: 280px; padding: 16px; }
+
+/* Tabela do relatório */
+.report-table-wrap { overflow-x: auto; }
+.report-table { width: 100%; border-collapse: collapse; font-size: .83rem; }
+.report-table thead th {
+    padding: 10px 14px; text-align: left;
+    font-size: .72rem; font-weight: 700;
+    text-transform: uppercase; letter-spacing: .04em;
+    color: var(--text-secondary);
+    background: var(--badge-bg);
+    border-bottom: 1px solid var(--border-color);
+    white-space: nowrap;
+}
+.report-table tbody tr { border-bottom: 1px solid var(--border-color); }
+.report-table tbody tr:last-child { border-bottom: none; }
+.report-table tbody tr:hover { background: var(--bg-main); }
+.report-table tbody td { padding: 10px 14px; vertical-align: middle; }
+.report-table .empty-row td {
+    text-align: center; color: var(--text-secondary);
+    padding: 36px; font-size: .9rem;
+}
+
+/* Loading spinner */
+#report-loading {
+    display: none; text-align: center;
+    padding: 28px; color: var(--text-secondary); font-size: .9rem;
+}
+.spin-icon {
+    display: inline-block; width: 18px; height: 18px;
+    border: 2px solid var(--border-color);
+    border-top-color: var(--accent-color);
+    border-radius: 50%;
+    animation: spin-anim .7s linear infinite;
+    vertical-align: middle; margin-right: 6px;
+}
+@keyframes spin-anim { to { transform: rotate(360deg); } }
+</style>
+{% endblock extra_head %}
 
 {% block content %}
+
+<!-- Cabeçalho -->
+<div class="cmd-header">
+    <div class="cmd-header-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 1.5-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
+        </svg>
+    </div>
+    <div class="cmd-header-text">
+        <h1>Painel do Comandante</h1>
+        <p>Decisões pendentes, relatórios e estatísticas de processos PATD</p>
+    </div>
+</div>
+
+<!-- KPIs globais -->
+<div class="kpi-bar">
+    <div class="kpi-card kpi-danger">
+        <div class="kpi-num">{{ patds.count }}</div>
+        <div class="kpi-label">Aguardando Decisão</div>
+    </div>
+    <div class="kpi-card kpi-warning">
+        <div class="kpi-num">{{ patd_em_andamento }}</div>
+        <div class="kpi-label">Em Andamento</div>
+    </div>
+    <div class="kpi-card kpi-success">
+        <div class="kpi-num">{{ patd_finalizadas_total }}</div>
+        <div class="kpi-label">Finalizadas (Total)</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-num">{{ patd_criadas_mes }}</div>
+        <div class="kpi-label">Criadas este Mês</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-num">{{ patd_finalizadas_mes }}</div>
+        <div class="kpi-label">Finalizadas este Mês</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-num">{{ patd_justificadas_total }}</div>
+        <div class="kpi-label">Justificadas (Total)</div>
+    </div>
+</div>
+
+<!-- Abas (usando classes existentes do style.css) -->
 <div class="tabs-container">
     <div class="tabs-nav">
         <button class="tab-link active" data-tab="decisao">Aguardando Decisão ({{ patds.count }})</button>
-        <button class="tab-link" data-tab="relatorios">Relatórios</button>
+        <button class="tab-link" data-tab="relatorios">Relatórios e Análises</button>
     </div>
 
+    <!-- TAB: DECISÕES -->
     <div id="decisao" class="tab-content active">
-        <h1>PATDs Aguardando Decisão</h1>
-        <p>Processos que requerem sua análise para aprovação ou retorno.</p>
-
-        <div class="table-responsive">
-            <table class="data-table">
-                <thead>
-                    <tr>
-                        <th>N° PATD</th>
-                        <th>Militar Acusado</th>
-                        <th>Data da Ocorrência</th>
-                        <th>Status</th>
-                        <th>Ações</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for patd in patds %}
-                    <tr>
-                        <td>{{ patd.numero_patd }}</td>
-                        <td>{{ patd.militar }}</td>
-                        <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
-                        <td>{{ patd.get_status_display }}</td>
-                        <td class="actions-cell">
-                            <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver Detalhes</a>
-                            <button type="button" class="btn btn-sm btn-success open-aprovar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
-                                Aprovar e Finalizar
-                            </button>
-                            <button type="button" class="btn btn-sm btn-warning open-retornar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar para Alteração</button>
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="5" style="text-align: center; padding: 20px;">Nenhuma PATD aguardando decisão.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <h3>PATDs Aguardando Decisão</h3>
+            </div>
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>N° PATD</th>
+                            <th>Militar Acusado</th>
+                            <th>Oficial Apurador</th>
+                            <th>Data Ocorrência</th>
+                            <th>Status</th>
+                            <th>Ações</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for patd in patds %}
+                        <tr>
+                            <td><span class="patd-num-badge">#{{ patd.numero_patd }}</span></td>
+                            <td>{{ patd.militar }}</td>
+                            <td>{{ patd.oficial_responsavel|default:"—" }}</td>
+                            <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"—" }}</td>
+                            <td><span class="status-pill">{{ patd.get_status_display }}</span></td>
+                            <td class="actions-cell">
+                                {% if patd.status == 'finalizado' %}
+                                <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver</a>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-success open-aprovar-modal-btn"
+                                    data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
+                                    Aprovar
+                                </button>
+                                <button type="button" class="btn btn-sm btn-warning open-retornar-modal-btn"
+                                    data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
+                                    Retornar
+                                </button>
+                            </td>
+                        </tr>
+                        {% empty %}
+                        <tr>
+                            <td colspan="6" style="text-align:center; padding:36px; color:var(--text-secondary);">
+                                Nenhuma PATD aguardando decisão.
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
+    <!-- TAB: RELATÓRIOS -->
     <div id="relatorios" class="tab-content">
-    <div class="detail-card">
-        <div class="detail-card-header">
-            <h3>Visão Geral e Estatísticas</h3>
-        </div>
-        <div class="detail-card-body">
-            <div class="detail-grid">
-                <div class="detail-item">
-                    <strong>Em Andamento</strong>
-                    <p>{{ patd_em_andamento }}</p>
-                </div>
-                <div class="detail-item">
-                    <strong>Finalizadas (Total)</strong>
-                    <p>{{ patd_finalizadas_total }}</p>
-                </div>
-                <div class="detail-item">
-                    <strong>Justificadas (Total)</strong>
-                    <p>{{ patd_justificadas_total }}</p>
-                </div>
-                <div class="detail-item">
-                    <strong>Criadas este Mês</strong>
-                    <p>{{ patd_criadas_mes }}</p>
-                </div>
-                <div class="detail-item">
-                    <strong>Criadas esta Semana</strong>
-                    <p>{{ patd_criadas_semana }}</p>
-                </div>
-                <div class="detail-item">
-                    <strong>Finalizadas este Mês</strong>
-                    <p>{{ patd_finalizadas_mes }}</p>
-                </div>
-                <div class="detail-item">
-                    <strong>Finalizadas esta Semana</strong>
-                    <p>{{ patd_finalizadas_semana }}</p>
-                </div>
-            </div>
-        </div>
-    </div>
+        <div class="report-layout">
 
-    <div class="detail-card" style="margin-top: 25px;">
-        <div class="detail-card-header">
-            <h3>Evolução Mensal (Últimos 12 meses)</h3>
-        </div>
-        <div class="detail-card-body">
-            <div class="chart-wrapper" style="height: 350px;">
-                <canvas id="patdChart"></canvas>
-            </div>
-        </div>
-    </div>
-</div>
-</div>
+            <!-- Painel de filtros -->
+            <aside class="filter-panel">
+                <div class="filter-panel-hd">
+                    <h4>Filtros</h4>
+                    <button class="btn-clear-filter" id="btn-clear-all">Limpar</button>
+                </div>
+                <div class="filter-body">
+
+                    <div class="f-divider">Período</div>
+
+                    <div class="f-group">
+                        <label>Atalhos rápidos</label>
+                        <div class="quick-btns">
+                            <button class="quick-btn" data-range="today">Hoje</button>
+                            <button class="quick-btn" data-range="week">Esta semana</button>
+                            <button class="quick-btn" data-range="month">Este mês</button>
+                            <button class="quick-btn" data-range="year">Este ano</button>
+                        </div>
+                    </div>
+                    <div class="f-group">
+                        <label>De</label>
+                        <input type="date" id="f-data-inicio">
+                    </div>
+                    <div class="f-group">
+                        <label>Até</label>
+                        <input type="date" id="f-data-fim">
+                    </div>
+
+                    <div class="f-divider">Processo</div>
+
+                    <div class="f-group">
+                        <label>Status</label>
+                        <select id="f-status">
+                            <option value="">Todos os status</option>
+                            {% for val, lbl in status_choices %}
+                            <option value="{{ val }}">{{ lbl }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="f-group">
+                        <label>Oficial Apurador</label>
+                        <select id="f-oficial">
+                            <option value="">Todos</option>
+                            {% for of in oficiais_list %}
+                            <option value="{{ of.pk }}">{{ of.posto }} {{ of.nome_guerra }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+                    <div class="f-group">
+                        <label>Militar Acusado</label>
+                        <select id="f-militar">
+                            <option value="">Todos</option>
+                            {% for m in militares_list %}
+                            <option value="{{ m.pk }}">{{ m.posto }} {{ m.nome_guerra }}</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <button class="btn-apply-filter" id="btn-apply">Aplicar Filtros</button>
+                    <a id="btn-export" href="#" class="btn-export-excel" title="Exportar resultado atual para Excel">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        Exportar para Excel
+                    </a>
+                </div>
+            </aside>
+
+            <!-- Resultados -->
+            <div class="result-panel">
+
+                <!-- KPIs do filtro -->
+                <div class="report-kpis">
+                    <div class="rkpi rk-a">
+                        <div class="rk-num" id="rk-total">—</div>
+                        <div class="rk-lbl">Total encontrado</div>
+                    </div>
+                    <div class="rkpi rk-s">
+                        <div class="rk-num" id="rk-fin">—</div>
+                        <div class="rk-lbl">Finalizadas</div>
+                    </div>
+                    <div class="rkpi rk-w">
+                        <div class="rk-num" id="rk-and">—</div>
+                        <div class="rk-lbl">Em andamento</div>
+                    </div>
+                    <div class="rkpi rk-d">
+                        <div class="rk-num" id="rk-pend">—</div>
+                        <div class="rk-lbl">Aguardando decisão</div>
+                    </div>
+                </div>
+
+                <!-- Gráfico -->
+                <div class="detail-card">
+                    <div class="detail-card-header">
+                        <h3>Evolução Mensal — Últimos 12 meses</h3>
+                    </div>
+                    <div class="chart-wrapper">
+                        <canvas id="patdChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Loading -->
+                <div id="report-loading">
+                    <span class="spin-icon"></span>Carregando resultados...
+                </div>
+
+                <!-- Tabela de resultados -->
+                <div class="detail-card">
+                    <div class="detail-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                        <h3 style="margin:0;">Processos</h3>
+                        <span id="report-count-badge" style="font-size:.8rem; color:var(--text-secondary);">—</span>
+                    </div>
+                    <div class="report-table-wrap">
+                        <table class="report-table">
+                            <thead>
+                                <tr>
+                                    <th>N° PATD</th>
+                                    <th>Militar</th>
+                                    <th>Oficial Apurador</th>
+                                    <th>Data Início</th>
+                                    <th>Data Ocorrência</th>
+                                    <th>Status</th>
+                                    <th></th>
+                                </tr>
+                            </thead>
+                            <tbody id="report-tbody">
+                                <tr class="empty-row">
+                                    <td colspan="7">Use os filtros ao lado para buscar processos.</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+
+            </div><!-- /result-panel -->
+        </div><!-- /report-layout -->
+    </div><!-- /tab relatorios -->
+
+</div><!-- /tabs-container -->
 
 
+<!-- Modal: Retornar -->
 <div class="modal-overlay" id="retornar-patd-modal">
     <div class="modal-content">
         <h3 id="retornar-modal-title">Retornar PATD</h3>
-        <p>Por favor, insira abaixo o motivo para retornar esta PATD para alteração. O oficial apurador será notificado com sua observação.</p>
+        <p>Insira o motivo para retornar a PATD para alteração. O oficial apurador será notificado.</p>
         <form id="retornar-patd-form" method="post" action="" class="model-form">
             {% csrf_token %}
             <div class="form-item">
                 <label for="id_comentario">Comentário:</label>
-                <textarea name="comentario" required id="id_comentario" rows="5" style="width: 100%;"></textarea>
+                <textarea name="comentario" required id="id_comentario" rows="5" style="width:100%;"></textarea>
             </div>
-            <div class="form-actions" style="justify-content: flex-end;">
+            <div class="form-actions" style="justify-content:flex-end;">
                 <button type="button" class="btn btn-secondary" id="cancel-retornar-btn">Cancelar</button>
                 <button type="submit" class="btn btn-warning">Confirmar Retorno</button>
             </div>
@@ -120,17 +503,18 @@
     </div>
 </div>
 
+<!-- Modal: Aprovar -->
 <div class="modal-overlay" id="aprovar-patd-modal">
     <div class="modal-content">
         <h3 id="aprovar-modal-title">Aprovar PATD</h3>
-        <p>Para confirmar a aprovação desta PATD e aplicar sua assinatura digital, por favor, insira sua senha.</p>
+        <p>Para confirmar a aprovação e aplicar sua assinatura digital, insira sua senha.</p>
         <form id="aprovar-patd-form" method="post" action="" class="model-form">
             {% csrf_token %}
             <div class="form-item">
                 <label for="id_senha_comandante">Sua Senha:</label>
                 <input type="password" name="senha_comandante" required id="id_senha_comandante" autocomplete="current-password">
             </div>
-            <div class="form-actions" style="justify-content: flex-end;">
+            <div class="form-actions" style="justify-content:flex-end;">
                 <button type="button" class="btn btn-secondary" id="cancel-aprovar-btn">Cancelar</button>
                 <button type="submit" class="btn btn-success">Confirmar Aprovação</button>
             </div>
@@ -142,118 +526,206 @@
 {% block extra_js %}
 <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    // --- Lógica das Abas ---
-    const tabLinks = document.querySelectorAll('.tab-link');
-    const tabContents = document.querySelectorAll('.tab-content');
+document.addEventListener('DOMContentLoaded', function () {
 
-    tabLinks.forEach(link => {
-        link.addEventListener('click', () => {
-            const tabId = link.dataset.tab;
+    /* ---- ABAS ---- */
+    var tabLinks = document.querySelectorAll('.tab-link');
+    var tabContents = document.querySelectorAll('.tab-content');
 
-            tabLinks.forEach(l => l.classList.remove('active'));
+    tabLinks.forEach(function(link) {
+        link.addEventListener('click', function() {
+            var tabId = link.dataset.tab;
+            tabLinks.forEach(function(l){ l.classList.remove('active'); });
             link.classList.add('active');
-
-            tabContents.forEach(content => {
-                if (content.id === tabId) {
-                    content.classList.add('active');
-                } else {
-                    content.classList.remove('active');
-                }
+            tabContents.forEach(function(c){
+                if (c.id === tabId) c.classList.add('active');
+                else c.classList.remove('active');
             });
-             // Força a renderização do gráfico se a aba de relatórios for selecionada
-            if (tabId === 'relatorios') {
-                renderChart();
-            }
+            if (tabId === 'relatorios') { renderMainChart(); }
         });
     });
 
-    // --- Lógica dos Modais (existente) ---
-    const retornarModal = document.getElementById('retornar-patd-modal');
-    const retornarForm = document.getElementById('retornar-patd-form');
-    const retornarModalTitle = document.getElementById('retornar-modal-title');
-    const cancelRetornarBtn = document.getElementById('cancel-retornar-btn');
+    /* ---- MODAIS ---- */
+    var retornarModal = document.getElementById('retornar-patd-modal');
+    var retornarForm  = document.getElementById('retornar-patd-form');
+    var retornarTitle = document.getElementById('retornar-modal-title');
+    var aprovarModal  = document.getElementById('aprovar-patd-modal');
+    var aprovarForm   = document.getElementById('aprovar-patd-form');
+    var aprovarTitle  = document.getElementById('aprovar-modal-title');
 
     document.body.addEventListener('click', function(e) {
-        if (e.target.classList.contains('open-retornar-modal-btn')) {
-            const patdPk = e.target.dataset.patdPk;
-            const patdNumero = e.target.dataset.patdNumero;
-            const url = `/Ouvidoria/patd/${patdPk}/retornar/`;
-            retornarForm.action = url;
-            retornarModalTitle.textContent = `Retornar PATD Nº ${patdNumero}`;
+        var r = e.target.closest('.open-retornar-modal-btn');
+        if (r) {
+            retornarForm.action = '/Ouvidoria/patd/' + r.dataset.patdPk + '/retornar/';
+            retornarTitle.textContent = 'Retornar PATD Nº ' + r.dataset.patdNumero;
             retornarModal.classList.add('active');
         }
-    });
-    if (cancelRetornarBtn) cancelRetornarBtn.addEventListener('click', () => retornarModal.classList.remove('active'));
-    if (retornarModal) retornarModal.addEventListener('click', (e) => { if (e.target === retornarModal) retornarModal.classList.remove('active'); });
-
-    const aprovarModal = document.getElementById('aprovar-patd-modal');
-    const aprovarForm = document.getElementById('aprovar-patd-form');
-    const aprovarModalTitle = document.getElementById('aprovar-modal-title');
-    const cancelAprovarBtn = document.getElementById('cancel-aprovar-btn');
-
-    document.body.addEventListener('click', function(e) {
-        if (e.target.classList.contains('open-aprovar-modal-btn')) {
-            const patdPk = e.target.dataset.patdPk;
-            const patdNumero = e.target.dataset.patdNumero;
-            const url = `/Ouvidoria/patd/${patdPk}/aprovar/`;
-            aprovarForm.action = url;
-            aprovarModalTitle.textContent = `Aprovar PATD Nº ${patdNumero}`;
+        var a = e.target.closest('.open-aprovar-modal-btn');
+        if (a) {
+            aprovarForm.action = '/Ouvidoria/patd/' + a.dataset.patdPk + '/aprovar/';
+            aprovarTitle.textContent = 'Aprovar PATD Nº ' + a.dataset.patdNumero;
             aprovarModal.classList.add('active');
         }
     });
-    if (cancelAprovarBtn) cancelAprovarBtn.addEventListener('click', () => aprovarModal.classList.remove('active'));
-    if (aprovarModal) aprovarModal.addEventListener('click', (e) => { if (e.target === aprovarModal) aprovarModal.classList.remove('active'); });
 
+    document.getElementById('cancel-retornar-btn').addEventListener('click', function(){ retornarModal.classList.remove('active'); });
+    document.getElementById('cancel-aprovar-btn').addEventListener('click', function(){ aprovarModal.classList.remove('active'); });
+    retornarModal.addEventListener('click', function(e){ if(e.target===retornarModal) retornarModal.classList.remove('active'); });
+    aprovarModal.addEventListener('click',  function(e){ if(e.target===aprovarModal)  aprovarModal.classList.remove('active'); });
 
-    // --- Lógica do Gráfico ---
-    let patdChart = null; // Variável para armazenar a instância do gráfico
-
-    function renderChart() {
-        const ctx = document.getElementById('patdChart');
+    /* ---- GRÁFICO ---- */
+    var chartInstance = null;
+    function renderMainChart() {
+        var ctx = document.getElementById('patdChart');
         if (!ctx) return;
-        
-        // Destrói o gráfico anterior se ele existir, para evitar sobreposição
-        if (patdChart) {
-            patdChart.destroy();
-        }
-
-        patdChart = new Chart(ctx, {
+        if (chartInstance) { chartInstance.destroy(); }
+        chartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: {{ chart_labels|safe }},
-                datasets: [{
-                    label: 'PATDs Criadas',
-                    data: {{ chart_data_criadas|safe }},
-                    backgroundColor: 'rgba(54, 162, 235, 0.5)',
-                    borderColor: 'rgba(54, 162, 235, 1)',
-                    borderWidth: 1
-                }, {
-                    label: 'PATDs Finalizadas',
-                    data: {{ chart_data_finalizadas|safe }},
-                    backgroundColor: 'rgba(75, 192, 192, 0.5)',
-                    borderColor: 'rgba(75, 192, 192, 1)',
-                    borderWidth: 1
-                }]
+                datasets: [
+                    {
+                        label: 'Criadas',
+                        data: {{ chart_data_criadas|safe }},
+                        backgroundColor: 'rgba(245,158,11,0.45)',
+                        borderColor: 'rgba(245,158,11,0.9)',
+                        borderWidth: 1, borderRadius: 4,
+                    },
+                    {
+                        label: 'Finalizadas',
+                        data: {{ chart_data_finalizadas|safe }},
+                        backgroundColor: 'rgba(34,197,94,0.45)',
+                        borderColor: 'rgba(34,197,94,0.9)',
+                        borderWidth: 1, borderRadius: 4,
+                    }
+                ]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: false,
+                plugins: {
+                    legend: { labels: { boxWidth: 12 } },
+                    tooltip: { mode: 'index', intersect: false }
+                },
                 scales: {
-                    y: {
-                        beginAtZero: true,
-                        ticks: {
-                            stepSize: 1 // Garante que o eixo Y só mostre números inteiros
-                        }
-                    }
+                    x: { grid: { color: 'rgba(128,128,128,0.1)' } },
+                    y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(128,128,128,0.1)' } }
                 }
             }
         });
     }
 
-    // Renderiza o gráfico se a aba de relatórios já estiver ativa ao carregar
-    if (document.querySelector('.tab-link[data-tab="relatorios"].active')) {
-        renderChart();
+    /* ---- FILTROS ---- */
+    var today = new Date();
+    function fmt(d) { return d.toISOString().slice(0, 10); }
+
+    document.querySelectorAll('.quick-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.quick-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var r = btn.dataset.range;
+            var start, end = fmt(today);
+            if (r === 'today') {
+                start = end;
+            } else if (r === 'week') {
+                var d = new Date(today);
+                d.setDate(today.getDate() - today.getDay());
+                start = fmt(d);
+            } else if (r === 'month') {
+                start = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+            } else if (r === 'year') {
+                start = today.getFullYear() + '-01-01';
+            }
+            document.getElementById('f-data-inicio').value = start;
+            document.getElementById('f-data-fim').value = end;
+        });
+    });
+
+    document.getElementById('btn-apply').addEventListener('click', applyFilters);
+
+    document.getElementById('btn-clear-all').addEventListener('click', function() {
+        ['f-data-inicio','f-data-fim','f-status','f-oficial','f-militar'].forEach(function(id){
+            document.getElementById(id).value = '';
+        });
+        document.querySelectorAll('.quick-btn').forEach(function(b){ b.classList.remove('active'); });
+        applyFilters();
+    });
+
+    function buildParams() {
+        var params = new URLSearchParams();
+        var di = document.getElementById('f-data-inicio').value;
+        var df = document.getElementById('f-data-fim').value;
+        var st = document.getElementById('f-status').value;
+        var of = document.getElementById('f-oficial').value;
+        var mi = document.getElementById('f-militar').value;
+        if (di) params.set('data_inicio', di);
+        if (df) params.set('data_fim', df);
+        if (st) params.set('status', st);
+        if (of) params.set('oficial', of);
+        if (mi) params.set('militar', mi);
+        return params;
+    }
+
+    /* Botão exportar — atualiza href com filtros atuais */
+    var exportBtn = document.getElementById('btn-export');
+    function updateExportLink() {
+        exportBtn.href = '{% url "Ouvidoria:relatorio_excel" %}?' + buildParams().toString();
+    }
+    ['f-data-inicio','f-data-fim','f-status','f-oficial','f-militar'].forEach(function(id){
+        document.getElementById(id).addEventListener('change', updateExportLink);
+    });
+    updateExportLink();
+
+    function applyFilters() {
+        var params = buildParams();
+
+        document.getElementById('report-loading').style.display = 'block';
+        document.getElementById('report-tbody').innerHTML = '';
+        document.getElementById('report-count-badge').textContent = '—';
+
+        updateExportLink();
+        fetch('{% url "Ouvidoria:relatorio_json" %}?' + params.toString(), {
+            headers: { 'X-Requested-With': 'XMLHttpRequest' }
+        })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            document.getElementById('report-loading').style.display = 'none';
+            updateKpis(data.kpis);
+            renderTable(data.patds);
+        })
+        .catch(function(){
+            document.getElementById('report-loading').style.display = 'none';
+            document.getElementById('report-tbody').innerHTML =
+                '<tr class="empty-row"><td colspan="7">Erro ao carregar dados. Tente novamente.</td></tr>';
+        });
+    }
+
+    function updateKpis(kpis) {
+        document.getElementById('rk-total').textContent = kpis.total;
+        document.getElementById('rk-fin').textContent   = kpis.finalizadas;
+        document.getElementById('rk-and').textContent   = kpis.em_andamento;
+        document.getElementById('rk-pend').textContent  = kpis.aguardando_decisao;
+    }
+
+    function renderTable(rows) {
+        var badge = document.getElementById('report-count-badge');
+        badge.textContent = rows.length + ' registro' + (rows.length !== 1 ? 's' : '');
+        var tbody = document.getElementById('report-tbody');
+        if (!rows.length) {
+            tbody.innerHTML = '<tr class="empty-row"><td colspan="7">Nenhum resultado para os filtros selecionados.</td></tr>';
+            return;
+        }
+        tbody.innerHTML = rows.map(function(p) {
+            return '<tr>' +
+                '<td><span class="patd-num-badge">#' + p.numero + '</span></td>' +
+                '<td>' + p.militar + '</td>' +
+                '<td>' + p.oficial + '</td>' +
+                '<td>' + p.data_inicio + '</td>' +
+                '<td>' + p.data_ocorrencia + '</td>' +
+                '<td><span class="status-pill">' + p.status_display + '</span></td>' +
+                '<td>' + (p.status === 'finalizado' ? '<a href="/Ouvidoria/patd/' + p.pk + '/" class="btn btn-sm btn-secondary">Ver</a>' : '') + '</td>' +
+            '</tr>';
+        }).join('');
     }
 });
 </script>
