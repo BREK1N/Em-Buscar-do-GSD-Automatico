@@ -221,6 +221,45 @@
     padding: 36px; font-size: .9rem;
 }
 
+/* ===== SEARCHABLE DROPDOWN ===== */
+.sd-wrap { position: relative; }
+.sd-input {
+    width: 100%; padding: 8px 10px;
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    background: var(--bg-main);
+    color: var(--text-primary);
+    font-size: .85rem; box-sizing: border-box;
+    cursor: pointer;
+    transition: border-color .18s;
+}
+.sd-input:focus { outline: none; border-color: var(--accent-color); }
+.sd-list {
+    display: none;
+    position: absolute; top: calc(100% + 3px); left: 0; right: 0; z-index: 999;
+    background: var(--bg-content);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    max-height: 200px; overflow-y: auto;
+    box-shadow: 0 8px 16px rgba(0,0,0,.12);
+}
+.sd-list.open { display: block; }
+.sd-option {
+    padding: 8px 12px; font-size: .83rem; cursor: pointer;
+    color: var(--text-primary);
+    transition: background .12s;
+}
+.sd-option:hover, .sd-option.sd-focused { background: var(--bg-main); }
+.sd-option.sd-selected { font-weight: 600; color: var(--accent-color); }
+.sd-no-results { padding: 10px 12px; font-size: .82rem; color: var(--text-secondary); font-style: italic; }
+.sd-clear {
+    position: absolute; right: 8px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer;
+    color: var(--text-secondary); font-size: .8rem; padding: 2px 4px;
+    display: none;
+}
+.sd-clear:hover { color: var(--danger-color); }
+
 /* Loading spinner */
 #report-loading {
     display: none; text-align: center;
@@ -377,30 +416,45 @@
 
                     <div class="f-group">
                         <label>Status</label>
-                        <select id="f-status">
-                            <option value="">Todos os status</option>
-                            {% for val, lbl in status_choices %}
-                            <option value="{{ val }}">{{ lbl }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="sd-wrap" id="sd-status-wrap">
+                            <input class="sd-input" id="f-status-search" type="text" placeholder="Todos os status" autocomplete="off" readonly>
+                            <button class="sd-clear" id="sd-status-clear" title="Limpar">✕</button>
+                            <input type="hidden" id="f-status">
+                            <div class="sd-list" id="sd-status-list">
+                                <div class="sd-option" data-value="">Todos os status</div>
+                                {% for val, lbl in status_choices %}
+                                <div class="sd-option" data-value="{{ val }}">{{ lbl }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                     <div class="f-group">
                         <label>Oficial Apurador</label>
-                        <select id="f-oficial">
-                            <option value="">Todos</option>
-                            {% for of in oficiais_list %}
-                            <option value="{{ of.pk }}">{{ of.posto }} {{ of.nome_guerra }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="sd-wrap" id="sd-oficial-wrap">
+                            <input class="sd-input" id="f-oficial-search" type="text" placeholder="Pesquisar oficial..." autocomplete="off">
+                            <button class="sd-clear" id="sd-oficial-clear" title="Limpar">✕</button>
+                            <input type="hidden" id="f-oficial">
+                            <div class="sd-list" id="sd-oficial-list">
+                                <div class="sd-option" data-value="">Todos</div>
+                                {% for of in oficiais_list %}
+                                <div class="sd-option" data-value="{{ of.pk }}">{{ of.posto }} {{ of.nome_guerra }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
                     <div class="f-group">
                         <label>Militar Acusado</label>
-                        <select id="f-militar">
-                            <option value="">Todos</option>
-                            {% for m in militares_list %}
-                            <option value="{{ m.pk }}">{{ m.posto }} {{ m.nome_guerra }}</option>
-                            {% endfor %}
-                        </select>
+                        <div class="sd-wrap" id="sd-militar-wrap">
+                            <input class="sd-input" id="f-militar-search" type="text" placeholder="Pesquisar militar..." autocomplete="off">
+                            <button class="sd-clear" id="sd-militar-clear" title="Limpar">✕</button>
+                            <input type="hidden" id="f-militar">
+                            <div class="sd-list" id="sd-militar-list">
+                                <div class="sd-option" data-value="">Todos</div>
+                                {% for m in militares_list %}
+                                <div class="sd-option" data-value="{{ m.pk }}">{{ m.posto }} {{ m.nome_guerra }}</div>
+                                {% endfor %}
+                            </div>
+                        </div>
                     </div>
 
                     <button class="btn-apply-filter" id="btn-apply">Aplicar Filtros</button>
@@ -641,11 +695,96 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     });
 
+    /* ---- SEARCHABLE DROPDOWNS ---- */
+    function initSearchableDropdown(searchId, hiddenId, listId, clearId) {
+        var searchEl = document.getElementById(searchId);
+        var hiddenEl = document.getElementById(hiddenId);
+        var listEl   = document.getElementById(listId);
+        var clearEl  = document.getElementById(clearId);
+        if (!searchEl || !listEl) return;
+
+        var allOptions = Array.from(listEl.querySelectorAll('.sd-option'));
+
+        function openList() { listEl.classList.add('open'); }
+        function closeList() { listEl.classList.remove('open'); }
+        function isOpen() { return listEl.classList.contains('open'); }
+
+        function filterOptions(q) {
+            q = q.toLowerCase().trim();
+            var any = false;
+            allOptions.forEach(function(opt) {
+                var matches = !q || opt.textContent.toLowerCase().includes(q);
+                opt.style.display = matches ? '' : 'none';
+                if (matches) any = true;
+            });
+            var noRes = listEl.querySelector('.sd-no-results');
+            if (!any) {
+                if (!noRes) {
+                    noRes = document.createElement('div');
+                    noRes.className = 'sd-no-results';
+                    noRes.textContent = 'Nenhum resultado.';
+                    listEl.appendChild(noRes);
+                }
+            } else {
+                if (noRes) noRes.remove();
+            }
+        }
+
+        function selectOption(opt) {
+            hiddenEl.value = opt.dataset.value;
+            searchEl.value = opt.dataset.value ? opt.textContent.trim() : '';
+            allOptions.forEach(function(o){ o.classList.remove('sd-selected'); });
+            if (opt.dataset.value) opt.classList.add('sd-selected');
+            clearEl.style.display = opt.dataset.value ? 'block' : 'none';
+            closeList();
+            filterOptions('');
+            updateExportLink();
+        }
+
+        searchEl.addEventListener('click', function() {
+            if (isOpen()) { closeList(); } else { filterOptions(searchEl.value); openList(); searchEl.select(); }
+        });
+        searchEl.addEventListener('input', function() {
+            filterOptions(searchEl.value);
+            if (!isOpen()) openList();
+            // Clear hidden if user typed something that doesn't match
+            if (!searchEl.value) { hiddenEl.value = ''; clearEl.style.display = 'none'; }
+        });
+        allOptions.forEach(function(opt) {
+            opt.addEventListener('mousedown', function(e) { e.preventDefault(); selectOption(opt); });
+        });
+        clearEl && clearEl.addEventListener('mousedown', function(e) {
+            e.preventDefault();
+            hiddenEl.value = '';
+            searchEl.value = '';
+            clearEl.style.display = 'none';
+            allOptions.forEach(function(o){ o.classList.remove('sd-selected'); o.style.display = ''; });
+            closeList();
+            updateExportLink();
+        });
+        document.addEventListener('click', function(e) {
+            if (!searchEl.closest('.sd-wrap').contains(e.target)) closeList();
+        });
+    }
+
+    initSearchableDropdown('f-status-search',  'f-status',  'sd-status-list',  'sd-status-clear');
+    initSearchableDropdown('f-oficial-search', 'f-oficial', 'sd-oficial-list', 'sd-oficial-clear');
+    initSearchableDropdown('f-militar-search', 'f-militar', 'sd-militar-list', 'sd-militar-clear');
+
     document.getElementById('btn-apply').addEventListener('click', applyFilters);
 
     document.getElementById('btn-clear-all').addEventListener('click', function() {
-        ['f-data-inicio','f-data-fim','f-status','f-oficial','f-militar'].forEach(function(id){
+        document.getElementById('f-data-inicio').value = '';
+        document.getElementById('f-data-fim').value = '';
+        // Limpa os dropdowns de busca
+        ['f-status','f-oficial','f-militar'].forEach(function(id){
             document.getElementById(id).value = '';
+        });
+        ['f-status-search','f-oficial-search','f-militar-search'].forEach(function(id){
+            document.getElementById(id).value = '';
+        });
+        ['sd-status-clear','sd-oficial-clear','sd-militar-clear'].forEach(function(id){
+            document.getElementById(id).style.display = 'none';
         });
         document.querySelectorAll('.quick-btn').forEach(function(b){ b.classList.remove('active'); });
         applyFilters();
@@ -671,7 +810,7 @@ document.addEventListener('DOMContentLoaded', function () {
     function updateExportLink() {
         exportBtn.href = '{% url "Ouvidoria:relatorio_excel" %}?' + buildParams().toString();
     }
-    ['f-data-inicio','f-data-fim','f-status','f-oficial','f-militar'].forEach(function(id){
+    ['f-data-inicio','f-data-fim'].forEach(function(id){
         document.getElementById(id).addEventListener('change', updateExportLink);
     });
     updateExportLink();

@@ -570,7 +570,7 @@ def relatorio_excel(request):
     ws.row_dimensions[1].height = 28
 
     # Cabeçalho tabela
-    headers = ['N° PATD', 'Militar Acusado', 'Posto', 'Oficial Apurador', 'Data Início', 'Data Ocorrência', 'Status', 'Punição']
+    headers = ['N° PATD', 'Militar Acusado', 'Posto', 'Oficial Apurador', 'Data Início', 'Data Ocorrência', 'Status', 'Punição', 'Itens Enquadrados']
     for col, hdr in enumerate(headers, start=1):
         cell = ws.cell(row=2, column=col, value=hdr)
         cell.font = Font(bold=True, color='FFFFFF', size=10)
@@ -580,9 +580,11 @@ def relatorio_excel(request):
     ws.row_dimensions[2].height = 22
 
     # Dados
-    for row_idx, patd in enumerate(qs, start=3):
-        is_alt  = (row_idx % 2 == 0)
+    patds_list = list(qs)
+    for row_idx, patd in enumerate(patds_list, start=3):
+        is_alt   = (row_idx % 2 == 0)
         row_fill = fill_alt if is_alt else None
+        itens_str = ', '.join([str(i.get('numero', '')) for i in (patd.itens_enquadrados or []) if i.get('numero')]) or '—'
         row_data = [
             patd.numero_patd or '—',
             patd.militar.nome_guerra if patd.militar else '—',
@@ -592,6 +594,7 @@ def relatorio_excel(request):
             patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else '—',
             patd.get_status_display(),
             getattr(patd, 'punicao', '') or '—',
+            itens_str,
         ]
         for col, value in enumerate(row_data, start=1):
             cell = ws.cell(row=row_idx, column=col, value=value)
@@ -611,12 +614,118 @@ def relatorio_excel(request):
     ws.cell(row=total_row, column=2).alignment = center
 
     # Larguras colunas processos
-    for col, w in enumerate([10, 22, 14, 24, 14, 16, 30, 20], start=1):
+    for col, w in enumerate([10, 22, 14, 24, 14, 16, 30, 20, 22], start=1):
         ws.column_dimensions[get_column_letter(col)].width = w
 
     # Auto-filter e freeze
-    ws.auto_filter.ref = f'A2:H{ws.max_row}'
+    ws.auto_filter.ref = f'A2:I{ws.max_row}'
     ws.freeze_panes = 'A3'
+
+    # ══════════════════════════════════════════════════════════════════════
+    # ABA 3 — POR OFICIAL
+    # ══════════════════════════════════════════════════════════════════════
+    from collections import defaultdict
+    ws_of = wb.create_sheet('Por Oficial')
+
+    ws_of.merge_cells('A1:F1')
+    ws_of['A1'] = 'ANÁLISE POR OFICIAL APURADOR'
+    ws_of['A1'].font = Font(bold=True, color='FFFFFF', size=13)
+    ws_of['A1'].fill = fill_dark
+    ws_of['A1'].alignment = center
+    ws_of.row_dimensions[1].height = 28
+
+    hdr_of = ['Oficial Apurador', 'Total', 'Finalizadas', 'Em Andamento', 'Aguard. Decisão', '% Finalizado']
+    for col, h in enumerate(hdr_of, start=1):
+        cell = ws_of.cell(row=2, column=col, value=h)
+        cell.font = Font(bold=True, color='FFFFFF', size=10)
+        cell.fill = fill_dark
+        cell.alignment = center
+        cell.border = border
+    ws_of.row_dimensions[2].height = 22
+
+    stats_of = defaultdict(lambda: {'total': 0, 'fin': 0, 'agu': 0})
+    for patd in patds_list:
+        nome = str(patd.oficial_responsavel) if patd.oficial_responsavel else '(sem oficial)'
+        stats_of[nome]['total'] += 1
+        if patd.status == 'finalizado':
+            stats_of[nome]['fin'] += 1
+        elif patd.status == 'analise_comandante':
+            stats_of[nome]['agu'] += 1
+
+    for row_idx, (nome, s) in enumerate(sorted(stats_of.items()), start=3):
+        is_alt   = (row_idx % 2 == 0)
+        row_fill = fill_alt if is_alt else None
+        andamento = s['total'] - s['fin']
+        pct = round(s['fin'] / s['total'] * 100, 1) if s['total'] else 0
+        row_data = [nome, s['total'], s['fin'], andamento, s['agu'], f"{pct}%"]
+        for col, value in enumerate(row_data, start=1):
+            cell = ws_of.cell(row=row_idx, column=col, value=value)
+            cell.border = border
+            cell.alignment = center if col > 1 else left_mid
+            if row_fill:
+                cell.fill = row_fill
+        ws_of.row_dimensions[row_idx].height = 18
+
+    for col, w in enumerate([30, 10, 14, 16, 18, 14], start=1):
+        ws_of.column_dimensions[get_column_letter(col)].width = w
+
+    ws_of.auto_filter.ref = f'A2:F{ws_of.max_row}'
+    ws_of.freeze_panes = 'A3'
+
+    # ══════════════════════════════════════════════════════════════════════
+    # ABA 4 — POR MILITAR
+    # ══════════════════════════════════════════════════════════════════════
+    ws_mil = wb.create_sheet('Por Militar')
+
+    ws_mil.merge_cells('A1:F1')
+    ws_mil['A1'] = 'ANÁLISE POR MILITAR ACUSADO'
+    ws_mil['A1'].font = Font(bold=True, color='FFFFFF', size=13)
+    ws_mil['A1'].fill = fill_dark
+    ws_mil['A1'].alignment = center
+    ws_mil.row_dimensions[1].height = 28
+
+    hdr_mil = ['Militar', 'Posto', 'Total PATDs', 'Finalizadas', 'Em Andamento', 'Itens Mais Frequentes']
+    for col, h in enumerate(hdr_mil, start=1):
+        cell = ws_mil.cell(row=2, column=col, value=h)
+        cell.font = Font(bold=True, color='FFFFFF', size=10)
+        cell.fill = fill_dark
+        cell.alignment = center
+        cell.border = border
+    ws_mil.row_dimensions[2].height = 22
+
+    stats_mil = defaultdict(lambda: {'posto': '', 'total': 0, 'fin': 0, 'itens': defaultdict(int)})
+    for patd in patds_list:
+        if not patd.militar:
+            continue
+        key = patd.militar.nome_guerra
+        stats_mil[key]['posto'] = patd.militar.posto or ''
+        stats_mil[key]['total'] += 1
+        if patd.status == 'finalizado':
+            stats_mil[key]['fin'] += 1
+        for item in (patd.itens_enquadrados or []):
+            n = item.get('numero')
+            if n:
+                stats_mil[key]['itens'][str(n)] += 1
+
+    sorted_mil = sorted(stats_mil.items(), key=lambda x: x[1]['total'], reverse=True)
+    for row_idx, (nome, s) in enumerate(sorted_mil, start=3):
+        is_alt   = (row_idx % 2 == 0)
+        row_fill = fill_alt if is_alt else None
+        top_itens = ', '.join([f"Item {k}({v}x)" for k, v in sorted(s['itens'].items(), key=lambda x: -x[1])[:5]]) or '—'
+        row_data = [nome, s['posto'], s['total'], s['fin'], s['total'] - s['fin'], top_itens]
+        for col, value in enumerate(row_data, start=1):
+            cell = ws_mil.cell(row=row_idx, column=col, value=value)
+            cell.border = border
+            cell.alignment = center if col in (3, 4, 5) else left_mid
+            if row_fill:
+                cell.fill = row_fill
+        ws_mil.row_dimensions[row_idx].height = 18
+
+    for col, w in enumerate([24, 14, 12, 12, 14, 32], start=1):
+        ws_mil.column_dimensions[get_column_letter(col)].width = w
+
+    ws_mil.auto_filter.ref = f'A2:F{ws_mil.max_row}'
+    ws_mil.freeze_panes = 'A3'
 
     # Salvar e retornar
     output = io.BytesIO()
