@@ -19,6 +19,7 @@
             <tr>
                 <th>N° PATD</th>
                 <th>Data da Ocorrência</th>
+                <th>Itens Enquadrados</th>
                 <th>Status</th>
                 <th>Ações</th>
             </tr>
@@ -28,6 +29,15 @@
             <tr>
                 <td>{{ patd.numero_patd }}</td>
                 <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
+                <td>
+                    {% if patd.itens_enquadrados %}
+                        {% for item in patd.itens_enquadrados %}
+                            <span style="display:inline-block;background:var(--badge-bg);border:1px solid var(--border-color);border-radius:4px;padding:1px 7px;font-size:.8rem;font-weight:600;margin:1px;">{{ item.numero }}</span>
+                        {% endfor %}
+                    {% else %}
+                        <span style="color:var(--text-secondary);font-style:italic;font-size:.85rem;">—</span>
+                    {% endif %}
+                </td>
                 <td>{{ patd.get_status_display }}</td>
                 <td class="actions-cell">
                     <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver Detalhes</a>
@@ -35,7 +45,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="4" style="text-align: center; padding: 20px;">Nenhuma PATD encontrada para este militar.</td>
+                <td colspan="5" style="text-align: center; padding: 20px;">Nenhuma PATD encontrada para este militar.</td>
             </tr>
             {% endfor %}
         </tbody>

@@ -47,6 +47,10 @@ class Configuracao(models.Model):
         default=0,
         verbose_name="Prazo para Defesa (minutos)"
     )
+    dias_retencao_lixeira = models.IntegerField(
+        default=30,
+        verbose_name="Dias de retenção na lixeira"
+    )
 
     def save(self, *args, **kwargs):
         # Garante que só existe uma instância deste modelo
@@ -334,11 +338,10 @@ class PATD(models.Model):
         
     @property
     def dias_para_exclusao(self):
-        """Calcula quantos dias faltam para a exclusão permanente (30 dias)."""
         if self.deleted and self.deleted_at:
+            retencao = Configuracao.load().dias_retencao_lixeira
             delta = timezone.now() - self.deleted_at
-            dias_restantes = 30 - delta.days
-            return dias_restantes if dias_restantes > 0 else 0
+            return max(retencao - delta.days, 0)
         return None
 
     def __str__(self):

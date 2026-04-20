@@ -3,187 +3,219 @@
 
 {% block title %}Lixeira de PATDs{% endblock %}
 
-{% block content %}
+{% block extra_head %}
 <style>
-    /* Ajustes específicos para a tabela da lixeira */
-    .trash-actions {
-        display: flex;
-        gap: 8px;
-        align-items: center;
-        flex-wrap: wrap;
-    }
-    .badge-excluida {
-        background-color: var(--danger-color, #dc3545);
-        color: white;
-        padding: 3px 6px;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        font-weight: bold;
-        margin-left: 5px;
-    }
-    .text-muted-theme {
-        color: var(--text-secondary);
-        font-style: italic;
-    }
+.trash-page-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 24px; padding-bottom: 20px;
+    border-bottom: 1px solid var(--border-color);
+}
+.trash-header-icon {
+    width: 48px; height: 48px; border-radius: 12px;
+    background: var(--danger-color);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.trash-header-icon svg { width: 24px; height: 24px; color: #fff; }
+.trash-header-text h1 { font-size: 1.3rem; font-weight: 700; margin: 0 0 2px; border: none; padding: 0; }
+.trash-header-text p  { font-size: .85rem; color: var(--text-secondary); margin: 0; }
 
-    /* ESTILIZAÇÃO PREMIUM DO CONTADOR DE EXCLUSÃO */
-    .countdown-badge {
-        display: inline-flex;
-        align-items: center;
-        gap: 6px;
-        padding: 4px 12px;
-        border-radius: 20px;
-        font-size: 0.85rem;
-        font-weight: 600;
-        white-space: nowrap;
-        letter-spacing: 0.3px;
-    }
-    .countdown-safe {
-        background-color: rgba(108, 117, 125, 0.15);
-        color: var(--text-secondary, #adb5bd);
-        border: 1px solid rgba(108, 117, 125, 0.3);
-    }
-    .countdown-warning {
-        background-color: rgba(255, 193, 7, 0.15);
-        color: #ffc107;
-        border: 1px solid rgba(255, 193, 7, 0.3);
-    }
-    .countdown-danger {
-        background-color: rgba(220, 53, 69, 0.15);
-        color: #ff6b6b;
-        border: 1px solid rgba(220, 53, 69, 0.4);
-    }
+/* KPI bar da lixeira */
+.trash-kpis {
+    display: flex; gap: 12px; margin-bottom: 20px; flex-wrap: wrap;
+}
+.trash-kpi {
+    background: var(--bg-content);
+    border: 1px solid var(--border-color);
+    border-radius: 10px; padding: 12px 18px;
+    display: flex; align-items: center; gap: 10px;
+}
+.trash-kpi .tk-num {
+    font-size: 1.5rem; font-weight: 800; color: var(--danger-color); line-height: 1;
+}
+.trash-kpi .tk-lbl { font-size: .75rem; color: var(--text-secondary); line-height: 1.3; }
+
+/* Tabela */
+.trash-table-card {
+    background: var(--bg-content);
+    border: 1px solid var(--border-color);
+    border-radius: 12px; overflow: hidden;
+}
+.trash-table-hd {
+    padding: 12px 18px;
+    background: var(--badge-bg);
+    border-bottom: 1px solid var(--border-color);
+    display: flex; align-items: center; justify-content: space-between;
+}
+.trash-table-hd h3 { margin: 0; font-size: .9rem; font-weight: 700; color: var(--text-primary); }
+
+.badge-lixeira {
+    background: var(--danger-color); color: #fff;
+    padding: 2px 7px; border-radius: 4px;
+    font-size: .7rem; font-weight: 700; margin-left: 6px;
+}
+.text-muted-sm { color: var(--text-secondary); font-style: italic; font-size: .85rem; }
+
+/* Countdown badges */
+.countdown-badge {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 3px 10px; border-radius: 20px;
+    font-size: .78rem; font-weight: 600; white-space: nowrap;
+}
+.cd-safe    { background: var(--badge-bg); color: var(--text-secondary); border: 1px solid var(--border-color); }
+.cd-warning { background: rgba(245,158,11,.12); color: var(--warning-color); border: 1px solid rgba(245,158,11,.3); }
+.cd-danger  { background: rgba(239,68,68,.12); color: var(--danger-color);  border: 1px solid rgba(239,68,68,.35); }
+
+.trash-actions { display: flex; gap: 6px; flex-wrap: wrap; align-items: center; }
+
+/* Paginação */
+.pagination-simple {
+    display: flex; justify-content: center; align-items: center; gap: 8px;
+    margin-top: 20px;
+}
+.pagination-simple a, .pagination-simple span {
+    padding: 5px 12px; border-radius: 8px; font-size: .85rem;
+    border: 1px solid var(--border-color); color: var(--text-secondary);
+    text-decoration: none; background: var(--bg-content);
+}
+.pagination-simple a:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.pagination-simple .current-page { font-weight: 700; color: var(--text-primary); }
 </style>
+{% endblock %}
 
-<div class="table-header">
-    <h1>Lixeira de PATDs</h1>
-    <div class="actions">
+{% block content %}
+
+<!-- Cabeçalho -->
+<div class="trash-page-header">
+    <div class="trash-header-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
+        </svg>
+    </div>
+    <div class="trash-header-text">
+        <h1>Lixeira de PATDs</h1>
+        <p>Processos excluídos — gerenciamento e configuração de retenção automática</p>
+    </div>
+    <div style="margin-left:auto;">
         <a href="{% url 'Ouvidoria:patd_list' %}" class="btn btn-secondary">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
-            </svg>
+            <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15 3 9m0 0 6-6M3 9h12a6 6 0 0 1 0 12h-3" /></svg>
             Voltar para PATDs
         </a>
     </div>
 </div>
 
-<div class="table-responsive">
-    <table class="data-table">
-        <thead>
-            <tr>
-                <th>Nº PATD (Antigo)</th>
-                <th>Nº Atual</th>
-                <th>Militar Acusado</th>
-                <th>Data de Exclusão</th>
-                <th>Exclusão Automática</th>
-                <th>Ações</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for patd in patds %}
-            <tr>
-                <td>
-                    <strong>{{ patd.numero_patd_anterior|default:"-" }}</strong>
-                    <span class="badge-excluida">Lixeira</span>
-                </td>
-                <td>
-                    {% if patd.numero_patd %}
-                        {{ patd.numero_patd }}
-                    {% else %}
-                        <span class="text-muted-theme">Sem número</span>
-                    {% endif %}
-                </td>
-                <td>{{ patd.militar.nome_guerra }}</td>
-                <td>{{ patd.deleted_at|date:"d/m/Y H:i" }}</td>
-                
-                <td>
-                    {% if patd.dias_para_exclusao != None %}
-                        {% if patd.dias_para_exclusao > 5 %}
-                            <span class="countdown-badge countdown-safe" title="Será excluída permanentemente em {{ patd.dias_para_exclusao }} dias">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                em {{ patd.dias_para_exclusao }} dias
-                            </span>
-                        {% elif patd.dias_para_exclusao > 1 %}
-                            <span class="countdown-badge countdown-warning" title="Atenção: Exclusão em {{ patd.dias_para_exclusao }} dias">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
-                                em {{ patd.dias_para_exclusao }} dias
-                            </span>
-                        {% elif patd.dias_para_exclusao == 1 %}
-                            <span class="countdown-badge countdown-danger">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                                Amanhã
-                            </span>
+<!-- KPIs -->
+<div class="trash-kpis">
+    <div class="trash-kpi">
+        <div>
+            <div class="tk-num">{{ total_lixeira }}</div>
+            <div class="tk-lbl">Na lixeira</div>
+        </div>
+    </div>
+    <div class="trash-kpi">
+        <div>
+            <div class="tk-num" style="color:var(--accent-color);">{{ config.dias_retencao_lixeira }}</div>
+            <div class="tk-lbl">Dias de retenção<br><span style="font-size:.7rem;font-weight:400;">Configurável na seção Informática</span></div>
+        </div>
+    </div>
+</div>
+
+<!-- Tabela -->
+<div class="trash-table-card">
+    <div class="trash-table-hd">
+        <h3>Processos na lixeira</h3>
+    </div>
+    <div class="table-responsive">
+        <table class="data-table">
+            <thead>
+                <tr>
+                    <th>Nº Antigo</th>
+                    <th>Militar Acusado</th>
+                    <th>Oficial Apurador</th>
+                    <th>Data de Exclusão</th>
+                    <th>Exclusão Automática em</th>
+                    <th>Ações</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for patd in patds %}
+                <tr>
+                    <td>
+                        <strong>{{ patd.numero_patd_anterior|default:"—" }}</strong>
+                        <span class="badge-lixeira">Lixeira</span>
+                    </td>
+                    <td>{{ patd.militar.nome_guerra }}</td>
+                    <td>{{ patd.oficial_responsavel|default:"—" }}</td>
+                    <td>{{ patd.deleted_at|date:"d/m/Y H:i" }}</td>
+                    <td>
+                        {% if patd.dias_para_exclusao != None %}
+                            {% if patd.dias_para_exclusao > 5 %}
+                                <span class="countdown-badge cd-safe" title="Exclusão em {{ patd.dias_para_exclusao }} dias">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                                    {{ patd.dias_para_exclusao }} dias
+                                </span>
+                            {% elif patd.dias_para_exclusao > 1 %}
+                                <span class="countdown-badge cd-warning" title="Atenção: {{ patd.dias_para_exclusao }} dias">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                    {{ patd.dias_para_exclusao }} dias
+                                </span>
+                            {% elif patd.dias_para_exclusao == 1 %}
+                                <span class="countdown-badge cd-danger">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                    Amanhã
+                                </span>
+                            {% else %}
+                                <span class="countdown-badge cd-danger">
+                                    <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>
+                                    Hoje
+                                </span>
+                            {% endif %}
                         {% else %}
-                            <span class="countdown-badge countdown-danger">
-                                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.29 3.86L1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"></path><line x1="12" y1="9" x2="12" y2="13"></line><line x1="12" y1="17" x2="12.01" y2="17"></line></svg>
-                                Hoje
-                            </span>
+                            —
                         {% endif %}
-                    {% else %}
-                        -
-                    {% endif %}
-                </td>
-                
-                <td class="trash-actions">
-                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14" style="margin-right: 4px;">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z" />
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                    </td>
+                    <td class="trash-actions">
+                        <form action="{% url 'Ouvidoria:patd_restore' patd.pk %}" method="post" style="margin:0;">
+                            {% csrf_token %}
+                            <button type="submit" class="btn btn-sm btn-success" title="Restaurar PATD">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0 3.181 3.183a8.25 8.25 0 0 0 13.803-3.7M4.031 9.865a8.25 8.25 0 0 1 13.803-3.7l3.181 3.182m0-4.991v4.99" /></svg>
+                                Restaurar
+                            </button>
+                        </form>
+                        <form action="{% url 'Ouvidoria:patd_permanently_delete' patd.pk %}" method="post" class="form-del-permanent" style="margin:0;">
+                            {% csrf_token %}
+                            <button type="button" class="btn btn-sm btn-delete btn-del-permanent" title="Excluir permanentemente">
+                                <svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" /></svg>
+                                Excluir
+                            </button>
+                        </form>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="6" style="text-align:center; padding:48px; color:var(--text-secondary);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="48" height="48" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" style="opacity:.35;margin-bottom:10px;display:block;margin-left:auto;margin-right:auto;">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="m14.74 9-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 0 1-2.244 2.077H8.084a2.25 2.25 0 0 1-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 0 0-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 0 1 3.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 0 0-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 0 0-7.5 0" />
                         </svg>
-                        Detalhes
-                    </a>
-
-                    <form action="{% url 'Ouvidoria:patd_restore' patd.pk %}" method="post" style="margin: 0;">
-                        {% csrf_token %}
-                        <button type="submit" class="btn btn-sm btn-success">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14" style="margin-right: 4px;">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99" />
-                            </svg>
-                            Restaurar
-                        </button>
-                    </form>
-
-                    <form action="{% url 'Ouvidoria:patd_permanently_delete' patd.pk %}" method="post" class="delete-permanent-form" style="margin: 0;">
-                        {% csrf_token %}
-                        <button type="button" class="btn btn-sm btn-danger btn-delete-permanent">
-                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="14" height="14" style="margin-right: 4px;">
-                                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                            </svg>
-                            Excluir
-                        </button>
-                    </form>
-                </td>
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="6" style="text-align: center; padding: 40px; color: var(--text-secondary);">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 48px; height: 48px; margin-bottom: 10px; opacity: 0.5;">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
-                    </svg>
-                    <br>
-                    A lixeira está vazia.
-                </td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+                        A lixeira está vazia.
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
 </div>
 
 {% if is_paginated %}
-<div class="pagination">
-    <span class="step-links">
-        {% if page_obj.has_previous %}
-            <a href="?page=1">&laquo; primeira</a>
-            <a href="?page={{ page_obj.previous_page_number }}">anterior</a>
-        {% endif %}
-        <span class="current">
-            Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.
-        </span>
-        {% if page_obj.has_next %}
-            <a href="?page={{ page_obj.next_page_number }}">próxima</a>
-            <a href="?page={{ page_obj.paginator.num_pages }}">última &raquo;</a>
-        {% endif %}
-    </span>
+<div class="pagination-simple">
+    {% if page_obj.has_previous %}
+        <a href="?page=1">&laquo;</a>
+        <a href="?page={{ page_obj.previous_page_number }}">Anterior</a>
+    {% endif %}
+    <span class="current-page">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+    {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}">Próxima</a>
+        <a href="?page={{ page_obj.paginator.num_pages }}">&raquo;</a>
+    {% endif %}
 </div>
 {% endif %}
 
@@ -191,14 +223,11 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const deleteButtons = document.querySelectorAll('.btn-delete-permanent');
-    
-    deleteButtons.forEach(button => {
-        button.addEventListener('click', function(e) {
-            e.preventDefault();
-            if (confirm('ATENÇÃO: Tem certeza que deseja excluir esta PATD permanentemente? Esta ação não pode ser desfeita.')) {
-                this.closest('.delete-permanent-form').submit();
+document.addEventListener('DOMContentLoaded', function () {
+    document.querySelectorAll('.btn-del-permanent').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            if (confirm('ATENÇÃO: Excluir permanentemente esta PATD? Esta ação não pode ser desfeita.')) {
+                btn.closest('.form-del-permanent').submit();
             }
         });
     });

@@ -73,4 +73,11 @@ urlpatterns = [
     path('api/ouvidoria/patd/<int:pk>/', views.ouvidoria_admin_patd_detail, name='ouvidoria_admin_patd_detail'),
     path('api/ouvidoria/patd/<int:pk>/update/', views.ouvidoria_admin_update, name='ouvidoria_admin_update'),
     path('api/ouvidoria/patd/<int:patd_pk>/anexo/<int:anexo_pk>/delete/', views.ouvidoria_admin_delete_anexo, name='ouvidoria_admin_delete_anexo'),
+
+    # Lixeira admin
+    path('api/ouvidoria/lixeira/config/', views.ouvidoria_lixeira_config, name='ouvidoria_lixeira_config'),
+    path('api/ouvidoria/lixeira/esvaziar/', views.ouvidoria_lixeira_esvaziar, name='ouvidoria_lixeira_esvaziar'),
+    path('api/ouvidoria/lixeira/<int:pk>/restore/', views.ouvidoria_lixeira_restore, name='ouvidoria_lixeira_restore'),
+    path('api/ouvidoria/lixeira/<int:pk>/delete/', views.ouvidoria_lixeira_delete, name='ouvidoria_lixeira_delete'),
+    path('api/ouvidoria/lixeira/<int:pk>/set-deleted-at/', views.ouvidoria_lixeira_set_deleted_at, name='ouvidoria_lixeira_set_deleted_at'),
 ]

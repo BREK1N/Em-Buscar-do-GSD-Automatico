@@ -232,6 +232,106 @@
         <!-- Feedback de ações -->
         <div id="adm-feedback" style="margin-top:12px;"></div>
     </div>
+
+    <!-- ====== LIXEIRA DE PATDs ====== -->
+    <hr style="border-color:var(--border-color);margin:32px 0 24px;">
+
+    <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header" style="justify-content:space-between;">
+            <div style="display:flex;align-items:center;gap:10px;">
+                <i class="fas fa-trash-alt" style="color:#ef4444;font-size:1.2rem;"></i>
+                <h2>Lixeira de PATDs</h2>
+            </div>
+            <span style="background:#ef444415;color:#ef4444;border:1px solid #ef4444;border-radius:20px;padding:3px 14px;font-size:0.82rem;font-weight:600;" id="lixeira-count-badge">{{ lixeira_total }} na lixeira</span>
+        </div>
+
+        <!-- Config de retenção -->
+        <div style="display:flex;align-items:center;gap:12px;background:var(--bg-main);border:1px solid var(--border-color);border-radius:10px;padding:14px 18px;margin-bottom:16px;flex-wrap:wrap;">
+            <i class="fas fa-clock" style="color:var(--accent-color);font-size:1.1rem;"></i>
+            <span style="color:var(--text-secondary);font-size:0.9rem;">Tempo de retenção:</span>
+            <strong id="lixeira-retencao-display" style="color:var(--text-primary);">{{ dias_retencao_lixeira }} dias</strong>
+            <div style="display:flex;align-items:center;gap:8px;margin-left:auto;">
+                <input type="number" id="lixeira-dias-input" value="{{ dias_retencao_lixeira }}" min="1" max="365"
+                    style="width:80px;padding:6px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);text-align:center;">
+                <span style="color:var(--text-secondary);font-size:0.88rem;">dias</span>
+                <button onclick="lixeiraSetConfig()" class="btn btn-primary" style="border-radius:8px;padding:7px 16px;font-size:0.88rem;"><i class="fas fa-save me-1"></i> Salvar</button>
+            </div>
+        </div>
+
+        <!-- Feedback lixeira -->
+        <div id="lixeira-feedback" style="margin-bottom:10px;"></div>
+
+        {% if lixeira_list %}
+        <!-- Tabela de PATDs na lixeira -->
+        <div style="overflow-x:auto;">
+            <table id="lixeira-table" style="width:100%;border-collapse:collapse;font-size:0.88rem;">
+                <thead>
+                    <tr style="border-bottom:2px solid var(--border-color);">
+                        <th style="text-align:left;padding:10px 8px;color:var(--text-secondary);font-weight:600;">PATD</th>
+                        <th style="text-align:left;padding:10px 8px;color:var(--text-secondary);font-weight:600;">Militar</th>
+                        <th style="text-align:left;padding:10px 8px;color:var(--text-secondary);font-weight:600;">Será excluído em</th>
+                        <th style="text-align:right;padding:10px 8px;color:var(--text-secondary);font-weight:600;"></th>
+                    </tr>
+                </thead>
+                <tbody id="lixeira-tbody">
+                    {% for item in lixeira_list %}
+                    <tr data-patd-id="{{ item.id }}" style="border-bottom:1px solid var(--border-color);transition:background 0.15s;">
+                        <td style="padding:10px 8px;font-weight:600;">{{ item.numero_patd }}</td>
+                        <td style="padding:10px 8px;">{{ item.militar }}</td>
+                        <td style="padding:10px 8px;">
+                            {% if item.expira_em %}
+                                <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;">
+                                    {% if item.dias_restantes is not None and item.dias_restantes <= 0 %}
+                                        <span style="color:#ef4444;font-weight:600;white-space:nowrap;">
+                                            <i class="fas fa-exclamation-triangle me-1"></i>{{ item.expira_em|date:"d/m/Y H:i" }} (Expirado)
+                                        </span>
+                                    {% elif item.dias_restantes is not None and item.dias_restantes <= 3 %}
+                                        <span style="color:#f59e0b;font-weight:600;white-space:nowrap;">
+                                            <i class="fas fa-clock me-1"></i>{{ item.expira_em|date:"d/m/Y H:i" }} ({{ item.dias_restantes }}d)
+                                        </span>
+                                    {% else %}
+                                        <span style="color:var(--text-secondary);white-space:nowrap;">{{ item.expira_em|date:"d/m/Y H:i" }}</span>
+                                    {% endif %}
+                                    <input type="datetime-local" class="lixeira-deleted-at-input"
+                                        data-patd-id="{{ item.id }}"
+                                        value="{% if item.deleted_at %}{{ item.deleted_at|date:'Y-m-d' }}T{{ item.deleted_at|date:'H:i' }}{% endif %}"
+                                        title="Alterar data de entrada na lixeira para recalcular expiração"
+                                        style="padding:4px 7px;border-radius:6px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);font-size:0.78rem;display:none;" class="lixeira-dt-edit">
+                                    <button onclick="lixeiraToggleEdit({{ item.id }}, this)" class="btn btn-sm btn-secondary" style="border-radius:6px;padding:3px 8px;font-size:0.78rem;" title="Ajustar data de exclusão">
+                                        <i class="fas fa-pen"></i>
+                                    </button>
+                                </div>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td style="padding:10px 8px;text-align:right;white-space:nowrap;">
+                            <button onclick="lixeiraRestore({{ item.id }}, this)" class="btn btn-sm btn-primary" style="border-radius:6px;margin-right:4px;" title="Restaurar">
+                                <i class="fas fa-undo me-1"></i> Restaurar
+                            </button>
+                            <button onclick="lixeiraDelete({{ item.id }}, this)" class="btn btn-sm" style="border-radius:6px;background:#ef4444;color:#fff;border:none;" title="Excluir permanentemente">
+                                <i class="fas fa-trash me-1"></i> Excluir
+                            </button>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+
+        <!-- Esvaziar lixeira -->
+        <div style="margin-top:18px;display:flex;justify-content:flex-end;">
+            <button onclick="lixeiraEsvaziar()" class="btn" style="background:#ef4444;color:#fff;border:none;border-radius:8px;padding:9px 22px;font-weight:600;font-size:0.9rem;">
+                <i class="fas fa-fire me-2"></i> Esvaziar Lixeira ({{ lixeira_total }})
+            </button>
+        </div>
+
+        {% else %}
+        <div style="text-align:center;padding:40px 20px;color:var(--text-secondary);">
+            <i class="fas fa-check-circle" style="font-size:2.5rem;color:#22c55e;display:block;margin-bottom:12px;"></i>
+            <strong>Lixeira vazia</strong><br>
+            <span style="font-size:0.88rem;">Nenhuma PATD na lixeira no momento.</span>
+        </div>
+        {% endif %}
+    </div>
 </div>
 
 <!-- MODAL DE ASSINATURA -->
@@ -788,6 +888,118 @@ document.addEventListener('DOMContentLoaded', function() {
     };
 
     // ---- Remover anexo ----
+    // ---- Lixeira ----
+    const LIXEIRA_CFG_URL     = "{% url 'informatica:ouvidoria_lixeira_config' %}";
+    const LIXEIRA_ESVAZIAR_URL = "{% url 'informatica:ouvidoria_lixeira_esvaziar' %}";
+
+    function showLixeiraFeedback(msg, type) {
+        const el = document.getElementById('lixeira-feedback');
+        if (!el) return;
+        const color = type === 'success' ? '#22c55e' : '#ef4444';
+        el.innerHTML = `<div style="background:${color}15;border:1px solid ${color};color:${color};border-radius:8px;padding:10px 14px;">${msg}</div>`;
+        setTimeout(() => { el.innerHTML = ''; }, 5000);
+    }
+
+    window.lixeiraSetConfig = function() {
+        const dias = parseInt(document.getElementById('lixeira-dias-input')?.value);
+        if (!dias || dias < 1 || dias > 365) { showLixeiraFeedback('Valor inválido (1–365 dias).', 'error'); return; }
+        const fd = new FormData();
+        fd.append('dias_retencao_lixeira', dias);
+        fd.append('csrfmiddlewaretoken', csrfToken);
+        fetch(LIXEIRA_CFG_URL, { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    document.getElementById('lixeira-retencao-display').textContent = `${d.dias} dias`;
+                    showLixeiraFeedback(`✔ Retenção atualizada para ${d.dias} dias.`, 'success');
+                } else showLixeiraFeedback(d.message || 'Erro.', 'error');
+            })
+            .catch(e => showLixeiraFeedback('Erro: ' + e.message, 'error'));
+    };
+
+    window.lixeiraToggleEdit = function(id, btn) {
+        const row = document.querySelector(`tr[data-patd-id="${id}"]`);
+        const input = row ? row.querySelector('.lixeira-deleted-at-input') : null;
+        if (!input) return;
+        const isVisible = input.style.display !== 'none';
+        if (isVisible) {
+            // Salvar
+            if (!input.value) { showLixeiraFeedback('Defina uma data/hora.', 'error'); return; }
+            fetch(`/informatica/api/ouvidoria/lixeira/${id}/set-deleted-at/`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ deleted_at: input.value }),
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    showLixeiraFeedback('✔ ' + d.message + ' — recarregue para ver a nova data.', 'success');
+                    input.style.display = 'none';
+                    btn.innerHTML = '<i class="fas fa-pen"></i>';
+                } else showLixeiraFeedback(d.message || 'Erro.', 'error');
+            });
+        } else {
+            input.style.display = 'inline-block';
+            btn.innerHTML = '<i class="fas fa-save"></i>';
+            input.focus();
+        }
+    };
+
+    window.lixeiraRestore = function(id, btn) {
+        if (!confirm('Restaurar esta PATD da lixeira?')) return;
+        fetch(`/informatica/api/ouvidoria/lixeira/${id}/restore/`, {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken },
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.status === 'success') {
+                showLixeiraFeedback('✔ ' + d.message, 'success');
+                const row = document.querySelector(`tr[data-patd-id="${id}"]`);
+                if (row) row.remove();
+                _updateLixeiraCount(-1);
+            } else showLixeiraFeedback(d.message || 'Erro.', 'error');
+        });
+    };
+
+    window.lixeiraDelete = function(id, btn) {
+        if (!confirm('Excluir permanentemente esta PATD? Esta ação não pode ser desfeita.')) return;
+        fetch(`/informatica/api/ouvidoria/lixeira/${id}/delete/`, {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken },
+        })
+        .then(r => r.json())
+        .then(d => {
+            if (d.status === 'success') {
+                showLixeiraFeedback('✔ ' + d.message, 'success');
+                const row = document.querySelector(`tr[data-patd-id="${id}"]`);
+                if (row) row.remove();
+                _updateLixeiraCount(-1);
+            } else showLixeiraFeedback(d.message || 'Erro.', 'error');
+        });
+    };
+
+    window.lixeiraEsvaziar = function() {
+        const count = document.getElementById('lixeira-tbody')?.querySelectorAll('tr').length || 0;
+        if (!confirm(`Excluir permanentemente TODAS as ${count} PATD(s) na lixeira? Esta ação não pode ser desfeita.`)) return;
+        fetch(LIXEIRA_ESVAZIAR_URL, { method: 'POST', headers: { 'X-CSRFToken': csrfToken } })
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') {
+                    showLixeiraFeedback('✔ ' + d.message, 'success');
+                    const tbody = document.getElementById('lixeira-tbody');
+                    if (tbody) tbody.innerHTML = '<tr><td colspan="5" style="text-align:center;padding:30px;color:var(--text-secondary);"><i class="fas fa-check-circle me-2" style="color:#22c55e;"></i>Lixeira vazia</td></tr>';
+                    _updateLixeiraCount(-d.count);
+                } else showLixeiraFeedback(d.message || 'Erro.', 'error');
+            });
+    };
+
+    function _updateLixeiraCount(delta) {
+        const badge = document.getElementById('lixeira-count-badge');
+        if (!badge) return;
+        const current = parseInt(badge.textContent) || 0;
+        const nova = Math.max(0, current + delta);
+        badge.textContent = `${nova} na lixeira`;
+    }
+
     window.admDeleteAnexo = function(anexoId) {
         if (!currentPatdId) return;
         if (!confirm('Remover este anexo definitivamente?')) return;

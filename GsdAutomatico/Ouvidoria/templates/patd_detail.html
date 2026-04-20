@@ -1174,6 +1174,16 @@
                     <textarea name="motivo_justificativa" id="id_motivo_final" rows="3" style="width: 100%; padding: 10px;" placeholder="Explique por que foi justificada..."></textarea>
                 </div>
 
+                <!-- Itens Enquadrados (full width) -->
+                <div class="form-item" style="grid-column: 1 / -1;">
+                    <label for="id_itens_final">Itens Enquadrados no Regulamento:</label>
+                    <input type="text" name="itens_enquadrados_numeros" id="id_itens_final"
+                        value="{% if patd.itens_enquadrados %}{% for item in patd.itens_enquadrados %}{{ item.numero }}{% if not forloop.last %}, {% endif %}{% endfor %}{% endif %}"
+                        placeholder="Ex: 10, 13, 15"
+                        style="width: 100%; padding: 10px;">
+                    <small style="color: var(--text-muted);">Números dos itens separados por vírgula. Os itens existentes já estão preenchidos.</small>
+                </div>
+
                 <!-- Linha 4: Boletim | Senha -->
                 <div class="form-item">
                     <label for="id_boletim_final">Boletim de Publicação:</label>

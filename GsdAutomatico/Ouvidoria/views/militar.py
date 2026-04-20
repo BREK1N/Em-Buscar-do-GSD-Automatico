@@ -109,16 +109,18 @@ def aceitar_atribuicao(request, pk):
         user = authenticate(username=request.user.username, password=senha)
         if user is not None:
             # --- INÍCIO DA LÓGICA DE STATUS ---
-            status_definido = False
-            if patd.status_anterior:
+            # Se a PATD já foi finalizada (data_termino preenchido durante finalizar_patd_completa)
+            # mas ficou aguardando aceitação do oficial, retorna direto para finalizado.
+            if patd.data_termino:
+                patd.status = 'finalizado'
+                patd.status_anterior = None
+            elif patd.status_anterior:
                 patd.status = patd.status_anterior
                 patd.status_anterior = None
-                status_definido = True
             else:
                 patd.status = 'ciencia_militar'
-                status_definido = True
             # --- FIM DA LÓGICA DE STATUS ---
-            
+
             patd.save() # Salva o status para que a sincronização funcione corretamente
 
             # --- INÍCIO DA MODIFICAÇÃO: Sincronizar assinatura do oficial ---
@@ -126,7 +128,7 @@ def aceitar_atribuicao(request, pk):
             # --- FIM DA MODIFICAÇÃO ---
 
             # --- NOVA VERIFICAÇÃO DE ASSINATURAS DE CIÊNCIA ---
-            if patd.status == 'ciencia_militar':
+            if not patd.data_termino and patd.status == 'ciencia_militar':
                 try:
                     document_pages = get_document_pages(patd) # Gera o documento para contar placeholders
                     coringa_doc_text = document_pages[0] if document_pages else ""

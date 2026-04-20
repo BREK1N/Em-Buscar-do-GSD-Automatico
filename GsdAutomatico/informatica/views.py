@@ -289,10 +289,38 @@ class ConfiguracaoUpdateView(StaffRequiredMixin, UpdateView):
     model = Configuracao
     form_class = ConfiguracaoForm
     template_name = 'informatica/configuracao_form.html'
-    success_url = reverse_lazy('informatica:dashboard')
+    success_url = reverse_lazy('informatica:configuracao_edit')
     def get_object(self, queryset=None):
         obj, created = Configuracao.objects.get_or_create(pk=1)
         return obj
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        from django.utils import timezone
+        from datetime import timedelta
+        config = Configuracao.load()
+        cutoff = timezone.now() - timedelta(days=config.dias_retencao_lixeira)
+        lixeira_patds = PATD.all_objects.filter(deleted=True).select_related('militar').order_by('deleted_at')
+        lixeira_list = []
+        for p in lixeira_patds:
+            if p.deleted_at:
+                expira_em = p.deleted_at + timedelta(days=config.dias_retencao_lixeira)
+                dias_restantes = (expira_em - timezone.now()).days
+            else:
+                expira_em = None
+                dias_restantes = None
+            lixeira_list.append({
+                'id': p.id,
+                'numero_patd': p.numero_patd,
+                'militar': str(p.militar),
+                'deleted_at': p.deleted_at,
+                'expira_em': expira_em,
+                'dias_restantes': dias_restantes,
+            })
+        ctx['lixeira_list'] = lixeira_list
+        ctx['lixeira_total'] = len(lixeira_list)
+        ctx['dias_retencao_lixeira'] = config.dias_retencao_lixeira
+        return ctx
 
 
 # ==========================================
@@ -1172,3 +1200,76 @@ def ouvidoria_admin_delete_anexo(request, patd_pk, anexo_pk):
     anexo.delete()
     logger.info(f"[ADMIN OUVIDORIA] Anexo '{nome}' removido da PATD {patd.numero_patd} por {request.user.username}")
     return JsonResponse({'status': 'success', 'message': f'Anexo "{nome}" removido.'})
+
+
+# ==========================================
+# LIXEIRA ADMIN
+# ==========================================
+
+@staff_member_required
+@require_POST
+def ouvidoria_lixeira_config(request):
+    """Atualiza o tempo de retenção da lixeira."""
+    try:
+        dias = int(request.POST.get('dias_retencao_lixeira', 30))
+        if dias < 1 or dias > 365:
+            raise ValueError
+    except (ValueError, TypeError):
+        return JsonResponse({'status': 'error', 'message': 'Valor inválido (1–365 dias).'}, status=400)
+    config = Configuracao.load()
+    config.dias_retencao_lixeira = dias
+    config.save(update_fields=['dias_retencao_lixeira'])
+    logger.info(f"[LIXEIRA] Retenção alterada para {dias} dias por {request.user.username}")
+    return JsonResponse({'status': 'success', 'dias': dias})
+
+
+@staff_member_required
+@require_POST
+def ouvidoria_lixeira_restore(request, pk):
+    """Restaura uma PATD da lixeira."""
+    patd = get_object_or_404(PATD.all_objects, pk=pk, deleted=True)
+    numero = patd.numero_patd
+    patd.deleted = False
+    patd.deleted_at = None
+    patd.save(update_fields=['deleted', 'deleted_at'])
+    logger.info(f"[LIXEIRA] PATD {numero} restaurada por {request.user.username}")
+    return JsonResponse({'status': 'success', 'message': f'PATD {numero} restaurada.'})
+
+
+@staff_member_required
+@require_POST
+def ouvidoria_lixeira_delete(request, pk):
+    """Exclui permanentemente uma PATD da lixeira."""
+    patd = get_object_or_404(PATD.all_objects, pk=pk, deleted=True)
+    numero = patd.numero_patd
+    patd.delete()
+    logger.info(f"[LIXEIRA] PATD {numero} excluída permanentemente por {request.user.username}")
+    return JsonResponse({'status': 'success', 'message': f'PATD {numero} excluída permanentemente.'})
+
+
+@staff_member_required
+@require_POST
+def ouvidoria_lixeira_set_deleted_at(request, pk):
+    """Altera a data/hora de entrada na lixeira de uma PATD específica."""
+    patd = get_object_or_404(PATD.all_objects, pk=pk, deleted=True)
+    try:
+        body = json.loads(request.body)
+        from datetime import datetime as dt
+        nova_data = timezone.make_aware(dt.fromisoformat(body['deleted_at']))
+    except (json.JSONDecodeError, KeyError, ValueError, TypeError):
+        return JsonResponse({'status': 'error', 'message': 'Formato de data inválido.'}, status=400)
+    patd.deleted_at = nova_data
+    patd.save(update_fields=['deleted_at'])
+    logger.info(f"[LIXEIRA] deleted_at de PATD {patd.numero_patd} alterado para {nova_data} por {request.user.username}")
+    return JsonResponse({'status': 'success', 'message': f'Data atualizada para {nova_data.strftime("%d/%m/%Y %H:%M")}.'})
+
+
+@staff_member_required
+@require_POST
+def ouvidoria_lixeira_esvaziar(request):
+    """Exclui permanentemente todas as PATDs na lixeira."""
+    patds = PATD.all_objects.filter(deleted=True)
+    count = patds.count()
+    patds.delete()
+    logger.info(f"[LIXEIRA] {count} PATD(s) excluídas por {request.user.username}")
+    return JsonResponse({'status': 'success', 'count': count, 'message': f'{count} PATD(s) excluídas permanentemente.'})

@@ -1,17 +1,19 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from Ouvidoria.models import PATD
 from datetime import timedelta
 
+
 class Command(BaseCommand):
-    help = 'Deletes PATDs that have been in the trash for more than 30 days.'
+    help = 'Exclui PATDs que passaram do prazo de retenção na lixeira.'
 
     def handle(self, *args, **options):
-        thirty_days_ago = timezone.now() - timedelta(days=30)
-        expired_patds = PATD.all_objects.filter(
-            deleted=True,
-            deleted_at__lte=thirty_days_ago
-        )
-        count = expired_patds.count()
-        expired_patds.delete()
-        self.stdout.write(self.style.SUCCESS(f'Successfully deleted {count} expired PATDs.'))
+        from Ouvidoria.models import PATD, Configuracao
+        config = Configuracao.load()
+        cutoff = timezone.now() - timedelta(days=config.dias_retencao_lixeira)
+        expired = PATD.all_objects.filter(deleted=True, deleted_at__lte=cutoff)
+        count = expired.count()
+        expired.delete()
+        self.stdout.write(self.style.SUCCESS(
+            f'{count} PATD(s) expirada(s) excluída(s) '
+            f'(retenção: {config.dias_retencao_lixeira} dias).'
+        ))

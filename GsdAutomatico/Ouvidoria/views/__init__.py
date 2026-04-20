@@ -90,6 +90,8 @@ from .patd import (
     PATDDeleteView,
     patd_restore,
     patd_permanently_delete,
+    lixeira_esvaziar,
+    lixeira_config,
     arquivar_patd,
     desarquivar_patd,
     prosseguir_sem_alegacao,

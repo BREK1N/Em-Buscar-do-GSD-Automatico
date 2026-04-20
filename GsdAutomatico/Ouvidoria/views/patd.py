@@ -1185,6 +1185,13 @@ class PATDTrashView(ListView):
     def get_queryset(self):
         return PATD.all_objects.filter(deleted=True).select_related('militar').order_by('-deleted_at')
 
+    def get_context_data(self, **kwargs):
+        from ..models import Configuracao
+        ctx = super().get_context_data(**kwargs)
+        ctx['config'] = Configuracao.load()
+        ctx['total_lixeira'] = PATD.all_objects.filter(deleted=True).count()
+        return ctx
+
 
 @login_required
 @user_passes_test(lambda u: u.is_superuser) # Bloqueia para não-admins
@@ -1206,12 +1213,44 @@ def patd_restore(request, pk):
 
 
 @login_required
-@user_passes_test(lambda u: u.is_superuser) # Bloqueia para não-admins
+@user_passes_test(lambda u: u.is_superuser)
 @require_POST
 def patd_permanently_delete(request, pk):
     patd = get_object_or_404(PATD.all_objects, pk=pk)
+    numero = patd.numero_patd_anterior
     patd.delete()
-    messages.success(request, f'A PATD Nº {patd.numero_patd_anterior} foi excluída permanentemente.')
+    messages.success(request, f'A PATD Nº {numero} foi excluída permanentemente.')
+    return redirect('Ouvidoria:patd_trash')
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def lixeira_esvaziar(request):
+    """Exclui permanentemente todas as PATDs na lixeira."""
+    from ..models import Configuracao
+    count = PATD.all_objects.filter(deleted=True).count()
+    PATD.all_objects.filter(deleted=True).delete()
+    messages.success(request, f'{count} PATD(s) excluída(s) permanentemente da lixeira.')
+    return redirect('Ouvidoria:patd_trash')
+
+
+@login_required
+@user_passes_test(lambda u: u.is_superuser)
+@require_POST
+def lixeira_config(request):
+    """Atualiza a configuração de retenção da lixeira."""
+    from ..models import Configuracao
+    config = Configuracao.load()
+    try:
+        dias = int(request.POST.get('dias_retencao_lixeira', 30))
+        if dias < 1:
+            dias = 1
+        config.dias_retencao_lixeira = dias
+        config.save()
+        messages.success(request, f'Prazo de retenção atualizado para {dias} dias.')
+    except (ValueError, TypeError):
+        messages.error(request, 'Valor inválido para o prazo de retenção.')
     return redirect('Ouvidoria:patd_trash')
 
 
@@ -1238,6 +1277,7 @@ def finalizar_patd_completa(request, pk):
         oficial_id = request.POST.get('oficial_responsavel_id')
         testemunha1_id = request.POST.get('testemunha1_id')
         testemunha2_id = request.POST.get('testemunha2_id')
+        itens_numeros = request.POST.get('itens_enquadrados_numeros', '').strip()
 
         if not boletim or not tipo_punicao or not documento:
             messages.error(request, "Preencha todos os campos obrigatórios (Boletim, Punição e Documento Final).")
@@ -1307,7 +1347,20 @@ def finalizar_patd_completa(request, pk):
         # 4. Anexar o Documento Final Completo
         Anexo.objects.create(patd=patd, arquivo=documento, tipo='documento_final')
 
-        # 5. Fechamento e Atualização de Histórico Militar
+        # 5a. Processar itens enquadrados (só números, ex: "10, 13, 15")
+        if itens_numeros:
+            itens_list = []
+            for parte in itens_numeros.split(','):
+                n = parte.strip()
+                if n:
+                    try:
+                        itens_list.append({'numero': int(n), 'descricao': ''})
+                    except ValueError:
+                        itens_list.append({'numero': n, 'descricao': ''})
+            if itens_list:
+                patd.itens_enquadrados = itens_list
+
+        # 5b. Fechamento e Atualização de Histórico Militar
         patd.definir_natureza_transgressao()
         patd.calcular_e_atualizar_comportamento() # Altera para "Mau comportamento" se necessário
 
@@ -1338,7 +1391,13 @@ def aceitar_atribuicao_patd(request, pk):
     acao = request.POST.get('acao')
     if acao == 'aceitar':
         patd.oficial_aceitou = True
-        patd.save(update_fields=['oficial_aceitou'])
+        fields = ['oficial_aceitou']
+        # Se a PATD já foi finalizada (data_termino preenchido) mas ficou aguardando
+        # aceitação do oficial atribuído durante a finalização, retorna direto para finalizado.
+        if patd.data_termino and patd.status == 'aguardando_aprovacao_atribuicao':
+            patd.status = 'finalizado'
+            fields.append('status')
+        patd.save(update_fields=fields)
         return JsonResponse({'status': 'success', 'message': 'Atribuição aceita. A PATD aparece agora no seu histórico.'})
     elif acao == 'recusar':
         patd.oficial_aceitou = False
