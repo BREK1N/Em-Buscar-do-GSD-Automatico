@@ -343,7 +343,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     (${escapeHtml(militarData.nome_completo)})?
                 </p>
                 <div class="prompt-actions">
-                    <button type="button" class="btn btn-primary btn-sm create-patd-btn" data-militar-id="${militarId}" data-index="${index}">Sim, Criar PATD</button>
+                    <button type="button" class="btn btn-primary btn-sm create-patd-btn" data-militar-id="${militarId}" data-index="${index}" data-transgressao-individual="${escapeHtml(militarData.transgressao_individual || '')}">Sim, Criar PATD</button>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="this.closest('.resultado-item').remove()">Não</button>
                 </div>
                 <div class="dynamic-form-feedback" style="margin-top: 10px;"></div>
@@ -504,7 +504,11 @@ document.addEventListener('DOMContentLoaded', function() {
             const index = button.dataset.index;
             
             if (window.currentAnalysisData && window.currentAnalysisData.transgressao_data) {
-                associarMilitarExistente(militarId, window.currentAnalysisData.transgressao_data, index, button);
+                const transgressaoIndividual = button.dataset.transgressaoIndividual || '';
+                const transgressaoData = transgressaoIndividual
+                    ? { ...window.currentAnalysisData.transgressao_data, transgressao: transgressaoIndividual }
+                    : window.currentAnalysisData.transgressao_data;
+                associarMilitarExistente(militarId, transgressaoData, index, button);
             } else {
                 console.error("Dados da transgressão não encontrados.");
                 const feedbackContainer = button.closest('.resultado-item').querySelector('.dynamic-form-feedback');

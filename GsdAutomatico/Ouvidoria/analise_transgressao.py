@@ -53,11 +53,12 @@ class MilitarAcusado(BaseModel):
     nome_guerra: Optional[str] = Field(default="", description="O nome de guerra do militar acusado (ex: SILVA).")
     saram: Optional[str] = Field(default="", description="O SARAM/Matrícula do militar acusado. Se houver múltiplos números, pegue o associado ao transgressor.")
     posto_graduacao: Optional[str] = Field(default="", description="O posto ou graduação do acusado (ex: S2, CB, 3S).")
+    transgressao_individual: Optional[str] = Field(default="", description="Copie LITERALMENTE, palavra por palavra, apenas o trecho do documento que descreve o que ESTE militar específico fez. Se todos os acusados cometeram exatamente o mesmo ato descrito no mesmo trecho, copie esse trecho. NÃO altere, NÃO acrescente, NÃO interprete nada.")
 
 # Modelo principal para a análise
 class AnaliseTransgressao(BaseModel):
     acusados: List[MilitarAcusado] = Field(description="Lista contendo TODOS os militares que cometeram a transgressão (acusados).")
-    transgressao: str = Field(description="A descrição factual da transgressão disciplinar cometida.")
+    transgressao: str = Field(description="Trecho do documento copiado LITERALMENTE, palavra por palavra. Não altere nenhuma palavra. Não acrescente nada. Não interprete. Apenas transcreva.")
     local: str = Field(description="O local onde a transgressão ocorreu.")
     data_ocorrencia: str = Field(description="A data da transgressão no formato AAAA-MM-DD. Se não mencionada, retorne string vazia.")
     protocolo_comaer: str = Field(description="O número de protocolo COMAER, se houver.")
@@ -99,12 +100,22 @@ def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
     * **Nome Completo:** (Se disponível).
     * **Posto/Graduação:** (S1, S2, CB, 3S, etc).
 
+    ### CAMPO TRANSGRESSÃO (campo global) — REGRA ABSOLUTA:
+    Copie o trecho completo do documento que narra o fato PALAVRA POR PALAVRA, exatamente como está escrito.
+    - PROIBIDO alterar qualquer palavra.
+    - PROIBIDO resumir ou expandir.
+    - PROIBIDO acrescentar interpretação, contexto, consequências ou análise.
+    - PROIBIDO usar frases como "O contexto indica", "pode configurar", "o que pode", "ainda que".
+    - Se o documento tiver múltiplos parágrafos descrevendo o fato, copie-os em sequência sem modificação.
+    - A saída deve ser idêntica ao texto do documento. Nada mais.
+
+    ### CAMPO `transgressao_individual` (por acusado) — REGRA ABSOLUTA:
+    Para cada acusado identificado, copie LITERALMENTE apenas o trecho do documento que descreve especificamente o que AQUELE militar fez.
+    - Se o documento descreve atos diferentes para militares diferentes (ex: "o S2 FULANO fez X" e "o CB CICLANO fez Y"), coloque apenas o trecho de X na transgressão individual do FULANO, e apenas o trecho de Y na do CICLANO.
+    - Se todos os acusados cometeram o mesmo ato e o documento não os distingue individualmente, copie o mesmo trecho para todos.
+    - PROIBIDO elaborar, interpretar ou acrescentar qualquer palavra que não esteja no documento.
+
     ### OUTROS CAMPOS:
-    * **Transgressão:** Descreva o fato (o que aconteceu) de forma MUITO detalhada. Seja específico e responda às seguintes perguntas no texto:
-        - O que exatamente o militar fez ou deixou de fazer?
-        - Qual era o contexto? (Ex: Estava de serviço? Em qual local específico? Durante qual evento ou missão?)
-        - Houve consequências diretas? (Ex: Dano a material, prejuízo ao serviço, desrespeito a um superior específico).
-        - Mencione TODOS os detalhes relevantes que ajudem a entender a gravidade e a natureza do ato.
     * **Data/Local/Ofício:** Extraia conforme disponível no texto.
 
     ### REGRAS PARA EXTRAÇÃO DE DATA (MUITO IMPORTANTE):
@@ -115,7 +126,13 @@ def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
     5.  **Prioridade:** Dê prioridade para datas que estão claramente associadas ao fato ocorrido, em vez de datas de relatórios ou assinaturas.
     """
     
-    human_prompt = "Analise este documento militar e extraia os dados dos acusados:\n\n{documento}"
+    human_prompt = (
+        "Analise este documento militar e extraia os dados estruturados.\n\n"
+        "ATENÇÃO: Para o campo 'transgressao', copie o texto do documento PALAVRA POR PALAVRA, "
+        "sem adicionar nenhuma palavra, sem interpretar, sem elaborar. "
+        "A saída deve ser idêntica ao que está escrito no documento.\n\n"
+        "Documento:\n{documento}"
+    )
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", sys_prompt),

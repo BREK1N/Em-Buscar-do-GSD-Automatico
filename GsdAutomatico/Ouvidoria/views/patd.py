@@ -380,19 +380,23 @@ def index(request):
                                 break
 
                         if not duplicata:
+                            # Usa a transgressão individual do acusado se disponível, senão usa a comum
+                            transgressao_acusado = (acusado.transgressao_individual or '').strip() or transgressao_comum
                             militares_para_confirmacao.append({
                                 'id': militar.id,
                                 'nome_guerra': militar.nome_guerra,
                                 'nome_completo': militar.nome_completo,
                                 'saram': militar.saram,
                                 'posto': militar.posto,
+                                'transgressao_individual': transgressao_acusado,
                             })
                     else:
                         logger.warning(f"Militar '{acusado.nome_completo or acusado.nome_guerra}' não encontrado no banco de dados.")
                         nome_para_cadastro = f"{acusado.posto_graduacao or ''} {acusado.nome_completo or acusado.nome_guerra}".strip()
+                        transgressao_acusado = (acusado.transgressao_individual or '').strip() or transgressao_comum
                         militares_nao_encontrados.append({
                             'nome_completo_sugerido': nome_para_cadastro,
-                            'transgressao': transgressao_comum,
+                            'transgressao': transgressao_acusado,
                             'data_ocorrencia': data_ocorrencia_str,
                             'protocolo_comaer': protocolo_comaer_comum,
                             'oficio_transgressao': oficio_transgressao_comum,
