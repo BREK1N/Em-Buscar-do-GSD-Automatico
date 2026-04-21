@@ -1,0 +1,405 @@
+{% extends 'caixa_entrada/base_inbox.html' %}
+
+{% block inbox_extra_css %}
+/* ── Wrapper ── */
+.detalhe-wrap {
+    display: flex;
+    flex-direction: column;
+    height: 100%;
+    overflow-y: auto;
+}
+
+/* ── Barra de ações topo ── */
+.detalhe-topbar {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+    flex-shrink: 0;
+}
+.action-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 6px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    background: transparent;
+    color: var(--text-secondary, #a0a0c0);
+    font-size: .8rem;
+    cursor: pointer;
+    text-decoration: none;
+    transition: all .15s;
+}
+.action-btn:hover { background: rgba(255,255,255,.06); color: var(--text-primary, #e0e0ff); border-color: rgba(255,255,255,.15); }
+.action-btn.primary { background: var(--accent-color, #e94560); border-color: var(--accent-color, #e94560); color: #fff; }
+.action-btn.primary:hover { opacity: .85; color: #fff; }
+.action-btn.danger { border-color: rgba(233,69,96,.4); color: #e94560; }
+.action-btn.danger:hover { background: #e94560; border-color: #e94560; color: #fff; }
+.topbar-sep { flex: 1; }
+
+/* ── Assunto ── */
+.detalhe-subject {
+    padding: 20px 24px 10px;
+    flex-shrink: 0;
+}
+.subject-title {
+    font-size: 1.3rem;
+    font-weight: 700;
+    color: var(--text-primary, #e0e0ff);
+    margin: 0 0 8px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+.badge-tipo { font-size: .65rem; padding: 3px 9px; border-radius: 10px; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; }
+.badge-tipo.mensagem { background: rgba(0,150,255,.12); color: #5badff; border: 1px solid rgba(0,150,255,.2); }
+.badge-tipo.chamado { background: rgba(255,165,0,.12); color: #ffb347; border: 1px solid rgba(255,165,0,.2); }
+.badge-status { font-size: .65rem; padding: 3px 9px; border-radius: 10px; font-weight: 700; }
+.badge-status.aberto { background: rgba(255,165,0,.12); color: #ffb347; }
+.badge-status.em_andamento { background: rgba(0,120,255,.12); color: #4d94ff; }
+.badge-status.resolvido { background: rgba(40,200,80,.12); color: #4dbb6e; }
+
+/* ── Card de mensagem (estilo email thread) ── */
+.msg-card {
+    margin: 0 24px 20px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+}
+.msg-card-header {
+    display: flex;
+    align-items: flex-start;
+    gap: 12px;
+    padding: 16px 20px;
+    background: var(--bg-secondary, #16213e);
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+}
+.msg-avatar {
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-color, #e94560), #b73050);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .82rem;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+    text-transform: uppercase;
+}
+.msg-sender-info { flex: 1; min-width: 0; }
+.msg-sender-name {
+    font-size: .9rem;
+    font-weight: 700;
+    color: var(--text-primary, #e0e0ff);
+    margin-bottom: 2px;
+}
+.msg-sender-meta {
+    font-size: .75rem;
+    color: var(--text-secondary, #a0a0c0);
+    line-height: 1.5;
+}
+.msg-sender-meta strong { color: var(--text-primary, #e0e0ff); font-weight: 600; }
+.msg-date {
+    font-size: .75rem;
+    color: var(--text-secondary, #a0a0c0);
+    white-space: nowrap;
+    padding-top: 2px;
+}
+.msg-card-body {
+    padding: 20px 24px;
+    font-size: .9rem;
+    color: var(--text-primary, #e0e0ff);
+    line-height: 1.75;
+    white-space: pre-wrap;
+    word-break: break-word;
+    background: var(--bg-primary, #1a1a2e);
+}
+
+/* ── Anexos ── */
+.anexos-wrap {
+    padding: 12px 20px 16px;
+    border-top: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+}
+.anexos-label {
+    font-size: .72rem;
+    font-weight: 700;
+    color: var(--text-secondary, #a0a0c0);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 8px;
+}
+.anexos-list { display: flex; flex-wrap: wrap; gap: 8px; }
+.anexo-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 7px 13px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 8px;
+    background: var(--bg-primary, #1a1a2e);
+    text-decoration: none;
+    color: var(--text-primary, #e0e0ff);
+    font-size: .8rem;
+    transition: border-color .15s;
+}
+.anexo-chip:hover { border-color: var(--accent-color, #e94560); color: var(--accent-color, #e94560); }
+.anexo-size { font-size: .7rem; color: var(--text-secondary, #a0a0c0); }
+
+/* ── Leituras ── */
+.leituras-wrap {
+    margin: 0 24px 20px;
+    padding: 14px 18px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 10px;
+    background: var(--bg-secondary, #16213e);
+    flex-shrink: 0;
+}
+.leituras-label {
+    font-size: .72rem;
+    font-weight: 700;
+    color: var(--text-secondary, #a0a0c0);
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 8px;
+}
+.leitura-row {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: .8rem;
+    padding: 3px 0;
+    color: var(--text-secondary, #a0a0c0);
+}
+.leitura-row.done { color: #4dbb6e; }
+.leitura-row strong { color: var(--text-primary, #e0e0ff); font-weight: 600; }
+
+/* ── Gerenciar chamado ── */
+.chamado-panel {
+    margin: 0 24px 16px;
+    padding: 16px 18px;
+    border: 1px solid rgba(255,165,0,.2);
+    border-radius: 10px;
+    background: rgba(255,165,0,.04);
+    flex-shrink: 0;
+}
+.chamado-panel-label {
+    font-size: .72rem;
+    font-weight: 700;
+    color: #ffb347;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    margin-bottom: 10px;
+}
+.status-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+.status-select {
+    background: var(--bg-primary, #1a1a2e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    color: var(--text-primary, #e0e0ff);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: .82rem;
+    cursor: pointer;
+    outline: none;
+}
+
+/* ── Caixa de resposta rápida ── */
+.quick-reply {
+    margin: 0 24px 24px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 12px;
+    overflow: hidden;
+    flex-shrink: 0;
+    transition: box-shadow .2s;
+}
+.quick-reply:focus-within { box-shadow: 0 0 0 2px rgba(233,69,96,.25); border-color: rgba(233,69,96,.4); }
+.quick-reply-header {
+    padding: 10px 16px;
+    background: var(--bg-secondary, #16213e);
+    font-size: .78rem;
+    color: var(--text-secondary, #a0a0c0);
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+}
+.quick-reply-header strong { color: var(--text-primary, #e0e0ff); }
+.quick-reply textarea {
+    width: 100%;
+    background: var(--bg-primary, #1a1a2e);
+    border: none;
+    color: var(--text-primary, #e0e0ff);
+    padding: 14px 16px;
+    font-size: .88rem;
+    line-height: 1.65;
+    resize: none;
+    min-height: 100px;
+    outline: none;
+    font-family: inherit;
+    box-sizing: border-box;
+}
+.quick-reply-actions {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 14px;
+    background: var(--bg-secondary, #16213e);
+    border-top: 1px solid var(--border-color, #2a2a4a);
+}
+{% endblock %}
+
+{% block inbox_content %}
+<div class="detalhe-wrap">
+
+    <!-- ── Barra de ações ── -->
+    <div class="detalhe-topbar">
+        <a href="javascript:history.back()" class="action-btn">
+            <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/></svg>
+            Voltar
+        </a>
+        <a href="{% url 'caixa_entrada:nova' %}?reply={{ msg.pk }}" class="action-btn primary">
+            <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16"><path d="M6.598 5.013a.144.144 0 0 1 .202.134V6.3a.5.5 0 0 0 .5.5c.667 0 2.013.005 3.3.822.984.624 1.99 1.76 2.595 3.876-1.02-.983-2.185-1.516-3.205-1.799a8.74 8.74 0 0 0-1.921-.306 7.404 7.404 0 0 0-.798.008h-.013l-.005.001h-.001L7.3 9.9l-.05-.498a.5.5 0 0 0-.45.498v1.153c0 .108-.11.176-.202.134L2.614 8.254a.503.503 0 0 0-.042-.028.147.147 0 0 1 0-.252.499.499 0 0 0 .042-.028l3.984-2.933zM7.8 10.386c.068 0 .143.003.223.006.434.02 1.034.086 1.7.271 1.326.368 2.896 1.201 3.796 3.498L13.29 15l.345-.266c.027-.021.058-.043.09-.064a.88.88 0 0 0 .317-.705c-.06-4.597-3.381-6.82-6.168-7.047V5.747l-4.342 3.2L7.8 10.386z"/></svg>
+            Responder
+        </a>
+        <div class="topbar-sep"></div>
+        <form method="post" action="{% url 'caixa_entrada:excluir' msg.pk %}" style="display:inline;">
+            {% csrf_token %}
+            <button type="submit" class="action-btn danger" onclick="return confirm('Mover para excluídos?')">
+                <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16"><path d="M5.5 5.5A.5.5 0 0 1 6 6v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm2.5 0a.5.5 0 0 1 .5.5v6a.5.5 0 0 1-1 0V6a.5.5 0 0 1 .5-.5Zm3 .5a.5.5 0 0 0-1 0v6a.5.5 0 0 0 1 0V6Z"/><path d="M14.5 3a1 1 0 0 1-1 1H13v9a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V4h-.5a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1H6a1 1 0 0 1 1-1h2a1 1 0 0 1 1 1h3.5a1 1 0 0 1 1 1v1ZM4.118 4 4 4.059V13a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1V4.059L11.882 4H4.118ZM2.5 3h11V2h-11v1Z"/></svg>
+                Excluir
+            </button>
+        </form>
+    </div>
+
+    <!-- ── Assunto + badges ── -->
+    <div class="detalhe-subject">
+        <h1 class="subject-title">
+            {{ msg.assunto }}
+            <span class="badge-tipo {{ msg.tipo }}">{{ msg.get_tipo_display }}</span>
+            {% if msg.tipo == 'chamado' and msg.status_chamado %}
+            <span class="badge-status {{ msg.status_chamado }}">{{ msg.get_status_chamado_display }}</span>
+            {% endif %}
+        </h1>
+    </div>
+
+    <!-- ── Card da mensagem ── -->
+    <div class="msg-card">
+        <div class="msg-card-header">
+            <div class="msg-avatar">{{ msg.remetente.get_full_name|default:msg.remetente.username|slice:":2" }}</div>
+            <div class="msg-sender-info">
+                <div class="msg-sender-name">{{ msg.remetente.get_full_name|default:msg.remetente.username }}</div>
+                <div class="msg-sender-meta">
+                    Para: {% for d in msg.destinatarios.all %}<strong>{{ d.get_full_name|default:d.username }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}
+                    {% if msg.cc.exists %}
+                    &nbsp;·&nbsp; CC: {% for d in msg.cc.all %}<strong>{{ d.get_full_name|default:d.username }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}
+                    {% endif %}
+                </div>
+            </div>
+            <div class="msg-date">{{ msg.data_envio|date:"d/m/Y H:i" }}</div>
+        </div>
+
+        <div class="msg-card-body">{{ msg.corpo }}</div>
+
+        {% if msg.anexos.count %}
+        <div class="anexos-wrap">
+            <div class="anexos-label">
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16" style="margin-right:4px;"><path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/></svg>
+                {{ msg.anexos.count }} Anexo(s)
+            </div>
+            <div class="anexos-list">
+                {% for a in msg.anexos.all %}
+                <a href="{% url 'caixa_entrada:download_anexo' a.pk %}" class="anexo-chip" download>
+                    <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16"><path d="M14 4.5V14a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V2a2 2 0 0 1 2-2h5.5L14 4.5zm-3 0A1.5 1.5 0 0 1 9.5 3V1H4a1 1 0 0 0-1 1v12a1 1 0 0 0 1 1h8a1 1 0 0 0 1-1V4.5h-2z"/></svg>
+                    {{ a.nome_original }}
+                    <span class="anexo-size">{{ a.tamanho_legivel }}</span>
+                </a>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+
+    <!-- ── Gerenciar chamado ── -->
+    {% if msg.tipo == 'chamado' and request.user.is_staff or perms.caixa_entrada.gerenciar_chamados %}
+    <div class="chamado-panel">
+        <div class="chamado-panel-label">⚙ Gerenciar Chamado</div>
+        <form method="post" action="{% url 'caixa_entrada:chamado_status' msg.pk %}" class="status-form">
+            {% csrf_token %}
+            <select name="status" class="status-select">
+                <option value="aberto" {% if msg.status_chamado == 'aberto' %}selected{% endif %}>Aberto</option>
+                <option value="em_andamento" {% if msg.status_chamado == 'em_andamento' %}selected{% endif %}>Em Andamento</option>
+                <option value="resolvido" {% if msg.status_chamado == 'resolvido' %}selected{% endif %}>Resolvido</option>
+            </select>
+            <button type="submit" class="action-btn primary">Atualizar Status</button>
+        </form>
+    </div>
+    {% endif %}
+
+    <!-- ── Status de leitura ── -->
+    {% if leituras %}
+    <div class="leituras-wrap">
+        <div class="leituras-label">Status de leitura</div>
+        {% for l in leituras %}
+        <div class="leitura-row done">
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+            <strong>{{ l.usuario.get_full_name|default:l.usuario.username }}</strong> leu em {{ l.data_leitura|date:"d/m/Y H:i" }}
+        </div>
+        {% endfor %}
+        {% for d in msg.destinatarios.all %}
+            {% if d not in msg.lida_por.all %}
+            <div class="leitura-row">
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/></svg>
+                <strong>{{ d.get_full_name|default:d.username }}</strong> ainda não leu
+            </div>
+            {% endif %}
+        {% endfor %}
+        {% for d in msg.cc.all %}
+            {% if d not in msg.lida_por.all %}
+            <div class="leitura-row">
+                <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/></svg>
+                <strong>{{ d.get_full_name|default:d.username }}</strong> (CC) ainda não leu
+            </div>
+            {% endif %}
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <!-- ── Resposta rápida ── -->
+    <form method="post" action="{% url 'caixa_entrada:nova' %}" id="quick-reply-form" style="display:contents;">
+    <div class="quick-reply">
+        <div class="quick-reply-header">
+            Responder para <strong>{{ msg.remetente.get_full_name|default:msg.remetente.username }}</strong>
+        </div>
+        <textarea id="quick-reply-body" placeholder="Escreva sua resposta…" rows="4"></textarea>
+        <div class="quick-reply-actions">
+            <a href="{% url 'caixa_entrada:nova' %}?reply={{ msg.pk }}" class="action-btn primary">
+                <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16"><path d="M15.964.686a.5.5 0 0 0-.65-.65L.767 5.855H.766l-.452.18a.5.5 0 0 0-.082.887l.41.26.001.002 4.995 3.178 3.178 4.995.002.002.26.41a.5.5 0 0 0 .886-.083l6-15Zm-1.833 1.89L6.637 10.07l-.215-.338L10.074 6.46l5.057-3.875Z"/></svg>
+                Resposta completa
+            </a>
+            <span style="font-size:.75rem;color:var(--text-secondary,#a0a0c0);">Clique para abrir o editor completo</span>
+        </div>
+    </div>
+    </form>
+
+</div>
+{% endblock %}
+
+{% block inbox_extra_js %}
+<script>
+document.querySelectorAll('.msg-avatar').forEach(el => {
+    const name = el.textContent.trim();
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    const hue = Math.abs(hash) % 360;
+    el.style.background = `linear-gradient(135deg, hsl(${hue},55%,38%), hsl(${(hue+30)%360},60%,28%))`;
+});
+// Clicar na área de resposta rápida abre o editor completo
+document.getElementById('quick-reply-body')?.addEventListener('focus', function() {
+    window.location = "{% url 'caixa_entrada:nova' %}?reply={{ msg.pk }}";
+});
+</script>
+{% endblock %}

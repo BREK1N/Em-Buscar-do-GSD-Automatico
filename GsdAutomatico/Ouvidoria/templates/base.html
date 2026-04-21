@@ -588,10 +588,11 @@
             </a>
 
             <!-- Comunicações -->
-            <a href="{% url 'comunicacoes_global' %}" class="header-btn" title="Comunicações">
+            <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=ouvidoria" class="header-btn" title="Comunicações" style="position:relative;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
                     <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/>
                 </svg>
+                <span id="email-badge" style="display:none;position:absolute;top:-4px;right:-6px;min-width:16px;height:16px;border-radius:8px;background:#e94560;color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 3px;"></span>
             </a>
 
             <!-- Notificações -->
@@ -1094,7 +1095,7 @@
                 if (r.ok) { try { dataOuvidoria = await r.json(); } catch (e) {} }
             } catch (e) {}
             try {
-                const r = await fetch("{% url 'Secao_pessoal:api_notificacoes_check' %}");
+                const r = await fetch("{% url 'caixa_entrada:api_check' %}");
                 if (r.ok) { try { dataGeral = await r.json(); } catch (e) {} }
             } catch (e) {}
 
@@ -1107,6 +1108,15 @@
                 sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
             }
             updateBadgeUI(totalNotificacoes);
+
+            // Badge do ícone de email (mensagens não lidas)
+            const emailBadge = document.getElementById('email-badge');
+            if (emailBadge && dataGeral && dataGeral.unread_mensagens > 0) {
+                emailBadge.textContent = dataGeral.unread_mensagens > 99 ? '99+' : dataGeral.unread_mensagens;
+                emailBadge.style.display = 'block';
+            } else if (emailBadge) {
+                emailBadge.style.display = 'none';
+            }
 
             if (notificationsPanel && (notificationsPanel.classList.contains('active') || forceOpen)) {
                 notificacoesListContainer.innerHTML = '';
@@ -1135,10 +1145,10 @@
                     dataGeral.notifications.forEach(notif => {
                         const li = document.createElement('li');
                         li.className = 'notificacao-item';
-                        let linkAcao = `{% url 'comunicacoes_global' %}?ler=${notif.id}`;
+                        let linkAcao = `{% url 'caixa_entrada:comunicacoes' %}?secao=ouvidoria&ler=${notif.id}`;
                         let textoAcao = 'Ler';
                         if (notif.is_autorizacao) {
-                            linkAcao = `{% url 'comunicacoes_global' %}?box=autorizacoes`;
+                            linkAcao = `{% url 'caixa_entrada:comunicacoes' %}?secao=ouvidoria&box=autorizacoes`;
                             textoAcao = 'Ver';
                             li.style.borderLeft = '4px solid var(--warning)';
                         } else {

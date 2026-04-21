@@ -20,11 +20,8 @@ urlpatterns = [
     path('controle/baixa/', views.baixa, name='baixa'),
     path('controle/indisponiveis/', views.indisponiveis, name='indisponiveis'),
     path('gerenciar-opcoes/', views.gerenciar_opcoes, name='gerenciar_opcoes'),
-    path('ferramentas/comunicacoes/', views.comunicacoes, name='comunicacoes'),
-    path('ferramentas/comunicacoes/acoes-em-massa/', views.acoes_em_massa_comunicacoes, name='acoes_em_massa_comunicacoes'),
-    path('ferramentas/comunicacoes/arquivar/<int:notificacao_id>/', views.arquivar_mensagem, name='arquivar_mensagem'),
-    path('ferramentas/comunicacoes/excluir/<int:notificacao_id>/', views.excluir_mensagem, name='excluir_mensagem'),
-    path('api/notificacoes/', views.api_notificacoes_check, name='api_notificacoes_check'),
+    # Caixa de entrada movida para o app caixa_entrada — /comunicacoes/
+    path('ferramentas/comunicacoes/', views.comunicacoes, name='comunicacoes'),  # redireciona
     path('inspsau/', views.inspsau, name='inspsau'),
     path('inspsau/historico/', views.HistoricoInspsauListView.as_view(), name='historico_inspsau_list'),
     path('api/search-militares/', views.api_search_militares, name='api_search_militares'),

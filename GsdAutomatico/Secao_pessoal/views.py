@@ -16,8 +16,24 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_GET
 from django.contrib.auth.models import Group
-from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, Notificacao, SolicitacaoTrocaSetor, HistoricoInspsau
-from .forms import MilitarForm, NotificacaoForm
+from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, SolicitacaoTrocaSetor, HistoricoInspsau
+from django.contrib.auth import get_user_model as _get_user_model
+from caixa_entrada.models import Notificacao, Mensagem as _Mensagem
+
+_User = _get_user_model()
+
+
+def _enviar_mensagem_sistema(remetente_militar, destinatario_militar, assunto, corpo):
+    """Envia uma Mensagem da nova caixa de entrada entre dois militares."""
+    try:
+        rem  = _User.objects.filter(profile__militar=remetente_militar).first()
+        dest = _User.objects.filter(profile__militar=destinatario_militar).first()
+        if rem and dest:
+            msg = _Mensagem.objects.create(remetente=rem, assunto=assunto, corpo=corpo)
+            msg.destinatarios.add(dest)
+    except Exception:
+        pass
+from .forms import MilitarForm
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
 from difflib import SequenceMatcher
@@ -628,217 +644,10 @@ def nome_de_guerra(request):
 
     return render(request, 'Secao_pessoal/nome_de_guerra.html')
 
-@login_required
 def comunicacoes(request):
-    """
-    View para listar notificações recebidas e, se for S1, enviar novas.
-    """
-    militar_logado = None
-    try:
-        if hasattr(request.user, 'profile'):
-            militar_logado = request.user.profile.militar
-    except:
-        pass
-        
-    if not militar_logado and not request.user.is_superuser:
-        messages.error(request, "Seu usuário não está vinculado a um militar.")
-        return redirect(request.META.get('HTTP_REFERER', '/'))
-
-    if not militar_logado and request.user.is_superuser:
-        militar_logado, _ = Efetivo.objects.get_or_create(
-            nome_guerra="ADMINISTRADOR",
-            defaults={'nome_completo': "Administrador do Sistema", 'posto': "SYS"}
-        )
-        try:
-            request.user.profile.militar = militar_logado
-            request.user.profile.save()
-        except Exception:
-            try:
-                from login.models import UserProfile
-                UserProfile.objects.create(user=request.user, militar=militar_logado)
-            except Exception:
-                pass
-
-    # Processar envio de notificação (Agora liberado para todas as seções)
-    form = None
-    is_s1 = True # Forçando True para o botão "Nova Mensagem" aparecer no template para todos
-    
-    if request.method == 'POST':
-        if not militar_logado:
-            messages.error(request, "Apenas usuários vinculados a um militar podem enviar mensagens.")
-            return redirect('comunicacoes_global')
-
-        # O campo 'anexo' é um input manual, não faz parte do form.
-        # Portanto, passamos apenas request.POST para o form.
-        form = NotificacaoForm(request.POST)
-        if form.is_valid():
-            notificacao = form.save(commit=False)
-            notificacao.remetente = militar_logado
-
-            # Salva a notificação primeiro para obter um ID.
-            # Isso é mais robusto para o salvamento de arquivos.
-            notificacao.save()
-
-            if 'anexo' in request.FILES:
-                notificacao.anexo = request.FILES['anexo']
-                notificacao.save() # Salva novamente para associar o anexo.
-
-            messages.success(request, f"Notificação enviada para {notificacao.destinatario.nome_guerra}.")
-            return redirect('comunicacoes_global')
-    else:
-        form = NotificacaoForm()
-
-    # Listar notificações (Caixa de Entrada ou Enviados)
-    box = request.GET.get('box', 'inbox')
-    
-    # --- Contadores Globais (aparecem em todas as abas) ---
-    if militar_logado:
-        unread_count = Notificacao.objects.filter(destinatario=militar_logado, lida=False, arquivada=False).count()
-        trash_count = Notificacao.all_objects.filter(
-            (Q(destinatario=militar_logado) | Q(remetente=militar_logado)),
-            deleted=True
-        ).distinct().count()
-        
-        autorizacoes_count = SolicitacaoTrocaSetor.objects.filter(
-            Q(chefe_atual=militar_logado, status='pendente_atual') |
-            Q(chefe_destino=militar_logado, status='pendente_destino')
-        ).count()
-    else:
-        unread_count = 0
-        trash_count = 0
-        autorizacoes_count = 0
-
-    autorizacoes_pendentes_troca = []
-    if militar_logado and box == 'sent':
-        notificacoes = Notificacao.objects.filter(remetente=militar_logado, arquivada=False).order_by('-data_criacao')
-    elif militar_logado and box == 'autorizacoes':
-        autorizacoes_pendentes_troca = SolicitacaoTrocaSetor.objects.filter(
-            Q(chefe_atual=militar_logado, status='pendente_atual') |
-            Q(chefe_destino=militar_logado, status='pendente_destino')
-        ).order_by('-data_solicitacao')
-        notificacoes = []
-    elif militar_logado and box == 'arquivadas':
-        notificacoes = Notificacao.objects.filter(
-            (Q(destinatario=militar_logado) | Q(remetente=militar_logado)),
-            arquivada=True
-        ).distinct().order_by('-data_criacao')
-    elif militar_logado and box == 'trash':
-        notificacoes = Notificacao.all_objects.filter(
-            (Q(destinatario=militar_logado) | Q(remetente=militar_logado)),
-            deleted=True
-        ).distinct().order_by('-deleted_at')
-    elif militar_logado:
-        notificacoes = Notificacao.objects.filter(destinatario=militar_logado, arquivada=False).order_by('-data_criacao')
-    else:
-        notificacoes = []
-    
-    # Marcar como lida se solicitado via GET (simples) ou via AJAX (idealmente)
-    if request.GET.get('ler') and box == 'inbox' and militar_logado:
-        try:
-            notif_id = int(request.GET.get('ler'))
-            notif = Notificacao.objects.get(id=notif_id, destinatario=militar_logado)
-            notif.lida = True
-            notif.save()
-            return redirect('comunicacoes_global')
-        except:
-            pass
-
-    base_template = 'Secao_pessoal/base.html'
-    if request.user.is_authenticated and not request.user.is_superuser:
-        user_groups = request.user.groups.values_list('name', flat=True)
-        if 'Ouvidoria' in user_groups:
-            base_template = 'base.html'
-        elif 'Informatica' in user_groups:
-            base_template = 'informatica/base.html'
-        elif 'seção de operação' in user_groups or 'Secao_operacoes' in user_groups:
-            base_template = 'Secao_operacoes/base.html'
-
-    context = {
-        'notificacoes': notificacoes,
-        'autorizacoes_pendentes_troca': autorizacoes_pendentes_troca,
-        'form': form,
-        'is_s1': is_s1,
-        'current_box': box,
-        'unread_count': unread_count,
-        'trash_count': trash_count,
-        'autorizacoes_count': autorizacoes_count,
-        'base_template': base_template,
-        'militar_logado': militar_logado
-    }
-    return render(request, 'Secao_pessoal/comunicacoes.html', context)
-
-@login_required
-@require_POST
-def acoes_em_massa_comunicacoes(request):
-    militar_logado = getattr(request.user.profile, 'militar', None)
-    if not militar_logado:
-        messages.error(request, "Ação não permitida.")
-        return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
-
-    action = request.POST.get('action')
-    message_ids = request.POST.getlist('message_ids')
-
-    if not action or not message_ids:
-        messages.warning(request, "Nenhuma ação ou mensagem selecionada.")
-        return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
-
-    # Garante que o usuário só modifique suas próprias mensagens
-    queryset = Notificacao.all_objects.filter(
-        Q(destinatario=militar_logado) | Q(remetente=militar_logado),
-        pk__in=message_ids
-    )
-
-    if action == 'delete':
-        count, _ = queryset.delete()
-        messages.success(request, f"{count} mensagem(ns) excluída(s) permanentemente.")
-    elif action == 'archive':
-        count = queryset.update(arquivada=True)
-        messages.success(request, f"{count} mensagem(ns) arquivada(s) com sucesso.")
-    elif action == 'unarchive':
-        count = queryset.update(arquivada=False)
-        messages.success(request, f"{count} mensagem(ns) desarquivada(s) com sucesso.")
-    elif action == 'trash':
-        count = queryset.update(deleted=True, deleted_at=timezone.now())
-        messages.success(request, f"{count} mensagem(ns) movida(s) para a lixeira.")
-    elif action == 'restore':
-        count = queryset.update(deleted=False, deleted_at=None, arquivada=False)
-        messages.success(request, f"{count} mensagem(ns) restaurada(s) com sucesso.")
-    else:
-        messages.error(request, "Ação desconhecida.")
-
-    return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
-
-@login_required
-@require_POST
-def arquivar_mensagem(request, notificacao_id):
-    militar_logado = getattr(request.user.profile, 'militar', None)
-    notificacao = get_object_or_404(Notificacao, pk=notificacao_id)
-    if militar_logado != notificacao.destinatario and militar_logado != notificacao.remetente:
-        messages.error(request, "Você não tem permissão para arquivar esta mensagem.")
-    else:
-        notificacao.arquivada = not notificacao.arquivada
-        notificacao.save()
-        messages.success(request, f"Mensagem {'arquivada' if notificacao.arquivada else 'desarquivada'} com sucesso.")
-    return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
-
-@login_required
-@xframe_options_sameorigin
-def excluir_mensagem(request, notificacao_id):
-    if request.method == 'POST':
-        try:
-            militar_logado = getattr(request.user.profile, 'militar', None) if hasattr(request.user, 'profile') else None
-            notificacao = get_object_or_404(Notificacao.all_objects, id=notificacao_id)
-            
-            if request.user.is_superuser or notificacao.destinatario == militar_logado or notificacao.remetente == militar_logado:
-                notificacao.deleted = True
-                notificacao.deleted_at = timezone.now()
-                notificacao.save()
-                messages.success(request, "Mensagem movida para a lixeira.")
-            else:
-                messages.error(request, "Você não tem permissão para mover esta mensagem para a lixeira.")
-        except Exception as e:
-            messages.error(request, "Erro ao mover a mensagem para a lixeira.")
-    return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
+    """Redirecionamento de compatibilidade — caixa de entrada movida para caixa_entrada app."""
+    from django.shortcuts import redirect
+    return redirect('caixa_entrada:comunicacoes')
 
 @s1_required
 def troca_de_setor(request):
@@ -929,43 +738,62 @@ def responder_troca_setor(request, solicitacao_id, acao):
         
     if not militar_logado and not request.user.is_superuser:
         messages.error(request, "Seu usuário não está vinculado a um militar.")
-        return redirect('comunicacoes_global')
+        return redirect('caixa_entrada:comunicacoes')
     
     if solicitacao.status == 'pendente_atual':
         if solicitacao.chefe_atual != militar_logado and not is_s1_member(request.user) and not request.user.is_superuser:
             messages.error(request, 'Você não tem permissão para responder a esta solicitação.')
-            return redirect('comunicacoes_global')
+            return redirect('caixa_entrada:comunicacoes')
             
         if acao == 'aprovar':
             solicitacao.status = 'pendente_destino'
             solicitacao.save()
-            
+            if solicitacao.chefe_destino:
+                _enviar_mensagem_sistema(
+                    militar_logado, solicitacao.chefe_destino,
+                    f"Autorização pendente: troca de setor de {solicitacao.militar.nome_guerra}",
+                    f"A saída do {solicitacao.militar.posto} {solicitacao.militar.nome_guerra} do setor {solicitacao.setor_atual} foi autorizada. Aguarda sua autorização de entrada no setor {solicitacao.setor_destino}.",
+                )
             messages.success(request, 'Saída autorizada com sucesso. Aguardando autorização do setor de destino.')
         elif acao == 'rejeitar':
             solicitacao.status = 'rejeitado'
             solicitacao.save()
+            _enviar_mensagem_sistema(
+                militar_logado, solicitacao.militar,
+                f"Solicitação de troca de setor rejeitada",
+                f"Sua solicitação de troca do setor {solicitacao.setor_atual} para {solicitacao.setor_destino} foi rejeitada pelo {militar_logado.posto} {militar_logado.nome_guerra}.",
+            )
             messages.success(request, 'Solicitação de troca rejeitada.')
-            
+
     elif solicitacao.status == 'pendente_destino':
         if solicitacao.chefe_destino != militar_logado and not is_s1_member(request.user) and not request.user.is_superuser:
             messages.error(request, 'Você não tem permissão para responder a esta solicitação.')
-            return redirect('comunicacoes_global')
-            
+            return redirect('caixa_entrada:comunicacoes')
+
         if acao == 'aprovar':
             solicitacao.status = 'aprovado'
             solicitacao.save()
-            
+
             militar = solicitacao.militar
             militar.setor = solicitacao.setor_destino
             militar.save()
-            
+            _enviar_mensagem_sistema(
+                militar_logado, solicitacao.militar,
+                f"Troca de setor aprovada",
+                f"Sua transferência para o setor {solicitacao.setor_destino} foi aprovada pelo {militar_logado.posto} {militar_logado.nome_guerra}. Você já foi movido para o novo setor.",
+            )
             messages.success(request, 'Entrada autorizada com sucesso. O militar foi transferido de setor.')
         elif acao == 'rejeitar':
             solicitacao.status = 'rejeitado'
             solicitacao.save()
+            _enviar_mensagem_sistema(
+                militar_logado, solicitacao.militar,
+                f"Solicitação de troca de setor rejeitada",
+                f"Sua solicitação de entrada no setor {solicitacao.setor_destino} foi rejeitada pelo {militar_logado.posto} {militar_logado.nome_guerra}.",
+            )
             messages.success(request, 'Solicitação de troca rejeitada.')
             
-    return redirect(request.META.get('HTTP_REFERER', 'comunicacoes_global'))
+    return redirect(request.META.get('HTTP_REFERER', 'caixa_entrada:comunicacoes'))
 
 @s1_required
 def ata(request):
@@ -1135,54 +963,6 @@ def gerenciar_opcoes(request):
         'selected_tipo': request.GET.get('tipo', 'posto'), # Pega da URL ou define um padrão
     }
     return render(request, 'Secao_pessoal/gerenciar_opcoes.html', context)
-
-@login_required
-def api_notificacoes_check(request):
-    """Retorna JSON com contagem de notificações não lidas para o header"""
-    try:
-        if hasattr(request.user, 'profile') and request.user.profile.militar:
-            militar = request.user.profile.militar
-            nao_lidas = Notificacao.objects.filter(destinatario=militar, lida=False)
-            count_notificacoes = nao_lidas.count()
-            
-            autorizacoes_pendentes_troca = SolicitacaoTrocaSetor.objects.filter(
-                Q(chefe_atual=militar, status='pendente_atual') |
-                Q(chefe_destino=militar, status='pendente_destino')
-            )
-            count_autorizacoes_troca = autorizacoes_pendentes_troca.count()
-
-            total_count = count_notificacoes + count_autorizacoes_troca
-            
-            data = []
-            for a in autorizacoes_pendentes_troca[:5]:
-                data.append({
-                    'id': a.id,
-                    'titulo': f"Autorização Pendente: {a.militar.nome_guerra}",
-                    'remetente': "Sistema",
-                    'data': a.data_solicitacao.strftime('%d/%m %H:%M'),
-                    'is_autorizacao': True,
-                    'url': reverse('comunicacoes_global') + '?box=autorizacoes'
-                })
-                
-            remaining_slots = 5 - len(data)
-            if remaining_slots > 0:
-                for n in nao_lidas[:remaining_slots]:
-                    data.append({
-                        'id': n.id,
-                        'titulo': n.titulo,
-                        'remetente': n.remetente.nome_guerra if n.remetente else "Sistema",
-                        'data': n.data_criacao.strftime('%d/%m %H:%M') if n.data_criacao else "",
-                        'is_autorizacao': False,
-                        'url': reverse('comunicacoes_global') + f'?ler={n.id}'
-                    })
-            
-            return HttpResponse(json.dumps({'count': total_count, 'notifications': data}), content_type="application/json")
-    except Exception as e:
-        print(f"Erro ao carregar API de Notificacoes: {e}")
-    
-    return HttpResponse(json.dumps({'count': 0, 'notifications': []}), content_type="application/json")
-
-# Nota: Você precisará adicionar 'import json' no topo do arquivo views.py se ainda não existir.
 
 @s1_required
 def exportar_efetivo(request):

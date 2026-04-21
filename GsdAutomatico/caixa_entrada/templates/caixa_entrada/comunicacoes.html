@@ -1,0 +1,764 @@
+{% extends base_template|default:'Secao_pessoal/base.html' %}
+
+{% block title %}Caixa de Entrada{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/css/bootstrap.min.css" rel="stylesheet">
+<style>
+    /* Layout de Email */
+    .email-container {
+        display: flex;
+        height: calc(100vh - 180px); /* Ajusta altura para caber na tela */
+        background-color: var(--bg-content);
+        border-radius: 12px;
+        overflow: hidden;
+        box-shadow: var(--box-shadow);
+        margin-top: 10px;
+        border: 1px solid var(--border-color);
+    }
+
+    /* Sidebar do Email */
+    .email-sidebar {
+        width: 260px;
+        background-color: var(--bg-main);
+        border-right: 1px solid var(--border-color);
+        padding: 20px;
+        display: flex;
+        flex-direction: column;
+    }
+
+    .btn-compose {
+        width: 100%;
+        padding: 12px;
+        border-radius: 30px;
+        background-color: var(--accent-color);
+        color: white;
+        border: none;
+        font-weight: 600;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+        margin-bottom: 20px;
+        transition: all 0.2s;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        gap: 10px;
+    }
+    .btn-compose:hover {
+        background-color: var(--accent-hover);
+        transform: translateY(-1px);
+    }
+
+    .email-nav {
+        list-style: none;
+        padding: 0;
+        margin: 0;
+    }
+    .email-nav li {
+        margin-bottom: 5px;
+    }
+    .email-nav a {
+        display: flex;
+        align-items: center;
+        padding: 10px 15px;
+        border-radius: 0 20px 20px 0;
+        color: var(--text-secondary);
+        text-decoration: none;
+        font-weight: 500;
+        transition: background 0.2s;
+    }
+    .email-nav a:hover {
+        background-color: rgba(0,0,0,0.05);
+        color: var(--text-primary);
+    }
+    .email-nav a.active {
+        background-color: var(--sidebar-active-bg);
+        color: var(--accent-color);
+        font-weight: 700;
+    }
+    .email-nav a svg {
+        width: 20px;
+        height: 20px;
+        margin-right: 12px;
+    }
+
+    /* Lista de Mensagens */
+    .email-list {
+        flex: 1;
+        overflow-y: auto;
+        background-color: var(--bg-content);
+        display: flex;
+        flex-direction: column;
+    }
+
+    .email-item {
+        display: flex;
+        padding: 15px 20px;
+        border-bottom: 1px solid var(--border-color);
+        cursor: pointer;
+        transition: background 0.1s;
+        align-items: center;
+    }
+    .email-item:hover {
+        background-color: var(--bg-main);
+        box-shadow: inset 1px 0 0 var(--border-color);
+    }
+    .email-item.unread {
+        background-color: var(--bg-content);
+        font-weight: 600;
+    }
+    .email-item.unread .email-subject {
+        color: var(--text-primary);
+    }
+    .email-item.read {
+        background-color: rgba(0,0,0,0.02);
+    }
+    
+    .email-avatar {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        color: white;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-weight: bold;
+        margin-right: 15px;
+        flex-shrink: 0;
+    }
+
+    .email-content {
+        flex: 1;
+        min-width: 0; /* Para o text-overflow funcionar */
+    }
+
+    .email-header {
+        display: flex;
+        justify-content: space-between;
+        margin-bottom: 4px;
+    }
+    .email-sender {
+        font-size: 0.95rem;
+        color: var(--text-primary);
+    }
+    .email-date {
+        font-size: 0.8rem;
+        color: var(--text-secondary);
+        font-weight: normal;
+    }
+    .email-subject {
+        font-size: 0.95rem;
+        color: var(--text-secondary);
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+    .email-preview {
+        font-size: 0.85rem;
+        color: #888;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+        font-weight: normal;
+    }
+
+    /* Modal Customization */
+    .modal-content {
+        border-radius: 12px;
+        border: none;
+        box-shadow: 0 10px 30px rgba(0,0,0,0.2);
+    }
+    .modal-header {
+        background-color: var(--bg-main);
+        border-bottom: 1px solid var(--border-color);
+    }
+    
+    /* Z-Index Fix: Sidebar tem 1100, então o modal precisa ser maior para aparecer na frente */
+    .modal {
+        z-index: 2050 !important;
+    }
+    .modal-backdrop {
+        z-index: 2040 !important;
+    }
+
+    /* Correções para conflitos do Bootstrap com o Modo Escuro */
+    body {
+        background-color: var(--bg-main) !important;
+        color: var(--text-primary) !important;
+    }
+    
+    .modal-content {
+        background-color: var(--bg-content);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+    .modal-header {
+        border-bottom: 1px solid var(--border-color);
+    }
+    body.dark-theme .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+    .form-control, .form-select {
+        background-color: var(--bg-main) !important;
+        border-color: var(--border-color);
+        color: var(--text-primary) !important;
+    }
+    .form-control:focus, .form-select:focus {
+        background-color: var(--bg-main) !important;
+        color: var(--text-primary) !important;
+        border-color: var(--accent-color);
+    }
+    .form-control::placeholder {
+        color: var(--text-secondary);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="container-fluid px-4">
+    <!-- Header com botão voltar -->
+    <div class="d-flex align-items-center mt-4 mb-2">
+        <button type="button" onclick="fecharOuVoltar()" class="btn btn-secondary me-3" style="display: flex; align-items: center; gap: 8px;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" width="18" height="18">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+            </svg>
+            Voltar
+        </button>
+        <h2 class="mb-0 fw-bold" style="color: var(--text-primary);">Comunicações</h2>
+    </div>
+
+    <div class="email-container">
+        <!-- Sidebar -->
+        <div class="email-sidebar">
+            {% if is_s1 %}
+            <button type="button" class="btn-compose" id="btnCompose">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width: 20px; height: 20px;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Nova Mensagem
+            </button>
+            {% endif %}
+
+            <ul class="email-nav">
+                <li>
+                    <a href="?box=inbox" class="{% if current_box == 'inbox' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z" /></svg>
+                        Caixa de Entrada
+                        {% if unread_count > 0 %}
+                        <span class="badge bg-danger rounded-pill ms-2" style="font-size: 0.7em;">{{ unread_count }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                <li>
+                    <a href="?box=sent" class="{% if current_box == 'sent' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5" /></svg>
+                        Enviados
+                    </a>
+                </li>
+                <li>
+                    <a href="?box=autorizacoes" class="{% if current_box == 'autorizacoes' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        Autorizações
+                        {% if autorizacoes_count > 0 %}
+                        <span class="badge bg-danger rounded-pill ms-2" style="font-size: 0.7em;">{{ autorizacoes_count }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                <li>
+                    <a href="?box=trash" class="{% if current_box == 'trash' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                        Lixeira
+                        {% if trash_count > 0 %}
+                        <span class="badge bg-secondary rounded-pill ms-2" style="font-size: 0.7em;">{{ trash_count }}</span>
+                        {% endif %}
+                    </a>
+                </li>
+                <li>
+                    <a href="?box=arquivadas" class="{% if current_box == 'arquivadas' %}active{% endif %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                        Arquivadas
+                    </a>
+                </li>
+            </ul>
+        </div>
+
+        <!-- Lista de Emails -->
+        <form id="bulk-actions-form" method="post" action="{% url 'caixa_entrada:acoes_em_massa' %}" class="email-list">
+            {% csrf_token %}
+            {% if current_box != 'autorizacoes' %}
+            <div id="bulk-actions-toolbar" class="p-3 border-bottom" style="display: none; background-color: var(--bg-main);">
+                <div class="d-flex align-items-center gap-3">
+                    <input class="form-check-input" type="checkbox" id="select-all-checkbox" style="width: 1.2em; height: 1.2em; cursor: pointer;" title="Selecionar Tudo">
+
+                    {% if current_box == 'trash' %}
+                        <button type="submit" name="action" value="restore" class="btn btn-sm btn-outline-success" title="Restaurar Selecionadas">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                        </button>
+                        <button type="submit" name="action" value="delete" class="btn btn-sm btn-outline-danger" title="Excluir Permanentemente" onclick="return confirm('Tem certeza que deseja excluir as mensagens selecionadas permanentemente? Esta ação não pode ser desfeita.');">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                        </button>
+                    {% else %}
+                        {% if current_box != 'arquivadas' %}
+                        <button type="submit" name="action" value="archive" class="btn btn-sm btn-outline-secondary" title="Arquivar Selecionadas">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                        </button>
+                        {% else %}
+                        <button type="submit" name="action" value="unarchive" class="btn btn-sm btn-outline-secondary" title="Desarquivar Selecionadas">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                        </button>
+                        {% endif %}
+                        <button type="submit" name="action" value="trash" class="btn btn-sm btn-outline-danger" title="Mover para Lixeira">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                        </button>
+                    {% endif %}
+                </div>
+            </div>
+            {% endif %}
+            {% if current_box == 'autorizacoes' %}
+                {% if autorizacoes_pendentes_troca %}
+                    {% for solicitacao in autorizacoes_pendentes_troca %}
+                    <div class="email-item unread" style="cursor: default; align-items: flex-start;">
+                        <div class="email-avatar" style="background: linear-gradient(135deg, #f6d365 0%, #fda085 100%); font-size: 1.2rem;">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 20px; height: 20px;"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5" /></svg>
+                        </div>
+                        <div class="email-content">
+                            <div class="email-header">
+                                <span class="email-sender">Troca de Setor: {{ solicitacao.militar.posto }} {{ solicitacao.militar.nome_guerra }}</span>
+                                <span class="email-date">{{ solicitacao.data_solicitacao|date:"d M H:i" }}</span>
+                            </div>
+                            <div class="email-subject mb-2" style="color: var(--text-primary); font-weight: normal;">
+                                Movimentação do <strong>{{ solicitacao.setor_atual|default:"Nenhum" }}</strong> para o <strong>{{ solicitacao.setor_destino }}</strong>
+                            </div>
+                            <div class="email-preview" style="color: var(--text-secondary); white-space: normal;">
+                                {% if solicitacao.status == 'pendente_atual' %}
+                                    Você é o chefe do setor <strong>atual</strong>. Deseja autorizar a <strong>SAÍDA</strong> deste militar da sua seção?
+                                {% elif solicitacao.status == 'pendente_destino' %}
+                                    Você é o chefe do setor <strong>de destino</strong>. Deseja autorizar a <strong>ENTRADA</strong> deste militar na sua seção?
+                                {% endif %}
+                            </div>
+                            <div class="d-flex gap-2 mt-3 justify-content-end">
+                                <button type="button" class="btn btn-sm btn-outline-danger px-3" onclick="openConfirmModal('{% url 'Secao_pessoal:responder_troca_setor' solicitacao.id 'rejeitar' %}', 'rejeitar')">Rejeitar</button>
+                                <button type="button" class="btn btn-sm btn-success px-3" onclick="openConfirmModal('{% url 'Secao_pessoal:responder_troca_setor' solicitacao.id 'aprovar' %}', 'aprovar')">Autorizar</button>
+                            </div>
+                        </div>
+                    </div>
+                    {% endfor %}
+                {% endif %}
+
+                {% if not autorizacoes_pendentes_troca %}
+                    <div class="text-center py-5 mt-5">
+                        <div class="mb-3 opacity-25">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 64px; height: 64px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                        </div>
+                        <h5 class="text-muted fw-bold">Nenhuma autorização pendente</h5>
+                    </div>
+                {% endif %}
+            {% elif notificacoes %}
+                {% for notif in notificacoes %}
+                <div class="email-item {% if not notif.lida and current_box == 'inbox' %}unread{% else %}read{% endif %}">
+                    <div class="d-flex align-items-center me-3">
+                        <input class="form-check-input message-checkbox" type="checkbox" name="message_ids" value="{{ notif.id }}" onclick="event.stopPropagation();">
+                    </div>
+                    <div class="email-avatar" onclick="toggleMessage('msg-{{ notif.id }}')">
+                        {% if current_box == 'inbox' or current_box == 'arquivadas' and notif.destinatario == militar_logado %}
+                            {{ notif.remetente.nome_guerra|slice:":1" }}
+                        {% else %}
+                            {{ notif.destinatario.nome_guerra|slice:":1" }}
+                        {% endif %}
+                    </div>
+                    <div class="email-content">
+                        <div class="email-header">
+                            <span class="email-sender" onclick="toggleMessage('msg-{{ notif.id }}')">
+                                {% if current_box == 'sent' or current_box != 'inbox' and notif.remetente == militar_logado %}
+                                    Para: {{ notif.destinatario.posto }} {{ notif.destinatario.nome_guerra }}
+                                {% else %}
+                                    De: {{ notif.remetente.posto }} {{ notif.remetente.nome_guerra }}
+                                {% endif %}
+                            </span>
+                            <span class="email-date">{{ notif.data_criacao|date:"d M" }}</span>
+                        </div>
+                        <div class="email-subject" onclick="toggleMessage('msg-{{ notif.id }}')">
+                            {{ notif.titulo }}
+                            {% if not notif.lida and current_box == 'inbox' %}
+                                <span class="badge bg-danger rounded-pill ms-2" style="font-size: 0.6em;">NOVO</span>
+                            {% endif %}
+                        </div>
+                        <div class="email-preview" onclick="toggleMessage('msg-{{ notif.id }}')">
+                            {{ notif.mensagem|truncatechars:60 }}
+                        </div>
+                        
+                        <!-- Conteúdo Expandido (Escondido por padrão) -->
+                        <div id="msg-{{ notif.id }}" style="display: none; margin-top: 15px; padding-top: 15px; border-top: 1px dashed var(--border-color); color: var(--text-primary); cursor: default;" onclick="event.stopPropagation();">
+                            <p style="white-space: pre-line;">{{ notif.mensagem }}</p>
+
+                            {% if notif.anexo %}
+                            <div class="mt-4 pt-3 border-top" style="border-color: var(--border-color) !important;">
+                                <h6 class="small text-uppercase text-muted fw-bold mb-2">Anexo</h6>
+                                <a href="{{ notif.anexo.url }}" target="_blank" class="btn btn-sm btn-outline-secondary" style="display: inline-flex; align-items: center; gap: 6px;">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.122 2.122l7.81-7.81" /></svg>
+                                    {{ notif.anexo.name|cut:"anexos_comunicacoes/" }}
+                                </a>
+                            </div>
+                            {% endif %}
+                            
+                            <div class="d-flex justify-content-end gap-2 mt-3">
+                                {% if current_box == 'trash' %}
+                                    <button type="button" class="btn btn-sm btn-outline-success" onclick="submitSingleAction('restore', '{{ notif.id }}')">Restaurar</button>
+                                    <button type="button" class="btn btn-sm btn-outline-danger" onclick="if(confirm('Tem certeza que deseja excluir esta mensagem permanentemente?')) submitSingleAction('delete', '{{ notif.id }}')">Excluir Permanentemente</button>
+                                {% else %}
+                                    <button type="button" class="btn btn-sm btn-outline-danger" title="Mover para Lixeira" onclick="openDeleteModal('{% url 'caixa_entrada:excluir_mensagem' notif.id %}')">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16" style="vertical-align: text-bottom; margin-right: 2px;">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" />
+                                        </svg> Mover para Lixeira
+                                    </button>
+                                {% endif %}
+                                <button type="button" class="btn btn-sm btn-outline-secondary" title="Arquivar/Desarquivar" onclick="archiveMessage('{% url 'caixa_entrada:arquivar_mensagem' notif.id %}')">
+                                    {% if notif.arquivada %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" /></svg>
+                                        Desarquivar
+                                    {% else %}
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; vertical-align: text-bottom; margin-right: 2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z" /></svg>
+                                        Arquivar
+                                    {% endif %}
+                                </button>
+                                {% if current_box == 'inbox' %}
+                                <button type="button" class="btn btn-sm btn-outline-primary" onclick="replyTo('{{ notif.remetente.id }}', '{{ notif.titulo|escapejs }}')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" width="16" height="16" style="vertical-align: text-bottom; margin-right: 2px;">
+                                        <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3" />
+                                    </svg> Responder
+                                </button>
+                                {% endif %}
+                                {% if current_box == 'inbox' and not notif.lida %}
+                                    <a href="?box=inbox&ler={{ notif.id }}" class="btn btn-sm btn-outline-primary">
+                                        <i class="fas fa-check me-1"></i> Marcar como lida
+                                    </a>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                {% endfor %}
+            {% else %}
+                <div class="text-center py-5 mt-5">
+                    <div class="mb-3 opacity-25">
+                        <i class="fas fa-inbox fa-4x text-gray-400"></i>
+                    </div>
+                    <h5 class="text-muted fw-bold">Nenhuma mensagem encontrada</h5>
+                </div>
+            {% endif %}
+        </form>
+    </div>
+</div>
+
+<!-- Modal de Nova Mensagem -->
+{% if is_s1 %}
+<div class="modal fade" id="composeModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold"><i class="fas fa-paper-plane me-2"></i>Nova Mensagem</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="mb-3">
+                        <label for="{{ form.destinatario.id_for_label }}" class="form-label fw-bold text-secondary small text-uppercase">Destinatário</label>
+                        {{ form.destinatario }}
+                        {% if form.destinatario.errors %}
+                            <div class="text-danger small mt-1">{{ form.destinatario.errors }}</div>
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.titulo.id_for_label }}" class="form-label fw-bold text-secondary small text-uppercase">Assunto</label>
+                        {{ form.titulo }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="{{ form.mensagem.id_for_label }}" class="form-label fw-bold text-secondary small text-uppercase">Mensagem</label>
+                        {{ form.mensagem }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="id_anexo" class="form-label fw-bold text-secondary small text-uppercase">Anexo (Opcional)</label>
+                        <input type="file" name="anexo" class="form-control" id="id_anexo">
+                    </div>
+
+                    <div class="d-flex justify-content-end gap-2 mt-4">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                        <button type="submit" class="btn btn-primary px-4">Enviar</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+{% endif %}
+
+<!-- Modal de Confirmação de Transferência -->
+<div class="modal fade" id="confirmTransferModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold" id="confirmTransferTitle">Confirmar</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p id="confirmTransferMessage" class="fs-5 mb-0" style="color: var(--text-primary);"></p>
+            </div>
+            <div class="modal-footer justify-content-center border-0 pt-0 pb-4">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="confirmTransferForm" method="post" style="margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn" id="confirmTransferBtn">Confirmar</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Confirmação de Exclusão -->
+<div class="modal fade" id="confirmDeleteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title fw-bold text-danger" style="display: flex; align-items: center; gap: 8px;">
+                    Excluir Mensagem
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body p-4 text-center">
+                <p class="fs-5 mb-0" style="color: var(--text-primary);">Tem certeza que deseja excluir esta mensagem permanentemente?</p>
+            </div>
+            <div class="modal-footer justify-content-center border-0 pt-0 pb-4">
+                <button type="button" class="btn btn-secondary px-4" data-bs-dismiss="modal">Cancelar</button>
+                <form id="confirmDeleteForm" method="post" style="margin: 0;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn btn-danger px-4">Sim, Excluir</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    function toggleMessage(id) {
+        const allMessages = document.querySelectorAll('div[id^="msg-"]');
+        const targetMessage = document.getElementById(id);
+        const isCurrentlyOpen = targetMessage.style.display === 'block';
+
+        // Fecha todas as outras mensagens
+        allMessages.forEach(msg => {
+            if (msg.id !== id) {
+                msg.style.display = 'none';
+            }
+        });
+
+        // Alterna a visibilidade da mensagem clicada
+        if (isCurrentlyOpen) {
+            targetMessage.style.display = 'none';
+        } else {
+            targetMessage.style.display = 'block';
+        }
+    }
+
+    function openConfirmModal(actionUrl, actionType) {
+        var modalElement = document.getElementById('confirmTransferModal');
+        var modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        
+        document.getElementById('confirmTransferForm').action = actionUrl;
+        
+        if (actionType === 'aprovar') {
+            document.getElementById('confirmTransferTitle').innerHTML = '<i class="fas fa-check-circle text-success me-2"></i>Autorizar Movimentação';
+            document.getElementById('confirmTransferMessage').textContent = 'Tem certeza que deseja APROVAR a movimentação deste militar?';
+            document.getElementById('confirmTransferBtn').className = 'btn btn-success px-4';
+            document.getElementById('confirmTransferBtn').textContent = 'Sim, Autorizar';
+        } else {
+            document.getElementById('confirmTransferTitle').innerHTML = '<i class="fas fa-times-circle text-danger me-2"></i>Rejeitar Movimentação';
+            document.getElementById('confirmTransferMessage').textContent = 'Tem certeza que deseja REJEITAR a movimentação deste militar?';
+            document.getElementById('confirmTransferBtn').className = 'btn btn-danger px-4';
+            document.getElementById('confirmTransferBtn').textContent = 'Sim, Rejeitar';
+        }
+        
+        modal.show();
+    }
+
+    function openDeleteModal(actionUrl) {
+        var modalElement = document.getElementById('confirmDeleteModal');
+        var modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        document.getElementById('confirmDeleteForm').action = actionUrl;
+        modal.show();
+    }
+
+    function archiveMessage(actionUrl) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = actionUrl;
+        form.innerHTML = '<input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">';
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function submitSingleAction(action, messageId) {
+        const form = document.createElement('form');
+        form.method = 'post';
+        form.action = "{% url 'caixa_entrada:acoes_em_massa' %}";
+        form.innerHTML = `
+            <input type="hidden" name="csrfmiddlewaretoken" value="{{ csrf_token }}">
+            <input type="hidden" name="action" value="${action}">
+            <input type="hidden" name="message_ids" value="${messageId}">
+        `;
+        document.body.appendChild(form);
+        form.submit();
+    }
+
+    function replyTo(remetenteId, tituloOriginal) {
+        var modalElement = document.getElementById('composeModal');
+        var modal = bootstrap.Modal.getOrCreateInstance(modalElement);
+        
+        var destSelect = document.getElementById('{{ form.destinatario.id_for_label }}');
+        if (destSelect) {
+            destSelect.value = remetenteId;
+            try {
+                if (typeof jQuery !== 'undefined' && $(destSelect).hasClass('select2-hidden-accessible')) {
+                    $(destSelect).trigger('change');
+                }
+            } catch(e) {}
+        }
+        
+        var tituloInput = document.getElementById('{{ form.titulo.id_for_label }}');
+        if (tituloInput) {
+            if (!tituloOriginal.startsWith("RE:")) {
+                tituloInput.value = "RE: " + tituloOriginal;
+            } else {
+                tituloInput.value = tituloOriginal;
+            }
+        }
+        
+        document.getElementById('{{ form.mensagem.id_for_label }}').value = "";
+        modal.show();
+    }
+
+    function fecharOuVoltar() {
+        window.location.href = "{% url 'login:go_home' %}";
+    }
+
+    // Atualização automática da caixa de entrada em segundo plano (Polling)
+    function startAutoRefresh() {
+        setInterval(async function() {
+            try {
+                // Verifica se alguma mensagem está aberta na lista (para não interromper a leitura)
+                let isAnyMessageExpanded = false;
+                document.querySelectorAll('div[id^="msg-"]').forEach(function(el) {
+                    if (el.style.display === 'block') {
+                        isAnyMessageExpanded = true;
+                    }
+                });
+
+                // Verifica se algum modal está aberto (Nova Mensagem, Confirmações de Exclusão, etc.)
+                let isModalOpen = document.body.classList.contains('modal-open');
+
+                // NOVA VERIFICAÇÃO: Verifica se a barra de ações em massa está visível.
+                // Se estiver, o utilizador está a meio de uma seleção, e não devemos atualizar a lista.
+                const toolbar = document.getElementById('bulk-actions-toolbar');
+                const isBulkActionActive = toolbar && toolbar.style.display === 'block';
+
+
+                // Se o utilizador não estiver ativamente interagindo com uma mensagem, atualiza
+                // Adicionada a condição !isBulkActionActive para corrigir o bug do desaparecimento dos botões.
+                if (!isAnyMessageExpanded && !isModalOpen && !isBulkActionActive) {
+                    const response = await fetch(window.location.href);
+                    const text = await response.text();
+                    const parser = new DOMParser();
+                    const doc = parser.parseFromString(text, 'text/html');
+                    
+                    // Atualiza a lista de e-mails caso haja diferença
+                    const newListContainer = doc.querySelector('.email-list');
+                    const currentListContainer = document.querySelector('.email-list');
+                    if (newListContainer && currentListContainer && currentListContainer.innerHTML !== newListContainer.innerHTML) {
+                        currentListContainer.innerHTML = newListContainer.innerHTML;
+                    }
+                    
+                    // Atualiza os contadores vermelhos (badges) na barra lateral
+                    const newNav = doc.querySelector('.email-nav');
+                    if (newNav) {
+                        document.querySelector('.email-nav').innerHTML = newNav.innerHTML;
+                    }
+
+                    // Adicionado para corrigir o erro de CSRF token expirado no modal de nova mensagem.
+                    // O polling atualiza o token no corpo da página, mas não no modal, que é separado.
+                    // Esta parte extrai o novo token do documento recém-buscado e o injeta no modal.
+                    const newCsrfTokenInput = doc.querySelector('#composeModal input[name="csrfmiddlewaretoken"]');
+                    const currentCsrfTokenInput = document.querySelector('#composeModal input[name="csrfmiddlewaretoken"]');
+                    
+                    if (newCsrfTokenInput && currentCsrfTokenInput && currentCsrfTokenInput.value !== newCsrfTokenInput.value) {
+                        currentCsrfTokenInput.value = newCsrfTokenInput.value;
+                    }
+                }
+            } catch (e) {
+                console.error("Erro na atualização automática:", e);
+            }
+        }, 5000); // Verifica a cada 15 segundos
+    }
+</script>
+{% endblock %}
+
+{% block extra_js %}
+<!-- Adiciona Bootstrap JS para garantir que o modal funcione -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.2/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // Inicializa o modal manualmente
+        var modalElement = document.getElementById('composeModal');
+        if (modalElement) {
+            var myModal = new bootstrap.Modal(modalElement);
+            
+            // Adiciona evento de clique ao botão
+            var btn = document.getElementById('btnCompose');
+            if (btn) {
+                btn.addEventListener('click', function() {
+                    myModal.show();
+                });
+            }
+
+        {% if form.errors %}
+            myModal.show();
+        {% endif %}
+        }
+
+        // Inicia a verificação de novas mensagens
+        if (typeof startAutoRefresh === 'function') {
+            startAutoRefresh();
+        }
+
+        // Lógica para ações em massa
+        const selectAllCheckbox = document.getElementById('select-all-checkbox');
+        const messageCheckboxes = document.querySelectorAll('.message-checkbox');
+        const toolbar = document.getElementById('bulk-actions-toolbar');
+
+        function toggleToolbar() {
+            const anyChecked = Array.from(messageCheckboxes).some(cb => cb.checked);
+            if (toolbar) {
+                toolbar.style.display = anyChecked ? 'block' : 'none';
+            }
+        }
+
+        if (selectAllCheckbox) {
+            selectAllCheckbox.addEventListener('change', function() {
+                messageCheckboxes.forEach(cb => {
+                    cb.checked = this.checked;
+                });
+                toggleToolbar();
+            });
+        }
+
+        messageCheckboxes.forEach(cb => {
+            cb.addEventListener('change', toggleToolbar);
+        });
+
+    });
+</script>
+{% endblock %}

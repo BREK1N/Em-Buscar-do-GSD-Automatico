@@ -5,7 +5,11 @@ from django.http import JsonResponse
 from datetime import date
 from .models import Escala, TurnoEscala, PostoEscala
 from .forms import EscalaForm, TurnoEscalaForm, PostoEscalaForm
-from Secao_pessoal.models import Efetivo, Notificacao
+from Secao_pessoal.models import Efetivo
+from django.contrib.auth import get_user_model
+from caixa_entrada.models import Notificacao, Mensagem
+
+User = get_user_model()
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -18,14 +22,28 @@ def _get_militar_logado(request):
 
 
 def _notificar(remetente, destinatario, titulo, mensagem):
-    """Cria uma Notificacao se remetente e destinatário forem válidos."""
-    if remetente and destinatario:
-        Notificacao.objects.create(
-            remetente=remetente,
-            destinatario=destinatario,
-            titulo=titulo,
-            mensagem=mensagem,
-        )
+    """Cria Notificacao (legado) e Mensagem (nova caixa de entrada)."""
+    if not (remetente and destinatario):
+        return
+    Notificacao.objects.create(
+        remetente=remetente,
+        destinatario=destinatario,
+        titulo=titulo,
+        mensagem=mensagem,
+    )
+    try:
+        rem_user  = User.objects.filter(profile__militar=remetente).first()
+        dest_user = User.objects.filter(profile__militar=destinatario).first()
+        if rem_user and dest_user:
+            msg = Mensagem.objects.create(
+                remetente=rem_user,
+                assunto=titulo,
+                corpo=mensagem,
+                tipo='mensagem',
+            )
+            msg.destinatarios.add(dest_user)
+    except Exception:
+        pass
 
 
 # ── Views ────────────────────────────────────────────────────────────────────

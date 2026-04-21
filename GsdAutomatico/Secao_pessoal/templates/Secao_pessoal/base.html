@@ -117,7 +117,7 @@
                 </li>
 
                 <li>
-                    <a href="{% url 'comunicacoes_global' %}" class="{% if 'comunicacoes' in request.path %}active{% endif %}">
+                    <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=s1" class="{% if 'comunicacoes' in request.path %}active{% endif %}">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                         </svg>
@@ -285,10 +285,11 @@
                     </span>
                 {% endif %}
 
-                <a href="{% url 'comunicacoes_global' %}" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center;">
+                <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=s1" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center; position: relative;">
                     <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                     </svg>
+                    <span id="email-badge" style="display:none;position:absolute;top:-4px;right:-6px;min-width:16px;height:16px;border-radius:8px;background:#e94560;color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 3px;"></span>
                 </a>
 
                 <div class="notifications-container">
@@ -375,7 +376,7 @@
                 
                 // 2. Busca Notificações Gerais (S1)
                 try {
-                    const respGeral = await fetch("{% url 'Secao_pessoal:api_notificacoes_check' %}"); 
+                    const respGeral = await fetch("{% url 'caixa_entrada:api_check' %}"); 
                     if (respGeral.ok) {
                         const textGeral = await respGeral.text();
                         try { dataGeral = JSON.parse(textGeral); } catch (e) { /* Redirecionado */ }
@@ -393,6 +394,15 @@
                 }
 
                 updateExpiradosBadgeUI(totalNotificacoes, seenNotificacoesCount);
+
+                // Badge do ícone de email (mensagens não lidas)
+                const emailBadge = document.getElementById('email-badge');
+                if (emailBadge && dataGeral && dataGeral.unread_mensagens > 0) {
+                    emailBadge.textContent = dataGeral.unread_mensagens > 99 ? '99+' : dataGeral.unread_mensagens;
+                    emailBadge.style.display = 'block';
+                } else if (emailBadge) {
+                    emailBadge.style.display = 'none';
+                }
                 
                 try {
 

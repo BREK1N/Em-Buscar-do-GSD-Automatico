@@ -1,0 +1,446 @@
+{% extends 'caixa_entrada/base_inbox.html' %}
+
+{% block inbox_extra_css %}
+/* ── Toolbar ── */
+.list-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 16px;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+    flex-wrap: wrap;
+    min-height: 52px;
+}
+.toolbar-title {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--text-primary, #e0e0ff);
+    margin-right: auto;
+}
+.toolbar-search {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    background: var(--bg-primary, #1a1a2e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 24px;
+    padding: 5px 12px;
+    flex: 1;
+    max-width: 320px;
+}
+.toolbar-search input {
+    background: transparent;
+    border: none;
+    color: var(--text-primary, #e0e0ff);
+    font-size: .82rem;
+    width: 100%;
+    outline: none;
+}
+.toolbar-search svg { color: var(--text-secondary, #a0a0c0); flex-shrink: 0; }
+.toolbar-filter select {
+    background: var(--bg-primary, #1a1a2e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    color: var(--text-secondary, #a0a0c0);
+    border-radius: 8px;
+    padding: 5px 10px;
+    font-size: .78rem;
+    cursor: pointer;
+    outline: none;
+}
+.toolbar-filter select:focus { border-color: var(--accent-color, #e94560); }
+
+/* ── Bulk bar ── */
+.bulk-bar {
+    display: none;
+    align-items: center;
+    gap: 10px;
+    padding: 8px 16px;
+    background: rgba(233,69,96,.08);
+    border-bottom: 1px solid rgba(233,69,96,.2);
+    font-size: .82rem;
+    color: var(--text-primary, #e0e0ff);
+}
+.bulk-bar.visible { display: flex; }
+.bulk-btn {
+    padding: 5px 14px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+    color: var(--text-primary, #e0e0ff);
+    font-size: .78rem;
+    cursor: pointer;
+    transition: all .15s;
+}
+.bulk-btn:hover { background: var(--accent-color, #e94560); border-color: var(--accent-color, #e94560); color: #fff; }
+.bulk-btn.danger { border-color: rgba(233,69,96,.5); color: #e94560; }
+.bulk-btn.danger:hover { background: #e94560; border-color: #e94560; color: #fff; }
+.bulk-btn.success { border-color: rgba(77,187,110,.5); color: #4dbb6e; }
+.bulk-btn.success:hover { background: #4dbb6e; border-color: #4dbb6e; color: #fff; }
+
+/* ── Selecionar todos ── */
+.select-all-row {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 7px 16px;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+}
+.select-all-row label {
+    font-size: .75rem;
+    color: var(--text-secondary, #a0a0c0);
+    cursor: pointer;
+    margin: 0;
+    user-select: none;
+}
+input[type=checkbox] { accent-color: var(--accent-color, #e94560); cursor: pointer; }
+
+/* ── Lista de emails ── */
+.msg-list { flex: 1; overflow-y: auto; }
+
+/* Row de email */
+.email-row {
+    display: flex;
+    align-items: center;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    cursor: pointer;
+    transition: background .12s;
+    position: relative;
+    min-height: 56px;
+}
+.email-row:hover { background: rgba(255,255,255,.03); }
+.email-row.unread { background: rgba(233,69,96,.04); }
+.email-row.unread::before {
+    content: '';
+    position: absolute;
+    left: 0; top: 0; bottom: 0;
+    width: 3px;
+    background: var(--accent-color, #e94560);
+    border-radius: 0 2px 2px 0;
+}
+
+/* Check col */
+.email-check {
+    padding: 0 4px 0 12px;
+    flex-shrink: 0;
+    display: flex;
+    align-items: center;
+}
+
+/* Avatar col */
+.email-avatar {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--accent-color, #e94560), #b73050);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: .75rem;
+    font-weight: 800;
+    color: #fff;
+    flex-shrink: 0;
+    margin: 0 10px 0 6px;
+    text-transform: uppercase;
+    letter-spacing: .03em;
+    user-select: none;
+}
+
+/* Body col */
+.email-body {
+    flex: 1;
+    min-width: 0;
+    padding: 12px 0;
+    text-decoration: none;
+    display: block;
+}
+.email-from {
+    font-size: .83rem;
+    color: var(--text-secondary, #a0a0c0);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    margin-bottom: 2px;
+}
+.email-row.unread .email-from {
+    color: var(--text-primary, #e0e0ff);
+    font-weight: 700;
+}
+.email-subject-line {
+    display: flex;
+    align-items: baseline;
+    gap: 6px;
+    font-size: .84rem;
+    color: var(--text-secondary, #a0a0c0);
+    white-space: nowrap;
+    overflow: hidden;
+}
+.email-subject {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    flex-shrink: 0;
+    max-width: 260px;
+}
+.email-row.unread .email-subject {
+    color: var(--text-primary, #e0e0ff);
+    font-weight: 600;
+}
+.email-preview {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--text-secondary, #a0a0c0);
+    font-size: .82rem;
+    flex: 1;
+    min-width: 0;
+}
+.email-preview::before { content: ' — '; }
+
+/* Meta col (right) */
+.email-meta {
+    display: flex;
+    flex-direction: column;
+    align-items: flex-end;
+    gap: 5px;
+    padding: 10px 14px 10px 10px;
+    flex-shrink: 0;
+}
+.email-date {
+    font-size: .72rem;
+    color: var(--text-secondary, #a0a0c0);
+    white-space: nowrap;
+}
+.email-row.unread .email-date { color: var(--accent-color, #e94560); font-weight: 600; }
+.email-badges { display: flex; gap: 4px; align-items: center; }
+
+/* Badges */
+.badge-tipo {
+    font-size: .6rem;
+    padding: 2px 7px;
+    border-radius: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.badge-tipo.mensagem { background: rgba(0,150,255,.12); color: #5badff; border: 1px solid rgba(0,150,255,.2); }
+.badge-tipo.chamado { background: rgba(255,165,0,.12); color: #ffb347; border: 1px solid rgba(255,165,0,.2); }
+.badge-status { font-size: .6rem; padding: 2px 7px; border-radius: 10px; font-weight: 700; }
+.badge-status.aberto { background: rgba(255,165,0,.12); color: #ffb347; }
+.badge-status.em_andamento { background: rgba(0,120,255,.12); color: #4d94ff; }
+.badge-status.resolvido { background: rgba(40,200,80,.12); color: #4dbb6e; }
+.badge-anexo { color: var(--text-secondary, #a0a0c0); }
+
+/* ── Empty state ── */
+.empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    min-height: 300px;
+    color: var(--text-secondary, #a0a0c0);
+    gap: 12px;
+}
+.empty-state svg { opacity: .25; }
+.empty-state p { margin: 0; font-size: .9rem; }
+.empty-state a { color: var(--accent-color, #e94560); font-size: .85rem; }
+
+/* ── Paginação ── */
+.pagination-bar {
+    display: flex;
+    justify-content: center;
+    gap: 4px;
+    padding: 12px;
+    border-top: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+}
+.pagination-bar a, .pagination-bar span {
+    padding: 5px 11px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    font-size: .78rem;
+    color: var(--text-primary, #e0e0ff);
+    text-decoration: none;
+    background: var(--bg-primary, #1a1a2e);
+    transition: border-color .15s;
+}
+.pagination-bar a:hover { border-color: var(--accent-color, #e94560); color: var(--accent-color, #e94560); }
+.pagination-bar span.current { background: var(--accent-color, #e94560); border-color: var(--accent-color, #e94560); color: #fff; }
+{% endblock %}
+
+{% block inbox_content %}
+<form method="post" action="{% url 'caixa_entrada:excluir_lote' %}" id="bulk-form" style="display:flex;flex-direction:column;height:100%;overflow:hidden;">
+{% csrf_token %}
+
+<!-- Toolbar -->
+<div class="list-toolbar">
+    <span class="toolbar-title">
+        {% if pasta_ativa == 'entrada' %}Caixa de Entrada
+        {% elif pasta_ativa == 'enviados' %}Enviados
+        {% elif pasta_ativa == 'rascunhos' %}Rascunhos
+        {% elif pasta_ativa == 'excluidos' %}Excluídos
+        {% endif %}
+    </span>
+
+    {% if pasta_ativa != 'rascunhos' %}
+    <div class="toolbar-search" id="search-wrap">
+        <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M11.742 10.344a6.5 6.5 0 1 0-1.397 1.398h-.001c.03.04.062.078.098.115l3.85 3.85a1 1 0 0 0 1.415-1.414l-3.85-3.85a1.007 1.007 0 0 0-.115-.099zm-5.242 1.656a5.5 5.5 0 1 1 0-11 5.5 5.5 0 0 1 0 11z"/>
+        </svg>
+        <input type="text" name="q" value="{{ filtro.q.value|default:'' }}" placeholder="Buscar mensagens…" form="filtro-form">
+    </div>
+    <div class="toolbar-filter">
+        {{ filtro.tipo }}
+    </div>
+    {% if pasta_ativa == 'entrada' %}
+    <div class="toolbar-filter">
+        {{ filtro.status_chamado }}
+    </div>
+    {% endif %}
+    {% endif %}
+</div>
+
+<!-- Bulk bar -->
+<div class="bulk-bar" id="bulk-bar">
+    <span id="bulk-count">0 selecionada(s)</span>
+    {% if pasta_ativa == 'excluidos' %}
+        <button type="submit" name="acao" value="restaurar" class="bulk-btn success">Restaurar</button>
+        <button type="submit" name="acao" value="excluir_definitivo" class="bulk-btn danger" onclick="return confirm('Excluir permanentemente?')">Excluir definitivo</button>
+    {% else %}
+        <button type="submit" name="acao" value="excluir" class="bulk-btn danger">Mover para excluídos</button>
+    {% endif %}
+</div>
+
+<!-- Lista -->
+<div class="msg-list">
+{% if mensagens %}
+    <!-- Selecionar todos -->
+    <div class="select-all-row">
+        <input type="checkbox" id="select-all">
+        <label for="select-all">Selecionar todos</label>
+    </div>
+
+    {% for msg in mensagens %}
+    <div class="email-row {% if pasta_ativa == 'entrada' and msg.id not in ids_lidas %}unread{% endif %}">
+        <div class="email-check">
+            <input type="checkbox" name="ids" value="{{ msg.id }}" class="msg-check">
+        </div>
+
+        <div class="email-avatar">
+            {{ msg.remetente.get_full_name|default:msg.remetente.username|slice:":2" }}
+        </div>
+
+        <a href="{% url 'caixa_entrada:detalhe' msg.pk %}" class="email-body">
+            <div class="email-from">
+                {% if pasta_ativa == 'enviados' or pasta_ativa == 'rascunhos' %}
+                    Para: {% for d in msg.destinatarios.all|slice:":2" %}{{ d.get_full_name|default:d.username }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if msg.destinatarios.count > 2 %} +{{ msg.destinatarios.count|add:"-2" }}{% endif %}
+                {% else %}
+                    {{ msg.remetente.get_full_name|default:msg.remetente.username }}
+                {% endif %}
+            </div>
+            <div class="email-subject-line">
+                <span class="email-subject">{{ msg.assunto }}</span>
+                <span class="email-preview">{{ msg.corpo|truncatechars:90 }}</span>
+            </div>
+        </a>
+
+        <div class="email-meta">
+            <span class="email-date">{{ msg.data_envio|date:"d/m H:i" }}</span>
+            <div class="email-badges">
+                {% if msg.anexos.count %}<span class="badge-anexo" title="{{ msg.anexos.count }} anexo(s)">
+                    <svg width="11" height="11" fill="currentColor" viewBox="0 0 16 16"><path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/></svg>
+                </span>{% endif %}
+                <span class="badge-tipo {{ msg.tipo }}">{{ msg.get_tipo_display }}</span>
+                {% if msg.tipo == 'chamado' and msg.status_chamado %}
+                <span class="badge-status {{ msg.status_chamado }}">{{ msg.get_status_chamado_display }}</span>
+                {% endif %}
+            </div>
+        </div>
+    </div>
+    {% endfor %}
+
+{% else %}
+    <div class="empty-state">
+        <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/>
+        </svg>
+        <p>Nenhuma mensagem aqui.</p>
+        {% if pasta_ativa == 'entrada' %}
+        <a href="{% url 'caixa_entrada:nova' %}">+ Escrever nova mensagem</a>
+        {% endif %}
+    </div>
+{% endif %}
+</div>
+
+<!-- Paginação -->
+{% if is_paginated %}
+<div class="pagination-bar">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&laquo;</a>
+    {% endif %}
+    {% for num in paginator.page_range %}
+        {% if page_obj.number == num %}
+            <span class="current">{{ num }}</span>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?page={{ num }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}">{{ num }}</a>
+        {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}">&raquo;</a>
+    {% endif %}
+</div>
+{% endif %}
+
+</form>
+
+<!-- Form GET para filtro -->
+<form id="filtro-form" method="get" action="." style="display:none;"></form>
+{% endblock %}
+
+{% block inbox_extra_js %}
+<script>
+// Avatar cores por nome
+document.querySelectorAll('.email-avatar').forEach(el => {
+    const name = el.textContent.trim();
+    let hash = 0;
+    for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+    const hue = Math.abs(hash) % 360;
+    el.style.background = `linear-gradient(135deg, hsl(${hue},55%,38%), hsl(${(hue+30)%360},60%,28%))`;
+});
+
+// Filtro automático ao mudar select
+document.querySelectorAll('.toolbar-filter select').forEach(el => {
+    el.addEventListener('change', () => {
+        const ff = document.getElementById('filtro-form');
+        const fd = new FormData();
+        document.querySelectorAll('.toolbar-filter select').forEach(s => { if (s.value) fd.append(s.name, s.value); });
+        const q = document.querySelector('input[name=q]');
+        if (q && q.value) fd.append('q', q.value);
+        window.location = '?' + new URLSearchParams(fd).toString();
+    });
+});
+// Busca ao pressionar Enter
+const searchQ = document.querySelector('input[name=q]');
+if (searchQ) {
+    searchQ.addEventListener('keydown', e => {
+        if (e.key === 'Enter') { e.preventDefault(); document.getElementById('filtro-form').submit(); }
+    });
+}
+
+// Bulk select
+const selectAll = document.getElementById('select-all');
+const checks    = document.querySelectorAll('.msg-check');
+const bulkBar   = document.getElementById('bulk-bar');
+const bulkCount = document.getElementById('bulk-count');
+
+function updateBulk() {
+    const n = document.querySelectorAll('.msg-check:checked').length;
+    if (n > 0) { bulkBar.classList.add('visible'); bulkCount.textContent = n + ' selecionada(s)'; }
+    else        { bulkBar.classList.remove('visible'); }
+    if (selectAll) selectAll.indeterminate = n > 0 && n < checks.length;
+}
+if (selectAll) selectAll.addEventListener('change', () => { checks.forEach(c => c.checked = selectAll.checked); updateBulk(); });
+checks.forEach(c => c.addEventListener('change', updateBulk));
+</script>
+{% endblock %}

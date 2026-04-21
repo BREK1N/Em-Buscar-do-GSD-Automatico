@@ -111,33 +111,6 @@ class Subsetor(models.Model):
     def __str__(self):
         return self.nome
 
-class NotificacaoManager(models.Manager):
-    def get_queryset(self):
-        return super().get_queryset().filter(deleted=False)
-
-class Notificacao(models.Model):
-    remetente = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='notificacoes_enviadas')
-    destinatario = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='notificacoes_recebidas')
-    titulo = models.CharField(max_length=200, verbose_name="Assunto")
-    mensagem = models.TextField(verbose_name="Mensagem")
-    lida = models.BooleanField(default=False)
-    arquivada = models.BooleanField(default=False, verbose_name="Arquivada")
-    anexo = models.FileField(upload_to='notificacoes_anexos/', null=True, blank=True, verbose_name="Anexo")
-    deleted = models.BooleanField(default=False, verbose_name="Excluído (Lixeira)")
-    deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
-    data_criacao = models.DateTimeField(auto_now_add=True)
-
-    objects = NotificacaoManager()
-    all_objects = models.Manager()
-
-    class Meta:
-        ordering = ['-data_criacao']
-        verbose_name = "Notificação"
-        verbose_name_plural = "Notificações"
-
-    def __str__(self):
-        return f"{self.titulo} - Para: {self.destinatario}"
-
 class SolicitacaoTrocaSetor(models.Model):
     militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='solicitacoes_troca', verbose_name="Militar")
     setor_atual = models.CharField(max_length=100, blank=True, verbose_name="Setor Atual")

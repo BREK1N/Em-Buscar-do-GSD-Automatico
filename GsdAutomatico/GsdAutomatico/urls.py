@@ -19,15 +19,16 @@ from django.urls import path, include
 from django.conf import settings
 from django.conf.urls.static import static
 from Secao_pessoal import views as secao_pessoal_views
+from caixa_entrada import views as caixa_entrada_views
+
 urlpatterns = [
     path('admin/', admin.site.urls),
-    path('Ouvidoria/', include('Ouvidoria.urls')),   
+    path('Ouvidoria/', include('Ouvidoria.urls')),
     path('', include('login.urls')),
     path('informatica/', include('informatica.urls')),
     path('secao_pessoal/', include('Secao_pessoal.urls')),
     path('secao_operacoes/', include('Secao_operacoes.urls')),
-    path('comunicacoes/', secao_pessoal_views.comunicacoes, name='comunicacoes_global'),
-    path('comunicacoes/api/check/', secao_pessoal_views.api_notificacoes_check, name='api_notificacoes_check_global'),
+    path('comunicacoes/', include('caixa_entrada.urls', namespace='caixa_entrada')),
     path('comunicacoes/responder/<int:solicitacao_id>/<str:acao>/', secao_pessoal_views.responder_troca_setor, name='responder_troca_setor_global'),
 ]
 

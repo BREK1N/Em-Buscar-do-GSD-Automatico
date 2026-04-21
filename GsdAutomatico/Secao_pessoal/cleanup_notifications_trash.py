@@ -1,7 +1,7 @@
 from django.core.management.base import BaseCommand
 from django.utils import timezone
 from datetime import timedelta
-from Secao_pessoal.models import Notificacao
+from caixa_entrada.models import Notificacao
 
 class Command(BaseCommand):
     help = 'Exclui permanentemente notificações que estão na lixeira há mais de 30 dias.'

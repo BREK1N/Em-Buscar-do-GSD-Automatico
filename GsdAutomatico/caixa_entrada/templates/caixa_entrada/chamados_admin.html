@@ -1,0 +1,207 @@
+{% extends 'caixa_entrada/base_inbox.html' %}
+
+{% block inbox_extra_css %}
+.chamados-wrap { padding: 20px 24px; overflow-y: auto; flex: 1; }
+.chamados-header {
+    display: flex; align-items: center; justify-content: space-between;
+    margin-bottom: 20px; flex-wrap: wrap; gap: 12px;
+}
+.chamados-title { font-size: 1.1rem; font-weight: 700; color: var(--text-primary, #e0e0ff); }
+.kpi-row { display: flex; gap: 12px; flex-wrap: wrap; margin-bottom: 20px; }
+.kpi-card {
+    flex: 1; min-width: 110px;
+    background: var(--bg-secondary, #16213e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 10px;
+    padding: 14px 16px;
+    text-align: center;
+}
+.kpi-card .kpi-num { font-size: 1.8rem; font-weight: 700; line-height: 1; }
+.kpi-card .kpi-label { font-size: .72rem; color: var(--text-secondary, #a0a0c0); margin-top: 4px; text-transform: uppercase; letter-spacing: .05em; }
+.kpi-card.aberto .kpi-num { color: #ffb347; }
+.kpi-card.andamento .kpi-num { color: #4d94ff; }
+.kpi-card.resolvido .kpi-num { color: #4dbb6e; }
+
+.filtro-status-bar { display: flex; gap: 6px; margin-bottom: 16px; flex-wrap: wrap; }
+.filtro-status-btn {
+    padding: 5px 14px; border-radius: 20px; font-size: .78rem; font-weight: 600;
+    border: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+    color: var(--text-secondary, #a0a0c0);
+    text-decoration: none; cursor: pointer;
+    transition: all .15s;
+}
+.filtro-status-btn:hover, .filtro-status-btn.active { color: #fff; }
+.filtro-status-btn.todos.active { background: var(--accent-color, #e94560); border-color: var(--accent-color, #e94560); }
+.filtro-status-btn.aberto.active  { background: #ffb347; border-color: #ffb347; color: #1a1a2e; }
+.filtro-status-btn.andamento.active { background: #4d94ff; border-color: #4d94ff; }
+.filtro-status-btn.resolvido.active { background: #4dbb6e; border-color: #4dbb6e; }
+
+.chamado-table { width: 100%; border-collapse: collapse; }
+.chamado-table th {
+    font-size: .72rem; font-weight: 600; color: var(--text-secondary, #a0a0c0);
+    text-transform: uppercase; letter-spacing: .05em;
+    padding: 8px 12px; text-align: left;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+}
+.chamado-table td {
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    font-size: .85rem;
+    color: var(--text-primary, #e0e0ff);
+    vertical-align: middle;
+}
+.chamado-table tr:hover td { background: var(--bg-secondary, #16213e); }
+.badge-status { font-size: .7rem; padding: 3px 10px; border-radius: 10px; font-weight: 600; white-space: nowrap; }
+.badge-status.aberto { background: rgba(255,165,0,.15); color: #ffb347; }
+.badge-status.em_andamento { background: rgba(0,120,255,.15); color: #4d94ff; }
+.badge-status.resolvido { background: rgba(40,200,80,.15); color: #4dbb6e; }
+.status-form-inline { display: flex; align-items: center; gap: 6px; }
+.status-select-inline {
+    background: var(--bg-primary, #1a1a2e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    color: var(--text-primary, #e0e0ff);
+    border-radius: 6px;
+    padding: 4px 8px;
+    font-size: .78rem;
+    cursor: pointer;
+}
+.status-select-inline:focus { outline: none; border-color: var(--accent-color, #e94560); }
+.btn-update-status {
+    padding: 4px 10px;
+    border: 1px solid var(--accent-color, #e94560);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--accent-color, #e94560);
+    font-size: .75rem;
+    cursor: pointer;
+    transition: all .15s;
+}
+.btn-update-status:hover { background: var(--accent-color, #e94560); color: #fff; }
+.assunto-link { text-decoration: none; color: inherit; font-weight: 600; }
+.assunto-link:hover { color: var(--accent-color, #e94560); }
+.remetente-info { font-size: .78rem; color: var(--text-secondary, #a0a0c0); margin-top: 2px; }
+.empty-state { text-align: center; padding: 50px 20px; color: var(--text-secondary, #a0a0c0); }
+.pagination-wrap {
+    padding: 12px 0; display: flex; gap: 6px; justify-content: center;
+    border-top: 1px solid var(--border-color, #2a2a4a); margin-top: 12px;
+}
+.pagination-wrap a, .pagination-wrap span {
+    padding: 5px 11px; border-radius: 6px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    font-size: .8rem; color: var(--text-primary, #e0e0ff);
+    text-decoration: none; background: var(--bg-secondary, #16213e);
+}
+.pagination-wrap a:hover { border-color: var(--accent-color, #e94560); color: var(--accent-color, #e94560); }
+.pagination-wrap span.current { background: var(--accent-color, #e94560); border-color: var(--accent-color, #e94560); color: #fff; }
+{% endblock %}
+
+{% block inbox_content %}
+<div class="chamados-wrap">
+
+    <div class="chamados-header">
+        <div class="chamados-title">🎫 Painel de Chamados</div>
+    </div>
+
+    <!-- KPIs -->
+    <div class="kpi-row">
+        <div class="kpi-card aberto">
+            <div class="kpi-num">{{ total_abertos }}</div>
+            <div class="kpi-label">Abertos</div>
+        </div>
+        <div class="kpi-card andamento">
+            <div class="kpi-num">{{ total_andamento }}</div>
+            <div class="kpi-label">Em Andamento</div>
+        </div>
+        <div class="kpi-card resolvido">
+            <div class="kpi-num">{{ total_resolvidos }}</div>
+            <div class="kpi-label">Resolvidos</div>
+        </div>
+        <div class="kpi-card" style="border-color:var(--accent-color,#e94560)30;">
+            <div class="kpi-num" style="color:var(--text-primary,#e0e0ff);">{{ total_abertos|add:total_andamento|add:total_resolvidos }}</div>
+            <div class="kpi-label">Total</div>
+        </div>
+    </div>
+
+    <!-- Filtro de status -->
+    <div class="filtro-status-bar">
+        <a href="{% url 'caixa_entrada:chamados' %}" class="filtro-status-btn todos {% if not status_filtro %}active{% endif %}">Todos</a>
+        <a href="?status=aberto" class="filtro-status-btn aberto {% if status_filtro == 'aberto' %}active{% endif %}">🟡 Abertos</a>
+        <a href="?status=em_andamento" class="filtro-status-btn andamento {% if status_filtro == 'em_andamento' %}active{% endif %}">🔵 Em Andamento</a>
+        <a href="?status=resolvido" class="filtro-status-btn resolvido {% if status_filtro == 'resolvido' %}active{% endif %}">🟢 Resolvidos</a>
+    </div>
+
+    <!-- Tabela -->
+    {% if chamados %}
+    <table class="chamado-table">
+        <thead>
+            <tr>
+                <th>#</th>
+                <th>Chamado</th>
+                <th>Solicitante</th>
+                <th>Data</th>
+                <th>Anexos</th>
+                <th>Status</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for c in chamados %}
+        <tr>
+            <td style="color:var(--text-secondary,#a0a0c0);font-size:.75rem;">#{{ c.pk }}</td>
+            <td>
+                <a href="{% url 'caixa_entrada:detalhe' c.pk %}" class="assunto-link">{{ c.assunto }}</a>
+                <div class="remetente-info">{{ c.corpo|truncatechars:60 }}</div>
+            </td>
+            <td>
+                <div style="font-weight:600;">
+                    {% with mil=c.remetente.profile.militar %}
+                        {% if mil %}{{ mil.posto }} {{ mil.nome_guerra }}{% else %}{{ c.remetente.get_full_name|default:c.remetente.username }}{% endif %}
+                    {% endwith %}
+                </div>
+                <div class="remetente-info">{{ c.data_envio|date:"d/m/Y H:i" }}</div>
+            </td>
+            <td style="white-space:nowrap;font-size:.78rem;color:var(--text-secondary,#a0a0c0);">
+                {{ c.data_envio|timesince }} atrás
+            </td>
+            <td>
+                {% if c.anexos.count %}
+                <span title="{{ c.anexos.count }} anexo(s)">📎 {{ c.anexos.count }}</span>
+                {% else %}-{% endif %}
+            </td>
+            <td>
+                <form method="post" action="{% url 'caixa_entrada:chamado_status' c.pk %}" class="status-form-inline">
+                    {% csrf_token %}
+                    <select name="status" class="status-select-inline" onchange="this.form.submit()">
+                        <option value="aberto" {% if c.status_chamado == 'aberto' %}selected{% endif %}>🟡 Aberto</option>
+                        <option value="em_andamento" {% if c.status_chamado == 'em_andamento' %}selected{% endif %}>🔵 Em Andamento</option>
+                        <option value="resolvido" {% if c.status_chamado == 'resolvido' %}selected{% endif %}>🟢 Resolvido</option>
+                    </select>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+
+    <!-- Paginação -->
+    {% if is_paginated %}
+    <div class="pagination-wrap">
+        {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}{% if status_filtro %}&status={{ status_filtro }}{% endif %}">&laquo;</a>{% endif %}
+        {% for num in paginator.page_range %}
+            {% if page_obj.number == num %}<span class="current">{{ num }}</span>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <a href="?page={{ num }}{% if status_filtro %}&status={{ status_filtro }}{% endif %}">{{ num }}</a>
+            {% endif %}
+        {% endfor %}
+        {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}{% if status_filtro %}&status={{ status_filtro }}{% endif %}">&raquo;</a>{% endif %}
+    </div>
+    {% endif %}
+
+    {% else %}
+    <div class="empty-state">
+        <svg width="52" height="52" fill="currentColor" viewBox="0 0 16 16" style="opacity:.25;display:block;margin:0 auto 12px;"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/></svg>
+        <p>Nenhum chamado encontrado{% if status_filtro %} com status "{{ status_filtro }}"{% endif %}.</p>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

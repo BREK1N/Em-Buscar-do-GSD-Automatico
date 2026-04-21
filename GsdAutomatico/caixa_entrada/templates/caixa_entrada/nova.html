@@ -1,0 +1,455 @@
+{% extends 'caixa_entrada/base_inbox.html' %}
+
+{% block inbox_extra_css %}
+.nova-wrap { padding: 24px 28px; overflow-y: auto; flex: 1; max-width: 860px; margin: 0 auto; width: 100%; box-sizing: border-box; }
+.nova-title { font-size: 1rem; font-weight: 700; color: var(--text-secondary, #a0a0c0); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; text-transform: uppercase; letter-spacing: .06em; font-size: .75rem; }
+.compose-card {
+    background: var(--bg-secondary, #16213e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.compose-field {
+    display: flex;
+    align-items: flex-start;
+    gap: 0;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    min-height: 44px;
+}
+.compose-field:last-of-type { border-bottom: none; }
+.compose-label {
+    font-size: .78rem;
+    font-weight: 700;
+    color: var(--text-secondary, #a0a0c0);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+    padding: 12px 14px;
+    min-width: 80px;
+    flex-shrink: 0;
+    line-height: 1.4;
+    padding-top: 13px;
+}
+.compose-input {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-primary, #e0e0ff);
+    padding: 11px 14px 11px 0;
+    font-size: .88rem;
+    width: 100%;
+    box-sizing: border-box;
+}
+.compose-input:focus { outline: none; }
+.compose-input select {
+    background: transparent;
+    border: none;
+    color: var(--text-primary, #e0e0ff);
+    font-size: .88rem;
+    padding: 0;
+}
+.compose-input select:focus { outline: none; }
+
+/* Recipient search area */
+.recipient-area {
+    flex: 1;
+    padding: 8px 14px 8px 0;
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 5px;
+    cursor: text;
+    position: relative;
+}
+.recipient-area-inner { display: flex; flex-wrap: wrap; gap: 5px; align-items: center; width: 100%; }
+.dest-chip {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    padding: 2px 9px;
+    border-radius: 20px;
+    background: rgba(233,69,96,.12);
+    border: 1px solid rgba(233,69,96,.25);
+    font-size: .78rem;
+    color: var(--accent-color, #e94560);
+    white-space: nowrap;
+}
+.dest-chip button { background: none; border: none; color: inherit; cursor: pointer; font-size: .85rem; padding: 0; line-height: 1; opacity: .7; }
+.dest-chip button:hover { opacity: 1; }
+.cc-chip {
+    background: rgba(77,163,255,.1);
+    border-color: rgba(77,163,255,.25);
+    color: #4da3ff;
+}
+.recipient-input {
+    background: transparent;
+    border: none;
+    color: var(--text-primary, #e0e0ff);
+    font-size: .85rem;
+    min-width: 140px;
+    flex: 1;
+    padding: 2px 0;
+}
+.recipient-input:focus { outline: none; }
+
+.dest-dropdown {
+    display: none;
+    position: absolute;
+    z-index: 200;
+    top: calc(100% + 2px);
+    left: 0;
+    right: 0;
+    background: var(--bg-primary, #1a1a2e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 8px;
+    max-height: 200px;
+    overflow-y: auto;
+    box-shadow: 0 8px 24px rgba(0,0,0,.4);
+}
+.dest-option {
+    padding: 9px 13px;
+    cursor: pointer;
+    font-size: .84rem;
+    color: var(--text-primary, #e0e0ff);
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    transition: background .1s;
+}
+.dest-option:hover { background: var(--bg-secondary, #16213e); }
+.dest-option:last-child { border-bottom: none; }
+
+/* Corpo */
+.compose-body-wrap { border-top: 1px solid var(--border-color, #2a2a4a); }
+.compose-body-wrap textarea {
+    width: 100%;
+    background: transparent;
+    border: none;
+    color: var(--text-primary, #e0e0ff);
+    padding: 16px;
+    font-size: .9rem;
+    line-height: 1.7;
+    min-height: 220px;
+    resize: vertical;
+    box-sizing: border-box;
+    font-family: inherit;
+}
+.compose-body-wrap textarea:focus { outline: none; }
+
+/* Quoted reply */
+.quoted-reply {
+    margin: 0 16px 12px;
+    padding: 12px 14px;
+    border-left: 3px solid var(--border-color, #2a2a4a);
+    background: rgba(0,0,0,.15);
+    border-radius: 0 6px 6px 0;
+    font-size: .8rem;
+    color: var(--text-secondary, #a0a0c0);
+    white-space: pre-wrap;
+    word-break: break-word;
+    display: none;
+}
+.quoted-reply.visible { display: block; }
+
+/* Bottom toolbar */
+.compose-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-primary, #1a1a2e);
+    flex-wrap: wrap;
+}
+.btn-send {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 22px;
+    background: var(--accent-color, #e94560);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: .88rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: opacity .15s;
+}
+.btn-send:hover { opacity: .85; }
+.btn-draft {
+    display: inline-flex; align-items: center; gap: 6px;
+    padding: 9px 16px;
+    background: transparent;
+    color: var(--text-secondary, #a0a0c0);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 8px;
+    font-size: .85rem;
+    cursor: pointer;
+    transition: all .15s;
+}
+.btn-draft:hover { background: var(--bg-secondary, #16213e); color: var(--text-primary, #e0e0ff); }
+.btn-cancel {
+    margin-left: auto;
+    text-decoration: none;
+    font-size: .82rem;
+    color: var(--text-secondary, #a0a0c0);
+    display: inline-flex; align-items: center; gap: 5px;
+}
+.btn-cancel:hover { color: var(--text-primary, #e0e0ff); }
+
+/* Tipo select inline */
+.tipo-inline {
+    background: transparent;
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 6px;
+    color: var(--text-secondary, #a0a0c0);
+    font-size: .78rem;
+    padding: 4px 8px;
+    cursor: pointer;
+}
+.tipo-inline:focus { outline: none; border-color: var(--accent-color, #e94560); }
+
+/* Drag-and-drop */
+.drop-zone {
+    margin: 0 16px 12px;
+    border: 2px dashed var(--border-color, #2a2a4a);
+    border-radius: 8px;
+    padding: 16px 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+}
+.drop-zone.drag-over { border-color: var(--accent-color, #e94560); background: rgba(233,69,96,.04); }
+.drop-zone p { color: var(--text-secondary, #a0a0c0); font-size: .8rem; margin: 4px 0 0; }
+.drop-zone input[type=file] { display: none; }
+.files-preview { display: flex; flex-wrap: wrap; gap: 6px; padding: 0 16px 10px; }
+.file-chip {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 4px 10px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 20px;
+    font-size: .75rem;
+    color: var(--text-primary, #e0e0ff);
+    background: var(--bg-primary, #1a1a2e);
+}
+.file-chip button { background: none; border: none; color: var(--danger, #e94560); cursor: pointer; padding: 0; font-size: .85rem; line-height: 1; }
+{% endblock %}
+
+{% block inbox_content %}
+<div class="nova-wrap">
+    <div class="nova-title">
+        {% if object %}✏️ Editar Rascunho{% else %}✉️ Nova Mensagem{% endif %}
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="nova-form">
+        {% csrf_token %}
+        <input type="hidden" name="reply_to_msg" id="reply-to-msg" value="{{ original.pk|default:'' }}">
+
+        <div class="compose-card">
+
+            <!-- Para -->
+            <div class="compose-field" id="dest-wrap">
+                <span class="compose-label">Para</span>
+                <div class="recipient-area" id="dest-area" onclick="document.getElementById('dest-search').focus()">
+                    <div class="recipient-area-inner" id="dest-inner">
+                        <input type="text" id="dest-search" class="recipient-input" placeholder="Destinatário..." autocomplete="off">
+                    </div>
+                    <div class="dest-dropdown" id="dest-dropdown"></div>
+                </div>
+                <div id="dest-hidden" style="display:none;"></div>
+            </div>
+
+            <!-- CC -->
+            <div class="compose-field" id="cc-wrap">
+                <span class="compose-label">CC</span>
+                <div class="recipient-area" id="cc-area" onclick="document.getElementById('cc-search').focus()">
+                    <div class="recipient-area-inner" id="cc-inner">
+                        <input type="text" id="cc-search" class="recipient-input" placeholder="Com cópia..." autocomplete="off">
+                    </div>
+                    <div class="dest-dropdown" id="cc-dropdown"></div>
+                </div>
+                <div id="cc-hidden" style="display:none;"></div>
+            </div>
+
+            <!-- Assunto -->
+            <div class="compose-field">
+                <span class="compose-label">Assunto</span>
+                <div class="compose-input">
+                    <input type="text" name="assunto" id="assunto-input" class="recipient-input" style="width:100%;padding:2px 0;"
+                        placeholder="Assunto da mensagem"
+                        value="{{ form.assunto.value|default:'' }}">
+                </div>
+            </div>
+
+            <!-- Corpo -->
+            <div class="compose-body-wrap">
+                <textarea name="corpo" id="corpo-input" placeholder="Escreva sua mensagem aqui...">{{ form.corpo.value|default:'' }}</textarea>
+                <div class="quoted-reply" id="quoted-reply"></div>
+            </div>
+
+            <!-- Anexos -->
+            <div style="padding-top:8px;">
+                <div class="drop-zone" id="drop-zone">
+                    <svg width="22" height="22" fill="currentColor" viewBox="0 0 16 16" style="color:var(--accent-color,#e94560)"><path d="M4.406 1.342A5.53 5.53 0 0 1 8 0c2.69 0 4.923 2 5.166 4.579C14.758 4.804 16 6.137 16 7.773 16 9.569 14.502 11 12.687 11H10a.5.5 0 0 1 0-1h2.688C14.216 10 15 9.046 15 7.773c0-1.216-.784-2.228-1.843-2.253a5.5 5.5 0 0 0-5.824-4.492A5.28 5.28 0 0 0 2.4 3.02C1.02 3.22 0 4.42 0 5.773 0 7.13 1.09 8.243 2.456 8.243H5a.5.5 0 0 1 0 1H2.456C.975 9.243 0 8.028 0 5.773 0 4.02 1.2 2.584 2.757 2.233A6.28 6.28 0 0 1 4.406 1.342z"/><path d="M7.646 4.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 5.707V14.5a.5.5 0 0 1-1 0V5.707L5.354 7.854a.5.5 0 1 1-.708-.708l3-3z"/></svg>
+                    <p>Arraste arquivos ou <span style="color:var(--accent-color,#e94560);cursor:pointer;" onclick="document.getElementById('file-input').click()">clique para selecionar</span></p>
+                    <p style="font-size:.7rem;margin-top:2px;">Máx. 10 MB por arquivo</p>
+                    <input type="file" id="file-input" name="anexos" multiple>
+                </div>
+                <div class="files-preview" id="files-preview"></div>
+            </div>
+
+            <!-- Bottom toolbar -->
+            <div class="compose-toolbar">
+                <button type="submit" name="enviar" class="btn-send">✉️ Enviar</button>
+                <button type="submit" name="rascunho" class="btn-draft">💾 Rascunho</button>
+                <select name="tipo" class="tipo-inline">
+                    {% for val, label in form.tipo.field.choices %}
+                    <option value="{{ val }}" {% if form.tipo.value == val %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+                <a href="{% url 'caixa_entrada:inbox' %}" class="btn-cancel">✕ Cancelar</a>
+            </div>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block inbox_extra_js %}
+<script>
+// ── Reply data from view ──────────────────────────────────────────────────────
+const REPLY_DATA = {
+    userId:  "{{ reply_data.reply_to_id|default:'' }}",
+    label:   "{{ reply_data.reply_to_label|default:''|escapejs }}",
+    assunto: "{{ reply_data.assunto|default:''|escapejs }}",
+    corpo:   "{{ reply_data.corpo|default:''|escapejs }}",
+};
+
+// ── Drag & drop ──────────────────────────────────────────────────────────────
+const dropZone = document.getElementById('drop-zone');
+const fileInput = document.getElementById('file-input');
+const preview  = document.getElementById('files-preview');
+let selectedFiles = new DataTransfer();
+
+function addFiles(files) {
+    [...files].forEach(f => {
+        selectedFiles.items.add(f);
+        const chip = document.createElement('div');
+        chip.className = 'file-chip';
+        chip.dataset.name = f.name;
+        chip.innerHTML = `📄 ${f.name} <button type="button" onclick="removeFile('${f.name}', this)">×</button>`;
+        preview.appendChild(chip);
+    });
+    fileInput.files = selectedFiles.files;
+}
+
+function removeFile(name, btn) {
+    const dt = new DataTransfer();
+    [...selectedFiles.files].filter(f => f.name !== name).forEach(f => dt.items.add(f));
+    selectedFiles = dt;
+    fileInput.files = selectedFiles.files;
+    btn.closest('.file-chip').remove();
+}
+
+dropZone.addEventListener('dragover', e => { e.preventDefault(); dropZone.classList.add('drag-over'); });
+dropZone.addEventListener('dragleave', () => dropZone.classList.remove('drag-over'));
+dropZone.addEventListener('drop', e => { e.preventDefault(); dropZone.classList.remove('drag-over'); addFiles(e.dataTransfer.files); });
+fileInput.addEventListener('change', () => addFiles(fileInput.files));
+
+// ── Generic recipient search builder ─────────────────────────────────────────
+function buildRecipientSearch({ searchId, dropdownId, innerId, hiddenId, chipClass, fieldName }) {
+    const search   = document.getElementById(searchId);
+    const dropdown = document.getElementById(dropdownId);
+    const inner    = document.getElementById(innerId);
+    const hidden   = document.getElementById(hiddenId);
+    const selected = {};
+
+    search.addEventListener('input', async () => {
+        const q = search.value.trim();
+        if (q.length < 2) { dropdown.style.display = 'none'; return; }
+        try {
+            const resp = await fetch(`{% url 'caixa_entrada:api_usuarios' %}?term=${encodeURIComponent(q)}`);
+            const data = await resp.json();
+            dropdown.innerHTML = '';
+            if (!data.results || data.results.length === 0) {
+                dropdown.innerHTML = '<div class="dest-option" style="color:var(--text-secondary,#a0a0c0)">Nenhum resultado</div>';
+            } else {
+                data.results.slice(0, 15).forEach(u => {
+                    const id    = u.user_id || u.id;
+                    const label = u.label || `${u.nome_guerra} (${u.username || ''})`;
+                    const d = document.createElement('div');
+                    d.className = 'dest-option';
+                    d.textContent = label;
+                    d.addEventListener('click', () => addRecipient(id, label));
+                    dropdown.appendChild(d);
+                });
+            }
+            dropdown.style.display = 'block';
+        } catch(e) { console.error(e); }
+    });
+
+    document.addEventListener('click', e => {
+        if (!e.target.closest('#' + searchId) && !e.target.closest('#' + dropdownId))
+            dropdown.style.display = 'none';
+    });
+
+    function addRecipient(id, label) {
+        if (selected[id]) return;
+        selected[id] = label;
+
+        const chip = document.createElement('div');
+        chip.className = `dest-chip${chipClass ? ' ' + chipClass : ''}`;
+        chip.dataset.id = id;
+        chip.innerHTML = `${label} <button type="button" onclick="removeRecipient_${fieldName}('${id}')">×</button>`;
+        inner.insertBefore(chip, search);
+
+        const inp = document.createElement('input');
+        inp.type = 'hidden';
+        inp.name = fieldName;
+        inp.value = id;
+        inp.id = `${fieldName}-${id}`;
+        hidden.appendChild(inp);
+
+        search.value = '';
+        dropdown.style.display = 'none';
+    }
+
+    function removeRecipient(id) {
+        delete selected[id];
+        document.querySelector(`.dest-chip[data-id='${id}']`)?.remove();
+        document.getElementById(`${fieldName}-${id}`)?.remove();
+    }
+
+    // expose remove fn globally so inline onclick works
+    window[`removeRecipient_${fieldName}`] = removeRecipient;
+
+    return { addRecipient, selected };
+}
+
+const destCtrl = buildRecipientSearch({
+    searchId: 'dest-search', dropdownId: 'dest-dropdown',
+    innerId: 'dest-inner', hiddenId: 'dest-hidden',
+    chipClass: '', fieldName: 'destinatarios',
+});
+
+const ccCtrl = buildRecipientSearch({
+    searchId: 'cc-search', dropdownId: 'cc-dropdown',
+    innerId: 'cc-inner', hiddenId: 'cc-hidden',
+    chipClass: 'cc-chip', fieldName: 'cc',
+});
+
+// ── Pre-populate reply ────────────────────────────────────────────────────────
+(function initReply() {
+    if (!REPLY_DATA.userId) return;
+
+    // Pre-fill destinatario
+    destCtrl.addRecipient(REPLY_DATA.userId, REPLY_DATA.label);
+
+    // Pre-fill assunto
+    if (REPLY_DATA.assunto) {
+        document.getElementById('assunto-input').value = REPLY_DATA.assunto;
+    }
+
+    // Show quoted reply section
+    if (REPLY_DATA.corpo) {
+        const qr = document.getElementById('quoted-reply');
+        qr.textContent = REPLY_DATA.corpo;
+        qr.classList.add('visible');
+    }
+})();
+</script>
+{% endblock %}

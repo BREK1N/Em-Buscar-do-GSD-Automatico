@@ -52,6 +52,7 @@ INSTALLED_APPS = [
     'informatica',
     'Secao_pessoal',
     'Secao_operacoes',
+    'caixa_entrada',
 ]
 
 MIDDLEWARE = [
