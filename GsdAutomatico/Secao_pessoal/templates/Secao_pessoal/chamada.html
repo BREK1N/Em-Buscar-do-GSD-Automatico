@@ -1,0 +1,88 @@
+{% extends base_template|default:'Secao_pessoal/base.html' %}
+
+{% block content %}
+<div class="main-container">
+    <div class="content-column">
+        <div class="table-header">
+            <h1>CHAMADA 
+        <p class="text-muted">Data: <strong>{{ hoje|date:"d/m/Y" }}</strong></p>
+        v class="table-responsive mt-4">
+                    <tr>
+                        <th>Posto</th>
+                        <th>Nome de Guerra</th>
+                        <th>Status Atual</th>
+                        <th class="text-center">Ação</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in lista_chamada %}
+                    <tr>
+                        <td class="{% if not item.pode_editar %}text-muted{% endif %} fw-bold">{{ item.militar.posto }}</td>
+                        <td class="{% if not item.pode_editar %}text-muted{% endif %}">{{ item.militar.nome_guerra }}</td>
+                        
+                        <td id="status-{{ item.militar.id }}">
+                            {% if item.presente is None %}
+                                <span class="badge bg-secondary">Aguardando</span>
+                            {% elif item.presente %}
+                                <span class="badge bg-success">Presente</span>
+                            {% else %}
+                                <span class="badge bg-danger">Falta</span>
+                            {% endif %}
+                        </td>
+                        
+                        <td class="text-center">
+                            {% if item.pode_editar %}
+                                <button class="btn btn-sm btn-outline-success btn-presenca" data-id="{{ item.militar.id }}" data-status="presente" title="Marcar Presente">
+                                    <i class="fa fa-check"></i> Presente
+                                </button>
+                                <button class="btn btn-sm btn-outline-danger btn-presenca ms-2" data-id="{{ item.militar.id }}" data-status="falta" title="Marcar Falta">
+                                    <i class="fa fa-times"></i> Falta
+                                </button>
+                            {% else %}
+                                <span class="badge bg-light text-dark" style="font-size: 0.8em;" title="Sem permissão de antiguidade">
+                                    <i class="fa fa-lock"></i> Sem permissão
+                                </span>
+                            {% endif %}
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" class="text-center py-4">Nenhum militar ativo encontrado nesta seção.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '{{ csrf_token }}';
+
+    document.querySelectorAll('.btn-presenca').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const militarId = this.dataset.id;
+            const status = this.dataset.status;
+            
+            fetch("{% url 'Secao_pessoal:chamada_toggle' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({'militar_id': militarId, 'status': status})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const statusTd = document.getElementById('status-' + militarId);
+                    statusTd.innerHTML = data.presente ? '<span class="badge bg-success">Presente</span>' : '<span class="badge bg-danger">Falta</span>';
+                } else { alert(data.message); }
+            })
+            .catch(err => console.error(err));
+        });
+    });
+});
+</script>
+{% endblock %}

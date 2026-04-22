@@ -16,7 +16,7 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_GET
 from django.contrib.auth.models import Group
-from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, SolicitacaoTrocaSetor, HistoricoInspsau
+from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, SolicitacaoTrocaSetor, HistoricoInspsau, RegistroChamada
 from django.contrib.auth import get_user_model as _get_user_model
 from caixa_entrada.models import Notificacao, Mensagem as _Mensagem
 
@@ -1115,3 +1115,94 @@ def api_search_militares(request):
     data = [{'id': m.id, 'posto': m.posto, 'nome_guerra': m.nome_guerra, 'nome_completo': m.nome_completo} for m in militares]
     
     return JsonResponse(data, safe=False)
+
+
+@login_required
+def chamada_index(request):
+    # Obtém a seção atual via GET (ex: ?secao=ouvidoria)
+    secao = request.GET.get('secao', 's1')
+    
+    # Mapeia qual 'base.html' usar dependendo de onde o usuário clicou
+    mapa_templates = {
+        'ouvidoria': 'base.html',
+        'operacoes': 'Secao_operacoes/base.html',
+        'informatica': 'informatica/base.html',
+        's1': 'Secao_pessoal/base.html'
+    }
+    base_template = mapa_templates.get(secao, 'Secao_pessoal/base.html')
+
+    militar_logado = getattr(request.user, 'profile', None) and request.user.profile.militar
+    
+    if not militar_logado and not request.user.is_superuser:
+        messages.error(request, "Seu usuário não está vinculado a um militar para acessar a chamada.")
+        return redirect(request.META.get('HTTP_REFERER', '/'))
+
+    hoje = date.today()
+
+    # Ordem hierárquica (número menor = maior patente)
+    rank_order = Case(
+        When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+        When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+        When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+        When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+        default=Value(99), output_field=IntegerField(),
+    )
+
+    # Filtra os militares apenas da seção do usuário logado (se não for admin)
+    if request.user.is_superuser:
+        efetivo = Efetivo.objects.filter(situacao='Ativo').annotate(rank_order=rank_order).order_by('rank_order', 'nome_guerra')
+        rank_logado = -1 # Admin edita todos
+    else:
+        efetivo = Efetivo.objects.filter(situacao='Ativo', setor=militar_logado.setor).annotate(rank_order=rank_order).order_by('rank_order', 'nome_guerra')
+        hierarquia = {'CL': 0, 'TC': 1, 'MJ': 2, 'CP': 3, '1T': 4, '2T': 5, 'ASP': 6, 'SO': 7, '1S': 8, '2S': 9, '3S': 10, 'CB': 11, 'S1': 12, 'S2': 13, 'REC': 14}
+        rank_logado = hierarquia.get(militar_logado.posto, 99)
+
+    # Buscar as presenças/faltas já marcadas hoje
+    registros_hoje = RegistroChamada.objects.filter(data=hoje, militar__in=efetivo)
+    presencas_dict = {r.militar_id: r.presente for r in registros_hoje}
+
+    lista_chamada = []
+    for m in efetivo:
+        pode_editar = rank_logado < m.rank_order  # Pode editar se a patente for maior (número menor)
+        presente = presencas_dict.get(m.id, None) # None = não marcado, True = presente, False = falta
+        lista_chamada.append({
+            'militar': m,
+            'pode_editar': pode_editar,
+            'presente': presente
+        })
+
+    context = {
+        'lista_chamada': lista_chamada,
+        'hoje': hoje,
+        'setor': militar_logado.setor if militar_logado else 'Geral',
+        'base_template': base_template,
+        'secao': secao
+    }
+    return render(request, 'Secao_pessoal/chamada.html', context)
+
+
+@login_required
+@require_POST
+def chamada_toggle(request):
+    militar_id = request.POST.get('militar_id')
+    status = request.POST.get('status') # 'presente' ou 'falta'
+    
+    militar_logado = getattr(request.user, 'profile', None) and request.user.profile.militar
+    alvo = get_object_or_404(Efetivo, id=militar_id)
+    
+    # Validação de Hierarquia de Segurança
+    if not request.user.is_superuser:
+        hierarquia = {'CL': 0, 'TC': 1, 'MJ': 2, 'CP': 3, '1T': 4, '2T': 5, 'ASP': 6, 'SO': 7, '1S': 8, '2S': 9, '3S': 10, 'CB': 11, 'S1': 12, 'S2': 13, 'REC': 14}
+        rank_logado = hierarquia.get(militar_logado.posto if militar_logado else '', 99)
+        rank_alvo = hierarquia.get(alvo.posto, 99)
+        if rank_logado >= rank_alvo:
+            return JsonResponse({'status': 'error', 'message': 'Sem permissão para alterar chamada de militar mais antigo ou do mesmo posto.'}, status=403)
+        
+    is_presente = (status == 'presente')
+    registro, created = RegistroChamada.objects.update_or_create(
+        data=date.today(), 
+        militar=alvo,
+        defaults={'presente': is_presente}
+    )
+    
+    return JsonResponse({'status': 'success', 'presente': registro.presente})

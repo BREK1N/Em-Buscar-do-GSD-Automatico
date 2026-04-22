@@ -145,3 +145,18 @@ class HistoricoInspsau(models.Model):
 
     def __str__(self):
         return f"Histórico {self.finalidade} - {self.militar.nome_guerra}"
+
+
+class RegistroChamada(models.Model):
+    data = models.DateField(auto_now_add=True, verbose_name="Data da Chamada")
+    militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name="chamadas", verbose_name="Militar")
+    presente = models.BooleanField(default=False, verbose_name="Presente")
+    observacao = models.CharField(max_length=255, blank=True, null=True, verbose_name="Observação")
+    
+    class Meta:
+        verbose_name = "Registro de Chamada"
+        verbose_name_plural = "Registros de Chamada"
+        ordering = ['-data', 'militar__nome_guerra']
+
+    def __str__(self):
+        return f"Chamada {self.data.strftime('%d/%m/%Y')} - {self.militar.nome_guerra}"
