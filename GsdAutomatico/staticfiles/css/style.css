@@ -207,10 +207,22 @@ p {
     width: 16px;
     height: 16px;
 }
-.btn-primary { background: linear-gradient(45deg, var(--accent-color), #4fa4ff); color: #fff; }
-.btn-secondary { background: linear-gradient(45deg, #6c757d, #9fa5aa); color: #fff; }
-.btn-edit { background: linear-gradient(45deg, var(--warning-color), #ffd54f); color: #212529; }
-.btn-delete { background: linear-gradient(45deg, var(--danger-color), #ff5252); color: #fff; }
+.btn-primary   { background: #2563eb; color: #fff; }
+.btn-secondary { background: #475569; color: #fff; }
+.btn-success   { background: #16a34a; color: #fff; }
+.btn-warning   { background: #d97706; color: #fff; }
+.btn-danger    { background: #dc2626; color: #fff; }
+.btn-info      { background: #0284c7; color: #fff; }
+.btn-edit      { background: #d97706; color: #fff; }
+.btn-delete    { background: #dc2626; color: #fff; }
+.btn-primary:hover   { background: #1d4ed8; color: #fff; }
+.btn-secondary:hover { background: #334155; color: #fff; }
+.btn-success:hover   { background: #15803d; color: #fff; }
+.btn-warning:hover   { background: #b45309; color: #fff; }
+.btn-danger:hover    { background: #b91c1c; color: #fff; }
+.btn-info:hover      { background: #0369a1; color: #fff; }
+.btn-edit:hover      { background: #b45309; color: #fff; }
+.btn-delete:hover    { background: #b91c1c; color: #fff; }
 .btn-sm { padding: 4px 8px; font-size: 13px; }
 .btn-sm svg { width: 14px; height: 14px; }
 

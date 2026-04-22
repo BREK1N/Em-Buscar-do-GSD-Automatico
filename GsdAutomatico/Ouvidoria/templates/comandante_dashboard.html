@@ -354,9 +354,7 @@
                             <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"—" }}</td>
                             <td><span class="status-pill">{{ patd.get_status_display }}</span></td>
                             <td class="actions-cell">
-                                {% if patd.status == 'finalizado' %}
-                                <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver</a>
-                                {% endif %}
+                                <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver Detalhes</a>
                                 <button type="button" class="btn btn-sm btn-success open-aprovar-modal-btn"
                                     data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
                                     Aprovar
