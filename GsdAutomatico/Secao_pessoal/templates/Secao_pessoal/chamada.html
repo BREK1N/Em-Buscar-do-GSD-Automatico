@@ -1,57 +1,136 @@
 {% extends base_template|default:'Secao_pessoal/base.html' %}
 
 {% block content %}
+<style>
+    .chamada-card {
+        border-radius: 12px;
+        overflow: hidden;
+    }
+    .chamada-table th {
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        background-color: #f8f9fa;
+        color: #495057;
+        border-bottom: 2px solid #dee2e6;
+    }
+    .today-col {
+        background-color: rgba(13, 110, 253, 0.05) !important;
+        border-left: 2px solid rgba(13, 110, 253, 0.3) !important;
+        border-right: 2px solid rgba(13, 110, 253, 0.3) !important;
+    }
+    .today-col-header {
+        background-color: #0d6efd !important;
+        color: white !important;
+        border-top: 2px solid #0b5ed7 !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .status-badge {
+        width: 85px;
+        display: inline-block;
+        font-weight: 600;
+        padding: 0.4em 0.6em;
+    }
+    .btn-presenca {
+        transition: all 0.2s ease-in-out;
+        width: 32px;
+        height: 32px;
+        padding: 0;
+        display: inline-flex;
+        align-items: center;
+        justify-content: center;
+        border-radius: 6px !important;
+    }
+    .btn-presenca:hover {
+        transform: scale(1.1);
+        box-shadow: 0 2px 4px rgba(0,0,0,0.15);
+    }
+    .btn-group-chamada {
+        gap: 6px;
+    }
+</style>
+
 <div class="main-container">
     <div class="content-column">
-        <div class="table-header">
-            <h1>CHAMADA 
-        <p class="text-muted">Data: <strong>{{ hoje|date:"d/m/Y" }}</strong></p>
-        v class="table-responsive mt-4">
-                    <tr>
-                        <th>Posto</th>
-                        <th>Nome de Guerra</th>
-                        <th>Status Atual</th>
-                        <th class="text-center">Ação</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    {% for item in lista_chamada %}
-                    <tr>
-                        <td class="{% if not item.pode_editar %}text-muted{% endif %} fw-bold">{{ item.militar.posto }}</td>
-                        <td class="{% if not item.pode_editar %}text-muted{% endif %}">{{ item.militar.nome_guerra }}</td>
-                        
-                        <td id="status-{{ item.militar.id }}">
-                            {% if item.presente is None %}
-                                <span class="badge bg-secondary">Aguardando</span>
-                            {% elif item.presente %}
-                                <span class="badge bg-success">Presente</span>
-                            {% else %}
-                                <span class="badge bg-danger">Falta</span>
-                            {% endif %}
-                        </td>
-                        
-                        <td class="text-center">
-                            {% if item.pode_editar %}
-                                <button class="btn btn-sm btn-outline-success btn-presenca" data-id="{{ item.militar.id }}" data-status="presente" title="Marcar Presente">
-                                    <i class="fa fa-check"></i> Presente
-                                </button>
-                                <button class="btn btn-sm btn-outline-danger btn-presenca ms-2" data-id="{{ item.militar.id }}" data-status="falta" title="Marcar Falta">
-                                    <i class="fa fa-times"></i> Falta
-                                </button>
-                            {% else %}
-                                <span class="badge bg-light text-dark" style="font-size: 0.8em;" title="Sem permissão de antiguidade">
-                                    <i class="fa fa-lock"></i> Sem permissão
-                                </span>
-                            {% endif %}
-                        </td>
-                    </tr>
-                    {% empty %}
-                    <tr>
-                        <td colspan="4" class="text-center py-4">Nenhum militar ativo encontrado nesta seção.</td>
-                    </tr>
-                    {% endfor %}
-                </tbody>
-            </table>
+        
+        <div class="card shadow-sm border-0 chamada-card mb-4 mt-3">
+            <div class="card-header bg-primary bg-gradient text-white d-flex justify-content-between align-items-center py-3">
+                <h4 class="mb-0 fw-bold"><i class="fas fa-calendar-check me-2"></i> Chamada Semanal</h4>
+                <div class="text-end d-flex align-items-center gap-2">
+                    <button type="button" class="btn btn-sm btn-success border border-light shadow-sm fw-bold me-2" id="btn-marcar-todos" title="Marcar todos como presentes no dia atual">
+                        <i class="fas fa-check-double me-1"></i> Todos Presentes
+                    </button>
+                    <span class="badge bg-light text-primary fs-6 shadow-sm"><i class="fas fa-building me-1"></i> {{ setor_nome }}</span>
+                    <div class="btn-group shadow-sm ms-1">
+                        <a href="?{% if request.GET.secao %}secao={{ request.GET.secao }}&{% endif %}data={{ semana_anterior }}" class="btn btn-light btn-sm text-primary border" title="Semana Anterior"><i class="fas fa-chevron-left"></i></a>
+                        <span class="btn btn-light btn-sm text-primary border" style="pointer-events: none; font-weight: bold;"><i class="fas fa-calendar-alt me-1"></i> {{ dias_semana.0|date:"d/m" }} a {{ dias_semana.6|date:"d/m" }}</span>
+                        <a href="?{% if request.GET.secao %}secao={{ request.GET.secao }}&{% endif %}data={{ proxima_semana }}" class="btn btn-light btn-sm text-primary border" title="Próxima Semana"><i class="fas fa-chevron-right"></i></a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-center chamada-table">
+                        <thead>
+                            <tr>
+                                <th class="align-middle bg-light" style="width: 10%;">Posto</th>
+                                <th class="align-middle bg-light text-start" style="width: 20%;">Nome de Guerra</th>
+                                {% for dia in dias_semana %}
+                                <th class="align-middle {% if dia == hoje %}today-col-header{% else %}bg-light{% endif %}" style="width: 10%;">
+                                    <div class="fw-bold fs-6">{{ dia|date:"D"|upper }}</div>
+                                    <small class="{% if dia == hoje %}text-white-50{% else %}text-muted{% endif %}">{{ dia|date:"d/m" }}</small>
+                                </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            {% for item in lista_chamada %}
+                            <tr>
+                                <td class="{% if not item.pode_editar %}text-muted{% endif %} fw-bold align-middle">{{ item.militar.posto }}</td>
+                                <td class="{% if not item.pode_editar %}text-muted{% endif %} align-middle text-start fw-medium">{{ item.militar.nome_guerra }}</td>
+                                
+                                {% for dia_status in item.dias %}
+                                <td id="status-{{ item.militar.id }}-{{ dia_status.data_str }}" class="align-middle {% if dia_status.is_hoje %}today-col{% endif %}">
+                                    <div class="mb-2 status-label">
+                                        {% if dia_status.presente is None %}
+                                            <span class="badge rounded-pill bg-secondary text-light status-badge border border-secondary">Aguardando</span>
+                                        {% elif dia_status.presente %}
+                                            <span class="badge rounded-pill bg-success status-badge shadow-sm"><i class="fas fa-check-circle me-1"></i> Presente</span>
+                                        {% else %}
+                                            <span class="badge rounded-pill bg-danger status-badge shadow-sm"><i class="fas fa-times-circle me-1"></i> Falta</span>
+                                        {% endif %}
+                                    </div>
+                                    {% if item.pode_editar and dia_status.is_hoje or item.pode_editar and user.is_superuser %}
+                                    <div class="d-flex justify-content-center btn-group-chamada">
+                                        <button type="button" class="btn btn-outline-success btn-presenca" data-id="{{ item.militar.id }}" data-date="{{ dia_status.data_str }}" data-status="presente" title="Marcar Presente">
+                                            <i class="fas fa-check"></i>
+                                        </button>
+                                        <button type="button" class="btn btn-outline-danger btn-presenca" data-id="{{ item.militar.id }}" data-date="{{ dia_status.data_str }}" data-status="falta" title="Marcar Falta">
+                                            <i class="fas fa-times"></i>
+                                        </button>
+                                    </div>
+                                    {% elif not item.pode_editar %}
+                                    <div class="text-muted small mt-2" title="Sem permissão para editar"><i class="fas fa-lock"></i></div>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="fas fa-users-slash fs-1 mb-3 text-secondary opacity-50"></i>
+                                        <h5 class="fw-light">Nenhum militar ativo encontrado nesta seção.</h5>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
         </div>
     </div>
 </div>
@@ -64,6 +143,7 @@ document.addEventListener('DOMContentLoaded', function() {
         btn.addEventListener('click', function() {
             const militarId = this.dataset.id;
             const status = this.dataset.status;
+            const dateStr = this.dataset.date;
             
             fetch("{% url 'Secao_pessoal:chamada_toggle' %}", {
                 method: 'POST',
@@ -71,18 +151,31 @@ document.addEventListener('DOMContentLoaded', function() {
                     'X-CSRFToken': csrfToken,
                     'Content-Type': 'application/x-www-form-urlencoded',
                 },
-                body: new URLSearchParams({'militar_id': militarId, 'status': status})
+                body: new URLSearchParams({'militar_id': militarId, 'status': status, 'data': dateStr})
             })
             .then(r => r.json())
             .then(data => {
                 if (data.status === 'success') {
-                    const statusTd = document.getElementById('status-' + militarId);
-                    statusTd.innerHTML = data.presente ? '<span class="badge bg-success">Presente</span>' : '<span class="badge bg-danger">Falta</span>';
+                    const statusTd = document.getElementById('status-' + militarId + '-' + dateStr);
+                    statusTd.querySelector('.status-label').innerHTML = data.presente ? '<span class="badge rounded-pill bg-success status-badge shadow-sm"><i class="fas fa-check-circle me-1"></i> Presente</span>' : '<span class="badge rounded-pill bg-danger status-badge shadow-sm"><i class="fas fa-times-circle me-1"></i> Falta</span>';
                 } else { alert(data.message); }
             })
             .catch(err => console.error(err));
         });
     });
+
+    const btnMarcarTodos = document.getElementById('btn-marcar-todos');
+    if (btnMarcarTodos) {
+        btnMarcarTodos.addEventListener('click', function() {
+            if(confirm('Deseja marcar todos os militares visíveis como PRESENTE para o dia de hoje?')) {
+                const botoesHoje = document.querySelectorAll('.today-col .btn-outline-success');
+                if (botoesHoje.length === 0) { alert('Nenhum botão de presença disponível para o dia atual.'); return; }
+                botoesHoje.forEach((btn, index) => {
+                    setTimeout(() => { btn.click(); }, index * 100); 
+                });
+            }
+        });
+    }
 });
 </script>
 {% endblock %}
