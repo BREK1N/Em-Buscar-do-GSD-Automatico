@@ -98,15 +98,34 @@ def patd_atribuicoes_pendentes(request):
 @require_POST
 def aceitar_atribuicao(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
 
-    if not (hasattr(request.user, 'profile') and request.user.profile.militar and request.user.profile.militar == patd.oficial_responsavel):
+    try:
+        return _aceitar_atribuicao_inner(request, pk, patd, is_ajax)
+    except Exception as exc:
+        logger.exception(f"Erro inesperado em aceitar_atribuicao PATD {pk}: {exc}")
+        if is_ajax:
+            return JsonResponse({'ok': False, 'erro': f'Erro interno: {exc}'}, status=500)
+        messages.error(request, f"Erro interno: {exc}")
+        return redirect('Ouvidoria:patd_atribuicoes_pendentes')
+
+
+def _aceitar_atribuicao_inner(request, pk, patd, is_ajax):
+    try:
+        tem_perfil = hasattr(request.user, 'profile') and request.user.profile.militar
+    except Exception:
+        tem_perfil = False
+
+    if not (tem_perfil and request.user.profile.militar == patd.oficial_responsavel):
+        if is_ajax:
+            return JsonResponse({'ok': False, 'erro': 'Você não tem permissão para aceitar esta atribuição.'}, status=403)
         messages.error(request, "Você não tem permissão para aceitar esta atribuição.")
         return redirect('Ouvidoria:patd_detail', pk=pk)
 
     form = AceitarAtribuicaoForm(request.POST)
     if form.is_valid():
         senha = form.cleaned_data['senha']
-        user = authenticate(username=request.user.username, password=senha)
+        user = authenticate(request, username=request.user.username, password=senha)
         if user is not None:
             # --- INÍCIO DA LÓGICA DE STATUS ---
             # Se a PATD já foi finalizada (data_termino preenchido durante finalizar_patd_completa)
@@ -148,12 +167,18 @@ def aceitar_atribuicao(request, pk):
                     logger.error(f"Erro ao verificar assinaturas de ciência após aceite para PATD {pk}: {e}")
             # --- FIM DA NOVA VERIFICAÇÃO ---
 
-            patd.save() # Salva a PATD com o status atualizado e a assinatura do oficial (se houver)
+            patd.save()
+            if is_ajax:
+                return JsonResponse({'ok': True, 'mensagem': f'Atribuição da PATD Nº {patd.numero_patd} aceite com sucesso.'})
             messages.success(request, f'Atribuição da PATD Nº {patd.numero_patd} aceite com sucesso.')
             return redirect('Ouvidoria:patd_atribuicoes_pendentes')
         else:
+            if is_ajax:
+                return JsonResponse({'ok': False, 'erro': 'Senha incorreta. Tente novamente.'}, status=400)
             messages.error(request, "Senha incorreta. A atribuição não foi aceite.")
     else:
+        if is_ajax:
+            return JsonResponse({'ok': False, 'erro': 'Formulário inválido. A senha é obrigatória.'}, status=400)
         messages.error(request, "Formulário inválido.")
 
     return redirect('Ouvidoria:patd_atribuicoes_pendentes')

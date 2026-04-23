@@ -71,11 +71,15 @@
     </table>
 </div>
 
-<!-- Modal para Aceitar Atribuição (permanece o mesmo) -->
+<!-- Modal para Aceitar Atribuição -->
 <div class="modal-overlay" id="aceitar-atribuicao-modal">
     <div class="modal-content">
         <h3 id="aceitar-modal-title">Aceitar Atribuição</h3>
-        <p>Para confirmar que aceita ser o oficial responsável por esta PATD, por favor, insira a sua senha.</p>
+        <p>Para confirmar que aceita ser o oficial responsável por esta PATD, insira a sua senha.</p>
+
+        <!-- Alerta de erro/sucesso inline -->
+        <div id="aceite-alert" style="display:none;margin-bottom:14px;padding:12px 16px;border-radius:8px;font-size:.88rem;font-weight:500;display:none;align-items:center;gap:10px;"></div>
+
         <form id="aceitar-atribuicao-form" method="post" action="" class="model-form">
             {% csrf_token %}
             <div class="form-grid">
@@ -86,7 +90,9 @@
             </div>
             <div class="form-actions" style="justify-content: flex-end;">
                 <button type="button" class="btn btn-secondary" id="cancel-aceitar-btn">Cancelar</button>
-                <button type="submit" class="btn btn-success">Confirmar e Aceitar</button>
+                <button type="submit" class="btn btn-success" id="confirm-aceitar-btn">
+                    <span id="confirm-aceitar-txt">Confirmar e Aceitar</span>
+                </button>
             </div>
         </form>
     </div>
@@ -95,39 +101,118 @@
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const aceitarModal = document.getElementById('aceitar-atribuicao-modal');
-    const aceitarForm = document.getElementById('aceitar-atribuicao-form');
-    const aceitarModalTitle = document.getElementById('aceitar-modal-title');
-    const cancelAceitarBtn = document.getElementById('cancel-aceitar-btn');
-    
-    document.body.addEventListener('click', function(e) {
-        if (e.target.classList.contains('open-aceite-modal-btn')) {
-            const patdPk = e.target.dataset.patdPk;
-            const patdNumero = e.target.dataset.patdNumero;
-            
-            // A action do form agora aponta para a URL de aceite correta
-            const url = `/Ouvidoria/patd/${patdPk}/aceitar_atribuicao/`;
-            aceitarForm.action = url;
-            aceitarModalTitle.textContent = `Aceitar Atribuição - PATD Nº ${patdNumero}`;
-            
-            aceitarModal.classList.add('active');
-        }
+document.addEventListener('DOMContentLoaded', function () {
+    const modal      = document.getElementById('aceitar-atribuicao-modal');
+    const form       = document.getElementById('aceitar-atribuicao-form');
+    const title      = document.getElementById('aceitar-modal-title');
+    const senhaInput = document.getElementById('id_senha_aceite');
+    const alert      = document.getElementById('aceite-alert');
+    const confirmBtn = document.getElementById('confirm-aceitar-btn');
+    const confirmTxt = document.getElementById('confirm-aceitar-txt');
+    const cancelBtn  = document.getElementById('cancel-aceitar-btn');
+
+    function showAlert(tipo, msg) {
+        // tipo: 'erro' | 'sucesso'
+        const isErro = tipo === 'erro';
+        alert.style.display = 'flex';
+        alert.style.background    = isErro ? 'rgba(220,38,38,.12)' : 'rgba(22,163,74,.12)';
+        alert.style.border        = `1px solid ${isErro ? 'rgba(220,38,38,.35)' : 'rgba(22,163,74,.35)'}`;
+        alert.style.color         = isErro ? '#fca5a5' : '#86efac';
+        alert.innerHTML = `
+            <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink:0">
+                ${isErro
+                    ? '<path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>'
+                    : '<path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>'}
+            </svg>
+            <span>${msg}</span>`;
+    }
+
+    function hideAlert() {
+        alert.style.display = 'none';
+        alert.innerHTML = '';
+    }
+
+    function openModal(patdPk, patdNumero) {
+        form.dataset.url = `/Ouvidoria/patd/${patdPk}/aceitar_atribuicao/`;
+        title.textContent = `Aceitar Atribuição — PATD Nº ${patdNumero}`;
+        senhaInput.value = '';
+        hideAlert();
+        confirmBtn.disabled = false;
+        confirmTxt.textContent = 'Confirmar e Aceitar';
+        modal.classList.add('active');
+        setTimeout(() => senhaInput.focus(), 100);
+    }
+
+    function closeModal() {
+        modal.classList.remove('active');
+    }
+
+    // Abrir modal
+    document.body.addEventListener('click', function (e) {
+        const btn = e.target.closest('.open-aceite-modal-btn');
+        if (btn) openModal(btn.dataset.patdPk, btn.dataset.patdNumero);
     });
 
-    if (cancelAceitarBtn) {
-        cancelAceitarBtn.addEventListener('click', () => {
-            aceitarModal.classList.remove('active');
-        });
-    }
+    // Fechar modal
+    cancelBtn?.addEventListener('click', closeModal);
+    modal?.addEventListener('click', e => { if (e.target === modal) closeModal(); });
 
-    if (aceitarModal) {
-        aceitarModal.addEventListener('click', (e) => {
-            if (e.target === aceitarModal) {
-                aceitarModal.classList.remove('active');
+    // Submissão via fetch
+    form.addEventListener('submit', async function (e) {
+        e.preventDefault();
+        hideAlert();
+
+        const senha = senhaInput.value.trim();
+        if (!senha) {
+            showAlert('erro', 'Por favor, insira a sua senha.');
+            senhaInput.focus();
+            return;
+        }
+
+        // Estado de carregamento
+        confirmBtn.disabled = true;
+        confirmTxt.textContent = 'Verificando…';
+
+        const fd = new FormData(form);
+        try {
+            const resp = await fetch(form.dataset.url, {
+                method: 'POST',
+                headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                body: fd,
+            });
+
+            let data = null;
+            const ct = resp.headers.get('content-type') || '';
+            if (ct.includes('application/json')) {
+                data = await resp.json();
             }
-        });
-    }
+
+            if (data && data.ok) {
+                showAlert('sucesso', data.mensagem || 'Atribuição aceite com sucesso!');
+                confirmBtn.disabled = true;
+                confirmTxt.textContent = 'Aceito ✓';
+                setTimeout(() => location.reload(), 1500);
+            } else if (data && !data.ok) {
+                showAlert('erro', data.erro || 'Ocorreu um erro. Tente novamente.');
+                confirmBtn.disabled = false;
+                confirmTxt.textContent = 'Confirmar e Aceitar';
+                senhaInput.value = '';
+                senhaInput.focus();
+            } else if (resp.redirected || resp.status === 302) {
+                showAlert('erro', 'Sessão expirada. Recarregue a página e faça login novamente.');
+                confirmBtn.disabled = false;
+                confirmTxt.textContent = 'Confirmar e Aceitar';
+            } else {
+                showAlert('erro', `Erro no servidor (${resp.status}). Contacte o administrador.`);
+                confirmBtn.disabled = false;
+                confirmTxt.textContent = 'Confirmar e Aceitar';
+            }
+        } catch (err) {
+            showAlert('erro', 'Erro de conexão. Verifique sua rede e tente novamente.');
+            confirmBtn.disabled = false;
+            confirmTxt.textContent = 'Confirmar e Aceitar';
+        }
+    });
 });
 </script>
 {% endblock %}

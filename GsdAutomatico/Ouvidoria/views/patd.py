@@ -777,6 +777,9 @@ class PATDDetailView(DetailView):
             })
         context['anexos_reconsideracao_json'] = json.dumps(anexos_reconsideracao_data)
 
+        ficha_individual_anexo = patd.anexos.filter(tipo='ficha_individual').first()
+        context['ficha_individual_anexo'] = ficha_individual_anexo
+
         anexos_reconsideracao_oficial = patd.anexos.filter(tipo='reconsideracao_oficial')
         anexos_reconsideracao_oficial_data = []
         for a in anexos_reconsideracao_oficial:

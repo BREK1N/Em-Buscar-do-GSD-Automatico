@@ -864,14 +864,30 @@
             <h2>Ficha Individual</h2>
         </div>
         <div class="card-body">
+            {% if ficha_individual_anexo %}
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.35);margin-bottom:16px;font-size:.88rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#16a34a" viewBox="0 0 16 16" style="flex-shrink:0">
+                    <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                </svg>
+                <span style="flex:1;font-weight:600;color:#16a34a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ ficha_individual_anexo.arquivo.name }}</span>
+                <a href="{{ ficha_individual_anexo.arquivo.url }}" target="_blank" class="btn btn-sm btn-success" style="flex-shrink:0;">Visualizar</a>
+            </div>
+            {% endif %}
             <form action="{% url 'Ouvidoria:upload_ficha_individual' patd.pk %}" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="form-item" style="color: var(--anexo)">
-                    <label for="ficha_individual_file">Anexar Ficha Individual (PDF):</label>
-                    <input  type="file" name="ficha_individual" id="ficha_individual_file" accept=".pdf" required style="width: 100%; padding: 10px;">
+                    <label for="ficha_individual_file">{% if ficha_individual_anexo %}Substituir Ficha Individual (PDF):{% else %}Anexar Ficha Individual (PDF):{% endif %}</label>
+                    <input type="file" name="ficha_individual" id="ficha_individual_file" accept=".pdf" required style="width: 100%; padding: 10px;">
+                    <div id="ficha-individual-preview" style="display:none;margin-top:8px;padding:10px 14px;border-radius:8px;background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.3);align-items:center;gap:10px;font-size:.88rem;color:var(--accent-color);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink:0">
+                            <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                        </svg>
+                        <span id="ficha-individual-nome" style="font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                        <button type="button" id="ficha-individual-remover" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:0;line-height:1;" title="Remover">✕</button>
+                    </div>
                 </div>
                 <div class="form-actions" style="justify-content: flex-start; margin-top: 15px;">
-                    <button type="submit" class="btn btn-primary">Anexar</button>
+                    <button type="submit" class="btn btn-primary">{% if ficha_individual_anexo %}Substituir{% else %}Anexar{% endif %}</button>
                 </div>
             </form>
         </div>
@@ -1527,6 +1543,30 @@ const PATD_CONFIG = {
         const mc = document.querySelector('.main-container');
         if (mc && mc.scrollTop > 0) mc.scrollTo({ top: 0, behavior: 'smooth' });
         else window.scrollTo({ top: 0, behavior: 'smooth' });
+    });
+})();
+
+// Ficha individual file preview
+(function () {
+    const input   = document.getElementById('ficha_individual_file');
+    const preview = document.getElementById('ficha-individual-preview');
+    const nome    = document.getElementById('ficha-individual-nome');
+    const remover = document.getElementById('ficha-individual-remover');
+    if (!input) return;
+
+    input.addEventListener('change', function () {
+        if (input.files && input.files.length > 0) {
+            nome.textContent = input.files[0].name;
+            preview.style.display = 'flex';
+        } else {
+            preview.style.display = 'none';
+        }
+    });
+
+    remover.addEventListener('click', function () {
+        input.value = '';
+        preview.style.display = 'none';
+        nome.textContent = '';
     });
 })();
 </script>
