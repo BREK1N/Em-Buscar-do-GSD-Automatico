@@ -186,40 +186,85 @@
         display: block;
     }
 
+    /* ── Toolbar ── */
+    #viewer-toolbar {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        padding: 8px 12px;
+        background: var(--card-bg);
+        border: 1px solid var(--border-color);
+        border-radius: 10px;
+        margin-bottom: 14px;
+        flex-wrap: wrap;
+    }
+    .viewer-toolbar-group {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        padding: 0 8px;
+        border-right: 1px solid var(--border-color);
+    }
+    .viewer-toolbar-group:last-child { border-right: none; }
+    .viewer-btn {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        width: 30px;
+        height: 30px;
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        background: var(--bg-content);
+        color: var(--text-primary);
+        cursor: pointer;
+        transition: background .15s, border-color .15s;
+    }
+    .viewer-btn:hover { background: var(--accent-color); border-color: var(--accent-color); color: #fff; }
+
+    /* ── Container ── */
     .document-preview-container {
-        flex-grow: 1;
-        background-color: #525659 !important; 
-        padding: 30px;
+        background: #3c3f41;
         border-radius: 8px;
+        padding: 28px 20px;
         overflow-y: auto;
-        overflow-x: hidden;
+        overflow-x: auto;
+        max-height: 82vh;
+    }
+
+    /* ── Página ── */
+    #doc-scale-wrapper {
+        transform-origin: top center;
+        transition: transform .2s;
     }
 
     .page {
-        background-color: #ffffff !important;
-        color: #000000 !important;
-        width: 21cm;
-        min-height: 29.7cm;
-        margin: 0 auto 20px auto;
-        padding-top: 1.5cm;
-        padding-bottom: 2.54cm;
-        padding-left: 2.15cm;
-        padding-right: 2.5cm;
-        box-shadow: 0 5px 15px rgba(0,0,0,0.5) !important; 
+        background: #fff !important;
+        color: #000 !important;
+        /* width, min-height e padding são aplicados via JS com os valores reais do DOCX */
+        margin: 0 auto 24px auto;
+        box-shadow: 0 4px 20px rgba(0,0,0,.55);
         box-sizing: border-box;
         font-family: 'Times New Roman', Times, serif;
         font-size: 12pt;
+        line-height: 1;
         position: relative;
-        overflow: hidden;
+        overflow: visible;
     }
-    
+
     .page-number {
         position: absolute;
-        bottom: 1.5cm;
+        bottom: 1cm;
         right: 2.5cm;
         font-family: 'Times New Roman', Times, serif;
         font-size: 10pt;
-        color: #000000 !important; 
+        color: #000 !important;
+    }
+
+    /* ── Separador visual entre páginas ── */
+    .page + .page::before {
+        content: '';
+        display: block;
+        height: 0;
     }
 
     .page-content,
@@ -235,8 +280,8 @@
 
     /* Parágrafos: zeramos margem/padding do browser — o espaçamento vem do DOCX via style inline */
     .page-content p {
-        margin: 0 !important;
-        padding: 0 !important;
+        margin: 0;
+        padding: 0;
         orphans: 3;
         widows: 3;
     }
@@ -330,9 +375,11 @@
     }
     
     .signature-image-embedded {
-        max-height: 150px;
-        max-width: 350px;
+        max-height: 90px;
+        max-width: 220px;
         vertical-align: middle;
+        image-rendering: -webkit-optimize-contrast;
+        image-rendering: crisp-edges;
     }
 
     @media print {
@@ -414,32 +461,6 @@
         width: 24px;
         height: 24px;
     }
-    #back-to-top-btn {
-        position: fixed;
-        left: 260px;
-        bottom: 40px;
-        z-index: 1050;
-        display: none;
-        align-items: center;
-        justify-content: center;
-        background-color: var(--bg-content);
-        color: var(--text-secondary);
-        border: 1px solid var(--border-color);
-        padding: 12px;
-        border-radius: 50%;
-        cursor: pointer;
-        box-shadow: 0 4px 12px rgba(0,0,0,0.15);
-        transition: background-color 0.2s, transform 0.2s, color 0.2s;
-        width: 48px;
-        height: 48px;
-    }
-    #back-to-top-btn:hover {
-        background-color: var(--accent-color);
-        color: #fff;
-        border-color: var(--accent-color);
-        transform: scale(1.08);
-    }
-    #back-to-top-btn svg { width: 22px; height: 22px; }
 
 </style>
 
@@ -876,8 +897,8 @@
             <form action="{% url 'Ouvidoria:upload_ficha_individual' patd.pk %}" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="form-item" style="color: var(--anexo)">
-                    <label for="ficha_individual_file">{% if ficha_individual_anexo %}Substituir Ficha Individual (PDF):{% else %}Anexar Ficha Individual (PDF):{% endif %}</label>
-                    <input type="file" name="ficha_individual" id="ficha_individual_file" accept=".pdf" required style="width: 100%; padding: 10px;">
+                    <label for="ficha_individual_file">{% if ficha_individual_anexo %}Substituir Ficha Individual (PDF/Imagem):{% else %}Anexar Ficha Individual (PDF/Imagem):{% endif %}</label>
+                    <input type="file" name="ficha_individual" id="ficha_individual_file" accept=".pdf,.jpg,.jpeg,.png,.webp" required style="width: 100%; padding: 10px;">
                     <div id="ficha-individual-preview" style="display:none;margin-top:8px;padding:10px 14px;border-radius:8px;background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.3);align-items:center;gap:10px;font-size:.88rem;color:var(--accent-color);">
                         <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink:0">
                             <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
@@ -888,6 +909,34 @@
                 </div>
                 <div class="form-actions" style="justify-content: flex-start; margin-top: 15px;">
                     <button type="submit" class="btn btn-primary">{% if ficha_individual_anexo %}Substituir{% else %}Anexar{% endif %}</button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Formulário de Resumo -->
+    <div class="card" style="margin-top:20px;">
+        <div class="card-header">
+            <h2>Formulário de Resumo</h2>
+        </div>
+        <div class="card-body">
+            {% if formulario_resumo_anexo %}
+            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.35);margin-bottom:16px;font-size:.88rem;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#16a34a" viewBox="0 0 16 16" style="flex-shrink:0">
+                    <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                </svg>
+                <span style="flex:1;font-weight:600;color:#16a34a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">{{ formulario_resumo_anexo.arquivo.name }}</span>
+                <a href="{{ formulario_resumo_anexo.arquivo.url }}" target="_blank" class="btn btn-sm btn-success" style="flex-shrink:0;">Visualizar</a>
+            </div>
+            {% endif %}
+            <form action="{% url 'Ouvidoria:upload_formulario_resumo' patd.pk %}" method="post" enctype="multipart/form-data">
+                {% csrf_token %}
+                <div class="form-item" style="color: var(--anexo)">
+                    <label for="formulario_resumo_file">{% if formulario_resumo_anexo %}Substituir Formulário de Resumo (PDF/Imagem):{% else %}Anexar Formulário de Resumo (PDF/Imagem):{% endif %}</label>
+                    <input type="file" name="formulario_resumo" id="formulario_resumo_file" accept=".pdf,.jpg,.jpeg,.png,.webp" required style="width: 100%; padding: 10px;">
+                </div>
+                <div class="form-actions" style="justify-content: flex-start; margin-top: 15px;">
+                    <button type="submit" class="btn btn-primary">{% if formulario_resumo_anexo %}Substituir{% else %}Anexar{% endif %}</button>
                 </div>
             </form>
         </div>
@@ -1074,19 +1123,50 @@
 </div>
 
 <div id="tab-visualizador" class="tab-panel">
-    <div id="signature-nav-button" title="Ir para a próxima assinatura pendente">
-        <span id="signature-counter">0/0</span>
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3" />
-        </svg>
-    </div>
-    <button id="back-to-top-btn" title="Voltar ao topo">
-        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 10.5 12 3m0 0 7.5 7.5M12 3v18" />
-        </svg>
-    </button>
-    <div id="document-preview-container" class="document-preview-container">
+
+    <!-- Toolbar do visualizador -->
+    <div id="viewer-toolbar">
+        <!-- Zoom -->
+        <div class="viewer-toolbar-group">
+            <button class="viewer-btn" id="zoom-out-btn" title="Diminuir zoom">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 12h-15"/></svg>
+            </button>
+            <span id="zoom-label" style="min-width:44px;text-align:center;font-size:.82rem;font-weight:600;">100%</span>
+            <button class="viewer-btn" id="zoom-in-btn" title="Aumentar zoom">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/></svg>
+            </button>
+            <button class="viewer-btn" id="zoom-fit-btn" title="Ajustar à largura">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3.75v4.5m0-4.5h4.5m-4.5 0L9 9M3.75 20.25v-4.5m0 4.5h4.5m-4.5 0L9 15M20.25 3.75h-4.5m4.5 0v4.5m0-4.5L15 9m5.25 11.25h-4.5m4.5 0v-4.5m0 4.5L15 15"/></svg>
+            </button>
         </div>
+
+        <!-- Página atual -->
+        <div class="viewer-toolbar-group">
+            <button class="viewer-btn" id="prev-page-btn" title="Página anterior">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5 8.25 12l7.5-7.5"/></svg>
+            </button>
+            <span id="page-indicator" style="font-size:.82rem;font-weight:600;min-width:60px;text-align:center;">1 / 1</span>
+            <button class="viewer-btn" id="next-page-btn" title="Próxima página">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="m8.25 4.5 7.5 7.5-7.5 7.5"/></svg>
+            </button>
+        </div>
+
+        <!-- Assinaturas pendentes -->
+        <div class="viewer-toolbar-group" id="sig-toolbar-group" style="display:none;">
+            <span style="font-size:.82rem;color:var(--text-secondary);">Assinaturas:</span>
+            <span id="signature-counter" style="font-weight:700;font-size:.82rem;">0/0</span>
+            <div id="signature-nav-button" title="Ir para próxima assinatura pendente" style="display:flex;align-items:center;gap:4px;cursor:pointer;background:#2563eb;color:#fff;border-radius:6px;padding:4px 10px;font-size:.8rem;font-weight:600;">
+                Ir
+                <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 13.5 12 21m0 0-7.5-7.5M12 21V3"/></svg>
+            </div>
+        </div>
+    </div>
+
+    <!-- Área do documento -->
+    <div id="document-preview-container" class="document-preview-container">
+    </div>
+
+    <!-- Botão voltar ao topo -->
 </div>
 
 <style>
@@ -1264,20 +1344,36 @@
 </div>
 
 <div class="modal-overlay" id="defesa-modal">
-    <div class="modal-content">
-        <h3>Alegação de Defesa</h3>
+    <div class="modal-content" style="max-width:620px;width:95%;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h3 style="margin:0;font-size:1.15rem;">Alegação de Defesa</h3>
+            <button type="button" id="cancel-defesa-btn" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-secondary);line-height:1;" title="Fechar">×</button>
+        </div>
         <form id="form-alegacao-defesa" enctype="multipart/form-data">
-            <p>Escreva abaixo a sua alegação de defesa e/ou anexe ficheiros de suporte.</p>
-            <textarea name="alegacao_defesa" id="alegacao-defesa-texto" style="width: 100%; min-height: 150px;"></textarea>
-
-            <div class="form-item" style="margin-top: 15px;">
-                <label for="anexos_defesa">Anexar Ficheiros:</label>
-                <input type="file" name="anexos_defesa" id="anexos_defesa" multiple style="width: 100%; padding: 10px;">
+            <div class="form-item" style="margin-bottom:14px;">
+                <label style="font-weight:600;font-size:.85rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px;">Texto da Alegação</label>
+                <textarea name="alegacao_defesa" id="alegacao-defesa-texto"
+                    placeholder="Escreva aqui a sua alegação de defesa..."
+                    style="width:100%;min-height:140px;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:.95rem;resize:vertical;background:var(--sidebar-bg);color:var(--text-primary);font-family:inherit;box-sizing:border-box;"></textarea>
             </div>
 
-            <div class="form-actions" style="justify-content: flex-end; margin-top: 15px;">
-                <button type="button" class="btn btn-secondary" id="cancel-defesa-btn">Cancelar</button>
-                <button type="button" class="btn btn-primary" id="submit-defesa-btn">Concluir</button>
+            <div class="form-item" style="margin-bottom:8px;">
+                <label style="font-weight:600;font-size:.85rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:8px;">Anexos <span style="font-weight:400;text-transform:none;font-size:.8rem;">(PDF ou imagem)</span></label>
+                <div id="defesa-anexos-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+                <button type="button" id="defesa-add-anexo-btn"
+                    style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px dashed var(--accent-color);border-radius:8px;background:rgba(37,99,235,.06);color:var(--accent-color);font-size:.88rem;cursor:pointer;font-weight:500;width:100%;justify-content:center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+                    Adicionar Anexo
+                </button>
+                <input type="file" id="defesa-file-picker" name="anexos_defesa" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none;">
+            </div>
+
+            <div style="border-top:1px solid var(--border-color);margin-top:18px;padding-top:14px;display:flex;justify-content:flex-end;gap:10px;">
+                <button type="button" class="btn btn-secondary" id="cancel-defesa-btn-2">Cancelar</button>
+                <button type="button" class="btn btn-primary" id="submit-defesa-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="currentColor" viewBox="0 0 16 16" style="margin-right:5px;vertical-align:-2px"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
+                    Concluir
+                </button>
             </div>
         </form>
     </div>
@@ -1475,6 +1571,7 @@ const PATD_CONFIG = {
     isFinalized:    '{{ patd.status }}' === 'finalizado',
     patdStatus:     '{{ patd.status }}',
     patdPk:         {{ patd.pk }},
+    previewPdfUrl:  '{% url "Ouvidoria:preview_patd_pdf" patd.pk %}',
     numeroPATD:     '{{ patd.numero_patd }}',
     dataInicioDmy:  '{{ patd.data_inicio|date:"dmy" }}',
     militarNome:    '{{ patd.militar }}',
@@ -1500,6 +1597,7 @@ const PATD_CONFIG = {
     anexosDefesa:               {{ anexos_defesa_json|default:'[]'|safe }},
     anexosReconsideracao:       {{ anexos_reconsideracao_json|default:'[]'|safe }},
     anexosReconsideracaoOficial: {{ anexos_reconsideracao_oficial_json|default:'[]'|safe }},
+    formularioResumo:           {{ formulario_resumo_json|default:'null'|safe }},
     documentoFinalUrl: "{% for anexo in patd.anexos.all %}{% if anexo.tipo == 'documento_final' %}{{ anexo.arquivo.url }}{% endif %}{% endfor %}",
     urls: {
         salvarAssinatura:             "{% url 'Ouvidoria:salvar_assinatura' patd.pk %}",
@@ -1526,25 +1624,6 @@ const PATD_CONFIG = {
 <script src="{% static 'Ouvidoria/js/patd_detail.js' %}"></script>
 
 <script>
-(function () {
-    const btn = document.getElementById('back-to-top-btn');
-
-    function onScroll() {
-        const mc = document.querySelector('.main-container');
-        const scrollY = (mc && mc.scrollTop > 0) ? mc.scrollTop : window.scrollY;
-        btn.style.display = scrollY > 300 ? 'flex' : 'none';
-    }
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    const mc = document.querySelector('.main-container');
-    if (mc) mc.addEventListener('scroll', onScroll, { passive: true });
-
-    btn.addEventListener('click', () => {
-        const mc = document.querySelector('.main-container');
-        if (mc && mc.scrollTop > 0) mc.scrollTo({ top: 0, behavior: 'smooth' });
-        else window.scrollTo({ top: 0, behavior: 'smooth' });
-    });
-})();
 
 // Ficha individual file preview
 (function () {

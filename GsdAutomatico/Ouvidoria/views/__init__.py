@@ -65,7 +65,9 @@ from .documents import (
     salvar_alegacao_defesa,
     extender_prazo,
     exportar_patd_docx,
+    preview_patd_pdf,
     upload_ficha_individual,
+    upload_formulario_resumo,
 
 )
 

@@ -361,10 +361,18 @@ def _get_document_context(patd, for_docx=False):
     ficha_individual_anexo = patd.anexos.filter(tipo='ficha_individual').first()
     ficha_individual_html = ''
     if ficha_individual_anexo:
+        ext = os.path.splitext(ficha_individual_anexo.arquivo.name)[1].lower()
+        is_image = ext in ('.jpg', '.jpeg', '.png', '.webp', '.gif', '.bmp')
         if for_docx:
-            ficha_individual_html = f'<embed src="{ficha_individual_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
+            if is_image:
+                ficha_individual_html = f'<img src="{ficha_individual_anexo.arquivo.url}" style="width:100%;height:auto;" />'
+            else:
+                ficha_individual_html = f'<embed src="{ficha_individual_anexo.arquivo.url}" type="application/pdf" width="100%" height="800px" />'
         else:
-            ficha_individual_html = _pdf_to_pages_html(ficha_individual_anexo.arquivo.path)
+            if is_image:
+                ficha_individual_html = f'<img src="{ficha_individual_anexo.arquivo.url}" style="width:100%;height:auto;display:block;" />'
+            else:
+                ficha_individual_html = _pdf_to_pages_html(ficha_individual_anexo.arquivo.path)
 
     # Lógica de {comportamento} e {mudou}
     comportamento_atual_eh_mau = (patd.comportamento == "Mau comportamento")
@@ -388,7 +396,7 @@ def _get_document_context(patd, for_docx=False):
     context = {
         # Placeholders Comuns
         # --- CORREÇÃO: Usar staticfiles_storage.url ---
-        '{Brasao da Republica}': f"<img src='{staticfiles_storage.url('img/brasao.png')}' alt='Brasão da República' style='width: 100px; height: auto;'>",
+        '{Brasao da Republica}': f"<img src='{staticfiles_storage.url('img/brasao.png')}' alt='Brasão da República' style='width: 80px; height: auto;'>",
         # --- FIM DA CORREÇÃO ---
         '{N PATD}': str(patd.numero_patd),
         '{DataPatd}': data_patd_fmt,
@@ -721,6 +729,11 @@ def _render_runs_html(runs, context, template_name=''):
         # Estilo do run
         run_styles = []
         try:
+            if run.font.name:
+                run_styles.append(f"font-family: '{run.font.name}', serif")
+        except Exception:
+            pass
+        try:
             if run.font.size:
                 pt = run.font.size / 12700  # EMU → pt
                 run_styles.append(f'font-size: {pt:.1f}pt')
@@ -751,6 +764,49 @@ def _render_runs_html(runs, context, template_name=''):
     return result
 
 
+def _get_paragraph_border_css(p):
+    """
+    Retorna um dict com os CSS de borda para os 4 lados do parágrafo (w:pBdr),
+    ou None se o parágrafo não tiver bordas ativas.
+    A chave de agrupamento é uma string que identifica unicamente a configuração
+    de borda — parágrafos consecutivos com a mesma chave formam uma caixa única.
+    """
+    try:
+        from docx.oxml.ns import qn as _qn
+        _W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+        _val_map = {'single': 'solid', 'thick': 'solid', 'double': 'double',
+                    'dotted': 'dotted', 'dashed': 'dashed', 'none': 'none', 'nil': 'none'}
+        pPr = p._p.find(_qn('w:pPr'))
+        if pPr is None:
+            return None
+        pBdr = pPr.find(_qn('w:pBdr'))
+        if pBdr is None:
+            return None
+
+        sides = {}
+        for side in ('top', 'left', 'bottom', 'right'):
+            el = pBdr.find(_qn(f'w:{side}'))
+            if el is None:
+                continue
+            val = el.get(f'{{{_W}}}val', 'none')
+            css_style = _val_map.get(val, 'solid')
+            if css_style == 'none':
+                continue
+            sz_pt = int(el.get(f'{{{_W}}}sz', '4')) / 8
+            color = el.get(f'{{{_W}}}color', '000000')
+            if color in ('auto', None, ''):
+                color = '000000'
+            sides[side] = f'{sz_pt:.2f}pt {css_style} #{color}'
+
+        if not sides:
+            return None
+
+        key = '|'.join(f'{s}:{v}' for s, v in sorted(sides.items()))
+        return {'sides': sides, 'key': key}
+    except Exception:
+        return None
+
+
 def _render_table_html(table, context, template_name=''):
     """Converte uma tabela python-docx em HTML."""
     html = '<table class="doc-table" style="width:100%; border-collapse:collapse; margin: 4pt 0;">'
@@ -773,13 +829,68 @@ def _render_document_from_template(template_name, context):
     preservando alinhamento, formatação de runs (bold/italic/underline/tamanho),
     espaçamento, indentação e tabelas.
     Suporta o placeholder {nova_pagina} para quebras de página.
+    Injeta um elemento <div class="page-meta"> com as dimensões reais do documento.
     """
     try:
         doc_path = os.path.join(settings.BASE_DIR, 'pdf', template_name)
         document = docx.Document(doc_path)
 
+        # Extrai dimensões reais da seção principal
+        sec = document.sections[0]
+        _cm = lambda v: round(v.cm, 4) if v else 0
+
+        # Detecta fonte padrão do documento
+        from docx.oxml.ns import qn as _qn2
+        _W = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+        default_font = None
+        # 1) Normal style
+        try:
+            default_font = document.styles['Normal'].font.name
+        except Exception:
+            pass
+        # 2) docDefaults rFonts
+        if not default_font:
+            rFonts = document.element.find(f'.//{{{_W}}}rFonts')
+            if rFonts is not None:
+                default_font = (rFonts.get(f'{{{_W}}}ascii') or
+                                rFonts.get(f'{{{_W}}}hAnsi') or
+                                rFonts.get(f'{{{_W}}}cs'))
+        # 3) Primeiro run com fonte explícita
+        if not default_font:
+            for p in document.paragraphs:
+                for r in p.runs:
+                    if r.font.name:
+                        default_font = r.font.name
+                        break
+                if default_font:
+                    break
+        default_font = default_font or 'Times New Roman'
+
+        # Tamanho de fonte padrão do estilo Normal
+        default_size_pt = None
+        try:
+            sz = document.styles['Normal'].font.size
+            if sz:
+                default_size_pt = round(sz / 12700, 1)
+        except Exception:
+            pass
+        default_size_pt = default_size_pt or 12
+
+        page_meta = (
+            f'<div class="page-meta" style="display:none"'
+            f' data-width="{_cm(sec.page_width)}"'
+            f' data-height="{_cm(sec.page_height)}"'
+            f' data-top="{_cm(sec.top_margin)}"'
+            f' data-bottom="{_cm(sec.bottom_margin)}"'
+            f' data-left="{_cm(sec.left_margin)}"'
+            f' data-right="{_cm(sec.right_margin)}"'
+            f' data-font="{default_font}"'
+            f' data-fontsize="{default_size_pt}"></div>'
+        )
+
         from docx.oxml.ns import qn as _qn
-        html_content = []
+        # items: lista de (html_str, border_info_or_None)
+        items = []
 
         # Itera o body em ordem real (parágrafos e tabelas intercalados)
         for child in document.element.body:
@@ -790,11 +901,10 @@ def _render_document_from_template(template_name, context):
 
                 # Quebra de página explícita
                 if '{nova_pagina}' in p.text:
-                    html_content.append('<div class="manual-page-break"></div>')
+                    items.append(('<div class="manual-page-break"></div>', None))
                     continue
 
-                # Parágrafo vazio: extrai só os estilos (alinhamento, line_spacing)
-                # e usa &nbsp; para garantir que o browser respeite o height definido
+                # Parágrafo vazio
                 if not p.text.strip():
                     from docx.enum.text import WD_LINE_SPACING as WD_LS
                     alignment_map = {None: 'left', 0: 'left', 1: 'center', 2: 'right', 3: 'justify'}
@@ -812,16 +922,42 @@ def _render_document_from_template(template_name, context):
                             empty_styles.append(f'line-height: {ls}')
                     except Exception:
                         pass
-                    html_content.append(f'<p style="{"; ".join(empty_styles)}">&nbsp;</p>')
+                    bdr = _get_paragraph_border_css(p)
+                    items.append((f'<p style="{"; ".join(empty_styles)}">&nbsp;</p>', bdr))
                     continue
 
-                html_content.append(_render_paragraph_html(p, context, template_name))
+                bdr = _get_paragraph_border_css(p)
+                items.append((_render_paragraph_html(p, context, template_name), bdr))
 
             elif tag == 'tbl':
                 table = docx.table.Table(child, document)
-                html_content.append(_render_table_html(table, context, template_name))
+                items.append((_render_table_html(table, context, template_name), None))
 
-        return ''.join(html_content)
+        # Agrupa parágrafos consecutivos com a mesma chave de borda num único <div>
+        html_content = []
+        i = 0
+        while i < len(items):
+            html, bdr = items[i]
+            if bdr is None:
+                html_content.append(html)
+                i += 1
+            else:
+                key = bdr['key']
+                sides = bdr['sides']
+                group = [html]
+                j = i + 1
+                while j < len(items) and items[j][1] is not None and items[j][1]['key'] == key:
+                    group.append(items[j][0])
+                    j += 1
+                border_css = '; '.join(f'border-{s}: {v}' for s, v in sides.items())
+                html_content.append(
+                    f'<div style="{border_css}; padding: 4pt 6pt; margin: 2pt 0;">'
+                    + ''.join(group)
+                    + '</div>'
+                )
+                i = j
+
+        return page_meta + ''.join(html_content)
 
     except FileNotFoundError:
         error_msg = f'<p style="color: red;">ERRO: Template "{template_name}" não encontrado.</p>'
@@ -906,6 +1042,11 @@ def get_document_pages(patd, for_docx=False):
     if patd.status in status_npd_e_posteriores and not patd.justificado:
         page_counter += 1
         document_pages_raw.append(_render_document_from_template('MODELO_NPD.docx', base_context))
+        # Formulário de resumo (após a NPD)
+        formulario_resumo_anexo = patd.anexos.filter(tipo='formulario_resumo').first()
+        if formulario_resumo_anexo:
+            document_pages_raw.append('<div class="manual-page-break"></div>')
+            document_pages_raw.append("<p>{FORMULARIO_RESUMO_PLACEHOLDER}</p>")
 
     # 6. Reconsideração
     status_reconsideracao_e_posteriores = [

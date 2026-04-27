@@ -17,6 +17,7 @@ const oficialSigData      = PATD_CONFIG.oficialSigUrl;
 const comandanteSigData   = PATD_CONFIG.comandanteSigUrl;
 
 let anexosDefesa                 = PATD_CONFIG.anexosDefesa;
+const formularioResumo           = PATD_CONFIG.formularioResumo;
 let anexosReconsideracao         = PATD_CONFIG.anexosReconsideracao;
 let anexosReconsideracaoOficial  = PATD_CONFIG.anexosReconsideracaoOficial;
 let documentoFinalUrl            = PATD_CONFIG.documentoFinalUrl;
@@ -102,7 +103,7 @@ document.addEventListener('DOMContentLoaded', function() {
         let currentSignatureConfig = {};
 
         function resizeCanvas() {
-            const ratio = Math.max(window.devicePixelRatio || 1, 1);
+            const ratio = Math.max(window.devicePixelRatio || 1, 2);
             const parentWidth = canvas.parentElement.offsetWidth;
             canvas.width = parentWidth * ratio;
             canvas.height = canvas.offsetHeight * ratio;
@@ -387,16 +388,59 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const defesaModal = document.getElementById('defesa-modal');
     if (defesaModal) {
-        const addDefesaBtn = document.getElementById('add-defesa-btn');
+        const addDefesaBtn       = document.getElementById('add-defesa-btn');
         const confirmDefesaModal = document.getElementById('confirm-defesa-modal');
-        const cancelDefesaBtn = document.getElementById('cancel-defesa-btn');
-        const submitDefesaBtn = document.getElementById('submit-defesa-btn');
-        const cancelConfirmDefesaBtn = document.getElementById('cancel-confirm-defesa-btn');
-        const finalSubmitDefesaBtn = document.getElementById('final-submit-defesa-btn');
-        const formDefesa = document.getElementById('form-alegacao-defesa');
+        const submitDefesaBtn    = document.getElementById('submit-defesa-btn');
+        const cancelConfirmBtn   = document.getElementById('cancel-confirm-defesa-btn');
+        const finalSubmitBtn     = document.getElementById('final-submit-defesa-btn');
+        const formDefesa         = document.getElementById('form-alegacao-defesa');
+        const filePicker         = document.getElementById('defesa-file-picker');
+        const anexosList         = document.getElementById('defesa-anexos-list');
+        const addAnexoBtn        = document.getElementById('defesa-add-anexo-btn');
 
-        function openDefesaModal() {
-            defesaModal.classList.add('active');
+        // Lista de arquivos selecionados pelo usuário
+        let selectedFiles = [];
+
+        function closeDefesaModal() { defesaModal.classList.remove('active'); }
+        function openDefesaModal()  { defesaModal.classList.add('active'); }
+
+        function renderAnexosList() {
+            if (!anexosList) return;
+            anexosList.innerHTML = '';
+            selectedFiles.forEach((file, idx) => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--sidebar-bg);border:1px solid var(--border-color);border-radius:8px;font-size:.88rem;';
+                const icon = document.createElement('span');
+                icon.textContent = file.type.startsWith('image/') ? '🖼️' : '📄';
+                const name = document.createElement('span');
+                name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary);';
+                name.textContent = file.name;
+                const size = document.createElement('span');
+                size.style.cssText = 'color:var(--text-secondary);font-size:.8rem;flex-shrink:0;';
+                size.textContent = (file.size / 1024).toFixed(0) + ' KB';
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--danger-color);font-size:1rem;padding:0;line-height:1;flex-shrink:0;';
+                removeBtn.title = 'Remover';
+                removeBtn.textContent = '✕';
+                removeBtn.addEventListener('click', () => {
+                    selectedFiles.splice(idx, 1);
+                    renderAnexosList();
+                });
+                row.append(icon, name, size, removeBtn);
+                anexosList.appendChild(row);
+            });
+        }
+
+        if (addAnexoBtn && filePicker) {
+            addAnexoBtn.addEventListener('click', () => {
+                filePicker.value = '';
+                filePicker.click();
+            });
+            filePicker.addEventListener('change', () => {
+                Array.from(filePicker.files).forEach(f => selectedFiles.push(f));
+                renderAnexosList();
+            });
         }
 
         if (addDefesaBtn) addDefesaBtn.addEventListener('click', openDefesaModal);
@@ -404,35 +448,43 @@ document.addEventListener('DOMContentLoaded', function() {
             if (e.target && e.target.id === 'add-defesa-btn-doc') openDefesaModal();
         });
 
-        if(cancelDefesaBtn) cancelDefesaBtn.addEventListener('click', () => defesaModal.classList.remove('active'));
-        if(submitDefesaBtn) submitDefesaBtn.addEventListener('click', () => {
-            const alegacaoText = document.getElementById('alegacao-defesa-texto').value;
-            const anexosInput = document.getElementById('anexos_defesa');
-            if (alegacaoText.trim() === "" && anexosInput.files.length === 0) {
-                alert("É necessário fornecer um texto ou anexar pelo menos um ficheiro.");
-                return;
-            }
-            defesaModal.classList.remove('active');
-            if(confirmDefesaModal) confirmDefesaModal.classList.add('active');
+        document.querySelectorAll('#cancel-defesa-btn, #cancel-defesa-btn-2').forEach(btn => {
+            btn.addEventListener('click', closeDefesaModal);
         });
 
-        if(cancelConfirmDefesaBtn) cancelConfirmDefesaBtn.addEventListener('click', () => confirmDefesaModal.classList.remove('active'));
+        if (submitDefesaBtn) submitDefesaBtn.addEventListener('click', () => {
+            const alegacaoText = document.getElementById('alegacao-defesa-texto').value;
+            if (alegacaoText.trim() === '' && selectedFiles.length === 0) {
+                alert('É necessário fornecer um texto ou anexar pelo menos um ficheiro.');
+                return;
+            }
+            closeDefesaModal();
+            if (confirmDefesaModal) confirmDefesaModal.classList.add('active');
+        });
 
-        if(finalSubmitDefesaBtn) finalSubmitDefesaBtn.addEventListener('click', () => {
+        if (cancelConfirmBtn) cancelConfirmBtn.addEventListener('click', () => {
+            confirmDefesaModal.classList.remove('active');
+            defesaModal.classList.add('active');
+        });
+
+        if (finalSubmitBtn) finalSubmitBtn.addEventListener('click', () => {
             const formData = new FormData(formDefesa);
+            // Remove inputs de arquivo automáticos e adiciona os selecionados manualmente
+            selectedFiles.forEach(f => formData.append('anexos_defesa', f));
             const url = PATD_CONFIG.urls.salvarAlegacaoDefesa;
-
+            finalSubmitBtn.disabled = true;
+            finalSubmitBtn.textContent = 'Enviando...';
             fetch(url, {
                 method: 'POST',
                 headers: { 'X-CSRFToken': csrfToken },
                 body: formData
             })
-            .then(response => response.json())
+            .then(r => r.json())
             .then(data => {
                 if (data.status === 'success') window.location.reload();
-                else alert('Erro: ' + data.message);
+                else { alert('Erro: ' + data.message); finalSubmitBtn.disabled = false; finalSubmitBtn.textContent = 'Sim, Enviar'; }
             })
-            .catch(error => console.error('Erro:', error));
+            .catch(() => { alert('Erro de conexão.'); finalSubmitBtn.disabled = false; finalSubmitBtn.textContent = 'Sim, Enviar'; });
         });
     }
 
@@ -621,8 +673,6 @@ document.addEventListener('DOMContentLoaded', function() {
                 const sigNavButton = document.getElementById('signature-nav-button');
                 if (link.dataset.target === 'tab-visualizador') {
                     renderVisualizador();
-                } else {
-                    if (sigNavButton) sigNavButton.style.display = 'none';
                 }
             }
             localStorage.setItem(`activePatdTab-${PATD_CONFIG.patdPk}`, link.dataset.target);
@@ -635,39 +685,24 @@ document.addEventListener('DOMContentLoaded', function() {
         const isImage = imageTypes.includes(fileType);
         const isPdf = fileType === 'pdf';
 
-        let contentHtml = '';
         if (isImage) {
-            contentHtml = `<img src="${anexo.url}" alt="${anexo.nome}" style="width:100%; height:auto; display:block; margin-top:8px;" />`;
+            return `<img src="${anexo.url}" alt="${anexo.nome}" style="width:100%; height:auto; display:block;" />`;
         } else if (isPdf) {
-            contentHtml = `<iframe src="${anexo.url}" style="width:100%; height:900px; border:none; display:block; margin-top:8px;" title="${anexo.nome}"></iframe>`;
+            return `<iframe src="${anexo.url}" style="width:100%; height:100%; min-height:600px; border:none; display:block;" title="${anexo.nome}"></iframe>`;
         } else {
-            contentHtml = `
-                <p style="margin-top:8px;">Anexo (.${fileType}). Clique abaixo para abrir ou baixar.</p>
+            return `
+                <p>Clique abaixo para abrir o anexo.</p>
                 <a href="${anexo.url}" class="btn-download" target="_blank" rel="noopener noreferrer">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
-                    Abrir/Baixar Anexo
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                    Abrir/Baixar Anexo (.${fileType})
                 </a>`;
         }
-
-        return `
-            <div class="embedded-anexo-item">
-                <div class="embedded-anexo-link">
-                    <h4>${anexo.nome}</h4>
-                    ${contentHtml}
-                </div>
-            </div>
-        `;
     }
 
-    function generateEmbeddedAnexosGroup(anexos, title) {
-        if (!anexos || anexos.length === 0) return '';
-        let itemsHtml = anexos.map(generateEmbeddedAnexoHTML).join('');
-        return `
-            <div class="embedded-anexo-container">
-                <h3 class="embedded-anexo-header">${title}</h3>
-                ${itemsHtml}
-            </div>
-        `;
+    // Retorna um array de HTMLs — um por anexo — para que cada um ocupe uma folha própria
+    function generateAnexosPages(anexos) {
+        if (!anexos || anexos.length === 0) return [];
+        return anexos.map(anexo => generateEmbeddedAnexoHTML(anexo));
     }
 
     function processPlaceholders(text) {
@@ -683,9 +718,11 @@ document.addEventListener('DOMContentLoaded', function() {
         processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
 
-        processedHtml = processedHtml.replace(/{ANEXOS_DEFESA_PLACEHOLDER}/g, generateEmbeddedAnexosGroup(anexosDefesa, "Anexos da Alegação de Defesa"));
-        processedHtml = processedHtml.replace(/{ANEXOS_RECONSIDERACAO_PLACEHOLDER}/g, generateEmbeddedAnexosGroup(anexosReconsideracao, "Anexos da Reconsideração"));
-        processedHtml = processedHtml.replace(/{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}/g, generateEmbeddedAnexosGroup(anexosReconsideracaoOficial, "Anexo do Oficial (Reconsideração)"));
+        // Anexos são renderizados como folhas individuais no loop principal — não substituir inline
+        processedHtml = processedHtml.replace(/{ANEXOS_DEFESA_PLACEHOLDER}/g, '');
+        processedHtml = processedHtml.replace(/{ANEXOS_RECONSIDERACAO_PLACEHOLDER}/g, '');
+        processedHtml = processedHtml.replace(/{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}/g, '');
+        processedHtml = processedHtml.replace(/{FORMULARIO_RESUMO_PLACEHOLDER}/g, '');
 
         processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? createSignatureHtml(defesaSigData, 'Assinatura da Defesa', 'defesa') : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
         processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? createSignatureHtml(reconSigData, 'Assinatura da Reconsideração', 'reconsideracao') : `<button class="btn btn-sm btn-success open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
@@ -875,6 +912,87 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // ── Zoom ──
+    let _zoom = 1.0;
+    const ZOOM_STEP = 0.1;
+    const ZOOM_MIN  = 0.4;
+    const ZOOM_MAX  = 2.0;
+
+    function _applyZoom(z) {
+        _zoom = Math.min(ZOOM_MAX, Math.max(ZOOM_MIN, z));
+        const wrapper = document.getElementById('doc-scale-wrapper');
+        if (wrapper) {
+            wrapper.style.transform = `scale(${_zoom})`;
+            // Ajusta a altura do wrapper para não deixar espaço em branco
+            wrapper.style.marginBottom = _zoom < 1
+                ? `${(1 - _zoom) * -wrapper.scrollHeight * 0.5}px`
+                : '0';
+        }
+        const lbl = document.getElementById('zoom-label');
+        if (lbl) lbl.textContent = Math.round(_zoom * 100) + '%';
+    }
+
+    function _fitWidth() {
+        const container = pageContainer;
+        if (!container) return;
+        const containerW = container.clientWidth - 40; // padding
+        const pageW = 21 * 37.7953; // 21cm em px
+        _applyZoom(containerW / pageW);
+    }
+
+    document.getElementById('zoom-in-btn')?.addEventListener('click',  () => _applyZoom(_zoom + ZOOM_STEP));
+    document.getElementById('zoom-out-btn')?.addEventListener('click', () => _applyZoom(_zoom - ZOOM_STEP));
+    document.getElementById('zoom-fit-btn')?.addEventListener('click', _fitWidth);
+
+    // Zoom com Ctrl+scroll
+    pageContainer?.addEventListener('wheel', e => {
+        if (!e.ctrlKey) return;
+        e.preventDefault();
+        _applyZoom(_zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
+    }, { passive: false });
+
+    // ── Navegação de páginas ──
+    let _pageEls = [];
+
+    function _updatePageIndicator() {
+        if (!_pageEls.length) return;
+        const containerRect = pageContainer.getBoundingClientRect();
+        let current = 0;
+        _pageEls.forEach((p, i) => {
+            const r = p.getBoundingClientRect();
+            if (r.top <= containerRect.top + containerRect.height / 2) current = i;
+        });
+        const ind = document.getElementById('page-indicator');
+        if (ind) ind.textContent = `${current + 1} / ${_pageEls.length}`;
+    }
+
+    pageContainer?.addEventListener('scroll', _updatePageIndicator);
+
+    function _scrollToPage(idx) {
+        if (!_pageEls[idx]) return;
+        _pageEls[idx].scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    document.getElementById('prev-page-btn')?.addEventListener('click', () => {
+        const containerRect = pageContainer.getBoundingClientRect();
+        let current = 0;
+        _pageEls.forEach((p, i) => {
+            const r = p.getBoundingClientRect();
+            if (r.top <= containerRect.top + 10) current = i;
+        });
+        _scrollToPage(Math.max(0, current - 1));
+    });
+
+    document.getElementById('next-page-btn')?.addEventListener('click', () => {
+        const containerRect = pageContainer.getBoundingClientRect();
+        let current = 0;
+        _pageEls.forEach((p, i) => {
+            const r = p.getBoundingClientRect();
+            if (r.top <= containerRect.top + 10) current = i;
+        });
+        _scrollToPage(Math.min(_pageEls.length - 1, current + 1));
+    });
+
     function renderVisualizador() {
         if (!pageContainer) return;
 
@@ -907,48 +1025,122 @@ document.addEventListener('DOMContentLoaded', function() {
 
         pageContainer.innerHTML = '';
         signatureIndex = 0;
-        let pageCounter = 1;
 
         if (!documentPages || documentPages.length === 0) {
-            pageContainer.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">O conteúdo do documento está vazio ou não pôde ser carregado.</p>';
+            pageContainer.innerHTML = '<p style="text-align:center;color:var(--text-secondary);padding:40px;">O conteúdo do documento está vazio.</p>';
             return;
         }
 
-        documentPages.forEach((docHtml, docIndex) => {
-            const logicalPages = docHtml.split('<div class="manual-page-break"></div>');
+        // Wrapper que recebe transform de zoom
+        const scaleWrapper = document.createElement('div');
+        scaleWrapper.id = 'doc-scale-wrapper';
+        pageContainer.appendChild(scaleWrapper);
 
-            logicalPages.forEach((pageHtml, logicalPageIndex) => {
-                if (pageHtml.trim() === "") return;
+        let pageCounter = 1;
 
-                const pageDiv = document.createElement('div');
-                pageDiv.className = 'page';
+        // Dimensões e fonte padrão (fallback) — sobrescritas pelo page-meta de cada doc
+        let _curW = 21, _curH = 29.7, _curTop = 2.5, _curBot = 2.5, _curLeft = 2.5, _curRight = 2.5;
+        let _curFont = 'Times New Roman', _curFontSize = 12;
 
-                const pageNumberDiv = document.createElement('div');
-                pageNumberDiv.className = 'page-number';
-                pageNumberDiv.textContent = `Página ${pageCounter}`;
+        function buildPageDiv(html) {
+            const pageDiv = document.createElement('div');
+            pageDiv.className = 'page';
+            pageDiv.dataset.pageNum = pageCounter;
 
-                const contentDiv = document.createElement('div');
-                contentDiv.className = 'page-content';
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'page-content';
 
-                let processedHtml = processPlaceholders(pageHtml);
+            let processedHtml = processPlaceholders(html);
+            processedHtml = processedHtml.replace(/\t/g, '&emsp;&emsp;');
+            processedHtml = processedHtml.replace(/<p>(<br\s*\/?>|\s|&nbsp;)*<\/p>/gi, '');
+            processedHtml = processedHtml.replace(/<p>(<br\s*\/?>\s*)+/gi, '<p>');
+            processedHtml = processedHtml.replace(/(<br\s*\/?>\s*)+<\/p>/gi, '</p>');
+            contentDiv.innerHTML = processedHtml;
 
-                processedHtml = processedHtml.replace(/\t/g, '&emsp;&emsp;');
-                processedHtml = processedHtml.replace(/<p>(<br\s*\/?>|\s|&nbsp;)*<\/p>/gi, '');
-                processedHtml = processedHtml.replace(/<p>(<br\s*\/?>\s*)+/gi, '<p>');
-                processedHtml = processedHtml.replace(/(<br\s*\/?>\s*)+<\/p>/gi, '</p>');
-                processedHtml = processedHtml.replace(/(<br\s*\/?>\s*){2,}/gi, '<br>');
-                processedHtml = processedHtml.replace(/\s{2,}/g, ' ');
-                processedHtml = processedHtml.replace(/(&nbsp;){2,}/g, '&nbsp;');
+            // Lê dimensões reais do page-meta injetado pelo servidor
+            const meta = contentDiv.querySelector('.page-meta');
+            if (meta) {
+                const d = meta.dataset;
+                if (d.width)    _curW        = parseFloat(d.width);
+                if (d.height)   _curH        = parseFloat(d.height);
+                if (d.top)      _curTop      = parseFloat(d.top);
+                if (d.bottom)   _curBot      = parseFloat(d.bottom);
+                if (d.left)     _curLeft     = parseFloat(d.left);
+                if (d.right)    _curRight    = parseFloat(d.right);
+                if (d.font)     _curFont     = d.font;
+                if (d.fontsize) _curFontSize = parseFloat(d.fontsize);
+                meta.remove();
+            }
 
-                contentDiv.innerHTML = processedHtml;
+            // Aplica dimensões, margens e fonte exatas do DOCX
+            pageDiv.style.width         = `${_curW}cm`;
+            pageDiv.style.minHeight     = `${_curH}cm`;
+            pageDiv.style.paddingTop    = `${_curTop}cm`;
+            pageDiv.style.paddingBottom = `${_curBot}cm`;
+            pageDiv.style.paddingLeft   = `${_curLeft}cm`;
+            pageDiv.style.paddingRight  = `${_curRight}cm`;
+            pageDiv.style.fontFamily    = `'${_curFont}', serif`;
+            pageDiv.style.fontSize      = `${_curFontSize}pt`;
 
-                pageDiv.appendChild(contentDiv);
-                pageDiv.appendChild(pageNumberDiv);
-                pageContainer.appendChild(pageDiv);
+            const numDiv = document.createElement('div');
+            numDiv.className = 'page-number';
+            numDiv.style.bottom = `${Math.min(_curBot * 0.4, 1)}cm`;
+            numDiv.style.right  = `${_curRight}cm`;
+            numDiv.textContent = `Página ${pageCounter++}`;
 
-                pageCounter++;
+            pageDiv.appendChild(contentDiv);
+            pageDiv.appendChild(numDiv);
+            return pageDiv;
+        }
+
+        // Mapa de placeholders → array de páginas de anexo
+        const anexoPlaceholders = {
+            '{ANEXOS_DEFESA_PLACEHOLDER}':                generateAnexosPages(anexosDefesa),
+            '{ANEXOS_RECONSIDERACAO_PLACEHOLDER}':        generateAnexosPages(anexosReconsideracao),
+            '{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}': generateAnexosPages(anexosReconsideracaoOficial),
+            '{FORMULARIO_RESUMO_PLACEHOLDER}':            formularioResumo ? generateAnexosPages([formularioResumo]) : [],
+        };
+        const PAGE_BREAK = '<div class="manual-page-break"></div>';
+
+        // Filtra page-breaks que precedem imediatamente um placeholder com lista vazia
+        const filteredPages = documentPages.filter((docHtml, idx) => {
+            if (docHtml.trim() !== PAGE_BREAK) return true;
+            const next = documentPages[idx + 1];
+            if (!next) return false;
+            const nextTrimmed = next.trim().replace(/<p>|<\/p>/g, '').trim();
+            const nextKey = Object.keys(anexoPlaceholders).find(k => nextTrimmed === k);
+            return !(nextKey && anexoPlaceholders[nextKey].length === 0);
+        });
+
+        filteredPages.forEach((docHtml) => {
+            // Page-breaks isolados não viram páginas
+            if (docHtml.trim() === PAGE_BREAK) return;
+
+            // Verifica se este "documento" é inteiramente um placeholder de anexos
+            const trimmed = docHtml.trim().replace(/<p>|<\/p>/g, '').trim();
+            const matchedKey = Object.keys(anexoPlaceholders).find(k => trimmed === k);
+            if (matchedKey) {
+                anexoPlaceholders[matchedKey].forEach(pageHtml => {
+                    scaleWrapper.appendChild(buildPageDiv(pageHtml));
+                });
+                return;
+            }
+
+            // Extrai o page-meta do documento inteiro (só aparece na 1ª seção)
+            // e reinjeta em todas as seções para que buildPageDiv leia as dimensões corretas
+            const metaMatch = docHtml.match(/<div class="page-meta"[\s\S]*?><\/div>/);
+            const sections = docHtml.split('<div class="manual-page-break"></div>');
+            sections.forEach((sectionHtml, idx) => {
+                if (!sectionHtml.trim()) return;
+                const html = (idx > 0 && metaMatch) ? metaMatch[0] + sectionHtml : sectionHtml;
+                scaleWrapper.appendChild(buildPageDiv(html));
             });
         });
+
+        // Atualiza lista de páginas e indicador
+        _pageEls = Array.from(scaleWrapper.querySelectorAll('.page'));
+        _updatePageIndicator();
+        _applyZoom(_zoom); // aplica zoom atual
 
         if (isFinalized) {
             const inputs = pageContainer.querySelectorAll('input.editable-date, textarea.editable-text');
@@ -967,18 +1159,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const completedSignatures = signatureImages.length;
 
         const signatureCounter = document.getElementById('signature-counter');
-        if (signatureCounter) {
-            signatureCounter.textContent = `${completedSignatures}/${totalSignatures}`;
-        }
+        if (signatureCounter) signatureCounter.textContent = `${completedSignatures}/${totalSignatures}`;
 
         pendingSignatureElements = Array.from(signatureButtons);
-        const sigNavButton = document.getElementById('signature-nav-button');
-
-        if (pendingSignatureElements.length > 0) {
-            sigNavButton.style.display = 'flex';
-        } else {
-            sigNavButton.style.display = 'none';
-        }
+        const sigGroup = document.getElementById('sig-toolbar-group');
+        if (sigGroup) sigGroup.style.display = totalSignatures > 0 ? 'flex' : 'none';
     }
 
     const sigNavButton = document.getElementById('signature-nav-button');
@@ -1324,7 +1509,7 @@ document.addEventListener('DOMContentLoaded', function() {
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px; height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
                             Abrir
                         </a>
-                        ${!isFinalized ? `<button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>` : ''}
+                        ${isSuperuser && !isFinalized ? `<button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>` : ''}
                     </div>
                 `;
                 defesaList.appendChild(li);

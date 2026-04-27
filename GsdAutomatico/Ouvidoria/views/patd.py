@@ -780,6 +780,18 @@ class PATDDetailView(DetailView):
         ficha_individual_anexo = patd.anexos.filter(tipo='ficha_individual').first()
         context['ficha_individual_anexo'] = ficha_individual_anexo
 
+        formulario_resumo_anexo = patd.anexos.filter(tipo='formulario_resumo').first()
+        context['formulario_resumo_anexo'] = formulario_resumo_anexo
+        if formulario_resumo_anexo:
+            context['formulario_resumo_json'] = json.dumps({
+                'id': formulario_resumo_anexo.id,
+                'nome': os.path.basename(formulario_resumo_anexo.arquivo.name),
+                'url': formulario_resumo_anexo.arquivo.url,
+                'tipo_arquivo': os.path.splitext(formulario_resumo_anexo.arquivo.name)[1].lower().replace('.', '')
+            })
+        else:
+            context['formulario_resumo_json'] = 'null'
+
         anexos_reconsideracao_oficial = patd.anexos.filter(tipo='reconsideracao_oficial')
         anexos_reconsideracao_oficial_data = []
         for a in anexos_reconsideracao_oficial:

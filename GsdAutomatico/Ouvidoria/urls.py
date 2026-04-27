@@ -52,7 +52,9 @@ urlpatterns = [
     path('patds/<int:pk>/regenerar-punicao/', views.regenerar_punicao, name='regenerar_punicao'),
 
     path('patd/<int:pk>/exportar-docx/', views.exportar_patd_docx, name='exportar_patd_docx'),
+    path('patd/<int:pk>/preview-pdf/', views.preview_patd_pdf, name='preview_patd_pdf'),
     path('patd/<int:pk>/upload_ficha_individual/', views.upload_ficha_individual, name='upload_ficha_individual'),
+    path('patd/<int:pk>/upload_formulario_resumo/', views.upload_formulario_resumo, name='upload_formulario_resumo'),
 
 
 

@@ -82,11 +82,13 @@ class Anexo(models.Model):
     patd = models.ForeignKey('PATD', on_delete=models.CASCADE, related_name='anexos')
     arquivo = models.FileField(upload_to=patd_anexo_path, verbose_name="Ficheiro", validators=[validate_file_size])
     tipo = models.CharField(max_length=30, choices=[
-        ('defesa', 'Defesa'), 
-        ('reconsideracao', 'Reconsideração'), 
-        ('reconsideracao_oficial', 'Reconsideração Oficial'), 
-        ('assinatura_ciencia', 'Assinatura de Ciência'), 
+        ('defesa', 'Defesa'),
+        ('reconsideracao', 'Reconsideração'),
+        ('reconsideracao_oficial', 'Reconsideração Oficial'),
+        ('assinatura_ciencia', 'Assinatura de Ciência'),
         ('oficio_lancamento', 'Ofício de Lançamento'),
+        ('ficha_individual', 'Ficha Individual'),
+        ('formulario_resumo', 'Formulário de Resumo'),
         ('documento_final', 'Documento Final Completo')
     ])
     data_upload = models.DateTimeField(auto_now_add=True)
