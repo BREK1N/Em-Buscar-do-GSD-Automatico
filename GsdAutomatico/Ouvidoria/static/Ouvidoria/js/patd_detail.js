@@ -724,8 +724,8 @@ document.addEventListener('DOMContentLoaded', function() {
         processedHtml = processedHtml.replace(/{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}/g, '');
         processedHtml = processedHtml.replace(/{FORMULARIO_RESUMO_PLACEHOLDER}/g, '');
 
-        processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? createSignatureHtml(defesaSigData, 'Assinatura da Defesa', 'defesa') : `<button class="btn btn-sm btn-success open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
-        processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? createSignatureHtml(reconSigData, 'Assinatura da Reconsideração', 'reconsideracao') : `<button class="btn btn-sm btn-success open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
+        processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? createSignatureHtml(defesaSigData, 'Assinatura da Defesa', 'defesa') : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
+        processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? createSignatureHtml(reconSigData, 'Assinatura da Reconsideração', 'reconsideracao') : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
 
         processedHtml = processedHtml.replace(/{Assinatura_Imagem_Oficial_Apurador}/g, oficialSigData ? createSignatureHtml(oficialSigData, 'Assinatura do Oficial Apurador', 'oficial') : '[Sem assinatura]');
         processedHtml = processedHtml.replace(/{Assinatura_Imagem_Comandante_GSD}/g, comandanteSigData ? `<img class="signature-image-embedded" src="${comandanteSigData}" alt="Assinatura do Comandante">` : '[Sem assinatura]');
@@ -738,19 +738,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (assinaturasMilitar[index]) {
                 return createSignatureHtml(assinaturasMilitar[index], `Assinatura ${index + 1}`, 'ciencia', index);
             } else {
-                return `<button class="btn btn-sm btn-success open-signature-modal" data-type="ciencia" data-index="${index}">Assinar</button>`;
+                return `<button class="btn btn-sm btn-primary open-signature-modal" data-type="ciencia" data-index="${index}">Assinar</button>`;
             }
         });
 
         processedHtml = processedHtml.replace(/{Botao Assinar Oficial}/g, oficialSigData
             ? createSignatureHtml(oficialSigData, 'Assinatura do Oficial Apurador', 'oficial')
-            : `<button class="btn btn-sm btn-success open-signature-modal" data-type="oficial">Assinar</button>`);
+            : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="oficial">Assinar</button>`);
         processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 1}/g, testemunha1SigData
             ? createSignatureHtml(testemunha1SigData, 'Assinatura da Testemunha 1', 'testemunha1')
-            : `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
+            : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
         processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 2}/g, testemunha2SigData
             ? createSignatureHtml(testemunha2SigData, 'Assinatura da Testemunha 2', 'testemunha2')
-            : `<button class="btn btn-sm btn-success open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
+            : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
 
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
         processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -1072,6 +1072,11 @@ document.addEventListener('DOMContentLoaded', function() {
                 meta.remove();
             }
 
+            // Descarta seções sem conteúdo visível (ex: page-meta sozinho antes de {nova_pagina})
+            const hasContent = contentDiv.textContent.trim() ||
+                               contentDiv.querySelector('img, iframe, embed, input, button, canvas');
+            if (!hasContent) return null;
+
             // Aplica dimensões, margens e fonte exatas do DOCX
             pageDiv.style.width         = `${_curW}cm`;
             pageDiv.style.minHeight     = `${_curH}cm`;
@@ -1121,7 +1126,8 @@ document.addEventListener('DOMContentLoaded', function() {
             const matchedKey = Object.keys(anexoPlaceholders).find(k => trimmed === k);
             if (matchedKey) {
                 anexoPlaceholders[matchedKey].forEach(pageHtml => {
-                    scaleWrapper.appendChild(buildPageDiv(pageHtml));
+                    const div = buildPageDiv(pageHtml);
+                    if (div) scaleWrapper.appendChild(div);
                 });
                 return;
             }
@@ -1133,7 +1139,8 @@ document.addEventListener('DOMContentLoaded', function() {
             sections.forEach((sectionHtml, idx) => {
                 if (!sectionHtml.trim()) return;
                 const html = (idx > 0 && metaMatch) ? metaMatch[0] + sectionHtml : sectionHtml;
-                scaleWrapper.appendChild(buildPageDiv(html));
+                const div = buildPageDiv(html);
+                if (div) scaleWrapper.appendChild(div);
             });
         });
 

@@ -224,30 +224,16 @@ def upload_ficha_individual(request, pk):
 @ouvidoria_required
 def upload_formulario_resumo(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
-
     if patd.status == 'finalizado':
         messages.error(request, "Não é possível anexar arquivos em processos finalizados.")
         return redirect('Ouvidoria:patd_detail', pk=pk)
-
     if 'formulario_resumo' not in request.FILES:
         messages.error(request, "Nenhum arquivo enviado.")
         return redirect('Ouvidoria:patd_detail', pk=pk)
-
     patd.anexos.filter(tipo='formulario_resumo').delete()
-    Anexo.objects.create(
-        patd=patd,
-        arquivo=request.FILES['formulario_resumo'],
-        tipo='formulario_resumo'
-    )
+    Anexo.objects.create(patd=patd, arquivo=request.FILES['formulario_resumo'], tipo='formulario_resumo')
     messages.success(request, "Formulário de resumo anexado com sucesso.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
-
-
-def _add_page_break_to_last_paragraph(document):
-    """Adiciona quebra de página como run no ÚLTIMO parágrafo do documento.
-    Isso evita criar um parágrafo vazio separado que gera linha/página em branco."""
-    last_p = document.paragraphs[-1] if document.paragraphs else document.add_paragraph()
-    last_p.add_run().add_break(WD_BREAK.PAGE)
 
 
 def _append_anexo_content(document, anexo):
@@ -303,15 +289,33 @@ def _append_anexo_content(document, anexo):
                 max_w_cm = 16.3
                 max_h_cm = 24.0
 
+                # Pré-filtra páginas em branco do PDF antes de inserir no DOCX.
+                # Critério combinado: brancura visual >= 99% E texto < 50 chars.
+                # Isso remove páginas com artefato "tsteteetetlçask" (15 chars, ~100% branco)
+                # sem remover páginas reais (que têm <99% brancura OU 116+ chars de texto).
                 non_blank_pages = []
                 for page in pdf_doc:
+                    check_pix = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5), colorspace=fitz.csGRAY)
+                    arr = bytearray(check_pix.samples)
+                    total = len(arr)
+                    white_ratio = sum(1 for b in arr if b >= 250) / total if total > 0 else 0
+                    if white_ratio >= 0.999:
+                        page_text = page.get_text().strip()
+                        if len(page_text) < 50:
+                            continue  # Página em branco ou com apenas artefato de texto → pula
                     rect = page.rect
                     is_landscape = rect.width > rect.height
-                    mat = fitz.Matrix(250 / 72, 250 / 72).prerotate(90) if is_landscape else fitz.Matrix(250 / 72, 250 / 72)
+                    if is_landscape:
+                        mat = fitz.Matrix(250 / 72, 250 / 72).prerotate(90)
+                    else:
+                        mat = fitz.Matrix(250 / 72, 250 / 72)
                     pix = page.get_pixmap(matrix=mat)
                     non_blank_pages.append((pix.tobytes("png"), is_landscape))
 
                 for i, (img_bytes, is_landscape) in enumerate(non_blank_pages):
+                    if i > 0:
+                        last_p = document.paragraphs[-1] if document.paragraphs else document.add_paragraph()
+                        last_p.add_run().add_break(WD_BREAK.PAGE)
                     pic_p = document.add_paragraph()
                     pic_p.paragraph_format.space_before = Pt(0)
                     pic_p.paragraph_format.space_after = Pt(0)
@@ -319,9 +323,6 @@ def _append_anexo_content(document, anexo):
                         pic_p.add_run().add_picture(io.BytesIO(img_bytes), width=Cm(max_w_cm))
                     else:
                         pic_p.add_run().add_picture(io.BytesIO(img_bytes), height=Cm(max_h_cm))
-                    # Quebra de página no final deste parágrafo (antes da próxima página)
-                    if i < len(non_blank_pages) - 1:
-                        pic_p.add_run().add_break(WD_BREAK.PAGE)
 
                 pdf_doc.close()
             except Exception as e:
@@ -372,7 +373,10 @@ def _append_alegacao_docx(document, patd, context):
     placeholder_regex = re.compile(r'({[^}]+})')
     # --- FIM DA CORREÇÃO ---
     try:
-        _add_page_break_to_last_paragraph(document)
+        pb_para = document.add_paragraph()
+        pb_para.paragraph_format.space_before = Pt(0)
+        pb_para.paragraph_format.space_after = Pt(0)
+        pb_para.add_run().add_break(WD_BREAK.PAGE)
 
         doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PATD_Alegacao_DF.docx')
         alegacao_doc = Document(doc_path)
@@ -444,7 +448,7 @@ def _remove_blank_pages_from_docx(docx_bytes, filename_base):
 
             # Converte DOCX → PDF com LibreOffice headless
             env = os.environ.copy()
-            env.setdefault('HOME', '/tmp')  # garante diretório gravável para LibreOffice no contexto web
+            env.setdefault('HOME', '/tmp')
             result = subprocess.run(
                 ['libreoffice', '--headless', '--convert-to', 'pdf', '--outdir', tmpdir, docx_path],
                 capture_output=True, text=True, timeout=120, env=env
@@ -458,8 +462,43 @@ def _remove_blank_pages_from_docx(docx_bytes, filename_base):
                 logger.error(f"PDF output not found after LibreOffice conversion")
                 return None, False
 
-            pdf_bytes = open(pdf_path, 'rb').read()
-            return pdf_bytes, True
+            # Abre o PDF e detecta páginas em branco renderizando cada uma como imagem
+            # e verificando se é visualmente toda branca (>99.5% pixels brancos)
+            src_pdf = fitz.open(pdf_path)
+            blank_page_indices = set()
+            for i, page in enumerate(src_pdf):
+                # Renderiza em baixa resolução só para detecção (rápido)
+                pix = page.get_pixmap(matrix=fitz.Matrix(0.5, 0.5), colorspace=fitz.csGRAY)
+                samples = pix.samples  # bytes em escala de cinza
+                total_pixels = len(samples)
+                if total_pixels == 0:
+                    blank_page_indices.add(i)
+                    continue
+                # Conta pixels brancos (valor >= 250 em escala de cinza 0-255)
+                # bytearray permite soma rápida sem loop Python
+                arr = bytearray(samples)
+                white_pixels = sum(1 for b in arr if b >= 250)
+                white_ratio = white_pixels / total_pixels
+                if white_ratio >= 0.980:
+                    blank_page_indices.add(i)
+
+            if not blank_page_indices:
+                # Nenhuma página em branco — retorna o PDF como está
+                pdf_bytes = open(pdf_path, 'rb').read()
+                src_pdf.close()
+                return pdf_bytes, True
+
+            # Remove as páginas em branco criando um novo PDF apenas com as páginas válidas
+            clean_pdf = fitz.open()
+            for i in range(len(src_pdf)):
+                if i not in blank_page_indices:
+                    clean_pdf.insert_pdf(src_pdf, from_page=i, to_page=i)
+
+            clean_bytes = clean_pdf.tobytes(deflate=True)
+            clean_pdf.close()
+            src_pdf.close()
+            logger.info(f"Removidas {len(blank_page_indices)} página(s) em branco do PDF exportado.")
+            return clean_bytes, True
 
     except subprocess.TimeoutExpired:
         logger.error("LibreOffice conversion timed out")
@@ -499,35 +538,10 @@ def _propagate_footer_to_all_sections(document):
             inline_sect.insert(0, _copy.deepcopy(ref))
 
 
-def _apply_paragraph_borders_from_style(paragraph, style_str):
-    """Aplica w:pBdr no parágrafo DOCX a partir dos inline CSS border-* extraídos do HTML."""
-    import re as _re
-    from docx.oxml.ns import qn as _qn
-    from docx.oxml import OxmlElement as _OxmlElement
-
-    _css_to_ooxml = {'solid': 'single', 'double': 'double', 'dotted': 'dotted', 'dashed': 'dashed'}
-    sides = {}
-    for side in ('top', 'left', 'bottom', 'right'):
-        m = _re.search(rf'border-{side}:\s*([\d.]+)pt\s+(\w+)\s+#([0-9a-fA-F]{{3,6}})', style_str)
-        if m:
-            sz_pt, css_style, color = float(m.group(1)), m.group(2), m.group(3)
-            ooxml_val = _css_to_ooxml.get(css_style, 'single')
-            sz_eights = max(1, int(round(sz_pt * 8)))
-            sides[side] = (ooxml_val, sz_eights, color)
-
-    if not sides:
-        return
-
-    pPr = paragraph._p.get_or_add_pPr()
-    pBdr = _OxmlElement('w:pBdr')
-    for side, (val, sz, color) in sides.items():
-        el = _OxmlElement(f'w:{side}')
-        el.set(_qn('w:val'), val)
-        el.set(_qn('w:sz'), str(sz))
-        el.set(_qn('w:space'), '0')
-        el.set(_qn('w:color'), color)
-        pBdr.append(el)
-    pPr.append(pBdr)
+def preview_patd_pdf(request, pk):
+    request.GET = request.GET.copy()
+    request.GET['preview'] = '1'
+    return exportar_patd_docx(request, pk)
 
 
 def exportar_patd_docx(request, pk):
@@ -661,6 +675,7 @@ def exportar_patd_docx(request, pk):
     # Controle de estado para evitar páginas em branco duplicadas
     last_action_was_page_break = True  # Começa True para não adicionar quebra antes do 1º elemento
     was_last_p_empty = False
+    last_para_was_pdf_image = False  # True quando o último parágrafo é uma imagem de página de PDF
 
     def _add_run_with_text(paragraph, text, bold=False, italic=False, underline=False, font_size_pt=None):
         """Adiciona um run de texto ao parágrafo com a formatação indicada."""
@@ -815,8 +830,8 @@ def exportar_patd_docx(request, pk):
             logger.error(f"Erro ao resolver placeholder {ph} no DOCX: {e}")
             _add_run_with_text(paragraph, f'[{ph}]')
 
-    # Itera em ordem correta: top-level <p>, <div class="manual-page-break">
-    # e <div style="border-*"> (grupos de parágrafo com borda).
+    # Itera em ordem correta: top-level <p> e <div class="manual-page-break">.
+    # <div> wrappers (ex: data-document-id) são transparentes — seus filhos são emitidos inline.
     def _iter_doc_elements(node):
         for child in node.children:
             tag = getattr(child, 'name', None)
@@ -824,40 +839,20 @@ def exportar_patd_docx(request, pk):
                 yield child
             elif tag == 'div':
                 classes = child.get('class', [])
-                style = child.get('style', '')
                 if 'manual-page-break' in classes:
                     yield child
-                elif 'border' in style:
-                    # Div de grupo de bordas — emite como elemento especial
-                    yield child
                 else:
-                    # Div wrapper genérico — desce transparentemente
+                    # Div wrapper — desce transparentemente
                     yield from _iter_doc_elements(child)
 
     for element in _iter_doc_elements(soup):
 
         if element.name == 'div' and 'manual-page-break' in element.get('class', []):
             if not last_action_was_page_break:
-                _add_page_break_to_last_paragraph(document)
+                last_p = document.paragraphs[-1] if document.paragraphs else document.add_paragraph()
+                last_p.add_run().add_break(WD_BREAK.PAGE)
                 last_action_was_page_break = True
-            was_last_p_empty = False
-            continue
-
-        if element.name == 'div' and 'border' in element.get('style', ''):
-            # Grupo de parágrafos com borda — aplica w:pBdr em cada <p> filho
-            child_ps = element.find_all('p', recursive=False)
-            for child_p in child_ps:
-                child_text = child_p.get_text().replace('\xa0', '').strip()
-                cp = document.add_paragraph()
-                cp.paragraph_format.space_before = Pt(0)
-                cp.paragraph_format.space_after = Pt(0)
-                _apply_paragraph_borders_from_style(cp, element.get('style', ''))
-                if child_text:
-                    for content in child_p.contents:
-                        _process_node(content, cp)
-                else:
-                    cp.add_run(' ')
-            last_action_was_page_break = False
+            last_para_was_pdf_image = False
             was_last_p_empty = False
             continue
 
@@ -876,64 +871,69 @@ def exportar_patd_docx(request, pk):
 
 
             if "{ANEXOS_DEFESA_PLACEHOLDER}" in text_content_for_check and anexos_defesa.exists():
-                lista = list(anexos_defesa)
-                for i, anexo in enumerate(lista):
+                for i, anexo in enumerate(anexos_defesa):
+                    if i > 0:
+                        last_p = document.paragraphs[-1] if document.paragraphs else document.add_paragraph()
+                        last_p.add_run().add_break(WD_BREAK.PAGE)
                     _append_anexo_content(document, anexo)
-                    if i < len(lista) - 1:
-                        _add_page_break_to_last_paragraph(document)
-                last_action_was_page_break = True
-                was_last_p_empty = False
+                last_action_was_page_break = False
+                was_last_p_empty = True
+                last_para_was_pdf_image = False
                 continue
 
             if "{ANEXOS_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao.exists():
-                lista = list(anexos_reconsideracao)
-                for i, anexo in enumerate(lista):
+                for i, anexo in enumerate(anexos_reconsideracao):
+                    if i > 0:
+                        last_p = document.paragraphs[-1] if document.paragraphs else document.add_paragraph()
+                        last_p.add_run().add_break(WD_BREAK.PAGE)
                     _append_anexo_content(document, anexo)
-                    if i < len(lista) - 1:
-                        _add_page_break_to_last_paragraph(document)
-                last_action_was_page_break = True
-                was_last_p_empty = False
+                last_action_was_page_break = False
+                was_last_p_empty = True
+                last_para_was_pdf_image = False
                 continue
 
             if "{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}" in text_content_for_check and anexos_reconsideracao_oficial.exists():
-                lista = list(anexos_reconsideracao_oficial)
-                for i, anexo in enumerate(lista):
+                for i, anexo in enumerate(anexos_reconsideracao_oficial):
+                    if i > 0:
+                        last_p = document.paragraphs[-1] if document.paragraphs else document.add_paragraph()
+                        last_p.add_run().add_break(WD_BREAK.PAGE)
                     _append_anexo_content(document, anexo)
-                    if i < len(lista) - 1:
-                        _add_page_break_to_last_paragraph(document)
-                last_action_was_page_break = True
-                was_last_p_empty = False
+                last_action_was_page_break = False
+                was_last_p_empty = True
+                last_para_was_pdf_image = False
                 continue
 
             formulario_resumo_qs = patd.anexos.filter(tipo='formulario_resumo')
             if "{FORMULARIO_RESUMO_PLACEHOLDER}" in text_content_for_check and formulario_resumo_qs.exists():
-                lista = list(formulario_resumo_qs)
-                for i, anexo in enumerate(lista):
+                for i, anexo in enumerate(formulario_resumo_qs):
+                    if i > 0:
+                        last_p = document.paragraphs[-1] if document.paragraphs else document.add_paragraph()
+                        last_p.add_run().add_break(WD_BREAK.PAGE)
                     _append_anexo_content(document, anexo)
-                    if i < len(lista) - 1:
-                        _add_page_break_to_last_paragraph(document)
-                last_action_was_page_break = True
-                was_last_p_empty = False
+                last_action_was_page_break = False
+                was_last_p_empty = True
+                last_para_was_pdf_image = False
                 continue
 
-
-
-
-            # Trata <embed> (PDF) e <img> (imagem) de anexos de ficha_individual e oficio_lancamento
-            anexo_tag = element.find('embed') or element.find('img', attrs={'src': True})
-            if anexo_tag:
-                src = anexo_tag.get('src')
+            # Trata <embed> e <img> de anexos inline (oficio, ficha, formulario).
+            # <embed> sem correspondência é descartado (PDF não renderizável no DOCX).
+            # <img> sem correspondência (ex: brasão) cai no processamento normal abaixo.
+            embed_tag = element.find('embed')
+            img_tag = element.find('img', attrs={'src': True})
+            if embed_tag or img_tag:
+                src = (embed_tag or img_tag).get('src', '')
+                found_anexo = False
                 if src:
-                    anexo_to_append = None
                     for anexo in patd.anexos.filter(tipo__in=['oficio_lancamento', 'ficha_individual', 'formulario_resumo']):
                         if anexo.arquivo.url == src:
-                            anexo_to_append = anexo
+                            _append_anexo_content(document, anexo)
+                            last_action_was_page_break = False
+                            was_last_p_empty = True
+                            last_para_was_pdf_image = False
+                            found_anexo = True
                             break
-                    if anexo_to_append:
-                        _append_anexo_content(document, anexo_to_append)
-                        last_action_was_page_break = True
-                        was_last_p_empty = False
-                continue
+                if found_anexo or embed_tag:
+                    continue  # embed sempre pula; img só pula se era um anexo
 
 
 
@@ -955,6 +955,7 @@ def exportar_patd_docx(request, pk):
             else:
                 was_last_p_empty = False
                 last_action_was_page_break = False
+                last_para_was_pdf_image = False
 
 
 
@@ -976,34 +977,22 @@ def exportar_patd_docx(request, pk):
 
             
 
-            is_signature_line = any(sig_placeholder in text_content_for_check for sig_placeholder in ['{Assinatura', '[LOCAL DA ASSINATURA/AÇÃO]'])
-
-
-            is_short_line = len(text_content_for_check) < 80
-
-
-
-
             if element.has_attr('style'):
-
-
-                if 'text-align: center' in element['style']:
-
-
+                style_str = element['style']
+                if 'text-align: center' in style_str:
                     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-
-
-                elif 'text-align: right' in element['style']:
-
-
+                elif 'text-align: right' in style_str:
                     p.alignment = WD_ALIGN_PARAGRAPH.RIGHT
-
-
-                elif 'text-align: justify' in element['style'] and not is_signature_line and not is_short_line:
-
-
+                elif 'text-align: justify' in style_str:
                     p.alignment = WD_ALIGN_PARAGRAPH.JUSTIFY
-
+                elif 'text-align: left' in style_str:
+                    p.alignment = WD_ALIGN_PARAGRAPH.LEFT
+                indent_m = re.search(r'padding-left:\s*([\d.]+)pt', style_str)
+                if indent_m:
+                    p_format.left_indent = Pt(float(indent_m.group(1)))
+                indent_fi = re.search(r'text-indent:\s*([\d.]+)pt', style_str)
+                if indent_fi:
+                    p_format.first_line_indent = Pt(float(indent_fi.group(1)))
 
 
 
@@ -1023,33 +1012,21 @@ def exportar_patd_docx(request, pk):
 
     # Tenta converter para PDF, remover páginas em branco e exportar como PDF
     filename_base = f'PATD_{patd.numero_patd}'
+    pdf_bytes, converted = _remove_blank_pages_from_docx(docx_bytes, filename_base)
+
     is_preview = request.GET.get('preview') == '1'
     disposition = 'inline' if is_preview else 'attachment'
-
-    pdf_bytes, converted = _remove_blank_pages_from_docx(docx_bytes, filename_base)
 
     if converted and pdf_bytes:
         response = HttpResponse(content_type='application/pdf')
         response['Content-Disposition'] = f'{disposition}; filename={filename_base}.pdf'
         response.write(pdf_bytes)
     else:
-        if is_preview:
-            # Fallback preview: serve o DOCX inline como download (o browser pedirá download)
-            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-            response['Content-Disposition'] = f'attachment; filename={filename_base}.docx'
-            response.write(docx_bytes)
-        else:
-            response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
-            response['Content-Disposition'] = f'attachment; filename={filename_base}.docx'
-            response.write(docx_bytes)
+        # Fallback: exporta o DOCX sem conversão
+        response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+        response['Content-Disposition'] = f'attachment; filename={filename_base}.docx'
+        response.write(docx_bytes)
 
     return response
-
-
-@login_required
-def preview_patd_pdf(request, pk):
-    """Redireciona para o export com mode preview (inline)."""
-    from django.shortcuts import redirect
-    return redirect(f'/Ouvidoria/patd/{pk}/exportar-docx/?preview=1')
 
 

@@ -983,30 +983,26 @@ def get_document_pages(patd, for_docx=False):
     page_counter += 1
     document_pages_raw.append(_render_document_from_template('PATD_Coringa.docx', base_context))
 
+    PB = '<div class="manual-page-break"></div>'
+
     # 2. Alegação de Defesa (ou Preclusão)
     if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
         page_counter += 1
         pagina_alegacao_num = page_counter
         alegacao_context = base_context.copy()
-
-        # --- INÍCIO DA CORREÇÃO: Restaurar HTML para visualização e manter placeholder para DOCX ---
-        # 1. Gera o HTML para a visualização na página
         alegacao_html = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
-        # Substitui o placeholder do texto da alegação pelo conteúdo real, formatado para HTML
         alegacao_texto_html = (patd.alegacao_defesa or "").replace('\n', '<br>')
         alegacao_html = alegacao_html.replace('{Alegação de defesa}', alegacao_texto_html)
+        document_pages_raw.append(PB)
         document_pages_raw.append(alegacao_html)
-        # --- FIM DA CORREÇÃO ---
-        
-        # SÓ adiciona a página de anexo se houver anexos de defesa
         if patd.anexos.filter(tipo='defesa').exists():
-            document_pages_raw.append('<div class="manual-page-break"></div>')
+            document_pages_raw.append(PB)
             document_pages_raw.append("<p>{ANEXOS_DEFESA_PLACEHOLDER}</p>")
 
     # 3. Termo de Preclusão
     status_preclusao_e_posteriores = [
         'preclusao', 'apuracao_preclusao', 'aguardando_punicao',
-        'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar', # 'aguardando_preenchimento_npd_reconsideracao' removido
+        'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar',
         'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao',
         'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao',
         'aguardando_comandante_base'
@@ -1016,36 +1012,32 @@ def get_document_pages(patd, for_docx=False):
         pagina_alegacao_num = page_counter
         html_content = _render_document_from_template('PRECLUSAO.docx', base_context)
         html_content = f'<div data-document-id="alegacao_defesa">{html_content}</div>'
+        document_pages_raw.append(PB)
         document_pages_raw.append(html_content)
 
-    # 4. Relatório de Apuração (sem o número da página ainda)
+    # 4. Relatório de Apuração
     if patd.justificado:
         page_counter += 1
+        document_pages_raw.append(PB)
         document_pages_raw.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', base_context))
-        # --- INÍCIO DA MODIFICAÇÃO: Interromper APÓS a lógica de duas passagens ---
-        # Se a PATD foi justificada, o processo documental termina aqui.
-        # Não há NPD, reconsideração, etc.
-        # A lógica de contagem de páginas e substituição de placeholders abaixo
-        # ainda precisa ser executada para que o relatório seja renderizado corretamente.
-        # O 'return' foi movido para depois desse bloco.
-        # --- FIM DA MODIFICAÇÃO ---
 
     elif patd.punicao_sugerida:
         page_counter += 1
+        document_pages_raw.append(PB)
         document_pages_raw.append(_render_document_from_template('RELATORIO_DELTA.docx', base_context))
 
     # 5. Nota de Punição Disciplinar (NPD)
     status_npd_e_posteriores = [
         'aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao',
-        'em_reconsideracao', 'aguardando_publicacao', 'aguardando_comandante_base' # 'aguardando_preenchimento_npd_reconsideracao' removido
+        'em_reconsideracao', 'aguardando_publicacao', 'aguardando_comandante_base'
     ]
     if patd.status in status_npd_e_posteriores and not patd.justificado:
         page_counter += 1
+        document_pages_raw.append(PB)
         document_pages_raw.append(_render_document_from_template('MODELO_NPD.docx', base_context))
-        # Formulário de resumo (após a NPD)
         formulario_resumo_anexo = patd.anexos.filter(tipo='formulario_resumo').first()
         if formulario_resumo_anexo:
-            document_pages_raw.append('<div class="manual-page-break"></div>')
+            document_pages_raw.append(PB)
             document_pages_raw.append("<p>{FORMULARIO_RESUMO_PLACEHOLDER}</p>")
 
     # 6. Reconsideração
@@ -1054,32 +1046,31 @@ def get_document_pages(patd, for_docx=False):
         'aguardando_comandante_base', 'aguardando_nova_punicao',
     ]
     if patd.status in status_reconsideracao_e_posteriores and not patd.justificado:
-         page_counter += 1
-         reconsideracao_context = base_context.copy()
-         if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
-             reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
-         else:
-             reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
-         html_content = _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
-         
-         # --- CORREÇÃO CRÍTICA ---
-         html_content = html_content.replace('{Assinatura Militar Arrolado}', '{Assinatura Reconsideracao}')
-         document_pages_raw.append(html_content)
-         
-         if patd.anexos.filter(tipo='reconsideracao').exists():
-             document_pages_raw.append('<div class="manual-page-break"></div>')
-             document_pages_raw.append("<p>{ANEXOS_RECONSIDERACAO_PLACEHOLDER}</p>")
+        page_counter += 1
+        reconsideracao_context = base_context.copy()
+        if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
+            reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
+        else:
+            reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
+        html_content = _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+        html_content = html_content.replace('{Assinatura Militar Arrolado}', '{Assinatura Reconsideracao}')
+        document_pages_raw.append(PB)
+        document_pages_raw.append(html_content)
+        if patd.anexos.filter(tipo='reconsideracao').exists():
+            document_pages_raw.append(PB)
+            document_pages_raw.append("<p>{ANEXOS_RECONSIDERACAO_PLACEHOLDER}</p>")
 
     # 7. Anexos da reconsideração oficial
     status_anexo_reconsideracao_oficial = ['aguardando_publicacao', 'finalizado', 'aguardando_nova_punicao']
     if patd.status in status_anexo_reconsideracao_oficial:
         if patd.anexos.filter(tipo='reconsideracao_oficial').exists():
-            document_pages_raw.append('<div class="manual-page-break"></div>')
+            document_pages_raw.append(PB)
             document_pages_raw.append("<p>{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}</p>")
 
     # 8. Nova NPD pós-reconsideração (quando nova punição já foi definida)
     if patd.nova_punicao_tipo and patd.status in ['aguardando_publicacao', 'finalizado']:
         page_counter += 1
+        document_pages_raw.append(PB)
         document_pages_raw.append(_render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', base_context))
 
     # --- INÍCIO DA LÓGICA DE DUAS PASSAGENS ---
@@ -1087,14 +1078,19 @@ def get_document_pages(patd, for_docx=False):
     physical_page_count = 0
     alegacao_physical_page_num = 0
     
+    _PB_ONLY = '<div class="manual-page-break"></div>'
     for doc_html in document_pages_raw:
+        # Separadores isolados não contam como página
+        if doc_html.strip() == _PB_ONLY:
+            continue
+
         # Conta as quebras de página manuais dentro do documento
-        num_breaks = doc_html.count('<div class="manual-page-break"></div>')
-        
+        num_breaks = doc_html.count(_PB_ONLY)
+
         # Se este é o documento da alegação, registra o número da página atual
         if '<div data-document-id="alegacao_defesa">' in doc_html:
             alegacao_physical_page_num = physical_page_count + 1
-            
+
         # Cada documento começa em uma nova página, e adiciona as quebras internas
         physical_page_count += (1 + num_breaks)
 

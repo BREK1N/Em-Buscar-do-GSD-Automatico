@@ -563,7 +563,14 @@ class PATDDetailView(DetailView):
                     messages.error(request, "Você não tem permissão para visualizar a PATD de um militar com graduação superior à sua.")
                     return redirect('Ouvidoria:patd_list')
         
-        return super().dispatch(request, *args, **kwargs)
+        response = super().dispatch(request, *args, **kwargs)
+        return response
+
+    def render_to_response(self, context, **response_kwargs):
+        response = super().render_to_response(context, **response_kwargs)
+        response['Cache-Control'] = 'no-store, no-cache, must-revalidate, max-age=0'
+        response['Pragma'] = 'no-cache'
+        return response
 
     def get_queryset(self):
         # Mudamos de super().get_queryset() para PATD.all_objects
