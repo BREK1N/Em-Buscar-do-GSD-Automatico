@@ -482,12 +482,23 @@ def _get_document_context(patd, for_docx=False):
 
     # Assinatura do Comandante - SÓ ADICIONA SE A PATD JÁ FOI APROVADA
     status_aprovados_e_posteriores = [
+        'aplicacao_punicao_cmd_base',
         'aguardando_assinatura_npd', 'periodo_reconsideracao', 'em_reconsideracao',
         'aguardando_comandante_base', 'aguardando_preenchimento_npd_reconsideracao',
         'aguardando_publicacao', 'finalizado'
     ]
-    if comandante_gsd and comandante_gsd.assinatura and patd.status in status_aprovados_e_posteriores:
-        context['assinatura_comandante_data'] = comandante_gsd.assinatura
+    # Usa a assinatura salva no despacho se disponível, senão cai para a padrão do comandante
+    sig_cmd_source = None
+    if patd.assinatura_cmd_gsd_despacho:
+        # FileField → converte para URL acessível pelo browser
+        try:
+            sig_cmd_source = patd.assinatura_cmd_gsd_despacho.url
+        except Exception:
+            sig_cmd_source = None
+    if not sig_cmd_source and comandante_gsd and comandante_gsd.assinatura:
+        sig_cmd_source = comandante_gsd.assinatura  # base64 string (data:image/...)
+    if sig_cmd_source and patd.status in status_aprovados_e_posteriores:
+        context['assinatura_comandante_data'] = sig_cmd_source
         # Atualiza o placeholder no contexto para usar a imagem
         context['{Assinatura Comandante do GSD}'] = '{Assinatura_Imagem_Comandante_GSD}'
 

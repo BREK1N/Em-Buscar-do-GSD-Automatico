@@ -1,0 +1,42 @@
+from django.db import migrations, models
+
+
+class Migration(migrations.Migration):
+
+    dependencies = [
+        ('Ouvidoria', '0065_alter_patd_status'),
+    ]
+
+    operations = [
+        migrations.AlterField(
+            model_name='patd',
+            name='status',
+            field=models.CharField(
+                choices=[
+                    ('definicao_oficial', 'Aguardando definição do Oficial'),
+                    ('aguardando_aprovacao_atribuicao', 'Aguardando aprovação de atribuição de oficial'),
+                    ('ciencia_militar', 'Aguardando ciência do militar'),
+                    ('aguardando_justificativa', 'Aguardando Justificativa'),
+                    ('prazo_expirado', 'Prazo expirado'),
+                    ('preclusao', 'Preclusão - Sem Defesa'),
+                    ('em_apuracao', 'Em Apuração'),
+                    ('apuracao_preclusao', 'Em Apuração (Preclusão)'),
+                    ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
+                    ('aguardando_punicao_alterar', 'Aguardando Punição (alterar)'),
+                    ('assinatura_cmd_gsd_despacho_abertura', 'Assinatura CMD GSD – Despacho de Abertura'),
+                    ('aplicacao_punicao_cmd_base', 'Aplicação da Punição – CMD da Base'),
+                    ('analise_comandante', 'Em Análise pelo Comandante'),
+                    ('aguardando_assinatura_npd', 'Aguardando Assinatura NPD'),
+                    ('periodo_reconsideracao', 'Período de Reconsideração'),
+                    ('em_reconsideracao', 'Em Reconsideração'),
+                    ('aguardando_comandante_base', 'Aguardando Comandante da Base'),
+                    ('aguardando_nova_punicao', 'Aguardando nova punição'),
+                    ('aguardando_publicacao', 'Aguardando publicação'),
+                    ('finalizado', 'Finalizado'),
+                ],
+                default='definicao_oficial',
+                max_length=50,
+                verbose_name='Status',
+            ),
+        ),
+    ]

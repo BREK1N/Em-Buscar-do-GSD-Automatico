@@ -1883,6 +1883,30 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Modal – Despacho de Abertura (CMD GSD)
+    const despachoModal = document.getElementById('despacho-abertura-modal');
+    const cancelDespachoBtn = document.getElementById('cancel-despacho-btn');
+
+    document.body.addEventListener('click', function(e) {
+        if (e.target.closest && e.target.closest('.open-despacho-abertura-modal-btn')) {
+            if (despachoModal) despachoModal.classList.add('active');
+        }
+    });
+
+    if (cancelDespachoBtn) {
+        cancelDespachoBtn.addEventListener('click', () => {
+            despachoModal.classList.remove('active');
+        });
+    }
+
+    if (despachoModal) {
+        despachoModal.addEventListener('click', (e) => {
+            if (e.target === despachoModal) {
+                despachoModal.classList.remove('active');
+            }
+        });
+    }
 });
 
 document.querySelectorAll('.file-input-check').forEach(input => {

@@ -628,7 +628,12 @@ def exportar_patd_pdf(request, pk):
 
     config = Configuracao.load()
     cmd_sig_html = '<span style="color:#888;font-style:italic;">[Sem assinatura]</span>'
-    if config.comandante_gsd:
+    # Prioridade: assinatura salva no despacho → assinatura padrão do comandante GSD
+    if patd.assinatura_cmd_gsd_despacho:
+        b64 = _field_to_b64(patd.assinatura_cmd_gsd_despacho)
+        if b64:
+            cmd_sig_html = f'<p style="text-align:center;margin:0;"><img src="{b64}" style="{SIG_STYLE}"/></p>'
+    elif config.comandante_gsd:
         cmd_assinatura = getattr(config.comandante_gsd, 'assinatura', None)
         if cmd_assinatura:
             if isinstance(cmd_assinatura, str) and cmd_assinatura.startswith('data:'):
@@ -1058,9 +1063,12 @@ def exportar_patd_docx(request, pk):
         """Resolve um placeholder de assinatura/imagem no DOCX."""
         nonlocal militar_sig_counter
         try:
-            if ph == '{Assinatura_Imagem_Comandante_GSD}' and comandante_gsd and comandante_gsd.assinatura:
-                _, img_str = comandante_gsd.assinatura.split(';base64,')
-                paragraph.add_run().add_picture(io.BytesIO(base64.b64decode(img_str)), height=Cm(2.5))
+            if ph == '{Assinatura_Imagem_Comandante_GSD}':
+                if patd.assinatura_cmd_gsd_despacho and patd.assinatura_cmd_gsd_despacho.path and os.path.exists(patd.assinatura_cmd_gsd_despacho.path):
+                    paragraph.add_run().add_picture(patd.assinatura_cmd_gsd_despacho.path, height=Cm(2.5))
+                elif comandante_gsd and comandante_gsd.assinatura:
+                    _, img_str = comandante_gsd.assinatura.split(';base64,')
+                    paragraph.add_run().add_picture(io.BytesIO(base64.b64decode(img_str)), height=Cm(2.5))
 
             elif ph == '{Assinatura_Imagem_Oficial_Apurador}':
                 sig = patd.assinatura_oficial

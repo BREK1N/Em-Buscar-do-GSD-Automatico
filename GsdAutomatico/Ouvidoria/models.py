@@ -120,6 +120,7 @@ class PATD(models.Model):
         ('apuracao_preclusao', 'Em Apuração (Preclusão)'), 
         ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
         ('aguardando_punicao_alterar', 'Aguardando Punição (alterar)'),
+        ('assinatura_cmd_gsd_despacho_abertura', 'Assinatura CMD GSD – Despacho de Abertura'),
         ('aplicacao_punicao_cmd_base', 'Aplicação da Punição – CMD da Base'),
         # Fase de Decisão
         ('analise_comandante', 'Em Análise pelo Comandante'),
@@ -187,6 +188,7 @@ class PATD(models.Model):
     oficial_aceitou = models.BooleanField(null=True, blank=True, default=None, verbose_name="Oficial Aceitou Atribuição")
 
     assinatura_oficial = models.FileField(upload_to=patd_signature_path, max_length=255, blank=True, null=True, verbose_name="Assinatura do Oficial")
+    assinatura_cmd_gsd_despacho = models.FileField(upload_to=patd_signature_path, max_length=255, blank=True, null=True, verbose_name="Assinatura CMD GSD – Despacho de Abertura")
     assinaturas_militar = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas do Militar Arrolado (Caminhos)")
     assinatura_testemunha1 = models.FileField(upload_to=patd_signature_path, blank=True, null=True, verbose_name="Assinatura da 1ª Testemunha")
     assinatura_testemunha2 = models.FileField(upload_to=patd_signature_path, blank=True, null=True, verbose_name="Assinatura da 2ª Testemunha")

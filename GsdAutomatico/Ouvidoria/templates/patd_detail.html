@@ -750,6 +750,11 @@
                 {% if patd.status == 'periodo_reconsideracao' %}
                 <button type="button" class="btn btn-warning" id="btn-reconsideracao-modal">Solicitar Reconsideração</button>
                 {% endif %}
+                {% if patd.status == 'assinatura_cmd_gsd_despacho_abertura' and user|has_comandante_access %}
+                <button type="button" class="btn btn-success open-despacho-abertura-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
+                    Aceitar Despacho de Abertura
+                </button>
+                {% endif %}
                 {% if patd.status == 'analise_comandante' and user|has_comandante_access %}
                 <button type="button" class="btn btn-success open-aprovar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
                 Aprovar e Finalizar
@@ -765,6 +770,15 @@
             </div>
         </div>
     </div>
+
+    {% if patd.status == 'assinatura_cmd_gsd_despacho_abertura' %}
+    <div class="card" style="border-left: 4px solid var(--primary-color); padding: 0;">
+        <div class="card-body" style="padding: 12px 16px; display:flex; align-items:center; gap:10px;">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:18px;height:18px;flex-shrink:0;color:var(--primary-color);"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12a4.5 4.5 0 1 1-9 0 4.5 4.5 0 0 1 9 0Zm0 0c0 1.657 1.007 3 2.25 3S21 13.657 21 12a9 9 0 1 0-2.636 6.364M16.5 12V8.25" /></svg>
+            <span style="font-size:.9rem;"><strong>Despacho de Abertura – CMD GSD:</strong> Primeira prisão do militar. Aguardando o Comandante do GSD aceitar para encaminhar ao CMD da Base.</span>
+        </div>
+    </div>
+    {% endif %}
 
     {% if patd.comentario_comandante and patd.status == 'aguardando_punicao_alterar' %}
     <div class="card" style="border-left: 4px solid var(--warning-color);">
@@ -1571,6 +1585,25 @@
             <div class="form-actions" style="justify-content: flex-end;">
                 <button type="button" class="btn btn-secondary" id="cancel-aprovar-btn">Cancelar</button>
                 <button type="submit" class="btn btn-success">Confirmar Aprovação</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<div class="modal-overlay" id="despacho-abertura-modal">
+    <div class="modal-content">
+        <h3>Aceitar Despacho de Abertura</h3>
+        <p>Primeira prisão do militar – Aplicação da punição com o comandante da BASE.</p>
+        <p style="margin-top: 8px;">Para confirmar o despacho de abertura e encaminhar ao CMD da Base, insira sua senha.</p>
+        <form id="despacho-abertura-form" method="post" action="{% url 'Ouvidoria:aceitar_despacho_abertura' patd.pk %}" class="model-form">
+            {% csrf_token %}
+            <div class="form-item">
+                <label for="id_senha_despacho">Sua Senha:</label>
+                <input type="password" name="senha_comandante" required id="id_senha_despacho" autocomplete="current-password">
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-despacho-btn">Cancelar</button>
+                <button type="submit" class="btn btn-success">Confirmar e Encaminhar ao CMD da Base</button>
             </div>
         </form>
     </div>

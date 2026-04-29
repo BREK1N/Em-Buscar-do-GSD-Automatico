@@ -1503,7 +1503,7 @@ def confirmar_destino_apuracao(request, pk):
         cmd_base = data.get('cmd_base', False)
 
         if cmd_base:
-            patd.status = 'aplicacao_punicao_cmd_base'
+            patd.status = 'assinatura_cmd_gsd_despacho_abertura'
         else:
             patd.status = 'aguardando_punicao'
 

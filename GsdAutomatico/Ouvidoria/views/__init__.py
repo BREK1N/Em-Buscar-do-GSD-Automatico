@@ -52,6 +52,7 @@ from .commander import (
     ComandanteDashboardView,
     patd_aprovar,
     patd_retornar,
+    aceitar_despacho_abertura,
     avancar_para_comandante,
     solicitar_reconsideracao,
     salvar_reconsideracao,
