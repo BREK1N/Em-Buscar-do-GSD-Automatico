@@ -66,9 +66,9 @@ from .documents import (
     extender_prazo,
     exportar_patd_docx,
     preview_patd_pdf,
+    exportar_patd_pdf,
     upload_ficha_individual,
     upload_formulario_resumo,
-
 )
 
 from .militar import (
@@ -104,4 +104,9 @@ from .patd import (
     justificar_patd,
     salvar_nova_punicao,
     preview_nova_punicao,
+    anexar_relatorio_delta_base,
+    alterar_punicao_cmd_base,
+    anexar_npd_base,
+    avancar_cmd_base,
+    confirmar_destino_apuracao,
 )

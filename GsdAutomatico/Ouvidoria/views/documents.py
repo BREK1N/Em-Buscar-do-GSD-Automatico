@@ -544,6 +544,294 @@ def preview_patd_pdf(request, pk):
     return exportar_patd_docx(request, pk)
 
 
+@login_required
+@ouvidoria_required
+def exportar_patd_pdf(request, pk):
+    """Gera PDF idêntico ao visualizador usando WeasyPrint com todas as imagens em base64."""
+    import re as _re
+    from django.conf import settings as _settings
+    from django.contrib.staticfiles import finders as _finders
+
+    patd = get_object_or_404(PATD, pk=pk)
+    document_pages_raw = get_document_pages(patd, for_docx=True)
+
+    PB = '<div class="manual-page-break"></div>'
+
+    # ── Helpers base64 ────────────────────────────────────────────────────────
+
+    def _file_to_b64(path):
+        if not path or not os.path.exists(path):
+            return None
+        ext = os.path.splitext(path)[1].lower().lstrip('.')
+        mime = {'png':'image/png','jpg':'image/jpeg','jpeg':'image/jpeg',
+                'gif':'image/gif','webp':'image/webp','bmp':'image/bmp',
+                'svg':'image/svg+xml'}.get(ext, 'image/png')
+        with open(path, 'rb') as f:
+            return f'data:{mime};base64,{base64.b64encode(f.read()).decode()}'
+
+    def _field_to_b64(field):
+        if not field or not field.name:
+            return None
+        try:
+            return _file_to_b64(field.path)
+        except Exception:
+            return None
+
+    def _media_path(media_url):
+        rel = media_url.lstrip('/')
+        media_prefix = _settings.MEDIA_URL.lstrip('/')
+        if rel.startswith(media_prefix):
+            rel = rel[len(media_prefix):]
+        return os.path.join(_settings.MEDIA_ROOT, rel)
+
+    def _static_path(src):
+        """Resolve qualquer URL /Static/... ou /static/... para path no disco."""
+        filename = src.rstrip('/').split('/')[-1].split('?')[0]
+        path = _finders.find(f'img/{filename}') or _finders.find(filename)
+        if not path:
+            for base in [_settings.STATIC_ROOT, getattr(_settings, 'STATICFILES_DIRS', [None])[0] or '']:
+                for candidate in [os.path.join(base, 'img', filename), os.path.join(base, filename)]:
+                    if os.path.exists(candidate):
+                        return candidate
+        return path
+
+    def _pdf_to_imgs(path):
+        """Converte PDF em lista de <img> base64 via fitz ajustado à página de destino."""
+        imgs = []
+        try:
+            # Dimensões de destino em pontos (1 cm = 28.346 pt)
+            dest_w_pt = _meta['w'] * 28.346
+            dest_h_pt = _meta['h'] * 28.346
+            doc = fitz.open(path)
+            for page in doc:
+                pr = page.rect
+                src_w, src_h = pr.width, pr.height
+                # Calcula escala para caber inteiro na página de destino (sem cortar)
+                scale = min(dest_w_pt / src_w, dest_h_pt / src_h) if src_w and src_h else 1.0
+                mat = fitz.Matrix(scale, scale)
+                pix = page.get_pixmap(matrix=mat, alpha=False)
+                b64 = base64.b64encode(pix.tobytes('png')).decode()
+                imgs.append(f'data:image/png;base64,{b64}')
+            doc.close()
+        except Exception as e:
+            logger.error("fitz falhou em %s: %s", path, e)
+        return imgs
+
+    # ── Assinaturas ───────────────────────────────────────────────────────────
+
+    SIG_STYLE = 'height:90px;display:block;margin:4px auto;'  # centralizado + maior
+
+    def _sig_img(field):
+        b64 = _field_to_b64(field)
+        return (f'<p style="text-align:center;margin:0;"><img src="{b64}" style="{SIG_STYLE}"/></p>'
+                if b64 else '<span style="color:#888;font-style:italic;">[Sem assinatura]</span>')
+
+    config = Configuracao.load()
+    cmd_sig_html = '<span style="color:#888;font-style:italic;">[Sem assinatura]</span>'
+    if config.comandante_gsd:
+        cmd_assinatura = getattr(config.comandante_gsd, 'assinatura', None)
+        if cmd_assinatura:
+            if isinstance(cmd_assinatura, str) and cmd_assinatura.startswith('data:'):
+                cmd_sig_html = f'<p style="text-align:center;margin:0;"><img src="{cmd_assinatura}" style="{SIG_STYLE}"/></p>'
+            elif hasattr(cmd_assinatura, 'path'):
+                b64 = _field_to_b64(cmd_assinatura)
+                if b64:
+                    cmd_sig_html = f'<p style="text-align:center;margin:0;"><img src="{b64}" style="{SIG_STYLE}"/></p>'
+
+    assinaturas_militar = patd.assinaturas_militar or []
+    mil_idx = [0]
+
+    def _mil_sig(_m):
+        i = mil_idx[0]; mil_idx[0] += 1
+        if i < len(assinaturas_militar) and assinaturas_militar[i]:
+            b64 = _file_to_b64(_media_path(assinaturas_militar[i]))
+            if b64:
+                return f'<p style="text-align:center;margin:0;"><img src="{b64}" style="{SIG_STYLE}"/></p>'
+        return '<span style="color:#888;font-style:italic;">[Sem assinatura]</span>'
+
+    _sig_cache = {
+        'defesa':      _sig_img(patd.assinatura_alegacao_defesa),
+        'recon':       _sig_img(patd.assinatura_reconsideracao),
+        'oficial':     _sig_img(patd.assinatura_oficial),
+        'test1':       _sig_img(patd.assinatura_testemunha1),
+        'test2':       _sig_img(patd.assinatura_testemunha2),
+    }
+
+    # ── Substituição universal de src (aspas simples e duplas) ───────────────
+
+    def _inline_all_srcs(html):
+        """Converte todos os src= para base64 ou fitz, independente de aspas.
+        Tags <embed>/<iframe> com PDF são substituídas inteiramente pelas imagens."""
+
+        # 1. Substitui tags <embed> e <iframe> com PDF src pela sequência de imagens
+        def _replace_embed_tag(m):
+            tag_html = m.group(0)
+            src_m = _re.search(r"""src=['"]([^'"]+)['"]""", tag_html)
+            if not src_m:
+                return ''
+            src = src_m.group(1)
+            if '/media' in src and src.lower().endswith('.pdf'):
+                path = _media_path(src)
+                if os.path.exists(path):
+                    uris = _pdf_to_imgs(path)
+                    return ''.join(
+                        f'<img src="{u}" style="width:100%;height:auto;display:block;"/>'
+                        for u in uris
+                    )
+            return ''
+
+        html = _re.sub(r'<embed\b[^>]*/?>|<iframe\b[^>]*>.*?</iframe>', _replace_embed_tag, html, flags=_re.DOTALL)
+
+        # 2. Substitui src= de imagens (aspas simples ou duplas) por base64
+        def _sub(m):
+            q   = m.group(1)
+            src = m.group(2)
+
+            if '/media' in src and not src.lower().endswith('.pdf'):
+                b64 = _file_to_b64(_media_path(src))
+                return f'src={q}{b64}{q}' if b64 else m.group(0)
+
+            if '/static' in src.lower() or '/Static' in src:
+                path = _static_path(src)
+                b64 = _file_to_b64(path) if path else None
+                return f'src={q}{b64}{q}' if b64 else m.group(0)
+
+            return m.group(0)
+
+        html = _re.sub(r"src=(['\"])([^'\"]+)\1", _sub, html)
+        return html
+
+    # ── Placeholders de texto ─────────────────────────────────────────────────
+
+    def _process_placeholders(html):
+        html = html.replace('{Assinatura Alegacao Defesa}',         _sig_cache['defesa'])
+        html = html.replace('{Assinatura Reconsideracao}',          _sig_cache['recon'])
+        html = html.replace('{Assinatura_Imagem_Oficial_Apurador}', _sig_cache['oficial'])
+        html = html.replace('{Assinatura_Imagem_Testemunha_1}',     _sig_cache['test1'])
+        html = html.replace('{Assinatura_Imagem_Testemunha_2}',     _sig_cache['test2'])
+        html = html.replace('{Assinatura_Imagem_Comandante_GSD}',   cmd_sig_html)
+        mil_idx[0] = 0
+        html = _re.sub(r'\{Assinatura Militar Arrolado\}', _mil_sig, html)
+        html = _re.sub(r'\{Botao [^}]+\}', '', html)
+        html = html.replace('{Localidade}', '')
+        html = _re.sub(r'\*\*(.*?)\*\*', r'<strong>\1</strong>', html)
+        html = _re.sub(r'<div class="page-meta"[^>]*></div>', '', html)
+        html = _re.sub(r'<p>(<br\s*\/?>|\s|&nbsp;)*</p>', '', html)
+        html = _inline_all_srcs(html)
+        return html
+
+    # ── Dimensões de página ───────────────────────────────────────────────────
+
+    _meta = {'w':21.0,'h':29.7,'top':2.5,'bot':2.5,'left':2.5,'right':2.5,
+             'font':'Times New Roman','size':12.0}
+
+    def _extract_meta(html):
+        m = _re.search(
+            r'<div class="page-meta"\s+data-width="([^"]+)"\s+data-height="([^"]+)"\s+'
+            r'data-top="([^"]+)"\s+data-bottom="([^"]+)"\s+data-left="([^"]+)"\s+'
+            r'data-right="([^"]+)"\s+data-font="([^"]+)"\s+data-fontsize="([^"]+)"', html)
+        if m:
+            _meta.update({'w':float(m.group(1)),'h':float(m.group(2)),
+                          'top':float(m.group(3)),'bot':float(m.group(4)),
+                          'left':float(m.group(5)),'right':float(m.group(6)),
+                          'font':m.group(7),'size':float(m.group(8))})
+
+    def _wrap(inner, padding=True):
+        w,h = _meta['w'],_meta['h']
+        if padding:
+            t,b,l,r = _meta['top'],_meta['bot'],_meta['left'],_meta['right']
+            pad = f'padding:{t}cm {r}cm {b}cm {l}cm;'
+            font_css = f"font-family:'{_meta['font']}',serif;font-size:{_meta['size']}pt;"
+        else:
+            pad = 'padding:0;'
+            font_css = ''
+        return (f'<div style="width:{w}cm;height:{h}cm;{pad}{font_css}'
+                f'box-sizing:border-box;overflow:hidden;page-break-after:always;">'
+                f'{inner}</div>')
+
+    # ── Placeholders de anexos ────────────────────────────────────────────────
+
+    def _make_anexo_pages(anexo):
+        ext = os.path.splitext(anexo.arquivo.name)[1].lower()
+        path = anexo.arquivo.path
+        if ext in ('.png','.jpg','.jpeg','.gif','.bmp','.webp'):
+            b64 = _file_to_b64(path)
+            # Imagem centralizada e contida na folha
+            return [f'<img src="{b64}" style="width:100%;height:100%;object-fit:contain;display:block;"/>'] if b64 else []
+        elif ext == '.pdf':
+            # _pdf_to_imgs retorna lista de data URIs
+            return [f'<img src="{uri}" style="width:100%;height:100%;object-fit:contain;display:block;"/>'
+                    for uri in _pdf_to_imgs(path)]
+        return [f'<p style="font-style:italic;">[Anexo: {os.path.basename(anexo.arquivo.name)}]</p>']
+
+    placeholder_map = {
+        '{ANEXOS_DEFESA_PLACEHOLDER}':                list(patd.anexos.filter(tipo='defesa')),
+        '{ANEXOS_RECONSIDERACAO_PLACEHOLDER}':        list(patd.anexos.filter(tipo='reconsideracao')),
+        '{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}': list(patd.anexos.filter(tipo='reconsideracao_oficial')),
+        '{FORMULARIO_RESUMO_PLACEHOLDER}':            list(patd.anexos.filter(tipo='formulario_resumo')),
+    }
+
+    # ── Montar páginas ────────────────────────────────────────────────────────
+
+    page_htmls = []
+
+    for item in document_pages_raw:
+        if item.strip() == PB:
+            continue
+
+        clean = item.strip().replace('<p>','').replace('</p>','').strip()
+        matched_key = next((k for k in placeholder_map if clean == k), None)
+        if matched_key:
+            _extract_meta(item)
+            for anexo in placeholder_map[matched_key]:
+                for pg in _make_anexo_pages(anexo):
+                    page_htmls.append(_wrap(pg, padding=False))
+            continue
+
+        _extract_meta(item)
+        for sec in item.split(PB):
+            if not sec.strip():
+                continue
+            page_htmls.append(_wrap(_process_placeholders(sec)))
+
+    css_page = f'@page{{margin:0;size:{_meta["w"]}cm {_meta["h"]}cm;}}'
+    full_html = (
+        '<!DOCTYPE html><html lang="pt-BR"><head><meta charset="UTF-8"><style>'
+        f'{css_page}'
+        'body{margin:0;padding:0;background:white;}'
+        'table{border-collapse:collapse;width:100%;}td,th{padding:2px 4px;}'
+        'img{max-width:100%;}'
+        'input,button,textarea,select{display:none!important;}'
+        '.page-number{display:none;}'
+        'a{color:inherit;text-decoration:none;}'
+        '</style></head><body>'
+        + ''.join(page_htmls)
+        + '</body></html>'
+    )
+
+    filename_base = f"PATD_{patd.numero_patd or pk}"
+
+    try:
+        from weasyprint import HTML as WeasyprintHTML
+        pdf_bytes = WeasyprintHTML(string=full_html).write_pdf()
+    except Exception as e:
+        logger.error("WeasyPrint falhou ao gerar PDF PATD %s: %s", pk, e)
+        return HttpResponse('Erro ao gerar PDF.', status=500)
+
+    response = HttpResponse(content_type='application/pdf')
+    response['Content-Disposition'] = f'attachment; filename="{filename_base}.pdf"'
+    response.write(pdf_bytes)
+    _set_download_cookie(request, response)
+    return response
+
+
+def _set_download_cookie(request, response):
+    """Seta cookie de token para o JS detectar fim do download."""
+    token = request.GET.get('download_token')
+    if token:
+        response.set_cookie('download_token', token, max_age=60, samesite='Lax')
+
+
 def exportar_patd_docx(request, pk):
 
 
@@ -924,7 +1212,7 @@ def exportar_patd_docx(request, pk):
                 src = (embed_tag or img_tag).get('src', '')
                 found_anexo = False
                 if src:
-                    for anexo in patd.anexos.filter(tipo__in=['oficio_lancamento', 'ficha_individual', 'formulario_resumo']):
+                    for anexo in patd.anexos.filter(tipo__in=['oficio_lancamento', 'ficha_individual', 'formulario_resumo', 'relatorio_delta_base', 'npd_base']):
                         if anexo.arquivo.url == src:
                             _append_anexo_content(document, anexo)
                             last_action_was_page_break = False
@@ -1027,6 +1315,7 @@ def exportar_patd_docx(request, pk):
         response['Content-Disposition'] = f'attachment; filename={filename_base}.docx'
         response.write(docx_bytes)
 
+    _set_download_cookie(request, response)
     return response
 
 

@@ -468,8 +468,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
 
         if (finalSubmitBtn) finalSubmitBtn.addEventListener('click', () => {
-            const formData = new FormData(formDefesa);
-            // Remove inputs de arquivo automáticos e adiciona os selecionados manualmente
+            const formData = new FormData();
+            const alegacaoTextarea = document.getElementById('alegacao-defesa-texto');
+            if (alegacaoTextarea) formData.append('alegacao_defesa', alegacaoTextarea.value);
             selectedFiles.forEach(f => formData.append('anexos_defesa', f));
             const url = PATD_CONFIG.urls.salvarAlegacaoDefesa;
             finalSubmitBtn.disabled = true;
@@ -699,10 +700,21 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // Retorna um array de HTMLs — um por anexo — para que cada um ocupe uma folha própria
+    // Retorna um array de HTMLs — um por folha — incluindo uma folha por página de PDFs
     function generateAnexosPages(anexos) {
         if (!anexos || anexos.length === 0) return [];
-        return anexos.map(anexo => generateEmbeddedAnexoHTML(anexo));
+        const result = [];
+        for (const anexo of anexos) {
+            if (anexo.pages && Array.isArray(anexo.pages) && anexo.pages.length > 0) {
+                // PDF pré-renderizado: cada página vira uma folha separada
+                for (const pageDataUrl of anexo.pages) {
+                    result.push(`<img src="${pageDataUrl}" style="width:100%;height:auto;display:block;" />`);
+                }
+            } else {
+                result.push(generateEmbeddedAnexoHTML(anexo));
+            }
+        }
+        return result;
     }
 
     function processPlaceholders(text) {
@@ -1767,8 +1779,39 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    alert('Apuração salva com sucesso! A página será recarregada.');
-                    window.location.reload();
+                    if (data.primeira_prisao) {
+                        // Mostra modal de confirmação do destino
+                        const modal = document.getElementById('primeira-prisao-modal');
+                        if (modal) {
+                            modal.classList.add('active');
+                            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ?
+                                document.querySelector('[name=csrfmiddlewaretoken]').value :
+                                (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
+
+                            const enviarDestino = function(cmdBase) {
+                                modal.classList.remove('active');
+                                fetch(PATD_CONFIG.urls.confirmarDestinoApuracao, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                                    body: JSON.stringify({ cmd_base: cmdBase })
+                                })
+                                .then(r => r.json())
+                                .then(d => {
+                                    if (d.status === 'success') window.location.reload();
+                                    else alert('Erro ao confirmar destino: ' + d.message);
+                                })
+                                .catch(() => alert('Erro de comunicação ao confirmar destino.'));
+                            };
+
+                            document.getElementById('btn-confirmar-cmd-base').onclick = () => enviarDestino(true);
+                            document.getElementById('btn-confirmar-fluxo-normal').onclick = () => enviarDestino(false);
+                        } else {
+                            window.location.reload();
+                        }
+                    } else {
+                        alert('Apuração salva com sucesso! A página será recarregada.');
+                        window.location.reload();
+                    }
                 } else {
                     alert('Erro ao salvar apuração: ' + data.message);
                     if(btnSpinner) btnSpinner.style.display = 'none';

@@ -45,6 +45,11 @@ urlpatterns = [
     path('patd/<int:pk>/aceitar_atribuicao_patd/', views.aceitar_atribuicao_patd, name='aceitar_atribuicao_patd'),
     path('patd/<int:pk>/salvar_nova_punicao/', views.salvar_nova_punicao, name='salvar_nova_punicao'),
     path('patd/<int:pk>/preview_nova_punicao/', views.preview_nova_punicao, name='preview_nova_punicao'),
+    path('patd/<int:pk>/anexar_relatorio_delta_base/', views.anexar_relatorio_delta_base, name='anexar_relatorio_delta_base'),
+    path('patd/<int:pk>/alterar_punicao_cmd_base/', views.alterar_punicao_cmd_base, name='alterar_punicao_cmd_base'),
+    path('patd/<int:pk>/anexar_npd_base/', views.anexar_npd_base, name='anexar_npd_base'),
+    path('patd/<int:pk>/avancar_cmd_base/', views.avancar_cmd_base, name='avancar_cmd_base'),
+    path('patd/<int:pk>/confirmar_destino_apuracao/', views.confirmar_destino_apuracao, name='confirmar_destino_apuracao'),
 
     path('patds/<int:pk>/regenerar-ocorrencia/', views.regenerar_ocorrencia, name='regenerar_ocorrencia'),
     path('patds/<int:pk>/regenerar-resumo-defesa/', views.regenerar_resumo_defesa, name='regenerar_resumo_defesa'),
@@ -53,6 +58,7 @@ urlpatterns = [
 
     path('patd/<int:pk>/exportar-docx/', views.exportar_patd_docx, name='exportar_patd_docx'),
     path('patd/<int:pk>/preview-pdf/', views.preview_patd_pdf, name='preview_patd_pdf'),
+    path('patd/<int:pk>/exportar-pdf/', views.exportar_patd_pdf, name='exportar_patd_pdf'),
     path('patd/<int:pk>/upload_ficha_individual/', views.upload_ficha_individual, name='upload_ficha_individual'),
     path('patd/<int:pk>/upload_formulario_resumo/', views.upload_formulario_resumo, name='upload_formulario_resumo'),
 

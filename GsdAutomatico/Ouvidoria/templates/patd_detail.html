@@ -521,12 +521,12 @@
         </button>
         {% endif %}
 
-        <a href="{% url 'Ouvidoria:exportar_patd_docx' patd.pk %}" class="btn btn-secondary">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 18px; height: 18px;">
+        <button type="button" class="btn btn-secondary" id="btn-abrir-exportar-modal">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:18px;height:18px;">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" />
             </svg>
-            Exportar DOCX
-        </a>
+            Exportar
+        </button>
 
         {% if user.is_superuser %}
         <button type="button" class="btn btn-secondary" onclick="window.location.reload(true)" title="Força recarregamento do documento sem cache">
@@ -561,15 +561,15 @@
         <div class="status-dot"></div>
         <div class="status-label">Abertura</div>
     </li>
-    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_nova_punicao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,aplicacao_punicao_cmd_base,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_nova_punicao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Defesa</div>
     </li>
-    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_nova_punicao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,aplicacao_punicao_cmd_base,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_nova_punicao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Apuração</div>
     </li>
-    <li class="status-step {% if current_status in 'analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
+    <li class="status-step {% if current_status in 'aplicacao_punicao_cmd_base,analise_comandante,aguardando_assinatura_npd,periodo_reconsideracao,em_reconsideracao,aguardando_comandante_base,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %} {% if current_status not in 'definicao_oficial,aguardando_aprovacao_atribuicao,ciencia_militar,aguardando_justificativa,prazo_expirado,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Decisão GSD</div>
     </li>
@@ -719,6 +719,32 @@
                 {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
                     {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel %}
                     <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
+                    {% endif %}
+                {% endif %}
+                {% if patd.status == 'aplicacao_punicao_cmd_base' %}
+                    {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel %}
+                    <button type="button" class="btn btn-primary" id="btn-alterar-punicao-cmd-base">Alterar Punição</button>
+                    <label class="btn btn-success" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Substitui a última página do Relatório Delta Base">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                        Relatório Delta Base
+                        <input type="file" id="input-relatorio-delta-base" accept=".pdf,.doc,.docx" style="display:none;">
+                    </label>
+                    {% if relatorio_delta_base_anexo %}
+                    <span style="font-size:0.85rem;color:var(--accent-color);margin-left:2px;" title="Documento anexado">✓</span>
+                    {% endif %}
+                    <label class="btn btn-info" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Substitui a 1ª página do MODELO_NPD_BASE">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                        Nota de Punição Disciplinar
+                        <input type="file" id="input-npd-base" accept=".pdf,.doc,.docx" style="display:none;">
+                    </label>
+                    {% if npd_base_anexo %}
+                    <span style="font-size:0.85rem;color:var(--accent-color);margin-left:2px;" title="Documento anexado">✓</span>
+                    {% endif %}
+                    <button type="button" class="btn btn-success" id="btn-avancar-cmd-base"
+                        {% if not relatorio_delta_base_anexo or not npd_base_anexo %}disabled title="Anexe os dois documentos para avançar"{% endif %}
+                        style="{% if not relatorio_delta_base_anexo or not npd_base_anexo %}opacity:0.5;cursor:not-allowed;{% endif %}">
+                        Avançar
+                    </button>
                     {% endif %}
                 {% endif %}
                 {% if patd.status == 'periodo_reconsideracao' %}
@@ -1312,6 +1338,50 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="exportar-modal">
+    <div class="modal-content" style="max-width:420px;width:95%;text-align:center;">
+        <h3 style="margin-bottom:8px;">Exportar Documento</h3>
+        <p style="color:var(--text-secondary);margin-bottom:24px;font-size:.92rem;">Escolha o formato de exportação</p>
+
+        <div style="display:flex;gap:16px;justify-content:center;margin-bottom:20px;">
+            <button type="button" id="btn-exportar-docx" class="btn btn-secondary" style="flex:1;padding:18px 12px;flex-direction:column;gap:8px;display:flex;align-items:center;justify-content:center;border-radius:12px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:32px;height:32px;color:var(--accent-color);">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                <span style="font-size:.9rem;font-weight:600;">DOCX</span>
+                <span style="font-size:.78rem;color:var(--text-secondary);">Word editável</span>
+            </button>
+            <button type="button" id="btn-exportar-pdf" class="btn btn-secondary" style="flex:1;padding:18px 12px;flex-direction:column;gap:8px;display:flex;align-items:center;justify-content:center;border-radius:12px;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:32px;height:32px;color:#e74c3c;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" />
+                </svg>
+                <span style="font-size:.9rem;font-weight:600;">PDF</span>
+                <span style="font-size:.78rem;color:var(--text-secondary);">Idêntico ao visualizador</span>
+            </button>
+        </div>
+
+        <button type="button" class="btn btn-secondary" id="btn-fechar-exportar-modal" style="width:100%;">Cancelar</button>
+
+        <!-- Estado de carregamento -->
+        <div id="exportar-loading" style="display:none;margin-top:20px;">
+            <div style="display:flex;align-items:center;justify-content:center;gap:12px;color:var(--text-secondary);">
+                <svg style="width:24px;height:24px;animation:spin 1s linear infinite;" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                    <circle style="opacity:.25" cx="12" cy="12" r="10" stroke="currentColor" stroke-width="4"></circle>
+                    <path style="opacity:.75" fill="currentColor" d="M4 12a8 8 0 018-8v4l3-3-3-3v4a8 8 0 00-8 8h4z"></path>
+                </svg>
+                <span id="exportar-loading-text">Gerando documento…</span>
+            </div>
+            <p style="font-size:.78rem;color:var(--text-secondary);margin-top:8px;">
+                Isso pode levar alguns segundos. O download iniciará automaticamente.
+            </p>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+</style>
+
 <div class="modal-overlay" id="delete-modal">
     <div class="modal-content">
         <h3>Mover para a Lixeira</h3>
@@ -1568,6 +1638,46 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="primeira-prisao-modal">
+    <div class="modal-content" style="max-width:480px;width:95%;text-align:center;">
+        <h3 style="margin-bottom:12px;">⚠️ Primeira Prisão Disciplinar</h3>
+        <p style="margin-bottom:20px;color:var(--text-secondary);">
+            Foi verificado que esta é a <strong>primeira prisão disciplinar</strong> do militar.<br>
+            Deseja encaminhar o processo para o <strong>CMD da Base</strong>?
+        </p>
+        <div style="display:flex;gap:12px;justify-content:center;">
+            <button type="button" class="btn btn-primary" id="btn-confirmar-cmd-base">Sim, encaminhar ao CMD da Base</button>
+            <button type="button" class="btn btn-secondary" id="btn-confirmar-fluxo-normal">Não, fluxo normal</button>
+        </div>
+    </div>
+</div>
+
+<div class="modal-overlay" id="alterar-punicao-cmd-base-modal">
+    <div class="modal-content" style="max-width:500px;width:95%;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h3 style="margin:0;font-size:1.1rem;">Alterar Punição – CMD da Base</h3>
+            <button type="button" id="close-alterar-punicao-cmd-base-btn" style="background:none;border:none;font-size:1.4rem;cursor:pointer;color:var(--text-secondary);line-height:1;" title="Fechar">×</button>
+        </div>
+        <div class="form-item" style="margin-bottom:14px;">
+            <label style="font-weight:600;font-size:.85rem;color:var(--text-secondary);display:block;margin-bottom:6px;">Tipo de Punição</label>
+            <select id="alterar-punicao-tipo" style="width:100%;padding:9px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--sidebar-bg);color:var(--text-primary);font-size:.95rem;">
+                <option value="detenção">Detenção</option>
+                <option value="prisão">Prisão</option>
+                <option value="repreensão por escrito">Repreensão por Escrito</option>
+                <option value="repreensão verbal">Repreensão Verbal</option>
+            </select>
+        </div>
+        <div class="form-item" style="margin-bottom:18px;" id="alterar-punicao-dias-row">
+            <label style="font-weight:600;font-size:.85rem;color:var(--text-secondary);display:block;margin-bottom:6px;">Número de Dias</label>
+            <input type="number" id="alterar-punicao-dias" min="1" max="30" style="width:100%;padding:9px 12px;border:1px solid var(--border-color);border-radius:8px;background:var(--sidebar-bg);color:var(--text-primary);font-size:.95rem;" placeholder="Ex: 5">
+        </div>
+        <div style="border-top:1px solid var(--border-color);padding-top:14px;display:flex;justify-content:flex-end;gap:10px;">
+            <button type="button" class="btn btn-secondary" id="cancel-alterar-punicao-cmd-base-btn">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="submit-alterar-punicao-cmd-base-btn">Salvar</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1626,6 +1736,11 @@ const PATD_CONFIG = {
         justificarPatd:               "{% url 'Ouvidoria:justificar_patd' patd.pk %}",
         salvarNovaPunicao:            "{% url 'Ouvidoria:salvar_nova_punicao' patd.pk %}",
         previewNovaPunicao:           "{% url 'Ouvidoria:preview_nova_punicao' patd.pk %}",
+        anexarRelatorioDeltaBase:     "{% url 'Ouvidoria:anexar_relatorio_delta_base' patd.pk %}",
+        alterarPunicaoCmdBase:        "{% url 'Ouvidoria:alterar_punicao_cmd_base' patd.pk %}",
+        anexarNpdBase:                "{% url 'Ouvidoria:anexar_npd_base' patd.pk %}",
+        avancarCmdBase:               "{% url 'Ouvidoria:avancar_cmd_base' patd.pk %}",
+        confirmarDestinoApuracao:     "{% url 'Ouvidoria:confirmar_destino_apuracao' patd.pk %}",
         analisarPunicao:              "{% url 'Ouvidoria:analisar_punicao' patd.pk %}",
         salvarApuracao:               "{% url 'Ouvidoria:salvar_apuracao' patd.pk %}",
         solicitarReconsideracao:      "{% url 'Ouvidoria:solicitar_reconsideracao' patd.pk %}",
@@ -1636,6 +1751,234 @@ const PATD_CONFIG = {
 <script src="{% static 'Ouvidoria/js/patd_detail.js' %}"></script>
 
 <script>
+
+// Modal de Exportação
+(function () {
+    const modal       = document.getElementById('exportar-modal');
+    const btnAbrir    = document.getElementById('btn-abrir-exportar-modal');
+    const btnFechar   = document.getElementById('btn-fechar-exportar-modal');
+    const btnDocx     = document.getElementById('btn-exportar-docx');
+    const btnPdf      = document.getElementById('btn-exportar-pdf');
+    const loading     = document.getElementById('exportar-loading');
+    const loadingText = document.getElementById('exportar-loading-text');
+
+    if (!modal || !btnAbrir) return;
+
+    const urlDocx = "{% url 'Ouvidoria:exportar_patd_docx' patd.pk %}";
+    const urlPdf  = "{% url 'Ouvidoria:exportar_patd_pdf' patd.pk %}";
+
+    btnAbrir.addEventListener('click', () => modal.classList.add('active'));
+    btnFechar.addEventListener('click', fechar);
+    modal.addEventListener('click', e => { if (e.target === modal) fechar(); });
+
+    function fechar() {
+        if (loading.style.display !== 'none') return; // não fechar durante download
+        modal.classList.remove('active');
+    }
+
+    function getCookie(name) {
+        const match = document.cookie.match(new RegExp('(?:^|; )' + name + '=([^;]*)'));
+        return match ? decodeURIComponent(match[1]) : null;
+    }
+
+    function deleteCookie(name) {
+        document.cookie = name + '=;expires=Thu, 01 Jan 1970 00:00:00 GMT;path=/';
+    }
+
+    function restaurarModal() {
+        loading.style.display   = 'none';
+        btnDocx.style.display   = '';
+        btnPdf.style.display    = '';
+        btnFechar.style.display = '';
+        modal.classList.remove('active');
+    }
+
+    function iniciarExport(url, formato) {
+        // Gera token único para detectar fim do download
+        const token = Date.now().toString(36) + Math.random().toString(36).slice(2);
+        deleteCookie('download_token');
+
+        // Mostra animação
+        btnDocx.style.display   = 'none';
+        btnPdf.style.display    = 'none';
+        btnFechar.style.display = 'none';
+        loadingText.textContent = `Gerando ${formato}… Por favor aguarde.`;
+        loading.style.display   = 'block';
+
+        // Dispara download via link oculto com token na query string
+        const a = document.createElement('a');
+        a.style.display = 'none';
+        a.href = url + (url.includes('?') ? '&' : '?') + 'download_token=' + token;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+
+        // Polling: verifica cookie a cada 500ms (timeout 90s)
+        let elapsed = 0;
+        const interval = setInterval(() => {
+            elapsed += 500;
+            if (getCookie('download_token') === token) {
+                clearInterval(interval);
+                deleteCookie('download_token');
+                setTimeout(restaurarModal, 400);
+            } else if (elapsed >= 90000) {
+                clearInterval(interval);
+                restaurarModal();
+            }
+        }, 500);
+    }
+
+    btnDocx.addEventListener('click', () => iniciarExport(urlDocx, 'DOCX'));
+    btnPdf.addEventListener('click',  () => iniciarExport(urlPdf,  'PDF'));
+})();
+
+// CMD da Base – Anexar documentos e botão Avançar
+(function () {
+    const inputDelta = document.getElementById('input-relatorio-delta-base');
+    const inputNpd   = document.getElementById('input-npd-base');
+    const btnAvancar = document.getElementById('btn-avancar-cmd-base');
+    if (!inputDelta && !inputNpd) return;
+
+    const csrfToken = '{{ csrf_token }}';
+    let temDelta = {% if relatorio_delta_base_anexo %}true{% else %}false{% endif %};
+    let temNpd   = {% if npd_base_anexo %}true{% else %}false{% endif %};
+
+    function atualizarBotao() {
+        if (!btnAvancar) return;
+        const pode = temDelta && temNpd;
+        btnAvancar.disabled = !pode;
+        btnAvancar.style.opacity = pode ? '1' : '0.5';
+        btnAvancar.style.cursor  = pode ? 'pointer' : 'not-allowed';
+        btnAvancar.title = pode ? 'Avançar para Período de Reconsideração' : 'Anexe os dois documentos para avançar';
+    }
+
+    function uploadAnexo(input, fieldName, url, onSuccess) {
+        input.addEventListener('change', function () {
+            if (!input.files || !input.files.length) return;
+            const fd = new FormData();
+            fd.append(fieldName, input.files[0]);
+            fd.append('csrfmiddlewaretoken', csrfToken);
+            fetch(url, { method: 'POST', body: fd })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') {
+                        onSuccess(data);
+                    } else {
+                        alert('Erro: ' + (data.message || 'Ocorreu um erro.'));
+                    }
+                })
+                .catch(() => alert('Erro de comunicação com o servidor.'));
+        });
+    }
+
+    if (inputDelta) {
+        uploadAnexo(inputDelta, 'relatorio_delta_base', PATD_CONFIG.urls.anexarRelatorioDeltaBase, function (data) {
+            temDelta = true;
+            atualizarBotao();
+            // Mostra indicador ✓ ao lado do botão
+            const lbl = inputDelta.closest('label');
+            if (lbl) {
+                let ok = lbl.nextElementSibling;
+                if (!ok || ok.tagName !== 'SPAN') {
+                    ok = document.createElement('span');
+                    ok.style.cssText = 'font-size:0.85rem;color:var(--accent-color);margin-left:2px;';
+                    ok.title = 'Documento anexado';
+                    ok.textContent = '✓';
+                    lbl.parentNode.insertBefore(ok, lbl.nextSibling);
+                }
+                ok.style.display = '';
+            }
+        });
+    }
+
+    if (inputNpd) {
+        uploadAnexo(inputNpd, 'npd_base', PATD_CONFIG.urls.anexarNpdBase, function (data) {
+            temNpd = true;
+            atualizarBotao();
+            const lbl = inputNpd.closest('label');
+            if (lbl) {
+                let ok = lbl.nextElementSibling;
+                if (!ok || ok.tagName !== 'SPAN') {
+                    ok = document.createElement('span');
+                    ok.style.cssText = 'font-size:0.85rem;color:var(--accent-color);margin-left:2px;';
+                    ok.title = 'Documento anexado';
+                    ok.textContent = '✓';
+                    lbl.parentNode.insertBefore(ok, lbl.nextSibling);
+                }
+                ok.style.display = '';
+            }
+        });
+    }
+
+    if (btnAvancar) {
+        btnAvancar.addEventListener('click', function () {
+            if (!temDelta || !temNpd) return;
+            fetch(PATD_CONFIG.urls.avancarCmdBase, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken },
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    location.reload();
+                } else {
+                    alert('Erro: ' + (data.message || 'Ocorreu um erro.'));
+                }
+            })
+            .catch(() => alert('Erro de comunicação com o servidor.'));
+        });
+    }
+})();
+
+// Alterar Punição CMD da Base – modal
+(function () {
+    const btnAbrir  = document.getElementById('btn-alterar-punicao-cmd-base');
+    const modal     = document.getElementById('alterar-punicao-cmd-base-modal');
+    if (!btnAbrir || !modal) return;
+    const csrfToken = '{{ csrf_token }}';
+
+    const btnFechar  = document.getElementById('close-alterar-punicao-cmd-base-btn');
+    const btnCancel  = document.getElementById('cancel-alterar-punicao-cmd-base-btn');
+    const btnSalvar  = document.getElementById('submit-alterar-punicao-cmd-base-btn');
+    const selTipo    = document.getElementById('alterar-punicao-tipo');
+    const inpDias    = document.getElementById('alterar-punicao-dias');
+    const rowDias    = document.getElementById('alterar-punicao-dias-row');
+
+    function fechar() { modal.style.display = 'none'; }
+    btnAbrir.addEventListener('click', () => { modal.style.display = 'flex'; });
+    btnFechar.addEventListener('click', fechar);
+    btnCancel.addEventListener('click', fechar);
+
+    selTipo.addEventListener('change', function () {
+        const semDias = ['repreensão por escrito', 'repreensão verbal'];
+        rowDias.style.display = semDias.includes(this.value) ? 'none' : '';
+    });
+
+    btnSalvar.addEventListener('click', function () {
+        const tipo = selTipo.value;
+        const dias = parseInt(inpDias.value, 10) || 0;
+        const semDias = ['repreensão por escrito', 'repreensão verbal'];
+        if (!semDias.includes(tipo) && dias < 1) {
+            alert('Informe o número de dias.');
+            return;
+        }
+        fetch(PATD_CONFIG.urls.alterarPunicaoCmdBase, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+            body: JSON.stringify({ punicao_tipo: tipo, punicao_dias: dias })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.status === 'success') {
+                alert('Punição alterada com sucesso!');
+                location.reload();
+            } else {
+                alert('Erro: ' + (data.message || 'Ocorreu um erro.'));
+            }
+        })
+        .catch(() => alert('Erro de comunicação com o servidor.'));
+    });
+})();
 
 // Ficha individual file preview
 (function () {

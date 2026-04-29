@@ -687,6 +687,10 @@ class PATDDetailView(DetailView):
                     'urgente': False,
                 })
 
+        # Status CMD da Base: sem assinaturas pendentes no sistema (documento é externo)
+        if s == 'aplicacao_punicao_cmd_base':
+            pass  # Documento gerado externamente; assinaturas não são rastreadas aqui
+
         # Aguardando punição: apenas assinatura do oficial pendente (testemunhas e militar assinam após retorno do comandante)
         if s in ('aguardando_punicao', 'aguardando_punicao_alterar'):
             if not patd.assinatura_oficial:
@@ -762,27 +766,37 @@ class PATDDetailView(DetailView):
         # --- INÍCIO DA MODIFICAÇÃO AQUI ---
         # Não vamos mais extrair o HTML, apenas passar os metadados do arquivo.
         
-        anexos_defesa = patd.anexos.filter(tipo='defesa')
-        anexos_defesa_data = []
-        for a in anexos_defesa:
-            anexos_defesa_data.append({
+        def _build_anexo_entry(a):
+            """Monta dict de metadados de um anexo. PDFs incluem lista de páginas renderizadas."""
+            import base64 as _b64
+            ext = os.path.splitext(a.arquivo.name)[1].lower().replace('.', '')
+            entry = {
                 'id': a.id,
                 'nome': os.path.basename(a.arquivo.name),
                 'url': a.arquivo.url,
-                'tipo_arquivo': os.path.splitext(a.arquivo.name)[1].lower().replace('.', '')
-            })
-        context['anexos_defesa_json'] = json.dumps(anexos_defesa_data)
+                'tipo_arquivo': ext,
+            }
+            if ext == 'pdf':
+                try:
+                    import fitz
+                    doc = fitz.open(a.arquivo.path)
+                    mat = fitz.Matrix(1.5, 1.5)  # ~108 DPI — boa qualidade sem pesar muito
+                    pages = []
+                    for page in doc:
+                        pix = page.get_pixmap(matrix=mat, alpha=False)
+                        b64 = _b64.b64encode(pix.tobytes('png')).decode()
+                        pages.append(f'data:image/png;base64,{b64}')
+                    doc.close()
+                    entry['pages'] = pages
+                except Exception as _e:
+                    logger.warning("Não foi possível renderizar PDF %s: %s", a.arquivo.name, _e)
+            return entry
+
+        anexos_defesa = patd.anexos.filter(tipo='defesa')
+        context['anexos_defesa_json'] = json.dumps([_build_anexo_entry(a) for a in anexos_defesa])
 
         anexos_reconsideracao = patd.anexos.filter(tipo='reconsideracao')
-        anexos_reconsideracao_data = []
-        for a in anexos_reconsideracao:
-            anexos_reconsideracao_data.append({
-                'id': a.id,
-                'nome': os.path.basename(a.arquivo.name),
-                'url': a.arquivo.url,
-                'tipo_arquivo': os.path.splitext(a.arquivo.name)[1].lower().replace('.', '')
-            })
-        context['anexos_reconsideracao_json'] = json.dumps(anexos_reconsideracao_data)
+        context['anexos_reconsideracao_json'] = json.dumps([_build_anexo_entry(a) for a in anexos_reconsideracao])
 
         ficha_individual_anexo = patd.anexos.filter(tipo='ficha_individual').first()
         context['ficha_individual_anexo'] = ficha_individual_anexo
@@ -790,26 +804,19 @@ class PATDDetailView(DetailView):
         formulario_resumo_anexo = patd.anexos.filter(tipo='formulario_resumo').first()
         context['formulario_resumo_anexo'] = formulario_resumo_anexo
         if formulario_resumo_anexo:
-            context['formulario_resumo_json'] = json.dumps({
-                'id': formulario_resumo_anexo.id,
-                'nome': os.path.basename(formulario_resumo_anexo.arquivo.name),
-                'url': formulario_resumo_anexo.arquivo.url,
-                'tipo_arquivo': os.path.splitext(formulario_resumo_anexo.arquivo.name)[1].lower().replace('.', '')
-            })
+            context['formulario_resumo_json'] = json.dumps(_build_anexo_entry(formulario_resumo_anexo))
         else:
             context['formulario_resumo_json'] = 'null'
 
         anexos_reconsideracao_oficial = patd.anexos.filter(tipo='reconsideracao_oficial')
-        anexos_reconsideracao_oficial_data = []
-        for a in anexos_reconsideracao_oficial:
-            anexos_reconsideracao_oficial_data.append({
-                'id': a.id,
-                'nome': os.path.basename(a.arquivo.name),
-                'url': a.arquivo.url,
-                'tipo_arquivo': os.path.splitext(a.arquivo.name)[1].lower().replace('.', '')
-            })
-        context['anexos_reconsideracao_oficial_json'] = json.dumps(anexos_reconsideracao_oficial_data)
-        
+        context['anexos_reconsideracao_oficial_json'] = json.dumps([_build_anexo_entry(a) for a in anexos_reconsideracao_oficial])
+
+        relatorio_delta_base_anexo = patd.anexos.filter(tipo='relatorio_delta_base').first()
+        context['relatorio_delta_base_anexo'] = relatorio_delta_base_anexo
+
+        npd_base_anexo = patd.anexos.filter(tipo='npd_base').first()
+        context['npd_base_anexo'] = npd_base_anexo
+
         # --- FIM DA MODIFICAÇÃO ---
 
         return context
@@ -1431,3 +1438,138 @@ def aceitar_atribuicao_patd(request, pk):
         return JsonResponse({'status': 'success', 'message': 'Atribuição recusada.'})
 
     return JsonResponse({'status': 'error', 'message': 'Ação inválida.'}, status=400)
+
+
+@login_required
+@ouvidoria_required
+@require_POST
+def anexar_relatorio_delta_base(request, pk):
+    """Recebe a última página do RELATORIO_DELTA_BASE assinada pelo CMD da Base (sem avançar status)."""
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        if patd.status != 'aplicacao_punicao_cmd_base':
+            return JsonResponse({'status': 'error', 'message': 'Ação não permitida no status atual.'}, status=403)
+
+        anexo_file = request.FILES.get('relatorio_delta_base')
+        if not anexo_file:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum arquivo foi enviado.'}, status=400)
+
+        patd.anexos.filter(tipo='relatorio_delta_base').delete()
+        Anexo.objects.create(patd=patd, arquivo=anexo_file, tipo='relatorio_delta_base')
+
+        tem_npd_base = patd.anexos.filter(tipo='npd_base').exists()
+        return JsonResponse({'status': 'success', 'message': 'Documento anexado.', 'pode_avancar': tem_npd_base})
+    except Exception as e:
+        logger.error(f"Erro ao anexar RELATORIO_DELTA_BASE para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': f'Ocorreu um erro: {e}'}, status=500)
+
+
+@login_required
+@ouvidoria_required
+@require_POST
+def avancar_cmd_base(request, pk):
+    """Avança de aplicacao_punicao_cmd_base para periodo_reconsideracao após ambos os anexos estarem presentes."""
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        if patd.status != 'aplicacao_punicao_cmd_base':
+            return JsonResponse({'status': 'error', 'message': 'Ação não permitida no status atual.'}, status=403)
+
+        tem_relatorio = patd.anexos.filter(tipo='relatorio_delta_base').exists()
+        tem_npd = patd.anexos.filter(tipo='npd_base').exists()
+        if not tem_relatorio or not tem_npd:
+            faltam = []
+            if not tem_relatorio:
+                faltam.append('Relatório Delta Base')
+            if not tem_npd:
+                faltam.append('Nota de Punição Disciplinar')
+            return JsonResponse({'status': 'error', 'message': f'Falta(m) o(s) documento(s): {", ".join(faltam)}.'}, status=400)
+
+        patd.status = 'periodo_reconsideracao'
+        patd.save(update_fields=['status'])
+        return JsonResponse({'status': 'success', 'message': 'Processo avançado para Período de Reconsideração.'})
+    except Exception as e:
+        logger.error(f"Erro ao avançar CMD Base para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': f'Ocorreu um erro: {e}'}, status=500)
+
+
+@login_required
+@oficial_responsavel_required
+@require_POST
+def confirmar_destino_apuracao(request, pk):
+    """Define o status após salvar a apuração quando é a primeira prisão disciplinar."""
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        data = json.loads(request.body)
+        cmd_base = data.get('cmd_base', False)
+
+        if cmd_base:
+            patd.status = 'aplicacao_punicao_cmd_base'
+        else:
+            patd.status = 'aguardando_punicao'
+
+        patd.save(update_fields=['status'])
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Erro ao confirmar destino apuração PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': str(e)}, status=500)
+
+
+@login_required
+@ouvidoria_required
+@require_POST
+def anexar_npd_base(request, pk):
+    """Recebe a NPD assinada pelo CMD da Base; substitui a 1ª página do MODELO_NPD_BASE."""
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        if patd.status != 'aplicacao_punicao_cmd_base':
+            return JsonResponse({'status': 'error', 'message': 'Ação não permitida no status atual.'}, status=403)
+
+        arquivo = request.FILES.get('npd_base')
+        if not arquivo:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum arquivo foi enviado.'}, status=400)
+
+        patd.anexos.filter(tipo='npd_base').delete()
+        Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='npd_base')
+
+        return JsonResponse({'status': 'success', 'message': 'NPD anexada com sucesso!'})
+    except Exception as e:
+        logger.error(f"Erro ao anexar NPD Base para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': f'Ocorreu um erro: {e}'}, status=500)
+
+
+@login_required
+@ouvidoria_required
+@require_POST
+def alterar_punicao_cmd_base(request, pk):
+    """Permite alterar a punição durante o status aplicacao_punicao_cmd_base."""
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+        if patd.status != 'aplicacao_punicao_cmd_base':
+            return JsonResponse({'status': 'error', 'message': 'Ação não permitida no status atual.'}, status=403)
+
+        data = json.loads(request.body)
+        punicao_tipo_str = (data.get('punicao_tipo') or '').strip()
+        dias_num_int = data.get('punicao_dias')
+
+        if not punicao_tipo_str:
+            return JsonResponse({'status': 'error', 'message': 'Tipo de punição obrigatório.'}, status=400)
+
+        if punicao_tipo_str in ['repreensão por escrito', 'repreensão verbal']:
+            patd.dias_punicao = ''
+            patd.punicao = punicao_tipo_str
+        elif dias_num_int and int(dias_num_int) > 0:
+            dias_texto = num2words(int(dias_num_int), lang='pt_BR')
+            patd.dias_punicao = f"{dias_texto} ({int(dias_num_int):02d}) dias"
+            patd.punicao = punicao_tipo_str
+        else:
+            patd.punicao = punicao_tipo_str
+            patd.dias_punicao = ''
+
+        patd.definir_natureza_transgressao()
+        patd.calcular_e_atualizar_comportamento()
+        patd.save(update_fields=['punicao', 'dias_punicao', 'natureza_transgressao', 'comportamento'])
+
+        return JsonResponse({'status': 'success', 'message': 'Punição alterada com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao alterar punição CMD base para PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
