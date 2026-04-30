@@ -29,6 +29,7 @@ from Secao_pessoal.models import Efetivo
 from Secao_pessoal.utils import get_rank_value, RANK_HIERARCHY
 from .decorators import (
     comandante_redirect, ouvidoria_required, OuvidoriaAccessMixin, oficial_responsavel_required,
+    finalizar_ouvidoria_required,
 )
 from .helpers import (
     get_next_patd_number, format_militar_string, buscar_militar_inteligente,
@@ -1288,7 +1289,7 @@ def lixeira_config(request):
 
 
 @login_required
-@ouvidoria_required
+@finalizar_ouvidoria_required
 @require_POST
 def finalizar_patd_completa(request, pk):
     try:

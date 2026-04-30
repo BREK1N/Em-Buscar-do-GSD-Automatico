@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
 
 from ..models import PATD
-from ..permissions import has_comandante_access, has_ouvidoria_access
+from ..permissions import has_comandante_access, has_ouvidoria_access, can_finalizar_ouvidoria
 
 logger = logging.getLogger(__name__)
 
@@ -59,3 +59,4 @@ class ComandanteAccessMixin(UserPassesTestMixin):
 
 ouvidoria_required = user_passes_test(has_ouvidoria_access)
 comandante_required = user_passes_test(has_comandante_access)
+finalizar_ouvidoria_required = user_passes_test(can_finalizar_ouvidoria)

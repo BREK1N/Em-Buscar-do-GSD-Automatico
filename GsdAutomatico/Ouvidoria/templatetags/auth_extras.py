@@ -38,6 +38,11 @@ def can_change_patd_date_filter(user):
     """Verifica se o usuário pode alterar a data da PATD."""
     return permissions.can_change_patd_date(user)
 
+@register.filter(name='can_finalizar_ouvidoria')
+def can_finalizar_ouvidoria_filter(user):
+    """Verifica se o usuário pode usar o botão Finalizar(Ouvidoria) — apenas ADJUNTO e Chefe."""
+    return permissions.can_finalizar_ouvidoria(user)
+
 @register.filter(name='abs_value')
 def abs_value(value):
     """Retorna o valor absoluto de um número."""

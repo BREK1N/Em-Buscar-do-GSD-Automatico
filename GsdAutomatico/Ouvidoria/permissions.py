@@ -73,6 +73,17 @@ def can_edit_transgressao(user):
         return True
     return user.groups.filter(name__in=[OUVIDORIA_ADJUNTO, OUVIDORIA_CHEFE]).exists()
 
+def can_finalizar_ouvidoria(user):
+    """
+    Verifica se o usuário pode usar o botão Finalizar(Ouvidoria) na PATD.
+    Apenas ADJUNTO e Chefe da Ouvidoria (e superuser).
+    """
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name__in=[OUVIDORIA_ADJUNTO, OUVIDORIA_CHEFE]).exists()
+
 def can_change_patd_date(user):
     """
     Checks if the user has permission to change the PATD date.
