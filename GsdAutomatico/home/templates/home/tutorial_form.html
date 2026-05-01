@@ -1,0 +1,378 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ action }} Tutorial — Portal GSD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <style>
+        :root {
+            --accent:         #3b82f6;
+            --accent-hover:   #1d4ed8;
+            --bg-page:        #f0f4f8;
+            --bg-card:        #ffffff;
+            --border:         rgba(0,0,0,0.07);
+            --border-strong:  rgba(0,0,0,0.13);
+            --divider:        rgba(0,0,0,0.06);
+            --text-primary:   #0f172a;
+            --text-secondary: #64748b;
+            --shadow-card:    0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --font-display:   'Rajdhani', system-ui, sans-serif;
+            --font-body:      'Inter', system-ui, sans-serif;
+        }
+        body.dark-theme {
+            --bg-page:        #0d1117;
+            --bg-card:        #161b22;
+            --border:         rgba(255,255,255,0.06);
+            --border-strong:  rgba(255,255,255,0.11);
+            --divider:        rgba(255,255,255,0.06);
+            --text-primary:   #e6edf3;
+            --text-secondary: #8b949e;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg-page); color: var(--text-primary); font-family: var(--font-body); }
+
+        .ph-back-bar {
+            background: #0f172a; border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 0 32px; height: 52px; display: flex; align-items: center; gap: 16px;
+        }
+        .ph-back {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 13px;
+            color: rgba(255,255,255,0.7); text-decoration: none; font-weight: 500; transition: color 0.15s;
+        }
+        .ph-back:hover { color: #fff; }
+        .ph-back svg { width: 15px; height: 15px; }
+        .ph-back-title {
+            font-family: var(--font-display); font-size: 13px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.6);
+        }
+
+        .ph-page { max-width: 860px; margin: 32px auto; padding: 0 20px 80px; }
+
+        .ph-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; box-shadow: var(--shadow-card); overflow: hidden;
+        }
+        .ph-card-head { padding: 20px 24px; border-bottom: 1px solid var(--divider); }
+        .ph-card-head h1 { font-size: 20px; font-weight: 700; margin: 0; }
+        .ph-card-body { padding: 24px; }
+
+        .ph-field { margin-bottom: 18px; }
+        .ph-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+        .ph-input {
+            width: 100%; padding: 9px 13px; border: 1px solid var(--border-strong);
+            border-radius: 8px; background: var(--bg-card); color: var(--text-primary);
+            font-family: var(--font-body); font-size: 14px; outline: none; transition: border 0.15s;
+        }
+        .ph-input:focus { border-color: var(--accent); }
+        .ph-row { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+        .ph-error { font-size: 12px; color: #b91c1c; margin-top: 4px; }
+
+        /* Quill */
+        /* ── Editor Quill ── */
+        .ph-quill-wrap {
+            border: 1px solid var(--border-strong);
+            border-radius: 8px;
+            overflow: hidden;
+            transition: border-color 0.2s, box-shadow 0.2s;
+            cursor: text; /* toda a área é clicável */
+        }
+        /* Realce quando em foco */
+        .ph-quill-wrap.focused {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15);
+        }
+        .ph-quill-wrap .ql-toolbar {
+            border: none;
+            border-bottom: 1px solid var(--border-strong);
+            background: var(--bg-page);
+            transition: background 0.2s;
+        }
+        /* Ícones da toolbar: cinza por padrão, cor primária quando em foco */
+        .ph-quill-wrap .ql-toolbar .ql-formats button,
+        .ph-quill-wrap .ql-toolbar .ql-formats .ql-picker-label {
+            color: var(--text-secondary) !important;
+            transition: color 0.2s, opacity 0.2s;
+            opacity: 0.55;
+        }
+        .ph-quill-wrap .ql-toolbar .ql-formats button .ql-stroke,
+        .ph-quill-wrap .ql-toolbar .ql-formats .ql-picker-label .ql-stroke {
+            stroke: var(--text-secondary) !important;
+            transition: stroke 0.2s, opacity 0.2s;
+            opacity: 0.55;
+        }
+        .ph-quill-wrap .ql-toolbar .ql-formats button .ql-fill,
+        .ph-quill-wrap .ql-toolbar .ql-formats .ql-picker-label .ql-fill {
+            fill: var(--text-secondary) !important;
+            opacity: 0.55;
+        }
+        /* Ícones ativos quando editor em foco */
+        .ph-quill-wrap.focused .ql-toolbar .ql-formats button,
+        .ph-quill-wrap.focused .ql-toolbar .ql-formats .ql-picker-label {
+            color: var(--accent) !important;
+            opacity: 1;
+        }
+        .ph-quill-wrap.focused .ql-toolbar .ql-formats button .ql-stroke,
+        .ph-quill-wrap.focused .ql-toolbar .ql-formats .ql-picker-label .ql-stroke {
+            stroke: var(--accent) !important;
+            opacity: 1;
+        }
+        .ph-quill-wrap.focused .ql-toolbar .ql-formats button .ql-fill,
+        .ph-quill-wrap.focused .ql-toolbar .ql-formats .ql-picker-label .ql-fill {
+            fill: var(--accent) !important;
+            opacity: 1;
+        }
+        .ph-quill-wrap .ql-container {
+            border: none;
+            /* Remove restrição que impedia clique fora da primeira linha */
+            cursor: text;
+        }
+        #quill-editor {
+            /* Área clicável em toda extensão */
+            min-height: 380px;
+            height: auto;
+            font-size: 15px;
+            font-family: var(--font-body);
+            color: var(--text-primary);
+            background: var(--bg-card);
+            cursor: text;
+        }
+        /* Garante que o ql-editor ocupe toda a altura disponível */
+        .ph-quill-wrap .ql-editor {
+            min-height: 380px;
+            cursor: text;
+            padding: 16px 20px;
+            line-height: 1.7;
+        }
+
+        /* Checkbox */
+        .ph-check-row { display: flex; align-items: center; gap: 10px; }
+        .ph-check-row input[type=checkbox] { width: 16px; height: 16px; accent-color: var(--accent); cursor: pointer; }
+        .ph-check-row label { font-size: 13.5px; font-weight: 500; cursor: pointer; }
+
+        .ph-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-family: var(--font-body); font-size: 13.5px; font-weight: 500;
+            padding: 9px 16px; border-radius: 8px; border: 1px solid transparent;
+            cursor: pointer; transition: all 0.15s; text-decoration: none; line-height: 1.2;
+        }
+        .ph-btn svg { width: 14px; height: 14px; }
+        .ph-btn-primary { background: var(--accent); color: #fff; }
+        .ph-btn-primary:hover { background: var(--accent-hover); color: #fff; }
+        .ph-btn-secondary { background: var(--bg-card); color: var(--text-primary); border-color: var(--border-strong); }
+        .ph-btn-secondary:hover { background: var(--bg-page); }
+        .ph-form-actions { display: flex; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--divider); }
+
+        /* Attach entries */
+        .attach-entry {
+            display: grid; grid-template-columns: 1fr 1fr auto;
+            gap: 10px; align-items: end;
+            padding: 12px; margin-bottom: 8px;
+            background: var(--bg-page); border: 1px solid var(--border-strong);
+            border-radius: 10px;
+        }
+        .attach-entry .ph-field { margin-bottom: 0; }
+        .attach-remove {
+            display: flex; align-items: center; justify-content: center;
+            width: 34px; height: 34px; border-radius: 8px;
+            background: rgba(239,68,68,0.10); color: var(--danger);
+            border: 1px solid rgba(239,68,68,0.2); cursor: pointer; transition: background 0.15s;
+            flex-shrink: 0; margin-bottom: 0; align-self: flex-end;
+        }
+        .attach-remove:hover { background: rgba(239,68,68,0.20); }
+        .attach-remove svg { width: 15px; height: 15px; }
+
+        @media (max-width: 600px) {
+            .ph-row { grid-template-columns: 1fr; }
+            .attach-entry { grid-template-columns: 1fr; }
+        }
+    </style>
+</head>
+<body>
+    <script>
+        (function(){
+            var t = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme');
+            document.body.classList.add(t);
+        })();
+    </script>
+
+    <div class="ph-back-bar">
+        <a href="{% url 'home:index' %}" class="ph-back">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Voltar ao Portal
+        </a>
+        <span style="color:rgba(255,255,255,0.2)">/</span>
+        <span class="ph-back-title">{{ action }} Tutorial</span>
+    </div>
+
+    <div class="ph-page">
+        <div class="ph-card">
+            <div class="ph-card-head">
+                <h1>{{ action }} Tutorial</h1>
+            </div>
+            <div class="ph-card-body">
+
+                <form method="post" enctype="multipart/form-data" id="tutorial-form">
+                    {% csrf_token %}
+
+                    <div class="ph-field">
+                        <label class="ph-label">Título *</label>
+                        <input type="text" name="title" class="ph-input"
+                               value="{{ form.title.value|default:'' }}"
+                               placeholder="Título do tutorial" required>
+                        {% if form.title.errors %}<div class="ph-error">{{ form.title.errors|join:", " }}</div>{% endif %}
+                    </div>
+
+                    <div class="ph-row">
+                        <div class="ph-field">
+                            <label class="ph-label">Categoria</label>
+                            <input type="text" name="category" class="ph-input"
+                                   value="{{ form.category.value|default:'' }}"
+                                   placeholder="Ex: Sistemas, Redes, Segurança">
+                        </div>
+                        <div class="ph-field">
+                            <label class="ph-label">Imagem de Capa</label>
+                            <input type="file" name="cover_image" class="ph-input" accept="image/*">
+                            {% if tutorial and tutorial.cover_image %}
+                            <div style="font-size:11.5px;color:var(--text-muted);margin-top:4px">
+                                Atual: {{ tutorial.cover_image.name|truncatechars:40 }}
+                            </div>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="ph-field">
+                        <label class="ph-label">Conteúdo *</label>
+                        <div class="ph-quill-wrap">
+                            <div id="quill-editor">{% if form.content.value %}{{ form.content.value|safe }}{% endif %}</div>
+                        </div>
+                        <textarea name="content" id="content-hidden" style="display:none">{{ form.content.value|default:'' }}</textarea>
+                    </div>
+
+                    <div class="ph-field">
+                        <div class="ph-check-row">
+                            <input type="checkbox" name="published" id="published"
+                                   {% if form.published.value != False %}checked{% endif %}>
+                            <label for="published">Publicado — visível para todos os utilizadores</label>
+                        </div>
+                    </div>
+
+                    <!-- Anexos para download -->
+                    <div class="ph-field">
+                        <div style="font-size:12.5px;font-weight:600;color:var(--text-secondary);margin-bottom:10px;display:flex;align-items:center;justify-content:space-between;">
+                            <span>Arquivos para Download</span>
+                            <button type="button" id="add-attach-btn" class="ph-btn ph-btn-secondary" style="padding:5px 11px;font-size:12px">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                                Adicionar Arquivo
+                            </button>
+                        </div>
+                        <div id="attach-list">
+                            <!-- Entradas adicionadas dinamicamente -->
+                        </div>
+                        <div id="attach-empty" style="font-size:12.5px;color:var(--text-muted);padding:10px 0;">
+                            Nenhum arquivo adicionado. Clique em "Adicionar Arquivo" para incluir anexos.
+                        </div>
+                    </div>
+
+                    <div class="ph-form-actions">
+                        <button type="submit" class="ph-btn ph-btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            {% if action == 'Criar' %}Publicar Tutorial{% else %}Salvar Alterações{% endif %}
+                        </button>
+                        <a href="{% if tutorial %}{% url 'home:tutorial_detail' tutorial.pk %}{% else %}{% url 'home:index' %}{% endif %}"
+                           class="ph-btn ph-btn-secondary">Cancelar</a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+    <script>
+        var quill = new Quill('#quill-editor', {
+            theme: 'snow',
+            modules: {
+                toolbar: [
+                    [{ header: [1, 2, 3, false] }],
+                    ['bold', 'italic', 'underline', 'strike'],
+                    [{ color: [] }, { background: [] }],
+                    [{ list: 'ordered' }, { list: 'bullet' }],
+                    ['blockquote', 'code-block'],
+                    ['link', 'image'],
+                    ['clean']
+                ]
+            }
+        });
+
+        document.getElementById('tutorial-form').addEventListener('submit', function() {
+            document.getElementById('content-hidden').value = quill.root.innerHTML;
+        });
+
+        // ── Focus/Blur visual da toolbar ────────────────────────────────────
+        // Ao focar, ativa a classe .focused no wrapper para colorir os ícones
+        var quillWrap = document.querySelector('.ph-quill-wrap');
+        quill.on('selection-change', function(range, oldRange, source) {
+            if (range) {
+                // Editor em foco — ativa ícones
+                quillWrap.classList.add('focused');
+            } else {
+                // Perdeu foco — volta ao estado inativo (se vazio)
+                var content = quill.getText().trim();
+                if (!content) {
+                    quillWrap.classList.remove('focused');
+                }
+                // Se há conteúdo, mantém os ícones ativos como feedback
+            }
+        });
+
+        // Clicar em qualquer parte do wrapper foca o editor
+        quillWrap.addEventListener('click', function(e) {
+            // Não redireciona cliques nos próprios botões da toolbar
+            if (!e.target.closest('.ql-toolbar')) {
+                quill.focus();
+            }
+        });
+
+        // ── Anexos dinâmicos ─────────────────────────────────
+        var attachList  = document.getElementById('attach-list');
+        var attachEmpty = document.getElementById('attach-empty');
+        var attachCount = 0;
+
+        function updateEmpty() {
+            attachEmpty.style.display = attachList.children.length === 0 ? 'block' : 'none';
+        }
+
+        document.getElementById('add-attach-btn').addEventListener('click', function() {
+            var idx = attachCount++;
+            var entry = document.createElement('div');
+            entry.className = 'attach-entry';
+            entry.innerHTML =
+                '<div class="ph-field">' +
+                    '<label class="ph-label">Arquivo *</label>' +
+                    '<input type="file" name="attach_file_' + idx + '" class="ph-input" required>' +
+                '</div>' +
+                '<div class="ph-field">' +
+                    '<label class="ph-label">Nome para exibição *</label>' +
+                    '<input type="text" name="attach_name_' + idx + '" class="ph-input" placeholder="Ex: Manual de Uso" required>' +
+                '</div>' +
+                '<button type="button" class="attach-remove" title="Remover">' +
+                    '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12" /></svg>' +
+                '</button>';
+            entry.querySelector('.attach-remove').addEventListener('click', function() {
+                entry.remove();
+                updateEmpty();
+            });
+            attachList.appendChild(entry);
+            updateEmpty();
+        });
+
+        updateEmpty();
+    </script>
+</body>
+</html>

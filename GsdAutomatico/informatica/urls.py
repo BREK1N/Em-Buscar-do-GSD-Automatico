@@ -23,6 +23,7 @@ urlpatterns = [
 
     # URL para Configuração
     path('configuracao/', views.ConfiguracaoUpdateView.as_view(), name='configuracao_edit'),
+    path('configuracao-secoes/', views.configuracao_secoes, name='configuracao_secoes'),
 
     # ===============================================
     # URLS GESTÃO DE MATERIAIS E CAUTELAS

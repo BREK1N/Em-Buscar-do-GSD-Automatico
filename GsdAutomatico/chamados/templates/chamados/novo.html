@@ -1,0 +1,336 @@
+{% extends 'caixa_entrada/base_inbox.html' %}
+
+{% block inbox_extra_css %}
+.ch-compose-wrap {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow-y: auto;
+    background: var(--bg-primary, #1a1a2e);
+}
+.ch-compose-header {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 14px 20px;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+    flex-shrink: 0;
+}
+.ch-compose-header h2 {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--text-primary, #e0e0ff);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+}
+.ch-back-btn {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    color: var(--text-secondary, #a0a0c0);
+    text-decoration: none;
+    font-size: .8rem;
+    padding: 5px 11px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    transition: all .15s;
+}
+.ch-back-btn:hover { color: var(--text-primary, #e0e0ff); border-color: rgba(255,255,255,.2); }
+
+.ch-form-body {
+    padding: 24px 28px;
+    max-width: 720px;
+    display: flex;
+    flex-direction: column;
+    gap: 20px;
+}
+.ch-field label {
+    display: block;
+    font-size: .76rem;
+    font-weight: 600;
+    color: var(--text-secondary, #a0a0c0);
+    margin-bottom: 6px;
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+.ch-field input,
+.ch-field textarea,
+.ch-field select {
+    width: 100%;
+    box-sizing: border-box;
+    padding: 10px 14px;
+    font-size: .88rem;
+    background: var(--bg-secondary, #16213e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 8px;
+    color: var(--text-primary, #e0e0ff);
+    transition: border-color .15s;
+    outline: none;
+}
+.ch-field input:focus,
+.ch-field textarea:focus,
+.ch-field select:focus { border-color: var(--accent-color, #e94560); }
+.ch-field textarea { resize: vertical; }
+
+/* Área de upload */
+.ch-upload-area {
+    border: 2px dashed var(--border-color, #2a2a4a);
+    border-radius: 10px;
+    padding: 20px;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s, background .2s;
+    background: var(--bg-secondary, #16213e);
+    position: relative;
+}
+.ch-upload-area:hover,
+.ch-upload-area.drag-over {
+    border-color: var(--accent-color, #e94560);
+    background: rgba(233,69,96,.04);
+}
+.ch-upload-area input[type=file] {
+    position: absolute;
+    inset: 0;
+    opacity: 0;
+    cursor: pointer;
+    width: 100%;
+    height: 100%;
+}
+.ch-upload-icon {
+    font-size: 1.6rem;
+    margin-bottom: 8px;
+    color: var(--text-secondary, #a0a0c0);
+}
+.ch-upload-text {
+    font-size: .82rem;
+    color: var(--text-secondary, #a0a0c0);
+    margin: 0;
+}
+.ch-upload-text span {
+    color: var(--accent-color, #e94560);
+    font-weight: 600;
+}
+.ch-upload-hint {
+    font-size: .72rem;
+    color: var(--text-secondary, #a0a0c0);
+    opacity: .6;
+    margin-top: 4px;
+}
+
+/* Lista de arquivos selecionados */
+.ch-file-list {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 12px;
+}
+.ch-file-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 7px 12px;
+    background: var(--bg-primary, #1a1a2e);
+    border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 8px;
+    font-size: .78rem;
+    color: var(--text-primary, #e0e0ff);
+}
+.ch-file-item svg { color: var(--accent-color, #e94560); flex-shrink: 0; }
+.ch-file-item-name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.ch-file-item-size { color: var(--text-secondary, #a0a0c0); font-size: .72rem; flex-shrink: 0; }
+.ch-file-item-rm {
+    background: none; border: none; color: var(--text-secondary, #a0a0c0);
+    cursor: pointer; padding: 0 2px; line-height: 1; font-size: .9rem;
+    transition: color .1s; flex-shrink: 0;
+}
+.ch-file-item-rm:hover { color: #f87171; }
+
+.ch-form-footer {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    padding: 14px 20px;
+    border-top: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+    flex-shrink: 0;
+}
+.ch-btn-send {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 9px 22px;
+    background: var(--accent-color, #e94560); color: #fff;
+    border: none; border-radius: 20px;
+    font-size: .84rem; font-weight: 700; cursor: pointer;
+    box-shadow: 0 2px 10px rgba(233,69,96,.35);
+    transition: box-shadow .2s, transform .1s;
+}
+.ch-btn-send:hover {
+    box-shadow: 0 4px 16px rgba(233,69,96,.5);
+    transform: translateY(-1px);
+}
+.ch-btn-cancel {
+    display: inline-flex; align-items: center; padding: 9px 20px;
+    background: transparent; border: 1px solid var(--border-color, #2a2a4a);
+    border-radius: 20px; color: var(--text-secondary, #a0a0c0);
+    font-size: .84rem; text-decoration: none; cursor: pointer; transition: all .15s;
+}
+.ch-btn-cancel:hover { border-color: rgba(255,255,255,.2); color: var(--text-primary, #e0e0ff); }
+
+.ch-alert {
+    padding: 10px 14px; border-radius: 8px; font-size: .82rem;
+    border: 1px solid rgba(233,69,96,.3);
+    background: rgba(233,69,96,.08); color: #f87171;
+}
+{% endblock %}
+
+{% block inbox_content %}
+<div class="ch-compose-wrap">
+    <div class="ch-compose-header">
+        <a href="{% url 'chamados:lista' %}" class="ch-back-btn">
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M15 8a.5.5 0 0 0-.5-.5H2.707l3.147-3.146a.5.5 0 1 0-.708-.708l-4 4a.5.5 0 0 0 0 .708l4 4a.5.5 0 0 0 .708-.708L2.707 8.5H14.5A.5.5 0 0 0 15 8z"/>
+            </svg>
+            Voltar
+        </a>
+        <h2>
+            <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+            </svg>
+            Abrir Novo Chamado
+        </h2>
+    </div>
+
+    <form method="post" enctype="multipart/form-data" id="form-novo" style="display:flex;flex-direction:column;flex:1;">
+        {% csrf_token %}
+
+        <div class="ch-form-body">
+            {% if form.errors %}
+            <div class="ch-alert">
+                {% for field in form %}{% for e in field.errors %}<div>{{ field.label }}: {{ e }}</div>{% endfor %}{% endfor %}
+                {% for e in form.non_field_errors %}<div>{{ e }}</div>{% endfor %}
+            </div>
+            {% endif %}
+
+            <div class="ch-field">
+                <label for="id_titulo">Título *</label>
+                <input type="text" id="id_titulo" name="titulo"
+                       value="{{ form.titulo.value|default:'' }}"
+                       placeholder="Resumo curto do problema"
+                       maxlength="300" required autofocus>
+            </div>
+
+            <div class="ch-field">
+                <label for="id_prioridade">Prioridade</label>
+                <select id="id_prioridade" name="prioridade">
+                    {% for value, label in form.fields.prioridade.choices %}
+                    <option value="{{ value }}" {% if form.prioridade.value == value or value == 'normal' and not form.prioridade.value %}selected{% endif %}>{{ label }}</option>
+                    {% endfor %}
+                </select>
+            </div>
+
+            <div class="ch-field">
+                <label for="id_descricao">Descrição *</label>
+                <textarea id="id_descricao" name="descricao" rows="9"
+                          placeholder="Descreva o problema com detalhes: o que aconteceu, quando, em qual máquina ou sistema…" required>{{ form.descricao.value|default:'' }}</textarea>
+            </div>
+
+            <!-- Upload de arquivos -->
+            <div class="ch-field">
+                <label>Anexos <span style="font-weight:400;text-transform:none;letter-spacing:0;opacity:.7;">(opcional)</span></label>
+                <div class="ch-upload-area" id="upload-area">
+                    <input type="file" name="anexos" multiple id="file-input"
+                           accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.txt,.zip,.log">
+                    <div class="ch-upload-icon">
+                        <svg width="28" height="28" fill="currentColor" viewBox="0 0 16 16">
+                            <path d="M.5 9.9a.5.5 0 0 1 .5.5v2.5a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1v-2.5a.5.5 0 0 1 1 0v2.5a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2v-2.5a.5.5 0 0 1 .5-.5"/>
+                            <path d="M7.646 1.146a.5.5 0 0 1 .708 0l3 3a.5.5 0 0 1-.708.708L8.5 2.707V11.5a.5.5 0 0 1-1 0V2.707L5.354 4.854a.5.5 0 1 1-.708-.708z"/>
+                        </svg>
+                    </div>
+                    <p class="ch-upload-text">
+                        <span>Clique para selecionar</span> ou arraste arquivos aqui
+                    </p>
+                    <p class="ch-upload-hint">Imagens, PDF, Word, Excel, ZIP — máx. 10 MB por arquivo</p>
+                </div>
+                <div class="ch-file-list" id="file-list"></div>
+            </div>
+        </div>
+
+        <div class="ch-form-footer">
+            <a href="{% url 'chamados:lista' %}" class="ch-btn-cancel">Cancelar</a>
+            <button type="submit" class="ch-btn-send">
+                <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M15.854.146a.5.5 0 0 1 .11.54l-5.819 14.547a.75.75 0 0 1-1.329.124l-3.178-4.995L.643 7.184a.75.75 0 0 1 .124-1.33L15.314.037a.5.5 0 0 1 .54.11z"/>
+                </svg>
+                Enviar Chamado
+            </button>
+        </div>
+    </form>
+</div>
+{% endblock %}
+
+{% block inbox_extra_js %}
+<script>
+const fileInput  = document.getElementById('file-input');
+const fileList   = document.getElementById('file-list');
+const uploadArea = document.getElementById('upload-area');
+
+// DataTransfer para gerenciar arquivos manualmente (permitir remoção individual)
+let dt = new DataTransfer();
+
+function formatSize(bytes) {
+    if (bytes < 1024) return bytes + ' B';
+    if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+    return (bytes / (1024 * 1024)).toFixed(1) + ' MB';
+}
+
+function renderFiles() {
+    fileList.innerHTML = '';
+    Array.from(dt.files).forEach((file, i) => {
+        const div = document.createElement('div');
+        div.className = 'ch-file-item';
+        div.innerHTML = `
+            <svg width="14" height="14" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M4.5 3a2.5 2.5 0 0 1 5 0v9a1.5 1.5 0 0 1-3 0V5a.5.5 0 0 1 1 0v7a.5.5 0 0 0 1 0V3a1.5 1.5 0 1 0-3 0v9a2.5 2.5 0 0 0 5 0V5a.5.5 0 0 1 1 0v7a3.5 3.5 0 1 1-7 0V3z"/>
+            </svg>
+            <span class="ch-file-item-name" title="${file.name}">${file.name}</span>
+            <span class="ch-file-item-size">${formatSize(file.size)}</span>
+            <button type="button" class="ch-file-item-rm" data-index="${i}" title="Remover">✕</button>
+        `;
+        fileList.appendChild(div);
+    });
+
+    // Sincroniza o input com o DataTransfer
+    fileInput.files = dt.files;
+
+    // Mostrar/ocultar a área de upload
+    uploadArea.style.display = dt.files.length >= 5 ? 'none' : '';
+}
+
+fileInput.addEventListener('change', () => {
+    Array.from(fileInput.files).forEach(f => dt.items.add(f));
+    renderFiles();
+});
+
+fileList.addEventListener('click', e => {
+    const btn = e.target.closest('.ch-file-item-rm');
+    if (!btn) return;
+    const idx = parseInt(btn.dataset.index);
+    const newDt = new DataTransfer();
+    Array.from(dt.files).forEach((f, i) => { if (i !== idx) newDt.items.add(f); });
+    dt = newDt;
+    renderFiles();
+});
+
+// Drag & drop
+uploadArea.addEventListener('dragover', e => { e.preventDefault(); uploadArea.classList.add('drag-over'); });
+uploadArea.addEventListener('dragleave', () => uploadArea.classList.remove('drag-over'));
+uploadArea.addEventListener('drop', e => {
+    e.preventDefault();
+    uploadArea.classList.remove('drag-over');
+    Array.from(e.dataTransfer.files).forEach(f => dt.items.add(f));
+    renderFiles();
+});
+</script>
+{% endblock %}

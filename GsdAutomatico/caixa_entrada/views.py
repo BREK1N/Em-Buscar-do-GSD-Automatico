@@ -27,6 +27,7 @@ _SECAO_TEMPLATES = {
     'informatica': 'informatica/base.html',
     'operacoes': 'Secao_operacoes/base.html',
     's1': 'Secao_pessoal/base.html',
+    'home': 'home/base_for_inbox.html',
 }
 
 _GROUP_SECAO = {
@@ -67,6 +68,8 @@ def _sidebar_counts(user):
     ).exclude(
         excluida_por=user
     ).exclude(
+        permanentemente_excluida_por=user
+    ).exclude(
         lida_por=user
     ).count()
 
@@ -74,16 +77,22 @@ def _sidebar_counts(user):
         tipo='chamado', status_chamado='aberto'
     ).filter(
         Q(remetente=user) | Q(destinatarios=user)
-    ).exclude(excluida_por=user).count()
+    ).exclude(excluida_por=user).exclude(permanentemente_excluida_por=user).count()
 
     rascunhos = Mensagem.objects.filter(remetente=user, eh_rascunho=True).count()
-    excluidas = Mensagem.objects.filter(excluida_por=user).count()
+    excluidas = Mensagem.objects.filter(
+        excluida_por=user
+    ).exclude(permanentemente_excluida_por=user).count()
+    favoritas = Mensagem.objects.filter(
+        favoritos=user
+    ).exclude(permanentemente_excluida_por=user).count()
 
     return {
         'count_nao_lidas': nao_lidas,
         'count_chamados_abertos': chamados_abertos,
         'count_rascunhos': rascunhos,
         'count_excluidas': excluidas,
+        'count_favoritas': favoritas,
     }
 
 
@@ -96,6 +105,12 @@ def _base_context(request):
 # ─── Mixin para context comum ─────────────────────────────────────────────────
 
 class InboxMixin(LoginRequiredMixin):
+    def dispatch(self, request, *args, **kwargs):
+        secao_param = request.GET.get('secao')
+        if secao_param and secao_param in _SECAO_TEMPLATES:
+            request.session['caixa_entrada_secao'] = secao_param
+        return super().dispatch(request, *args, **kwargs)
+
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['base_template'] = _resolve_base_template(self.request)
@@ -114,7 +129,7 @@ class InboxListView(InboxMixin, ListView):
         user = self.request.user
         qs = Mensagem.objects.filter(
             destinatarios=user, eh_rascunho=False
-        ).exclude(excluida_por=user).prefetch_related('anexos', 'lida_por', 'destinatarios').select_related('remetente')
+        ).exclude(excluida_por=user).exclude(permanentemente_excluida_por=user).prefetch_related('anexos', 'lida_por', 'destinatarios', 'favoritos').select_related('remetente')
 
         filtro = FiltroInboxForm(self.request.GET)
         if filtro.is_valid():
@@ -143,6 +158,41 @@ class InboxListView(InboxMixin, ListView):
             ).values_list('mensagem_id', flat=True)
         )
         ctx['ids_lidas'] = ids_lidas
+        ids_favoritas = set(
+            Mensagem.objects.filter(
+                favoritos=user,
+                pk__in=[m.pk for m in ctx['mensagens']]
+            ).values_list('pk', flat=True)
+        )
+        ctx['ids_favoritas'] = ids_favoritas
+        return ctx
+
+
+# ─── Favoritos ────────────────────────────────────────────────────────────────
+
+class FavoritosListView(InboxMixin, ListView):
+    template_name = 'caixa_entrada/lista.html'
+    context_object_name = 'mensagens'
+    paginate_by = 20
+
+    def get_queryset(self):
+        user = self.request.user
+        return Mensagem.objects.filter(
+            favoritos=user, eh_rascunho=False
+        ).exclude(permanentemente_excluida_por=user).prefetch_related('anexos', 'lida_por', 'destinatarios', 'favoritos').select_related('remetente')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['filtro'] = FiltroInboxForm(self.request.GET)
+        ctx['pasta_ativa'] = 'favoritos'
+        user = self.request.user
+        ids_lidas = set(
+            LeituraMensagem.objects.filter(
+                usuario=user, mensagem__in=ctx['mensagens']
+            ).values_list('mensagem_id', flat=True)
+        )
+        ctx['ids_lidas'] = ids_lidas
+        ctx['ids_favoritas'] = set(m.pk for m in ctx['mensagens'])
         return ctx
 
 
@@ -154,17 +204,24 @@ class EnviadosListView(InboxMixin, ListView):
     paginate_by = 20
 
     def get_queryset(self):
+        user = self.request.user
         return Mensagem.objects.filter(
-            remetente=self.request.user, eh_rascunho=False
+            remetente=user, eh_rascunho=False
         ).exclude(
-            excluida_por=self.request.user
-        ).prefetch_related('anexos', 'lida_por', 'destinatarios').select_related('remetente')
+            excluida_por=user
+        ).exclude(permanentemente_excluida_por=user).prefetch_related('anexos', 'lida_por', 'destinatarios', 'favoritos').select_related('remetente')
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['filtro'] = FiltroInboxForm(self.request.GET)
         ctx['pasta_ativa'] = 'enviados'
         ctx['ids_lidas'] = set()
+        user = self.request.user
+        ctx['ids_favoritas'] = set(
+            Mensagem.objects.filter(
+                favoritos=user, pk__in=[m.pk for m in ctx['mensagens']]
+            ).values_list('pk', flat=True)
+        )
         return ctx
 
 
@@ -198,13 +255,24 @@ class ExcluidosListView(InboxMixin, ListView):
     def get_queryset(self):
         return Mensagem.objects.filter(
             excluida_por=self.request.user
-        ).prefetch_related('anexos', 'lida_por', 'destinatarios').select_related('remetente')
+        ).exclude(permanentemente_excluida_por=self.request.user).prefetch_related('anexos', 'lida_por', 'destinatarios', 'favoritos').select_related('remetente')
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
         ctx['filtro'] = FiltroInboxForm()
         ctx['pasta_ativa'] = 'excluidos'
-        ctx['ids_lidas'] = set()
+        user = self.request.user
+        ids_lidas = set(
+            LeituraMensagem.objects.filter(
+                usuario=user, mensagem__in=ctx['mensagens']
+            ).values_list('mensagem_id', flat=True)
+        )
+        ctx['ids_lidas'] = ids_lidas
+        ctx['ids_favoritas'] = set(
+            Mensagem.objects.filter(
+                favoritos=user, pk__in=[m.pk for m in ctx['mensagens']]
+            ).values_list('pk', flat=True)
+        )
         return ctx
 
 
@@ -241,6 +309,7 @@ class DetalheView(InboxMixin, DetailView):
         ctx['leituras'] = LeituraMensagem.objects.filter(
             mensagem=msg
         ).select_related('usuario') if msg.remetente == user else []
+        ctx['is_favorita'] = msg.favoritos.filter(pk=user.pk).exists()
         return ctx
 
 
@@ -359,6 +428,11 @@ def excluir_mensagem_view(request, pk):
         messages.error(request, "Sem permissão para excluir esta mensagem.")
         return redirect('caixa_entrada:inbox')
 
+    if msg.eh_rascunho and msg.remetente == user:
+        msg.delete()
+        messages.success(request, "Rascunho excluído.")
+        return redirect('caixa_entrada:rascunhos')
+
     msg.excluida_por.add(user)
     messages.success(request, "Mensagem movida para excluídos.")
     return redirect(request.META.get('HTTP_REFERER', reverse('caixa_entrada:inbox')))
@@ -372,16 +446,12 @@ def excluir_definitivo_view(request, pk):
     if msg.remetente != user and user not in msg.destinatarios.all():
         messages.error(request, "Sem permissão.")
         return redirect('caixa_entrada:excluidos')
-    # Remove da lista de excluídos do usuário; se ninguém mais tiver, deleta o objeto
-    msg.excluida_por.remove(user)
-    # Verifica se mais nenhum usuário relevante ainda "tem" a mensagem
-    ainda_tem = (
-        Mensagem.objects.filter(pk=msg.pk)
-        .filter(Q(remetente__in=[msg.remetente]) | Q(destinatarios__isnull=False))
-        .exclude(excluida_por=msg.remetente)
-        .exists()
-    )
-    if not ainda_tem:
+    # Marca como permanentemente excluída para este usuário
+    msg.permanentemente_excluida_por.add(user)
+    # Verifica se todos os usuários com acesso excluíram permanentemente
+    todos = set([msg.remetente.pk]) | set(msg.destinatarios.values_list('pk', flat=True))
+    perm_excluidos = set(msg.permanentemente_excluida_por.values_list('pk', flat=True))
+    if todos.issubset(perm_excluidos):
         msg.delete()
     messages.success(request, "Mensagem excluída permanentemente.")
     return redirect('caixa_entrada:excluidos')
@@ -411,20 +481,77 @@ def excluir_lote_view(request):
         Q(remetente=user) | Q(destinatarios=user)
     ).distinct()
 
+    count = qs.count()
     if acao == 'excluir':
         for msg in qs:
             msg.excluida_por.add(user)
-        messages.success(request, f"{qs.count()} mensagem(ns) movida(s) para excluídos.")
+        messages.success(request, f"{count} mensagem(ns) movida(s) para excluídos.")
     elif acao == 'restaurar':
         for msg in qs:
             msg.excluida_por.remove(user)
-        messages.success(request, f"{qs.count()} mensagem(ns) restaurada(s).")
+        messages.success(request, f"{count} mensagem(ns) restaurada(s).")
     elif acao == 'excluir_definitivo':
         for msg in qs:
-            msg.excluida_por.remove(user)
-        messages.success(request, "Mensagens excluídas permanentemente.")
+            msg.permanentemente_excluida_por.add(user)
+            todos = set([msg.remetente.pk]) | set(msg.destinatarios.values_list('pk', flat=True))
+            perm_excluidos = set(msg.permanentemente_excluida_por.values_list('pk', flat=True))
+            if todos.issubset(perm_excluidos):
+                msg.delete()
+        messages.success(request, f"{count} mensagem(ns) excluída(s) permanentemente.")
+    elif acao == 'marcar_lida':
+        for msg in qs:
+            if user in msg.destinatarios.all():
+                LeituraMensagem.objects.get_or_create(mensagem=msg, usuario=user)
+        messages.success(request, f"{count} mensagem(ns) marcada(s) como lida(s).")
+    elif acao == 'marcar_nao_lida':
+        LeituraMensagem.objects.filter(mensagem__in=qs, usuario=user).delete()
+        messages.success(request, f"{count} mensagem(ns) marcada(s) como não lida(s).")
 
     return redirect(request.META.get('HTTP_REFERER', reverse('caixa_entrada:inbox')))
+
+
+# ─── Favoritar mensagem (toggle) ─────────────────────────────────────────────
+
+@login_required
+@require_POST
+def favoritar_mensagem_view(request, pk):
+    user = request.user
+    msg = get_object_or_404(
+        Mensagem,
+        pk=pk,
+    )
+    if msg.remetente != user and user not in msg.destinatarios.all():
+        from django.http import JsonResponse
+        return JsonResponse({'error': 'Sem permissão.'}, status=403)
+    if msg.favoritos.filter(pk=user.pk).exists():
+        msg.favoritos.remove(user)
+        ativo = False
+    else:
+        msg.favoritos.add(user)
+        ativo = True
+    from django.http import JsonResponse
+    return JsonResponse({'favorito': ativo})
+
+
+# ─── Marcar como lida / não lida (individual) ────────────────────────────────
+
+@login_required
+@require_POST
+def marcar_lida_view(request, pk):
+    user = request.user
+    msg = get_object_or_404(Mensagem, pk=pk)
+    if user not in msg.destinatarios.all():
+        from django.http import JsonResponse
+        return JsonResponse({'error': 'Sem permissão.'}, status=403)
+    acao = request.POST.get('acao', 'lida')
+    if acao == 'nao_lida':
+        LeituraMensagem.objects.filter(mensagem=msg, usuario=user).delete()
+        lida = False
+    else:
+        LeituraMensagem.objects.get_or_create(mensagem=msg, usuario=user)
+        lida = True
+    from django.http import JsonResponse
+    return JsonResponse({'lida': lida})
 
 
 # ─── Chamados (painel admin) ──────────────────────────────────────────────────
@@ -535,7 +662,7 @@ def api_notificacoes_check(request):
         # Mensagens da nova caixa de entrada
         msgs_nao_lidas = Mensagem.objects.filter(
             destinatarios=user, eh_rascunho=False
-        ).exclude(lida_por=user).exclude(excluida_por=user)
+        ).exclude(lida_por=user).exclude(excluida_por=user).exclude(permanentemente_excluida_por=user)
         total += msgs_nao_lidas.count()
 
         remaining = 5 - len(data)

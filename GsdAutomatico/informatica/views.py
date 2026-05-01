@@ -31,19 +31,38 @@ from django.contrib.auth import authenticate # Importação para validar senha
 
 logger = logging.getLogger(__name__)
 
-def is_staff(user):
-    return user.is_staff
+def is_informatica_admin(user):
+    return user.is_superuser or user.groups.filter(name='Militar da Informática').exists()
 
-class StaffRequiredMixin(LoginRequiredMixin, UserPassesTestMixin):
-    login_url = reverse_lazy('login:login')
-    def test_func(self): return is_staff(self.request.user)
+def is_informatica_secao(user):
+    return user.is_superuser or user.groups.filter(name='Militar da Informática').exists()
+
+class InformaticaAdminMixin(LoginRequiredMixin, UserPassesTestMixin):
+    def test_func(self): return is_informatica_admin(self.request.user)
+    def handle_no_permission(self):
+        if self.request.user.is_authenticated:
+            from django.shortcuts import redirect
+            return redirect('home:index')
+        return super().handle_no_permission()
+
+class InformaticaAcessoMixin(LoginRequiredMixin, UserPassesTestMixin):
+    def test_func(self): return is_informatica_secao(self.request.user)
     def handle_no_permission(self): return super().handle_no_permission()
+
+# manter StaffRequiredMixin como alias para não quebrar código existente
+class StaffRequiredMixin(InformaticaAdminMixin):
+    pass
+
+def is_staff(user):
+    return is_informatica_admin(user)
 
 # ==========================================
 # VIEWS DE DASHBOARD E CRUD BÁSICO
 # ==========================================
-@staff_member_required
+@login_required
 def dashboard(request):
+    if not is_informatica_admin(request.user):
+        return redirect('informatica:gestao_materiais')
     general_models_info = [
         ('auth', 'user', 'Utilizadores', 'Utilizador'),
         ('auth', 'group', 'Grupos de Permissão', 'Grupo'),
@@ -88,9 +107,9 @@ def dashboard(request):
     ouvidoria_apps = get_model_admin_links(ouvidoria_models_info)
     
     quick_stats = {
-        'total_users': User.objects.count(), 
-        'total_patds': PATD.objects.count(),
-        'active_patds': PATD.objects.exclude(status='finalizado').count(),
+        'total_users': User.objects.count(),
+        'acervo': Material.objects.count(),
+        'em_cautela': Cautela.objects.filter(ativa=True).count(),
         'militares_count': Efetivo.objects.count(),
     }
 
@@ -112,12 +131,31 @@ def dashboard(request):
     if not terminal_logs:
          terminal_logs.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Nenhum container ativo ou logs vazios.")
 
+    cautelas_recentes = Cautela.objects.filter(ativa=True).select_related('recebedor').prefetch_related('itens__material').order_by('-data_emissao')[:5]
+
+    from caixa_entrada.models import Mensagem
+    from chamados.models import Chamado
+    user = request.user
+    count_inbox = (
+        Mensagem.objects
+        .filter(destinatarios=user, eh_rascunho=False)
+        .exclude(excluida_por=user)
+        .exclude(lida_por=user)
+        .count()
+    )
+    count_chamados = Chamado.objects.filter(
+        atribuido_a__isnull=True
+    ).exclude(status__in=['resolvido', 'fechado']).count()
+
     context = {
-        'page_title': 'Dashboard da Informática', 
+        'page_title': 'Dashboard da Informática',
         'general_admin_apps': general_admin_apps,
-        'ouvidoria_apps': ouvidoria_apps, 
+        'ouvidoria_apps': ouvidoria_apps,
         'quick_stats': quick_stats,
         'terminal_logs': terminal_logs,
+        'cautelas_recentes': cautelas_recentes,
+        'count_inbox': count_inbox,
+        'count_chamados': count_chamados,
     }
     return render(request, 'informatica/dashboard.html', context)
 
@@ -352,7 +390,7 @@ LOG_FILE_PATH = "/logs_do_host/backup_sender.log"
 
 @login_required
 def monitoramento_backup(request):
-    if not request.user.is_staff:
+    if not is_informatica_admin(request.user):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden()
     context = {}
@@ -372,7 +410,7 @@ def monitoramento_backup(request):
 
 @login_required
 def visualizar_logs_backup(request):
-    if not request.user.is_staff:
+    if not is_informatica_admin(request.user):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden()
     logs = []
@@ -387,8 +425,11 @@ def visualizar_logs_backup(request):
 # ==========================================
 # MÓDULO GESTÃO DE MATERIAIS E CAUTELAS
 # ==========================================
-@staff_member_required
+@login_required
 def gestao_materiais_view(request):
+    if not is_informatica_secao(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
     militares = Efetivo.objects.all().order_by('posto', 'nome_guerra')
     
     militares_info = Efetivo.objects.filter(
@@ -981,6 +1022,72 @@ def exportar_armarios_excel(request):
 def imprimir_cautela(request, pk):
     cautela = get_object_or_404(Cautela, id=pk)
     return render(request, 'informatica/cautela_print.html', {'cautela': cautela})
+
+
+@login_required
+def configuracao_secoes(request):
+    if not is_informatica_admin(request.user):
+        return redirect('informatica:gestao_materiais')
+
+    from Ouvidoria.models import PATD, Configuracao
+    from Secao_pessoal.models import Efetivo
+    from django.contrib.auth.models import User
+
+    secoes = [
+        {
+            'nome': 'Ouvidoria',
+            'icon': 'fa-file-alt',
+            'cor': '#3b82f6',
+            'stats': [
+                {'label': 'PATDs Totais', 'value': PATD.objects.count()},
+                {'label': 'Em Andamento', 'value': PATD.objects.exclude(status='finalizado').count()},
+            ],
+            'links': [
+                {'label': 'Listar PATDs', 'url': 'Ouvidoria:index', 'icon': 'fa-list'},
+                {'label': 'Configurações', 'url': 'informatica:configuracao_edit', 'icon': 'fa-cog'},
+            ],
+        },
+        {
+            'nome': 'Seção de Pessoal (S1)',
+            'icon': 'fa-users',
+            'cor': '#22c55e',
+            'stats': [
+                {'label': 'Militares', 'value': Efetivo.objects.count()},
+                {'label': 'Utilizadores', 'value': User.objects.count()},
+            ],
+            'links': [
+                {'label': 'Gestão de Efetivo', 'url': 'Secao_pessoal:index', 'icon': 'fa-users'},
+                {'label': 'Chamada', 'url': 'Secao_pessoal:chamada_index', 'icon': 'fa-check-square'},
+            ],
+        },
+        {
+            'nome': 'Seção de Operações',
+            'icon': 'fa-cogs',
+            'cor': '#f59e0b',
+            'stats': [],
+            'links': [
+                {'label': 'Acessar Seção', 'url': 'Secao_operacoes:index', 'icon': 'fa-arrow-right'},
+            ],
+        },
+        {
+            'nome': 'Informática',
+            'icon': 'fa-desktop',
+            'cor': '#8b5cf6',
+            'stats': [
+                {'label': 'Materiais', 'value': Material.objects.count()},
+                {'label': 'Em Cautela', 'value': Cautela.objects.filter(ativa=True).count()},
+            ],
+            'links': [
+                {'label': 'Gestão de Materiais', 'url': 'informatica:gestao_materiais', 'icon': 'fa-boxes-stacked'},
+                {'label': 'Utilizadores', 'url': 'informatica:user_list', 'icon': 'fa-users'},
+                {'label': 'Grupos', 'url': 'informatica:group_list', 'icon': 'fa-user-tag'},
+            ],
+        },
+    ]
+
+    return render(request, 'informatica/configuracao_secoes.html', {
+        'secoes': secoes,
+    })
 
 
 # ==========================================

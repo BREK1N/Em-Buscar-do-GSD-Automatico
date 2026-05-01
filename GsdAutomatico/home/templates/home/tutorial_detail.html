@@ -1,0 +1,406 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ tutorial.title }} — Portal GSD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+    <style>
+        :root {
+            --accent:         #3b82f6;
+            --accent-hover:   #1d4ed8;
+            --accent-dim:     rgba(59,130,246,0.12);
+            --danger:         #ef4444;
+            --bg-page:        #f0f4f8;
+            --bg-card:        #ffffff;
+            --bg-sidebar:     #0f172a;
+            --border:         rgba(0,0,0,0.07);
+            --border-strong:  rgba(0,0,0,0.13);
+            --divider:        rgba(0,0,0,0.06);
+            --text-primary:   #0f172a;
+            --text-secondary: #64748b;
+            --text-muted:     #94a3b8;
+            --shadow-card:    0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --font-display:   'Rajdhani', system-ui, sans-serif;
+            --font-body:      'Inter', system-ui, sans-serif;
+        }
+        body.dark-theme {
+            --bg-page:        #0d1117;
+            --bg-card:        #161b22;
+            --bg-sidebar:     #010409;
+            --border:         rgba(255,255,255,0.06);
+            --border-strong:  rgba(255,255,255,0.11);
+            --divider:        rgba(255,255,255,0.06);
+            --text-primary:   #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted:     #6e7681;
+            --shadow-card:    0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg-page); color: var(--text-primary); font-family: var(--font-body); }
+
+        /* Back bar */
+        .ph-back-bar {
+            background: #0f172a;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 0 32px;
+            height: 52px;
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            position: sticky; top: 0; z-index: 10;
+        }
+        .ph-back {
+            display: inline-flex; align-items: center; gap: 6px;
+            font-size: 13px; color: rgba(255,255,255,0.7); text-decoration: none;
+            font-weight: 500; transition: color 0.15s;
+        }
+        .ph-back:hover { color: #fff; }
+        .ph-back svg { width: 15px; height: 15px; }
+        .ph-back-sep { color: rgba(255,255,255,0.2); font-size: 16px; }
+        .ph-back-title {
+            font-size: 13px; font-weight: 600; color: rgba(255,255,255,0.9);
+            white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 400px;
+        }
+
+        /* Page */
+        .ph-detail { max-width: 860px; margin: 0 auto; padding: 32px 32px 80px; }
+
+        /* Cover */
+        .ph-detail-cover-full {
+            width: 100%; height: 360px; object-fit: cover;
+            border-radius: 16px; margin-bottom: 28px; display: block;
+            box-shadow: var(--shadow-card);
+        }
+        .ph-detail-cover-placeholder {
+            width: 100%; height: 360px; border-radius: 16px; margin-bottom: 28px;
+            background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            display: flex; align-items: center; justify-content: center;
+            color: rgba(255,255,255,0.5);
+        }
+        .ph-detail-cover-placeholder svg { width: 64px; height: 64px; }
+
+        /* Header */
+        .ph-tutorial-tag {
+            font-family: var(--font-display); font-size: 10px; font-weight: 700;
+            letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent);
+            margin-bottom: 10px; display: block;
+        }
+        .ph-detail h1 { font-size: 32px; font-weight: 700; margin: 0 0 12px; line-height: 1.2; }
+        .ph-detail-by {
+            font-size: 13px; color: var(--text-secondary); margin-bottom: 28px;
+            display: flex; flex-wrap: wrap; gap: 12px; align-items: center;
+        }
+        .ph-detail-by svg { width: 14px; height: 14px; vertical-align: middle; margin-right: 4px; }
+        .ph-detail-dot { width: 3px; height: 3px; border-radius: 50%; background: var(--text-muted); }
+        .ph-divider { border: none; border-top: 1px solid var(--divider); margin: 24px 0; }
+
+        /* Card wrapper for content */
+        .ph-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; box-shadow: var(--shadow-card); overflow: hidden; margin-bottom: 20px;
+        }
+        .ph-card-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; border-bottom: 1px solid var(--divider);
+        }
+        .ph-card-title { font-size: 15px; font-weight: 600; margin: 0; display: flex; align-items: center; gap: 8px; }
+        .ph-card-title svg { width: 16px; height: 16px; color: var(--accent); }
+        .ph-card-body { padding: 24px 28px; }
+
+        /* Content (Quill output) */
+        .ph-detail-body {
+            font-size: 16px; line-height: 1.7; color: var(--text-primary);
+        }
+        .ph-detail-body p { margin: 0 0 1.2em; }
+        .ph-detail-body h1, .ph-detail-body h2, .ph-detail-body h3 {
+            font-weight: 700; margin: 1.6em 0 0.6em; line-height: 1.3;
+        }
+        .ph-detail-body h2 { font-size: 22px; }
+        .ph-detail-body h3 { font-size: 18px; }
+        .ph-detail-body img { max-width: 100%; border-radius: 10px; margin: 12px 0; }
+        .ph-detail-body code {
+            background: var(--bg-page); padding: 2px 6px; border-radius: 4px;
+            font-size: 0.88em; font-family: 'Consolas', monospace;
+        }
+        .ph-detail-body pre {
+            background: var(--bg-page); border-radius: 8px; padding: 16px;
+            overflow-x: auto; font-family: 'Consolas', monospace; font-size: 13.5px;
+        }
+        .ph-detail-body ul, .ph-detail-body ol { padding-left: 1.5em; margin: 0 0 1em; }
+        .ph-detail-body blockquote {
+            border-left: 3px solid var(--accent); margin: 0 0 1em;
+            padding: 4px 0 4px 16px; color: var(--text-secondary);
+        }
+
+        /* Images grid */
+        .ph-images-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+            gap: 12px; padding: 20px;
+        }
+        .ph-image-item img {
+            width: 100%; height: 160px; object-fit: cover;
+            border-radius: 10px; border: 1px solid var(--border); display: block;
+        }
+        .ph-image-caption {
+            font-size: 12px; color: var(--text-muted); margin-top: 5px; text-align: center;
+        }
+        .ph-image-remove {
+            display: block; width: 100%; margin-top: 6px; padding: 4px;
+            background: rgba(239,68,68,0.10); color: var(--danger);
+            border: 1px solid rgba(239,68,68,0.2); border-radius: 6px;
+            font-size: 11.5px; font-weight: 600; cursor: pointer; text-align: center;
+            transition: background 0.15s;
+        }
+        .ph-image-remove:hover { background: rgba(239,68,68,0.2); }
+
+        /* Attachments */
+        .ph-attachment {
+            display: flex; align-items: center; gap: 14px;
+            padding: 12px 20px; border-bottom: 1px solid var(--divider);
+        }
+        .ph-attachment:last-child { border-bottom: 0; }
+        .ph-att-icon {
+            width: 38px; height: 38px; border-radius: 8px;
+            background: var(--accent-dim); color: var(--accent);
+            display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+        }
+        .ph-att-icon svg { width: 18px; height: 18px; }
+        .ph-att-info { flex: 1; min-width: 0; }
+        .ph-att-name { font-size: 13.5px; font-weight: 600; }
+        .ph-att-desc { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+        .ph-att-actions { display: flex; align-items: center; gap: 8px; }
+
+        /* Buttons */
+        .ph-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-family: var(--font-body); font-size: 13px; font-weight: 500;
+            padding: 7px 13px; border-radius: 8px; border: 1px solid transparent;
+            cursor: pointer; transition: all 0.15s; text-decoration: none; line-height: 1.2;
+        }
+        .ph-btn svg { width: 13px; height: 13px; }
+        .ph-btn-primary { background: var(--accent); color: #fff; }
+        .ph-btn-primary:hover { background: var(--accent-hover); color: #fff; }
+        .ph-btn-secondary { background: var(--bg-card); color: var(--text-primary); border-color: var(--border-strong); }
+        .ph-btn-secondary:hover { background: var(--bg-page); }
+        .ph-btn-danger { background: rgba(239,68,68,0.10); color: var(--danger); border-color: rgba(239,68,68,0.2); }
+        .ph-btn-danger:hover { background: rgba(239,68,68,0.18); }
+
+        /* Admin section */
+        .ph-admin-actions {
+            display: flex; gap: 10px; flex-wrap: wrap;
+            padding: 20px; border-bottom: 1px solid var(--divider);
+        }
+
+        /* Add forms */
+        .ph-add-form {
+            padding: 20px; background: var(--bg-page);
+            border-top: 1px solid var(--divider);
+        }
+        .ph-add-form-title {
+            font-size: 12px; font-weight: 700; letter-spacing: 0.08em; text-transform: uppercase;
+            color: var(--text-muted); margin-bottom: 14px;
+        }
+        .ph-field { margin-bottom: 12px; }
+        .ph-label { display: block; font-size: 12.5px; font-weight: 600; margin-bottom: 5px; color: var(--text-secondary); }
+        .ph-input {
+            width: 100%; padding: 8px 12px; border: 1px solid var(--border-strong);
+            border-radius: 8px; background: var(--bg-card); color: var(--text-primary);
+            font-family: var(--font-body); font-size: 13.5px; outline: none; transition: border 0.15s;
+        }
+        .ph-input:focus { border-color: var(--accent); }
+        .ph-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); gap: 10px; }
+
+        @media (max-width: 640px) {
+            .ph-detail { padding: 20px 16px 60px; }
+            .ph-detail h1 { font-size: 24px; }
+            .ph-detail-cover-full, .ph-detail-cover-placeholder { height: 220px; }
+            .ph-back-bar { padding: 0 16px; }
+        }
+    </style>
+</head>
+<body>
+    <script>
+        (function(){
+            var t = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme');
+            document.body.classList.add(t);
+        })();
+    </script>
+
+    <div class="ph-back-bar">
+        <a href="{% url 'home:index' %}" class="ph-back">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Portal GSD
+        </a>
+        <span class="ph-back-sep">/</span>
+        <span class="ph-back-title">{{ tutorial.title }}</span>
+    </div>
+
+    <div class="ph-detail">
+
+        {% if tutorial.cover_image %}
+            <img src="{{ tutorial.cover_image.url }}" alt="{{ tutorial.title }}" class="ph-detail-cover-full">
+        {% endif %}
+
+        {% if tutorial.category %}<span class="ph-tutorial-tag">{{ tutorial.category }}</span>{% endif %}
+        <h1>{{ tutorial.title }}</h1>
+        <div class="ph-detail-by">
+            <span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z" /></svg>
+                {{ tutorial.author.get_full_name|default:tutorial.author.username }}
+            </span>
+            <span class="ph-detail-dot"></span>
+            <span>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" /></svg>
+                {{ tutorial.created_at|date:"d/m/Y" }}
+            </span>
+            {% if tutorial.updated_at != tutorial.created_at %}
+            <span class="ph-detail-dot"></span>
+            <span>Atualizado {{ tutorial.updated_at|date:"d/m/Y" }}</span>
+            {% endif %}
+        </div>
+
+        <!-- CONTEÚDO -->
+        <div class="ph-card">
+            <div class="ph-card-body">
+                <div class="ph-detail-body ql-editor">
+                    {{ tutorial.content|safe }}
+                </div>
+            </div>
+        </div>
+
+        <!-- IMAGENS ILUSTRATIVAS -->
+        {% if tutorial.images.exists %}
+        <div class="ph-card">
+            <div class="ph-card-head">
+                <h2 class="ph-card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z" /></svg>
+                    Imagens Ilustrativas
+                </h2>
+            </div>
+            <div class="ph-images-grid">
+                {% for img in tutorial.images.all %}
+                <div class="ph-image-item">
+                    <img src="{{ img.image.url }}" alt="{{ img.caption|default:'Imagem' }}">
+                    {% if img.caption %}<div class="ph-image-caption">{{ img.caption }}</div>{% endif %}
+                    {% if can_manage %}
+                    <form method="post" action="{% url 'home:image_delete' img.pk %}">
+                        {% csrf_token %}
+                        <button type="submit" class="ph-image-remove" onclick="return confirm('Remover imagem?')">Remover</button>
+                    </form>
+                    {% endif %}
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- ANEXOS -->
+        {% if tutorial.attachments.exists %}
+        <div class="ph-card">
+            <div class="ph-card-head">
+                <h2 class="ph-card-title">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                    Arquivos para Download
+                </h2>
+            </div>
+            {% for att in tutorial.attachments.all %}
+            <div class="ph-attachment">
+                <div class="ph-att-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                </div>
+                <div class="ph-att-info">
+                    <div class="ph-att-name">{{ att.name }}</div>
+                    {% if att.description %}<div class="ph-att-desc">{{ att.description }}</div>{% endif %}
+                </div>
+                <div class="ph-att-actions">
+                    <a href="{{ att.file.url }}" download class="ph-btn ph-btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                        Baixar
+                    </a>
+                    {% if can_manage %}
+                    <form method="post" action="{% url 'home:attachment_delete' att.pk %}" style="margin:0">
+                        {% csrf_token %}
+                        <button type="submit" class="ph-btn ph-btn-danger" onclick="return confirm('Remover anexo?')" title="Remover">✕</button>
+                    </form>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- AÇÕES DE ADMINISTRAÇÃO -->
+        {% if can_manage %}
+        <div class="ph-card">
+            <div class="ph-admin-actions">
+                <a href="{% url 'home:tutorial_update' tutorial.pk %}" class="ph-btn ph-btn-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125" /></svg>
+                    Editar Tutorial
+                </a>
+                <form method="post" action="{% url 'home:tutorial_delete' tutorial.pk %}" style="margin:0">
+                    {% csrf_token %}
+                    <button type="submit" class="ph-btn ph-btn-danger" onclick="return confirm('Excluir este tutorial permanentemente?')">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                        Excluir Tutorial
+                    </button>
+                </form>
+            </div>
+
+            <!-- Adicionar imagem -->
+            <div class="ph-add-form">
+                <div class="ph-add-form-title">Adicionar Imagem Ilustrativa</div>
+                <form method="post" action="{% url 'home:tutorial_image_add' tutorial.pk %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="ph-row">
+                        <div class="ph-field">
+                            <label class="ph-label">Imagem *</label>
+                            <input type="file" name="image" class="ph-input" accept="image/*" required>
+                        </div>
+                        <div class="ph-field">
+                            <label class="ph-label">Legenda</label>
+                            <input type="text" name="caption" class="ph-input" placeholder="Opcional">
+                        </div>
+                        <div class="ph-field" style="max-width:120px">
+                            <label class="ph-label">Ordem</label>
+                            <input type="number" name="order" class="ph-input" value="0" min="0">
+                        </div>
+                    </div>
+                    <button type="submit" class="ph-btn ph-btn-primary" style="margin-top:4px">Adicionar Imagem</button>
+                </form>
+            </div>
+
+            <!-- Adicionar anexo -->
+            <div class="ph-add-form" style="border-top:1px solid var(--divider)">
+                <div class="ph-add-form-title">Adicionar Anexo para Download</div>
+                <form method="post" action="{% url 'home:tutorial_attachment_add' tutorial.pk %}" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="ph-row">
+                        <div class="ph-field">
+                            <label class="ph-label">Arquivo *</label>
+                            <input type="file" name="file" class="ph-input" required>
+                        </div>
+                        <div class="ph-field">
+                            <label class="ph-label">Nome *</label>
+                            <input type="text" name="name" class="ph-input" placeholder="Ex: Manual de Uso" required>
+                        </div>
+                        <div class="ph-field">
+                            <label class="ph-label">Descrição</label>
+                            <input type="text" name="description" class="ph-input" placeholder="Opcional">
+                        </div>
+                    </div>
+                    <button type="submit" class="ph-btn ph-btn-primary" style="margin-top:4px">Adicionar Anexo</button>
+                </form>
+            </div>
+        </div>
+        {% endif %}
+
+    </div>
+</body>
+</html>

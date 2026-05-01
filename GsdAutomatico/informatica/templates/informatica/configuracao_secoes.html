@@ -1,0 +1,143 @@
+{% extends 'informatica/base.html' %}
+{% load static %}
+
+{% block title %}Configuração das Seções{% endblock %}
+
+{% block content %}
+<div class="main-content">
+    <div class="page-header">
+        <h1 class="page-title">
+            <i class="fas fa-cogs"></i>
+            Configuração das Seções
+        </h1>
+        <p class="page-subtitle">Visão geral e acesso rápido a cada seção do sistema.</p>
+    </div>
+
+    <div class="secoes-grid">
+        {% for secao in secoes %}
+        <div class="secao-card">
+            <div class="secao-card-header" style="background: {{ secao.cor }};">
+                <div class="secao-icon-wrap">
+                    <i class="fas {{ secao.icon }}"></i>
+                </div>
+                <h2 class="secao-nome">{{ secao.nome }}</h2>
+            </div>
+
+            <div class="secao-card-body">
+                {% if secao.stats %}
+                <div class="secao-stats">
+                    {% for stat in secao.stats %}
+                    <div class="stat-box">
+                        <div class="stat-value" style="color: {{ secao.cor }};">{{ stat.value }}</div>
+                        <div class="stat-label">{{ stat.label }}</div>
+                    </div>
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                <div class="secao-links">
+                    {% for link in secao.links %}
+                    <a href="{% url link.url %}" class="secao-link">
+                        <i class="fas {{ link.icon }}" style="color: {{ secao.cor }};"></i>
+                        <span>{{ link.label }}</span>
+                        <svg class="link-arrow" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+                    </a>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p class="secoes-empty">Nenhuma seção configurada.</p>
+        {% endfor %}
+    </div>
+</div>
+
+<style>
+.main-content {
+    padding: 32px;
+    max-width: 1200px;
+}
+.page-header { margin-bottom: 24px; }
+.page-title {
+    font-size: 22px; font-weight: 700;
+    display: flex; align-items: center; gap: 10px;
+    color: var(--text-primary);
+}
+.page-title i { color: var(--accent-color, #3b82f6); }
+.page-subtitle { color: var(--text-secondary); font-size: 14px; margin-top: 4px; }
+
+.secoes-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+    gap: 20px;
+}
+
+.secao-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    overflow: hidden;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+    transition: box-shadow 0.2s;
+}
+.secao-card:hover {
+    box-shadow: 0 4px 16px rgba(0,0,0,0.15);
+}
+
+.secao-card-header {
+    padding: 18px 22px;
+    display: flex; align-items: center; gap: 12px;
+}
+.secao-icon-wrap {
+    width: 38px; height: 38px;
+    background: rgba(255,255,255,0.22);
+    border-radius: 9px;
+    display: flex; align-items: center; justify-content: center;
+    flex-shrink: 0;
+}
+.secao-icon-wrap i { color: #fff; font-size: 17px; }
+.secao-nome { color: #fff; font-size: 17px; font-weight: 700; margin: 0; }
+
+.secao-card-body { padding: 18px 22px; }
+
+.secao-stats {
+    display: flex; gap: 12px; margin-bottom: 18px;
+}
+.stat-box {
+    flex: 1;
+    background: var(--bg-page);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 12px 14px;
+    text-align: center;
+}
+.stat-value { font-size: 22px; font-weight: 700; }
+.stat-label { font-size: 11.5px; color: var(--text-muted); margin-top: 2px; }
+
+.secao-links { display: flex; flex-direction: column; gap: 6px; }
+.secao-link {
+    display: flex; align-items: center; gap: 10px;
+    padding: 10px 13px;
+    border-radius: 8px;
+    background: var(--bg-page);
+    border: 1px solid var(--border);
+    color: var(--text-primary);
+    text-decoration: none;
+    font-size: 13.5px; font-weight: 500;
+    transition: background 0.15s, border-color 0.15s;
+}
+.secao-link:hover {
+    background: var(--bg-sidebar-item);
+    border-color: var(--border-strong);
+}
+.secao-link i { width: 16px; flex-shrink: 0; }
+.link-arrow { margin-left: auto; width: 14px; height: 14px; color: var(--text-muted); flex-shrink: 0; }
+
+.secoes-empty {
+    color: var(--text-muted);
+    grid-column: 1/-1;
+    text-align: center;
+    padding: 40px;
+}
+</style>
+{% endblock %}

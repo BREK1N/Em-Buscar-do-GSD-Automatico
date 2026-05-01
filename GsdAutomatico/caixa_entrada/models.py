@@ -81,6 +81,14 @@ class Mensagem(models.Model):
         User, related_name='mensagens_excluidas',
         blank=True, verbose_name="Excluída por"
     )
+    permanentemente_excluida_por = models.ManyToManyField(
+        User, related_name='mensagens_perm_excluidas',
+        blank=True, verbose_name="Excluída permanentemente por"
+    )
+    favoritos = models.ManyToManyField(
+        User, related_name='mensagens_favoritas',
+        blank=True, verbose_name="Favoritos"
+    )
     eh_rascunho = models.BooleanField(default=False, verbose_name="Rascunho")
     mensagem_original = models.ForeignKey(
         'self', null=True, blank=True,

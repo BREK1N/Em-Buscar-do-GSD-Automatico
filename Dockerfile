@@ -63,7 +63,7 @@ RUN echo '#!/bin/sh' > /usr/local/bin/entrypoint.sh && \
     \
     echo 'echo "--- 5. Iniciando Servidor ---"' >> /usr/local/bin/entrypoint.sh && \
     echo 'cd GsdAutomatico' >> /usr/local/bin/entrypoint.sh && \
-    echo 'exec waitress-serve --listen=*:8000 GsdAutomatico.wsgi:application' >> /usr/local/bin/entrypoint.sh && \
+    echo 'exec daphne -b 0.0.0.0 -p 8000 GsdAutomatico.asgi:application' >> /usr/local/bin/entrypoint.sh && \
     chmod +x /usr/local/bin/entrypoint.sh
 # ---------------------------------------------------------
 

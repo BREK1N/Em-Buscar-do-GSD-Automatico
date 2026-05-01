@@ -1,0 +1,391 @@
+{% extends 'caixa_entrada/base_inbox.html' %}
+
+{% block inbox_extra_css %}
+/* ── Toolbar ── */
+.ch-toolbar {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    padding: 12px 18px;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+    flex-wrap: wrap;
+    min-height: 58px;
+}
+.ch-toolbar-title {
+    font-size: .95rem;
+    font-weight: 700;
+    color: var(--text-primary, #e0e0ff);
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+/* ── Tabs maiores ── */
+.ch-tabs {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+}
+.ch-tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 18px;
+    border-radius: 8px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    background: transparent;
+    color: var(--text-secondary, #a0a0c0);
+    font-size: .84rem;
+    font-weight: 500;
+    text-decoration: none;
+    transition: all .15s;
+    letter-spacing: .01em;
+}
+.ch-tab:hover {
+    background: rgba(255,255,255,.06);
+    color: var(--text-primary, #e0e0ff);
+    border-color: rgba(255,255,255,.15);
+}
+.ch-tab.active {
+    background: rgba(233,69,96,.15);
+    color: var(--accent-color, #e94560);
+    border-color: rgba(233,69,96,.35);
+    font-weight: 700;
+}
+.ch-badge-tab {
+    font-size: .66rem;
+    font-weight: 800;
+    padding: 2px 7px;
+    border-radius: 10px;
+    background: var(--accent-color, #e94560);
+    color: #fff;
+    line-height: 1;
+}
+
+/* ── Btn Novo Chamado ── */
+.ch-btn-novo {
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    padding: 8px 18px;
+    background: var(--accent-color, #e94560);
+    color: #fff;
+    border: none;
+    border-radius: 20px;
+    font-size: .82rem;
+    font-weight: 700;
+    text-decoration: none;
+    cursor: pointer;
+    transition: box-shadow .2s, transform .1s;
+    box-shadow: 0 2px 10px rgba(233,69,96,.35);
+    white-space: nowrap;
+}
+.ch-btn-novo:hover {
+    box-shadow: 0 4px 16px rgba(233,69,96,.5);
+    transform: translateY(-1px);
+    color: #fff;
+}
+
+/* ── Status filters ── */
+.ch-filters {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 8px 18px;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+    flex-wrap: wrap;
+}
+.ch-filter-label {
+    font-size: .72rem;
+    color: var(--text-secondary, #a0a0c0);
+    font-weight: 600;
+    margin-right: 2px;
+}
+.ch-filter {
+    font-size: .72rem;
+    padding: 3px 11px;
+    border-radius: 14px;
+    text-decoration: none;
+    color: var(--text-secondary, #a0a0c0);
+    border: 1px solid var(--border-color, #2a2a4a);
+    transition: all .15s;
+}
+.ch-filter:hover { color: var(--text-primary, #e0e0ff); border-color: rgba(255,255,255,.15); }
+.ch-filter.active { background: var(--accent-color, #e94560); color: #fff; border-color: var(--accent-color, #e94560); }
+
+/* ── Linhas de chamado ── */
+.ch-list { flex: 1; overflow-y: auto; }
+
+.ch-row {
+    display: flex;
+    align-items: center;
+    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    cursor: pointer;
+    transition: background .12s;
+    min-height: 66px;
+    position: relative;
+    text-decoration: none;
+}
+.ch-row:hover { background: rgba(255,255,255,.03); }
+.ch-row.status-aberto            { border-left: 3px solid #e94560; }
+.ch-row.status-em_atendimento    { border-left: 3px solid #f59e0b; }
+.ch-row.status-aguardando_solicitante { border-left: 3px solid #a78bfa; }
+.ch-row.status-resolvido         { border-left: 3px solid #4ade80; }
+.ch-row.status-fechado           { border-left: 3px solid #6b7280; opacity: .7; }
+
+/* Ícone de prioridade */
+.ch-row-icon {
+    width: 38px; height: 38px;
+    border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    font-size: .72rem; font-weight: 800;
+    flex-shrink: 0;
+    margin: 0 10px 0 14px;
+}
+.ch-row-icon.p-baixa   { background: rgba(56,189,248,.12);  color: #38bdf8; }
+.ch-row-icon.p-normal  { background: rgba(74,222,128,.12);  color: #4ade80; }
+.ch-row-icon.p-alta    { background: rgba(251,146,60,.12);  color: #fb923c; }
+.ch-row-icon.p-critica { background: rgba(248,113,113,.15); color: #f87171; }
+
+/* Corpo da linha */
+.ch-row-body { flex: 1; min-width: 0; padding: 12px 0; }
+.ch-row-proto { font-family: monospace; font-size: .7rem; color: var(--text-secondary, #a0a0c0); margin-bottom: 2px; }
+.ch-row-title { font-size: .85rem; font-weight: 600; color: var(--text-primary, #e0e0ff); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; margin-bottom: 3px; }
+.ch-row.status-fechado .ch-row-title { color: var(--text-secondary, #a0a0c0); font-weight: 400; }
+.ch-row-meta { font-size: .75rem; color: var(--text-secondary, #a0a0c0); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+/* Coluna direita */
+.ch-row-right {
+    display: flex; flex-direction: column; align-items: flex-end;
+    gap: 6px; padding: 10px 14px; flex-shrink: 0;
+}
+.ch-row-date { font-size: .71rem; color: var(--text-secondary, #a0a0c0); white-space: nowrap; }
+
+/* ── Botão Atender (melhorado) ── */
+.ch-btn-atender-row {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 5px 13px;
+    background: rgba(233,69,96,.12);
+    color: var(--accent-color, #e94560);
+    border: 1px solid rgba(233,69,96,.3);
+    border-radius: 20px;
+    font-size: .74rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all .15s;
+    white-space: nowrap;
+}
+.ch-btn-atender-row:hover {
+    background: var(--accent-color, #e94560);
+    color: #fff;
+    border-color: var(--accent-color, #e94560);
+    box-shadow: 0 2px 8px rgba(233,69,96,.4);
+}
+
+/* ── Badges status/prioridade ── */
+.badge-status-ch, .badge-prio {
+    font-size: .61rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+}
+.s-aberto                 { background: rgba(233,69,96,.12);   color: #e94560; border: 1px solid rgba(233,69,96,.25); }
+.s-em_atendimento         { background: rgba(245,158,11,.12);  color: #f59e0b; border: 1px solid rgba(245,158,11,.25); }
+.s-aguardando_solicitante { background: rgba(167,139,250,.12); color: #a78bfa; border: 1px solid rgba(167,139,250,.25); }
+.s-resolvido              { background: rgba(74,222,128,.12);  color: #4ade80; border: 1px solid rgba(74,222,128,.25); }
+.s-fechado                { background: rgba(107,114,128,.12); color: #9ca3af; border: 1px solid rgba(107,114,128,.2); }
+.p-baixa-b  { background: rgba(56,189,248,.1);   color: #38bdf8; border: 1px solid rgba(56,189,248,.2); }
+.p-normal-b { background: rgba(74,222,128,.1);   color: #4ade80; border: 1px solid rgba(74,222,128,.2); }
+.p-alta-b   { background: rgba(251,146,60,.1);   color: #fb923c; border: 1px solid rgba(251,146,60,.2); }
+.p-critica-b{ background: rgba(248,113,113,.13); color: #f87171; border: 1px solid rgba(248,113,113,.25); }
+
+/* ── Formulários de ação ocultos ── */
+.ch-atender-forms { display: none; }
+
+/* ── Empty ── */
+.ch-empty {
+    display: flex; flex-direction: column; align-items: center;
+    justify-content: center; height: 100%; min-height: 300px;
+    color: var(--text-secondary, #a0a0c0); gap: 12px;
+}
+.ch-empty svg { opacity: .2; }
+.ch-empty p { margin: 0; font-size: .9rem; }
+
+/* ── Paginação ── */
+.ch-pagination {
+    display: flex; justify-content: center; gap: 4px;
+    padding: 12px; border-top: 1px solid var(--border-color, #2a2a4a);
+    background: var(--bg-secondary, #16213e);
+}
+.ch-pagination a, .ch-pagination span {
+    padding: 5px 11px; border-radius: 6px;
+    border: 1px solid var(--border-color, #2a2a4a);
+    font-size: .78rem; color: var(--text-primary, #e0e0ff);
+    text-decoration: none; background: var(--bg-primary, #1a1a2e);
+}
+.ch-pagination a:hover { border-color: var(--accent-color, #e94560); color: var(--accent-color, #e94560); }
+.ch-pagination span.current { background: var(--accent-color, #e94560); border-color: var(--accent-color, #e94560); color: #fff; }
+{% endblock %}
+
+{% block inbox_content %}
+<!-- Toolbar -->
+<div class="ch-toolbar">
+    <span class="ch-toolbar-title">
+        <svg width="15" height="15" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
+        </svg>
+        Chamados de Suporte
+    </span>
+
+    {% if is_informatica %}
+    <div class="ch-tabs">
+        <a href="?filtro=fila{% if status_ativo %}&status={{ status_ativo }}{% endif %}"
+           class="ch-tab {% if filtro_ativo == 'fila' %}active{% endif %}">
+            <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1zm13 2.383-4.708 2.825L15 11.105zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383z"/>
+            </svg>
+            Fila Geral
+            {% if count_fila %}<span class="ch-badge-tab">{{ count_fila }}</span>{% endif %}
+        </a>
+        <a href="?filtro=meus{% if status_ativo %}&status={{ status_ativo }}{% endif %}"
+           class="ch-tab {% if filtro_ativo == 'meus' %}active{% endif %}">
+            <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4m-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10c-2.029 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664z"/>
+            </svg>
+            Meus Chamados
+            {% if count_meus %}<span class="ch-badge-tab">{{ count_meus }}</span>{% endif %}
+        </a>
+        <a href="?filtro=todos{% if status_ativo %}&status={{ status_ativo }}{% endif %}"
+           class="ch-tab {% if filtro_ativo == 'todos' %}active{% endif %}">
+            <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+                <path d="M2.5 12a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5m0-4a.5.5 0 0 1 .5-.5h10a.5.5 0 0 1 0 1H3a.5.5 0 0 1-.5-.5"/>
+            </svg>
+            Todos
+        </a>
+    </div>
+    {% endif %}
+
+    <a href="{% url 'chamados:novo' %}" class="ch-btn-novo">
+        <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/>
+        </svg>
+        Novo Chamado
+    </a>
+</div>
+
+<!-- Filtros de status -->
+<div class="ch-filters">
+    <span class="ch-filter-label">Status:</span>
+    <a href="?filtro={{ filtro_ativo }}" class="ch-filter {% if not status_ativo %}active{% endif %}">Todos</a>
+    {% for value, label in status_choices %}
+    <a href="?filtro={{ filtro_ativo }}&status={{ value }}"
+       class="ch-filter {% if status_ativo == value %}active{% endif %}">{{ label }}</a>
+    {% endfor %}
+</div>
+
+<!-- Formulários de atender (fora dos links, disparados por JS) -->
+<div class="ch-atender-forms">
+    {% for c in chamados %}
+    {% if is_informatica and not c.atribuido_a and c.status == 'aberto' %}
+    <form method="post" action="{% url 'chamados:atender' c.pk %}" id="form-atender-{{ c.pk }}">
+        {% csrf_token %}
+    </form>
+    {% endif %}
+    {% endfor %}
+</div>
+
+<!-- Lista de chamados -->
+<div class="ch-list">
+{% if chamados %}
+    {% for c in chamados %}
+    <div class="ch-row status-{{ c.status }}" data-href="{% url 'chamados:detalhe' c.pk %}">
+
+        <div class="ch-row-icon p-{{ c.prioridade }}">
+            {% if c.prioridade == 'critica' %}
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/></svg>
+            {% elif c.prioridade == 'alta' %}
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M7.938 2.016A.13.13 0 0 1 8.002 2a.13.13 0 0 1 .063.016.146.146 0 0 1 .054.057l6.857 11.667c.036.06.035.124.002.183a.163.163 0 0 1-.054.06.116.116 0 0 1-.066.017H1.146a.115.115 0 0 1-.066-.017.163.163 0 0 1-.054-.06.176.176 0 0 1 .002-.183L7.884 2.073a.147.147 0 0 1 .054-.057zm1.044-.45a1.13 1.13 0 0 0-1.96 0L.165 13.233c-.457.778.091 1.767.98 1.767h13.713c.889 0 1.438-.99.98-1.767z"/><path d="M7.002 12a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 5.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0z"/></svg>
+            {% elif c.prioridade == 'baixa' %}
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path fill-rule="evenodd" d="M8 4a.5.5 0 0 1 .5.5v5.793l2.146-2.147a.5.5 0 0 1 .708.708l-3 3a.5.5 0 0 1-.708 0l-3-3a.5.5 0 1 1 .708-.708L7.5 10.293V4.5A.5.5 0 0 1 8 4z"/></svg>
+            {% else %}
+            <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 9.5a1.5 1.5 0 1 0 0-3 1.5 1.5 0 0 0 0 3z"/></svg>
+            {% endif %}
+        </div>
+
+        <div class="ch-row-body">
+            <div class="ch-row-proto">#{{ c.protocolo }}</div>
+            <div class="ch-row-title">{{ c.titulo }}</div>
+            <div class="ch-row-meta">
+                {{ c.solicitante.get_full_name|default:c.solicitante.username }}
+                {% if is_informatica and c.atribuido_a %}
+                &nbsp;·&nbsp; <svg width="10" height="10" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:middle;"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4"/></svg>
+                {{ c.atribuido_a.get_full_name|default:c.atribuido_a.username }}
+                {% elif is_informatica %}
+                &nbsp;·&nbsp; <span style="color:#f59e0b;font-size:.72rem;">Sem atribuição</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="ch-row-right">
+            <span class="ch-row-date">{{ c.created_at|date:"d/m H:i" }}</span>
+            <div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;justify-content:flex-end;">
+                <span class="badge-status-ch s-{{ c.status }}">{{ c.get_status_display }}</span>
+                <span class="badge-prio p-{{ c.prioridade }}-b">{{ c.get_prioridade_display }}</span>
+            </div>
+            {% if is_informatica and not c.atribuido_a and c.status == 'aberto' %}
+            <button class="ch-btn-atender-row"
+                    onclick="event.stopPropagation(); document.getElementById('form-atender-{{ c.pk }}').submit();">
+                <svg width="11" height="11" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M10.97 4.97a.75.75 0 0 1 1.07 1.05l-3.99 4.99a.75.75 0 0 1-1.08.02L4.324 8.384a.75.75 0 1 1 1.06-1.06l2.094 2.093 3.473-4.425z"/>
+                </svg>
+                Atender
+            </button>
+            {% endif %}
+        </div>
+    </div>
+    {% endfor %}
+
+{% else %}
+    <div class="ch-empty">
+        <svg width="64" height="64" fill="currentColor" viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="M5.255 5.786a.237.237 0 0 0 .241.247h.825c.138 0 .248-.113.266-.25.09-.656.54-1.134 1.342-1.134.686 0 1.314.343 1.314 1.168 0 .635-.374.927-.965 1.371-.673.489-1.206 1.06-1.168 1.987l.003.217a.25.25 0 0 0 .25.246h.811a.25.25 0 0 0 .25-.25v-.105c0-.718.273-.927 1.01-1.486.609-.463 1.244-.977 1.244-2.056 0-1.511-1.276-2.241-2.673-2.241-1.267 0-2.655.59-2.75 2.286zm1.557 5.763c0 .533.425.927 1.01.927.609 0 1.028-.394 1.028-.927 0-.552-.42-.94-1.029-.94-.584 0-1.009.388-1.009.94z"/>
+        </svg>
+        <p>Nenhum chamado encontrado.</p>
+        <a href="{% url 'chamados:novo' %}" style="color:var(--accent-color,#e94560);font-size:.85rem;">+ Abrir novo chamado</a>
+    </div>
+{% endif %}
+</div>
+
+{% if is_paginated %}
+<div class="ch-pagination">
+    {% if page_obj.has_previous %}<a href="?page={{ page_obj.previous_page_number }}&filtro={{ filtro_ativo }}&status={{ status_ativo }}">&laquo;</a>{% endif %}
+    {% for num in paginator.page_range %}
+        {% if page_obj.number == num %}<span class="current">{{ num }}</span>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}&filtro={{ filtro_ativo }}&status={{ status_ativo }}">{{ num }}</a>
+        {% endif %}
+    {% endfor %}
+    {% if page_obj.has_next %}<a href="?page={{ page_obj.next_page_number }}&filtro={{ filtro_ativo }}&status={{ status_ativo }}">&raquo;</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block inbox_extra_js %}
+<script>
+// Clicar na linha navega para o detalhe (exceto cliques em botões/links)
+document.querySelectorAll('.ch-row[data-href]').forEach(row => {
+    row.addEventListener('click', function(e) {
+        if (e.target.closest('button, a, form')) return;
+        location.href = this.dataset.href;
+    });
+});
+</script>
+{% endblock %}

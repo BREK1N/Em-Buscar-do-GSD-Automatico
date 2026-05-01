@@ -1,0 +1,335 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tutoriais — Portal GSD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent:          #3b82f6;
+            --accent-hover:    #1d4ed8;
+            --accent-dim:      rgba(59,130,246,0.10);
+            --bg-page:         #f0f4f8;
+            --bg-card:         #ffffff;
+            --border:          rgba(0,0,0,0.07);
+            --border-strong:   rgba(0,0,0,0.13);
+            --divider:         rgba(0,0,0,0.06);
+            --text-primary:    #0f172a;
+            --text-secondary:  #64748b;
+            --text-muted:      #94a3b8;
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --font-display:    'Rajdhani', system-ui, sans-serif;
+            --font-body:       'Inter', system-ui, sans-serif;
+        }
+        body.dark-theme {
+            --bg-page:         #0d1117;
+            --bg-card:         #161b22;
+            --border:          rgba(255,255,255,0.06);
+            --border-strong:   rgba(255,255,255,0.11);
+            --divider:         rgba(255,255,255,0.06);
+            --text-primary:    #e6edf3;
+            --text-secondary:  #8b949e;
+            --text-muted:      #6e7681;
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: var(--font-body); background: var(--bg-page); color: var(--text-primary); }
+
+        /* Header */
+        .ph-header {
+            position: sticky; top: 0; z-index: 20; background: #0f172a;
+            border-bottom: 1px solid rgba(255,255,255,0.06); height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 32px; gap: 24px;
+        }
+        .ph-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; flex-shrink: 0; }
+        .ph-mark {
+            width: 32px; height: 32px; border-radius: 8px; background: var(--accent);
+            display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0;
+        }
+        .ph-mark svg { width: 18px; height: 18px; }
+        .ph-word {
+            font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.06em; color: #fff; font-size: 17px;
+        }
+        .ph-nav { display: flex; align-items: center; gap: 2px; flex: 1; justify-content: center; }
+        .ph-nav a {
+            display: flex; align-items: center; gap: 7px; padding: 7px 13px; border-radius: 8px;
+            font-size: 13.5px; font-weight: 500; color: rgba(255,255,255,0.75); text-decoration: none;
+            transition: all 0.15s; white-space: nowrap;
+        }
+        .ph-nav a svg { width: 16px; height: 16px; }
+        .ph-nav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .ph-nav a.active { background: rgba(59,130,246,0.18); color: #fff; }
+        .ph-header-right { display: flex; align-items: center; gap: 8px; }
+        .ph-icon-btn {
+            width: 36px; height: 36px; border-radius: 8px; border: 0;
+            background: rgba(255,255,255,0.06); color: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+        }
+        .ph-icon-btn svg { width: 18px; height: 18px; }
+        .ph-icon-btn:hover { background: rgba(255,255,255,0.12); }
+        .ph-user-chip {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 12px 4px 4px; border-radius: 9999px;
+            background: rgba(255,255,255,0.06); font-size: 13px; font-weight: 500; color: #fff;
+        }
+        .ph-avatar {
+            width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display); font-weight: 700; font-size: 11px; color: #fff;
+            overflow: hidden; flex-shrink: 0;
+        }
+        .ph-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Page */
+        .ph-page { max-width: 1100px; margin: 0 auto; padding: 32px 24px 80px; }
+
+        /* Hero */
+        .ph-hero {
+            margin-bottom: 28px;
+            display: flex; align-items: flex-end; justify-content: space-between; gap: 20px; flex-wrap: wrap;
+        }
+        .ph-hero-title {
+            font-family: var(--font-display); font-size: 28px; font-weight: 700;
+            color: var(--text-primary); letter-spacing: 0.02em;
+        }
+        .ph-hero-sub { font-size: 13.5px; color: var(--text-secondary); margin-top: 4px; }
+
+        /* Search */
+        .ph-search-wrap {
+            display: flex; align-items: center; gap: 10px;
+            background: var(--bg-card); border: 1px solid var(--border-strong);
+            border-radius: 12px; padding: 10px 16px; min-width: 280px; flex: 1; max-width: 400px;
+            transition: border 0.15s;
+        }
+        .ph-search-wrap:focus-within { border-color: var(--accent); }
+        .ph-search-wrap svg { width: 16px; height: 16px; color: var(--text-muted); flex-shrink: 0; }
+        .ph-search-wrap input {
+            flex: 1; border: 0; outline: 0; background: transparent;
+            font-family: var(--font-body); font-size: 14px; color: var(--text-primary);
+        }
+        .ph-search-wrap input::placeholder { color: var(--text-muted); }
+
+        /* Grid */
+        .ph-tut-grid {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 20px;
+        }
+        .ph-tut-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 14px; box-shadow: var(--shadow-card); overflow: hidden;
+            text-decoration: none; color: inherit; display: flex; flex-direction: column;
+            transition: box-shadow 0.18s, transform 0.18s;
+        }
+        .ph-tut-card:hover { box-shadow: 0 8px 24px rgba(0,0,0,0.10); transform: translateY(-2px); }
+        .ph-tut-cover {
+            width: 100%; aspect-ratio: 16/9; object-fit: cover; display: block;
+        }
+        .ph-tut-cover-placeholder {
+            width: 100%; aspect-ratio: 16/9;
+            background: linear-gradient(135deg, var(--accent-dim), rgba(59,130,246,0.05));
+            display: flex; align-items: center; justify-content: center;
+        }
+        .ph-tut-cover-placeholder svg { width: 36px; height: 36px; color: var(--accent); opacity: 0.4; }
+        .ph-tut-body { padding: 16px; flex: 1; display: flex; flex-direction: column; }
+        .ph-tut-category {
+            font-family: var(--font-display); font-size: 10px; font-weight: 700;
+            letter-spacing: 0.14em; text-transform: uppercase;
+            color: var(--accent); margin-bottom: 6px;
+        }
+        .ph-tut-title {
+            font-size: 14.5px; font-weight: 600; color: var(--text-primary); line-height: 1.4;
+            display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden;
+        }
+        .ph-tut-meta {
+            margin-top: auto; padding-top: 12px;
+            display: flex; align-items: center; justify-content: space-between;
+            font-size: 12px; color: var(--text-muted);
+        }
+        .ph-tut-author { display: flex; align-items: center; gap: 6px; }
+        .ph-tut-avatar {
+            width: 22px; height: 22px; border-radius: 50%; background: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display); font-size: 9px; font-weight: 700; color: #fff;
+        }
+
+        /* Empty */
+        .ph-empty {
+            grid-column: 1/-1; text-align: center; padding: 60px 20px;
+            color: var(--text-secondary); font-size: 14px;
+        }
+        .ph-empty svg { width: 48px; height: 48px; margin: 0 auto 12px; display: block; opacity: 0.3; }
+
+        /* Admin btn */
+        .ph-admin-bar {
+            display: flex; justify-content: flex-end; margin-bottom: 20px;
+        }
+        .ph-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-family: var(--font-body); font-size: 13.5px; font-weight: 500;
+            padding: 9px 16px; border-radius: 8px; border: 1px solid transparent;
+            cursor: pointer; transition: all 0.15s; text-decoration: none;
+        }
+        .ph-btn svg { width: 14px; height: 14px; }
+        .ph-btn-primary { background: var(--accent); color: #fff; }
+        .ph-btn-primary:hover { background: var(--accent-hover); color: #fff; }
+
+        /* Messages */
+        .ph-alert {
+            padding: 11px 16px; border-radius: 8px; font-size: 13.5px; margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: space-between;
+        }
+        .ph-alert-success { background: rgba(34,197,94,0.10); color: #15803d; border: 1px solid rgba(34,197,94,0.2); }
+
+        @media (max-width: 900px) { .ph-tut-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (max-width: 600px) {
+            .ph-tut-grid { grid-template-columns: 1fr; }
+            .ph-header { padding: 0 16px; }
+            .ph-nav { display: none; }
+            .ph-search-wrap { min-width: 180px; }
+        }
+    </style>
+</head>
+<body>
+    <script>
+        (function(){
+            var t = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme');
+            document.body.classList.add(t);
+        })();
+    </script>
+
+    <header class="ph-header">
+        <a href="{% url 'home:index' %}" class="ph-brand">
+            <div class="ph-mark">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" />
+                </svg>
+            </div>
+            <span class="ph-word">Portal GSD</span>
+        </a>
+
+        <nav class="ph-nav">
+            <a href="{% url 'home:index' %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" /></svg>
+                Início
+            </a>
+            <a href="{% url 'home:inbox' %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                Caixa de Entrada
+            </a>
+            <a href="{% url 'home:tutorial_list' %}" class="active">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+                Tutoriais
+            </a>
+        </nav>
+
+        <div class="ph-header-right">
+            <button class="ph-icon-btn" id="theme-toggle" title="Alternar tema">
+                <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                </svg>
+                <svg id="icon-moon" style="display:none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                </svg>
+            </button>
+            {% if user.is_authenticated %}
+            <div class="ph-user-chip">
+                <div class="ph-avatar">
+                    {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" alt="">{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
+                </div>
+                <span>{{ user.get_full_name|default:user.username }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="ph-page">
+
+        {% if messages %}
+            {% for message in messages %}
+            <div class="ph-alert ph-alert-{{ message.tags|lower }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="ph-hero">
+            <div>
+                <h1 class="ph-hero-title">Tutoriais</h1>
+                <p class="ph-hero-sub">
+                    {% if q %}{{ tutorials|length }} resultado{{ tutorials|length|pluralize }} para "{{ q }}"{% else %}{{ tutorials|length }} tutorial{{ tutorials|length|pluralize }} publicado{{ tutorials|length|pluralize }}{% endif %}
+                </p>
+            </div>
+            <form method="get" action="">
+                <div class="ph-search-wrap">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                    <input type="text" name="q" value="{{ q }}" placeholder="Pesquisar tutoriais..." autofocus>
+                </div>
+            </form>
+        </div>
+
+        {% if can_manage %}
+        <div class="ph-admin-bar">
+            <a href="{% url 'home:tutorial_create' %}" class="ph-btn ph-btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                Novo Tutorial
+            </a>
+        </div>
+        {% endif %}
+
+        <div class="ph-tut-grid">
+            {% for tutorial in tutorials %}
+            <a href="{% url 'home:tutorial_detail' tutorial.pk %}" class="ph-tut-card">
+                {% if tutorial.cover_image %}
+                    <img src="{{ tutorial.cover_image.url }}" alt="{{ tutorial.title }}" class="ph-tut-cover">
+                {% else %}
+                    <div class="ph-tut-cover-placeholder">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+                    </div>
+                {% endif %}
+                <div class="ph-tut-body">
+                    {% if tutorial.category %}
+                    <div class="ph-tut-category">{{ tutorial.category }}</div>
+                    {% endif %}
+                    <div class="ph-tut-title">{{ tutorial.title }}</div>
+                    <div class="ph-tut-meta">
+                        <div class="ph-tut-author">
+                            <div class="ph-tut-avatar">{{ tutorial.author.first_name|first|upper|default:tutorial.author.username|first|upper }}</div>
+                            {{ tutorial.author.get_full_name|default:tutorial.author.username }}
+                        </div>
+                        <span>{{ tutorial.created_at|date:"d/m/Y" }}</span>
+                    </div>
+                </div>
+            </a>
+            {% empty %}
+            <div class="ph-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+                {% if q %}Nenhum tutorial encontrado para "{{ q }}".{% else %}Nenhum tutorial publicado ainda.{% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+    </div>
+
+    <script>
+    (function(){
+        var toggle = document.getElementById('theme-toggle');
+        var sun = document.getElementById('icon-sun');
+        var moon = document.getElementById('icon-moon');
+        function applyTheme(t) {
+            document.body.className = t;
+            localStorage.setItem('theme', t);
+            if (sun) sun.style.display = t === 'dark-theme' ? 'none' : 'block';
+            if (moon) moon.style.display = t === 'dark-theme' ? 'block' : 'none';
+        }
+        applyTheme(localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme'));
+        if (toggle) toggle.addEventListener('click', function() {
+            applyTheme(document.body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme');
+        });
+    })();
+    </script>
+</body>
+</html>

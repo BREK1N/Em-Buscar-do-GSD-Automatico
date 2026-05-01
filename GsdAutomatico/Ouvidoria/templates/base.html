@@ -450,7 +450,7 @@
 
     <nav class="sidebar-nav">
         <ul>
-            {% if request.user.is_superuser or not request.user|has_comandante_access %}
+            {% if request.user.is_superuser or not is_comandante %}
             <li>
                 <a href="{% url 'Ouvidoria:index' %}" class="{% if request.resolver_match.url_name == 'index' %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -480,7 +480,7 @@
                 </a>
             </li>
 
-            {% if request.user.is_superuser or not request.user|has_comandante_access %}
+            {% if request.user.is_superuser or not is_comandante %}
             <li>
                 <a href="{% url 'Ouvidoria:patd_list' %}" class="{% if 'patd_list' in request.resolver_match.url_name %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -502,7 +502,7 @@
                 </a>
             </li>
 
-            {% if not request.user|has_comandante_access or request.user.is_superuser %}
+            {% if not is_comandante or request.user.is_superuser %}
             <li>
                 <a href="{% url 'Ouvidoria:patd_arquivado_list' %}" class="{% if 'patd_arquivado_list' in request.resolver_match.url_name %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -525,7 +525,7 @@
             </li>
             {% endif %}
 
-            {% if request.user.profile.militar and request.user.profile.militar.oficial and not request.user|has_comandante_access %}
+            {% if request.user.profile.militar and request.user.profile.militar.oficial and not is_comandante %}
             <li>
                 <a href="{% url 'Ouvidoria:patd_atribuicoes_pendentes' %}" class="{% if 'patd_atribuicoes_pendentes' in request.resolver_match.url_name %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -537,8 +537,7 @@
             </li>
             {% endif %}
 
-            {% with can_access_comandante=request.user|has_comandante_access %}
-            {% if can_access_comandante %}
+            {% if is_comandante %}
             <li>
                 <a href="{% url 'Ouvidoria:comandante_dashboard' %}" class="{% if 'comandante' in request.resolver_match.url_name %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -549,7 +548,6 @@
                 </a>
             </li>
             {% endif %}
-            {% endwith %}
         </ul>
     </nav>
 
@@ -633,12 +631,8 @@
             <!-- Usuário logado -->
             {% if user.is_authenticated %}
             <div class="user-chip">
-                <div class="user-avatar">
-                    {% if user.profile and user.profile.militar %}
-                        {{ user.profile.militar.nome_guerra|slice:":2"|upper }}
-                    {% else %}
-                        {{ user.username|slice:":2"|upper }}
-                    {% endif %}
+                <div class="user-avatar" style="{% if user.profile.foto %}background:none;padding:0;overflow:hidden;{% endif %}">
+                    {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">{% elif user.profile and user.profile.militar %}{{ user.profile.militar.nome_guerra|slice:":2"|upper }}{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
                 </div>
                 <span>
                     {% if user.profile and user.profile.militar %}
@@ -1072,8 +1066,7 @@
         }
 
         function loadComandantePendencias() {
-            {% with can_access_comandante=request.user|has_comandante_access %}
-            {% if can_access_comandante %}
+            {% if is_comandante %}
             fetch("{% url 'Ouvidoria:comandante_pendencias_json' %}")
                 .then(r => r.json())
                 .then(data => {
@@ -1084,7 +1077,6 @@
                     }
                 }).catch(() => {});
             {% endif %}
-            {% endwith %}
         }
 
         function updateBadgeUI(count) {

@@ -1,0 +1,226 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Editar Perfil — Portal GSD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent:         #3b82f6;
+            --accent-hover:   #1d4ed8;
+            --bg-page:        #f0f4f8;
+            --bg-card:        #ffffff;
+            --border:         rgba(0,0,0,0.07);
+            --border-strong:  rgba(0,0,0,0.13);
+            --divider:        rgba(0,0,0,0.06);
+            --text-primary:   #0f172a;
+            --text-secondary: #64748b;
+            --text-muted:     #94a3b8;
+            --shadow-card:    0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --success:        #22c55e;
+            --danger:         #ef4444;
+            --font-display:   'Rajdhani', system-ui, sans-serif;
+            --font-body:      'Inter', system-ui, sans-serif;
+        }
+        body.dark-theme {
+            --bg-page:        #0d1117;
+            --bg-card:        #161b22;
+            --border:         rgba(255,255,255,0.06);
+            --border-strong:  rgba(255,255,255,0.11);
+            --divider:        rgba(255,255,255,0.06);
+            --text-primary:   #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted:     #6e7681;
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg-page); color: var(--text-primary); font-family: var(--font-body); }
+
+        .ph-back-bar {
+            background: #0f172a; border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 0 32px; height: 52px; display: flex; align-items: center; gap: 16px;
+        }
+        .ph-back {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 13px;
+            color: rgba(255,255,255,0.7); text-decoration: none; font-weight: 500; transition: color 0.15s;
+        }
+        .ph-back:hover { color: #fff; }
+        .ph-back svg { width: 15px; height: 15px; }
+
+        .ph-page { max-width: 560px; margin: 36px auto; padding: 0 20px 80px; }
+
+        .ph-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; box-shadow: var(--shadow-card); overflow: hidden;
+        }
+        .ph-card-head {
+            padding: 20px 24px; border-bottom: 1px solid var(--divider);
+        }
+        .ph-card-head h1 { font-size: 18px; font-weight: 700; margin: 0; }
+        .ph-card-head p { font-size: 13px; color: var(--text-secondary); margin: 4px 0 0; }
+        .ph-card-body { padding: 24px; }
+
+        /* Avatar */
+        .ph-avatar-row {
+            display: flex; align-items: center; gap: 16px; margin-bottom: 24px;
+            padding-bottom: 24px; border-bottom: 1px solid var(--divider);
+        }
+        .ph-avatar-big {
+            width: 72px; height: 72px; border-radius: 50%; background: var(--accent);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display); font-weight: 700; font-size: 26px;
+            letter-spacing: 0.04em; flex-shrink: 0; overflow: hidden;
+        }
+        .ph-avatar-big img { width: 100%; height: 100%; object-fit: cover; }
+        .ph-avatar-info { flex: 1; }
+        .ph-avatar-info strong { display: block; font-size: 15px; font-weight: 600; }
+        .ph-avatar-info span { font-size: 12px; color: var(--text-secondary); margin-top: 2px; display: block; }
+
+        /* Form */
+        .ph-field { margin-bottom: 16px; }
+        .ph-field:last-child { margin-bottom: 0; }
+        .ph-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+        .ph-input {
+            width: 100%; padding: 9px 13px; border: 1px solid var(--border-strong);
+            border-radius: 8px; background: var(--bg-card); color: var(--text-primary);
+            font-family: var(--font-body); font-size: 14px; outline: none; transition: border 0.15s;
+        }
+        .ph-input:focus { border-color: var(--accent); }
+        .ph-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+        /* Buttons */
+        .ph-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-family: var(--font-body); font-size: 13.5px; font-weight: 500;
+            padding: 9px 16px; border-radius: 8px; border: 1px solid transparent;
+            cursor: pointer; transition: all 0.15s; text-decoration: none; line-height: 1.2;
+        }
+        .ph-btn-primary { background: var(--accent); color: #fff; }
+        .ph-btn-primary:hover { background: var(--accent-hover); color: #fff; }
+        .ph-btn-secondary { background: var(--bg-card); color: var(--text-primary); border-color: var(--border-strong); }
+        .ph-btn-secondary:hover { background: var(--bg-page); }
+        .ph-form-actions { display: flex; gap: 10px; margin-top: 24px; padding-top: 20px; border-top: 1px solid var(--divider); }
+
+        /* Alert */
+        .ph-alert {
+            padding: 11px 14px; border-radius: 8px; font-size: 13px; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 8px;
+        }
+        .ph-alert-success { background: rgba(34,197,94,0.10); color: #15803d; border: 1px solid rgba(34,197,94,0.2); }
+        .ph-alert-error, .ph-alert-danger { background: rgba(239,68,68,0.10); color: #b91c1c; border: 1px solid rgba(239,68,68,0.2); }
+
+        @media (max-width: 480px) {
+            .ph-row { grid-template-columns: 1fr; }
+            .ph-page { margin: 20px auto; }
+        }
+    </style>
+</head>
+<body>
+    <script>
+        (function(){
+            var t = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme');
+            document.body.classList.add(t);
+        })();
+    </script>
+
+    <div class="ph-back-bar">
+        <a href="{% url 'home:index' %}" class="ph-back">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Voltar ao Portal
+        </a>
+    </div>
+
+    <div class="ph-page">
+
+        {% if messages %}
+            {% for message in messages %}
+            <div class="ph-alert ph-alert-{{ message.tags|lower }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        <div class="ph-card">
+            <div class="ph-card-head">
+                <h1>Editar Perfil</h1>
+                <p>Atualize sua foto, dados de contato e informações pessoais.</p>
+            </div>
+            <div class="ph-card-body">
+
+                <div class="ph-avatar-row">
+                    <div class="ph-avatar-big">
+                        {% if form.instance.foto %}
+                            <img src="{{ form.instance.foto.url }}" alt="Foto atual" id="avatar-preview-img">
+                        {% else %}
+                            <span id="avatar-initials">{{ request.user.first_name|first|upper|default:request.user.username|first|upper }}</span>
+                        {% endif %}
+                    </div>
+                    <div class="ph-avatar-info">
+                        <strong>{{ request.user.get_full_name|default:request.user.username }}</strong>
+                        <span>{{ request.user.groups.first.name|default:"Usuário" }}</span>
+                    </div>
+                </div>
+
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+
+                    <div class="ph-field">
+                        <label class="ph-label">Foto de Perfil</label>
+                        <input type="file" name="foto" class="ph-input" accept="image/*" id="foto-input">
+                    </div>
+
+                    <div class="ph-row">
+                        <div class="ph-field">
+                            <label class="ph-label">Nome</label>
+                            <input type="text" name="first_name" class="ph-input"
+                                   value="{{ form.first_name.value|default:'' }}"
+                                   placeholder="Seu nome">
+                        </div>
+                        <div class="ph-field">
+                            <label class="ph-label">Sobrenome</label>
+                            <input type="text" name="last_name" class="ph-input"
+                                   value="{{ form.last_name.value|default:'' }}"
+                                   placeholder="Seu sobrenome">
+                        </div>
+                    </div>
+
+                    <div class="ph-field">
+                        <label class="ph-label">E-mail</label>
+                        <input type="email" name="email" class="ph-input"
+                               value="{{ form.email.value|default:'' }}"
+                               placeholder="seu@email.com">
+                    </div>
+
+                    <div class="ph-field">
+                        <label class="ph-label">Ramal</label>
+                        <input type="text" name="ramal" class="ph-input"
+                               value="{{ form.instance.ramal|default:'' }}"
+                               placeholder="Ex: 1234">
+                    </div>
+
+                    <div class="ph-form-actions">
+                        <button type="submit" class="ph-btn ph-btn-primary">Salvar Alterações</button>
+                        <a href="{% url 'home:index' %}" class="ph-btn ph-btn-secondary">Cancelar</a>
+                    </div>
+                </form>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.getElementById('foto-input').addEventListener('change', function(e) {
+            var file = e.target.files[0];
+            if (!file) return;
+            var reader = new FileReader();
+            reader.onload = function(ev) {
+                var wrap = document.querySelector('.ph-avatar-big');
+                wrap.innerHTML = '<img src="' + ev.target.result + '" style="width:100%;height:100%;object-fit:cover">';
+            };
+            reader.readAsDataURL(file);
+        });
+    </script>
+</body>
+</html>

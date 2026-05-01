@@ -538,7 +538,7 @@
             {% else %}
                 <button class="btn btn-secondary" disabled title="Processo finalizado não pode ser editado.">Editar (Bloqueado)</button>
             {% endif %}
-        {% elif user|can_edit_patd or user|has_comandante_access or request.user.profile.militar == patd.oficial_responsavel %}
+        {% elif user|can_edit_patd or is_comandante or request.user.profile.militar == patd.oficial_responsavel %}
             {% if patd.status not in locked_statuses_for_edit and patd.status != 'finalizado' %}
                 <a href="{% url 'Ouvidoria:patd_update' patd.pk %}" class="btn btn-secondary">Editar</a>
             {% else %}
@@ -750,12 +750,12 @@
                 {% if patd.status == 'periodo_reconsideracao' %}
                 <button type="button" class="btn btn-warning" id="btn-reconsideracao-modal">Solicitar Reconsideração</button>
                 {% endif %}
-                {% if patd.status == 'assinatura_cmd_gsd_despacho_abertura' and user|has_comandante_access %}
+                {% if patd.status == 'assinatura_cmd_gsd_despacho_abertura' and is_comandante %}
                 <button type="button" class="btn btn-success open-despacho-abertura-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
                     Aceitar Despacho de Abertura
                 </button>
                 {% endif %}
-                {% if patd.status == 'analise_comandante' and user|has_comandante_access %}
+                {% if patd.status == 'analise_comandante' and is_comandante %}
                 <button type="button" class="btn btn-success open-aprovar-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
                 Aprovar e Finalizar
                 </button>
@@ -928,7 +928,7 @@
     </div>
 
     {% if patd.status != 'finalizado' %}
-    {% if request.user.is_superuser or not request.user|has_comandante_access %}
+    {% if request.user.is_superuser or not is_comandante %}
     <div class="card">
         <div class="card-header">
             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">

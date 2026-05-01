@@ -8,3 +8,11 @@ class CaixaEntradaConfig(AppConfig):
 
     def ready(self):
         import caixa_entrada.signals  # noqa
+
+        from django.db.models.signals import m2m_changed
+        from .models import Mensagem
+        from .signals import limpar_notificacao_ao_excluir_permanentemente
+        m2m_changed.connect(
+            limpar_notificacao_ao_excluir_permanentemente,
+            sender=Mensagem.permanentemente_excluida_por.through,
+        )

@@ -29,6 +29,8 @@ urlpatterns = [
     path('secao_pessoal/', include('Secao_pessoal.urls')),
     path('secao_operacoes/', include('Secao_operacoes.urls')),
     path('comunicacoes/', include('caixa_entrada.urls', namespace='caixa_entrada')),
+    path('home/', include('home.urls', namespace='home')),
+    path('chamados/', include('chamados.urls', namespace='chamados')),
     path('comunicacoes/responder/<int:solicitacao_id>/<str:acao>/', secao_pessoal_views.responder_troca_setor, name='responder_troca_setor_global'),
 ]
 

@@ -266,6 +266,22 @@
             Responder
         </a>
         <div class="topbar-sep"></div>
+
+        <!-- Favoritar -->
+        <button id="fav-btn-detalhe" class="action-btn {% if is_favorita %}fav-ativo{% endif %}" title="{% if is_favorita %}Remover dos favoritos{% else %}Adicionar aos favoritos{% endif %}" style="color:{% if is_favorita %}#f59e0b{% else %}inherit{% endif %}">
+            <svg id="fav-icon" width="13" height="13" fill="{% if is_favorita %}currentColor{% else %}none{% endif %}" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M11.48 3.499a.562.562 0 011.04 0l2.125 5.111a.563.563 0 00.475.345l5.518.442c.499.04.701.663.321.988l-4.204 3.602a.563.563 0 00-.182.557l1.285 5.385a.562.562 0 01-.84.61l-4.725-2.885a.563.563 0 00-.586 0L6.982 20.54a.562.562 0 01-.84-.61l1.285-5.386a.562.562 0 00-.182-.557l-4.204-3.602a.563.563 0 01.321-.988l5.518-.442a.563.563 0 00.475-.345L11.48 3.5z"/></svg>
+            <span id="fav-label">{% if is_favorita %}Favoritado{% else %}Favoritar{% endif %}</span>
+        </button>
+
+        {% if pasta_ativa == 'entrada' %}
+        <!-- Marcar como não lida -->
+        <button id="mark-unread-btn" class="action-btn" title="Marcar como não lida">
+            <svg width="13" height="13" fill="currentColor" viewBox="0 0 16 16"><path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/></svg>
+            Não lida
+        </button>
+        {% endif %}
+
+        <div class="topbar-sep"></div>
         <form method="post" action="{% url 'caixa_entrada:excluir' msg.pk %}" style="display:inline;">
             {% csrf_token %}
             <button type="submit" class="action-btn danger" onclick="return confirm('Mover para excluídos?')">
@@ -289,7 +305,7 @@
     <!-- ── Card da mensagem ── -->
     <div class="msg-card">
         <div class="msg-card-header">
-            <div class="msg-avatar">{{ msg.remetente.get_full_name|default:msg.remetente.username|slice:":2" }}</div>
+            <div class="msg-avatar" style="{% if msg.remetente.profile.foto %}background:none;padding:0;overflow:hidden;{% endif %}">{% if msg.remetente.profile.foto %}<img src="{{ msg.remetente.profile.foto.url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">{% else %}{{ msg.remetente.get_full_name|default:msg.remetente.username|slice:":2" }}{% endif %}</div>
             <div class="msg-sender-info">
                 <div class="msg-sender-name">{{ msg.remetente.get_full_name|default:msg.remetente.username }}</div>
                 <div class="msg-sender-meta">
@@ -401,5 +417,55 @@ document.querySelectorAll('.msg-avatar').forEach(el => {
 document.getElementById('quick-reply-body')?.addEventListener('focus', function() {
     window.location = "{% url 'caixa_entrada:nova' %}?reply={{ msg.pk }}";
 });
+
+function getCookie(name) {
+    const m = document.cookie.match('(^|;)\\s*' + name + '\\s*=\\s*([^;]+)');
+    return m ? m.pop() : '';
+}
+
+// Favoritar no detalhe
+const favBtn = document.getElementById('fav-btn-detalhe');
+if (favBtn) {
+    favBtn.addEventListener('click', function() {
+        fetch('/comunicacoes/{{ msg.pk }}/favoritar/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+        }).then(r => r.json()).then(data => {
+            const icon = document.getElementById('fav-icon');
+            const label = document.getElementById('fav-label');
+            if (data.favorito) {
+                favBtn.style.color = '#f59e0b';
+                if (icon) icon.setAttribute('fill', 'currentColor');
+                if (label) label.textContent = 'Favoritado';
+                favBtn.title = 'Remover dos favoritos';
+            } else {
+                favBtn.style.color = '';
+                if (icon) icon.setAttribute('fill', 'none');
+                if (label) label.textContent = 'Favoritar';
+                favBtn.title = 'Adicionar aos favoritos';
+            }
+        }).catch(() => {});
+    });
+}
+
+// Marcar como não lida no detalhe
+const markUnreadBtn = document.getElementById('mark-unread-btn');
+if (markUnreadBtn) {
+    markUnreadBtn.addEventListener('click', function() {
+        const fd = new FormData();
+        fd.append('acao', 'nao_lida');
+        fetch('/comunicacoes/{{ msg.pk }}/marcar-lida/', {
+            method: 'POST',
+            headers: { 'X-CSRFToken': getCookie('csrftoken') },
+            body: fd,
+        }).then(r => r.json()).then(data => {
+            if (data.lida === false) {
+                markUnreadBtn.textContent = '✓ Marcado como não lida';
+                markUnreadBtn.disabled = true;
+                setTimeout(() => { window.history.back(); }, 800);
+            }
+        }).catch(() => {});
+    });
+}
 </script>
 {% endblock %}

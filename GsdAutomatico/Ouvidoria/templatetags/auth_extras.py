@@ -3,6 +3,27 @@ from Ouvidoria import permissions
 
 register = template.Library()
 
+
+@register.filter(name='is_informatica_admin')
+def is_informatica_admin_filter(user):
+    return user.is_staff or user.groups.filter(name='informatica-admin').exists()
+
+
+@register.filter(name='is_informatica_secao')
+def is_informatica_secao_filter(user):
+    return user.is_staff or user.groups.filter(name__in=['informatica-admin', 'informatica-secao']).exists()
+
+
+@register.filter(name='user_foto_url')
+def user_foto_url(user):
+    """Retorna a URL da foto do perfil do usuário, ou string vazia."""
+    try:
+        if user.userprofile.foto:
+            return user.userprofile.foto.url
+    except Exception:
+        pass
+    return ''
+
 @register.filter(name='has_comandante_access')
 def has_comandante_access_filter(user):
     """Verifica se o usuário pertence ao grupo 'Comandante' ou é superuser."""

@@ -41,19 +41,37 @@ ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
 # Application definition
 
 INSTALLED_APPS = [
+    'daphne',                          # ASGI server com suporte a WebSockets
     'django.contrib.admin',
     'django.contrib.auth',
     'django.contrib.contenttypes',
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'channels',                        # Django Channels — real-time
     'Ouvidoria',
     'login',
     'informatica',
     'Secao_pessoal',
     'Secao_operacoes',
     'caixa_entrada',
+    'home',
+    'chamados',
 ]
+
+# ── Django Channels ───────────────────────────────────────────────────────────
+ASGI_APPLICATION = 'GsdAutomatico.asgi.application'
+
+# InMemoryChannelLayer — funciona sem Redis (servidor único).
+# Para produção multi-worker, troque por RedisChannelLayer:
+#   pip install channels-redis
+#   CHANNEL_LAYERS = {"default": {"BACKEND": "channels_redis.core.RedisChannelLayer",
+#                                  "CONFIG": {"hosts": [("redis", 6379)]}}}
+CHANNEL_LAYERS = {
+    "default": {
+        "BACKEND": "channels.layers.InMemoryChannelLayer",
+    }
+}
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
@@ -91,6 +109,7 @@ TEMPLATES = [
                 'django.template.context_processors.request',
                 'django.contrib.auth.context_processors.auth',
                 'django.contrib.messages.context_processors.messages',
+                'Ouvidoria.context_processors.ouvidoria_context',
             ],
         },
     },

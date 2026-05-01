@@ -1,0 +1,838 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Portal GSD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        /* ── Tokens ──────────────────────────────────────────── */
+        :root {
+            --accent:          #3b82f6;
+            --accent-hover:    #1d4ed8;
+            --accent-dim:      rgba(59,130,246,0.12);
+            --danger:          #ef4444;
+            --success:         #22c55e;
+            --bg-page:         #f0f4f8;
+            --bg-card:         #ffffff;
+            --bg-sidebar:      #0f172a;
+            --border:          rgba(0,0,0,0.07);
+            --border-strong:   rgba(0,0,0,0.13);
+            --divider:         rgba(0,0,0,0.06);
+            --text-primary:    #0f172a;
+            --text-secondary:  #64748b;
+            --text-muted:      #94a3b8;
+            --badge-bg:        #e2e8f0;
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --shadow-hover:    0 8px 20px rgba(0,0,0,0.10);
+            --font-display:    'Rajdhani', system-ui, sans-serif;
+            --font-body:       'Inter', system-ui, sans-serif;
+        }
+        body.dark-theme {
+            --bg-page:        #0d1117;
+            --bg-card:        #161b22;
+            --bg-sidebar:     #010409;
+            --border:         rgba(255,255,255,0.06);
+            --border-strong:  rgba(255,255,255,0.11);
+            --divider:        rgba(255,255,255,0.06);
+            --text-primary:   #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted:     #6e7681;
+            --badge-bg:       rgba(255,255,255,0.08);
+            --shadow-card:    0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+            --shadow-hover:   0 8px 20px rgba(0,0,0,0.4);
+        }
+
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg-page); color: var(--text-primary); font-family: var(--font-body); }
+
+        /* ── Header ──────────────────────────────────────────── */
+        .ph-header {
+            position: sticky; top: 0; z-index: 20;
+            background: #0f172a;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 32px; gap: 24px;
+        }
+        .ph-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; flex-shrink: 0; }
+        .ph-mark {
+            width: 32px; height: 32px; border-radius: 8px; background: var(--accent);
+            display: flex; align-items: center; justify-content: center; color: #fff;
+            box-shadow: 0 4px 12px rgba(59,130,246,0.30); flex-shrink: 0;
+        }
+        .ph-mark svg { width: 18px; height: 18px; }
+        .ph-word {
+            font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.06em; color: #fff; font-size: 17px; line-height: 1;
+        }
+        /* Nav */
+        .ph-nav { display: flex; align-items: center; gap: 2px; flex: 1; justify-content: center; }
+        .ph-nav a {
+            display: flex; align-items: center; gap: 7px;
+            padding: 7px 13px; border-radius: 8px;
+            font-size: 13.5px; font-weight: 500;
+            color: rgba(255,255,255,0.75); text-decoration: none;
+            transition: all 0.15s; white-space: nowrap;
+        }
+        .ph-nav a svg { width: 16px; height: 16px; }
+        .ph-nav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .ph-nav a.active { background: rgba(59,130,246,0.18); color: #fff; }
+        .ph-header-right { display: flex; align-items: center; gap: 12px; }
+        .ph-icon-btn {
+            width: 36px; height: 36px; border-radius: 8px; border: 0;
+            background: rgba(255,255,255,0.06); color: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; position: relative;
+            transition: background 0.15s; text-decoration: none;
+        }
+        .ph-icon-btn svg { width: 18px; height: 18px; }
+        .ph-icon-btn:hover { background: rgba(255,255,255,0.12); }
+        .ph-notif-dot {
+            position: absolute; top: 7px; right: 7px; width: 8px; height: 8px;
+            border-radius: 50%; background: var(--danger); border: 2px solid #0f172a;
+            display: none;
+        }
+        .ph-badge-count {
+            position: absolute; top: -4px; right: -4px;
+            min-width: 16px; height: 16px; border-radius: 8px;
+            background: var(--danger); color: #fff; font-size: 9px; font-weight: 700;
+            line-height: 16px; text-align: center; padding: 0 3px; display: none;
+        }
+        /* Profile dropdown */
+        .ph-profile-wrap { position: relative; }
+        .ph-user-chip {
+            display: flex; align-items: center; gap: 10px;
+            padding: 4px 12px 4px 4px; border-radius: 9999px;
+            background: rgba(255,255,255,0.06); cursor: pointer;
+            transition: background 0.15s;
+        }
+        .ph-user-chip:hover { background: rgba(255,255,255,0.10); }
+        .ph-profile-menu {
+            display: none; position: absolute; top: calc(100% + 10px); right: 0;
+            width: 200px; background: var(--bg-card); border: 1px solid var(--border-strong);
+            border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,0.2); z-index: 50;
+            overflow: hidden;
+        }
+        .ph-profile-menu.open { display: block; }
+        .ph-profile-menu-head {
+            padding: 12px 16px; border-bottom: 1px solid var(--divider);
+        }
+        .ph-profile-menu-name { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+        .ph-profile-menu-role { font-size: 11.5px; color: var(--text-secondary); margin-top: 2px; }
+        .ph-profile-menu a, .ph-profile-menu button {
+            display: flex; align-items: center; gap: 10px;
+            width: 100%; padding: 10px 16px; text-decoration: none;
+            font-size: 13.5px; font-weight: 500; color: var(--text-primary);
+            background: none; border: none; cursor: pointer; text-align: left;
+            transition: background 0.12s;
+        }
+        .ph-profile-menu a svg, .ph-profile-menu button svg { width: 15px; height: 15px; color: var(--text-muted); }
+        .ph-profile-menu a:hover, .ph-profile-menu button:hover { background: var(--bg-page); }
+        .ph-profile-menu .danger { color: var(--danger); }
+        .ph-profile-menu .danger svg { color: var(--danger); }
+        .ph-avatar {
+            width: 32px; height: 32px; border-radius: 50%; background: var(--accent);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display); font-weight: 700; font-size: 12px;
+            letter-spacing: 0.04em; overflow: hidden; flex-shrink: 0;
+        }
+        .ph-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .ph-user-name { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
+        .ph-user-rank { font-size: 11px; color: rgba(255,255,255,0.55); line-height: 1.2; }
+
+        /* Notification panel */
+        .ph-notif-wrap { position: relative; }
+        .ph-notif-panel {
+            display: none; position: absolute; top: calc(100% + 10px); right: 0;
+            width: 320px; background: var(--bg-card); border: 1px solid var(--border-strong);
+            border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 50; overflow: hidden;
+        }
+        .ph-notif-panel.open { display: block; }
+        .ph-notif-head {
+            padding: 12px 16px; font-weight: 600; font-size: 13.5px;
+            border-bottom: 1px solid var(--divider); color: var(--text-primary);
+        }
+        .ph-notif-body { max-height: 300px; overflow-y: auto; }
+        .ph-notif-item {
+            display: block; padding: 10px 16px; border-bottom: 1px solid var(--divider);
+            font-size: 13px; color: var(--text-primary); cursor: pointer; text-decoration: none;
+            transition: background 0.12s;
+        }
+        .ph-notif-item:hover { background: var(--bg-page); }
+        .ph-notif-item:last-child { border-bottom: 0; }
+        .ph-notif-item-title { font-weight: 600; }
+        .ph-notif-item-sub { color: var(--text-secondary); font-size: 11.5px; margin-top: 2px; }
+        .ph-notif-empty { padding: 24px; text-align: center; color: var(--text-secondary); font-size: 13px; }
+
+        /* ── Page ─────────────────────────────────────────────── */
+        .ph-page { max-width: 1280px; margin: 0 auto; padding: 28px 32px 80px; }
+
+        /* Greeting */
+        .ph-greet { margin-bottom: 24px; }
+        .ph-greet h1 { font-size: 28px; font-weight: 700; margin: 0; }
+        .ph-greet p { font-size: 15px; color: var(--text-secondary); margin: 6px 0 0; }
+
+        /* Manage bar */
+        .ph-manage-bar {
+            display: flex; align-items: center; flex-wrap: wrap; gap: 8px;
+            padding: 10px 16px; margin-bottom: 20px;
+            background: var(--accent-dim); border: 1px dashed var(--accent);
+            border-radius: 10px; font-size: 13px; color: var(--accent); font-weight: 600;
+        }
+        .ph-manage-bar svg { width: 15px; height: 15px; }
+        .ph-manage-bar a {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 5px 12px; background: var(--accent); color: #fff;
+            border-radius: 6px; font-size: 12.5px; text-decoration: none;
+            font-weight: 600; transition: background 0.15s;
+        }
+        .ph-manage-bar a:hover { background: var(--accent-hover); color: #fff; }
+
+        /* Alerts */
+        .ph-alert {
+            padding: 12px 16px; border-radius: 10px; font-size: 13.5px; margin-bottom: 16px;
+            display: flex; align-items: center; gap: 10px;
+        }
+        .ph-alert-success { background: rgba(34,197,94,0.12); color: #15803d; border: 1px solid rgba(34,197,94,0.2); }
+        .ph-alert-error, .ph-alert-danger { background: rgba(239,68,68,0.10); color: #b91c1c; border: 1px solid rgba(239,68,68,0.2); }
+        .ph-alert-warning { background: rgba(245,158,11,0.10); color: #b45309; border: 1px solid rgba(245,158,11,0.2); }
+        .ph-alert-info { background: var(--accent-dim); color: #1d4ed8; border: 1px solid rgba(59,130,246,0.2); }
+        .ph-alert-close { margin-left: auto; background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; font-size: 16px; line-height: 1; padding: 0; }
+        .ph-alert-close:hover { opacity: 1; }
+
+        /* ── Carousel ─────────────────────────────────────────── */
+        .ph-carousel {
+            position: relative; height: 280px; border-radius: 16px; overflow: hidden;
+            margin-bottom: 28px; box-shadow: 0 4px 16px rgba(0,0,0,.10);
+        }
+        .ph-slide {
+            position: absolute; inset: 0; display: flex; align-items: flex-end;
+            padding: 28px 32px; background-size: cover; background-position: center;
+            opacity: 0; transition: opacity 0.5s ease;
+        }
+        .ph-slide.active { opacity: 1; }
+        .ph-slide::after {
+            content: ""; position: absolute; inset: 0;
+            background: linear-gradient(to top, rgba(0,0,0,0.78) 0%, rgba(0,0,0,0.30) 50%, transparent 100%);
+            z-index: 1;
+        }
+        .ph-slide-caption { position: relative; z-index: 2; color: #fff; max-width: 640px; }
+        .ph-slide-eyebrow {
+            font-family: var(--font-display); font-size: 11px; font-weight: 700;
+            letter-spacing: 0.18em; text-transform: uppercase; color: rgba(255,255,255,0.8);
+            margin-bottom: 8px;
+        }
+        .ph-slide-title { font-size: 26px; font-weight: 700; margin: 0; line-height: 1.2; }
+        .ph-slide-desc { font-size: 14px; margin: 8px 0 0; color: rgba(255,255,255,0.85); line-height: 1.5; }
+        .ph-arrow {
+            position: absolute; top: 50%; transform: translateY(-50%); z-index: 3;
+            width: 40px; height: 40px; border-radius: 50%;
+            background: rgba(0,0,0,0.4); border: 0; color: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: center; transition: background 0.15s;
+        }
+        .ph-arrow:hover { background: rgba(0,0,0,0.65); }
+        .ph-arrow.prev { left: 16px; }
+        .ph-arrow.next { right: 16px; }
+        .ph-arrow svg { width: 18px; height: 18px; }
+        .ph-dots {
+            position: absolute; bottom: 16px; left: 50%; transform: translateX(-50%);
+            z-index: 3; display: flex; gap: 8px;
+        }
+        .ph-dot {
+            width: 8px; height: 8px; border-radius: 50%; background: rgba(255,255,255,0.4);
+            border: 0; cursor: pointer; padding: 0; transition: all 0.25s;
+        }
+        .ph-dot.active { background: #fff; width: 24px; border-radius: 4px; }
+
+        /* ── Grid ─────────────────────────────────────────────── */
+        .ph-grid-main {
+            display: grid; grid-template-columns: 2fr 1fr; gap: 24px;
+            align-items: flex-start; margin-bottom: 32px;
+        }
+        .ph-grid-3col {
+            display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px;
+        }
+
+        /* Section tiles */
+        .ph-sections { display: grid; grid-template-columns: repeat(4, 1fr); gap: 14px; margin-bottom: 24px; }
+        .ph-section-tile {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; padding: 22px 18px;
+            display: flex; flex-direction: column; align-items: flex-start; gap: 12px;
+            text-decoration: none; color: var(--text-primary);
+            box-shadow: var(--shadow-card); transition: all 0.2s ease; cursor: pointer;
+        }
+        .ph-section-tile:hover { transform: translateY(-3px); box-shadow: var(--shadow-hover); color: var(--text-primary); }
+        .ph-section-icon {
+            width: 44px; height: 44px; border-radius: 10px;
+            background: var(--accent-dim); color: var(--accent);
+            display: flex; align-items: center; justify-content: center; transition: all 0.2s;
+        }
+        .ph-section-icon svg { width: 22px; height: 22px; }
+        .ph-section-tile:hover .ph-section-icon { background: var(--accent); color: #fff; transform: scale(1.05); }
+        .ph-section-title { font-size: 15px; font-weight: 600; margin: 0; }
+        .ph-section-desc { font-size: 12.5px; color: var(--text-secondary); margin: 0; line-height: 1.45; }
+        .ph-no-sections { color: var(--text-secondary); font-size: 13.5px; padding: 8px 0; }
+
+        /* Card */
+        .ph-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; box-shadow: var(--shadow-card); overflow: hidden;
+        }
+        .ph-card-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; border-bottom: 1px solid var(--divider);
+        }
+        .ph-card-title { font-size: 15px; font-weight: 600; margin: 0; }
+        .ph-card-link { font-size: 12.5px; font-weight: 500; color: var(--accent); text-decoration: none; }
+        .ph-card-link:hover { text-decoration: underline; }
+        .ph-card-body { padding: 18px 20px; }
+        .ph-eyebrow {
+            font-family: var(--font-display); font-size: 10px; font-weight: 700;
+            letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted);
+        }
+
+        /* Inbox */
+        .ph-inbox-item {
+            display: flex; align-items: flex-start; gap: 12px;
+            padding: 12px 0; border-bottom: 1px solid var(--divider);
+            cursor: pointer; transition: padding-left 0.18s, background 0.18s;
+            text-decoration: none; color: var(--text-primary);
+        }
+        .ph-inbox-item:last-child { border-bottom: 0; padding-bottom: 0; }
+        .ph-inbox-item:first-child { padding-top: 0; }
+        .ph-inbox-item:hover { padding-left: 8px; background: linear-gradient(to right, rgba(59,130,246,0.06), transparent); }
+        .ph-inbox-icon {
+            width: 36px; height: 36px; border-radius: 50%;
+            background: var(--accent-dim); color: var(--accent); flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display); font-weight: 700; font-size: 13px;
+        }
+        .ph-inbox-meta { flex: 1; min-width: 0; }
+        .ph-inbox-from { font-size: 12.5px; color: var(--text-secondary); display: flex; justify-content: space-between; }
+        .ph-inbox-subject { font-size: 13.5px; font-weight: 600; margin: 2px 0 0; }
+        .ph-inbox-preview { font-size: 12.5px; color: var(--text-muted); margin: 3px 0 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+        .ph-inbox-empty { color: var(--text-secondary); font-size: 13px; padding: 8px 0; }
+
+        /* Profile */
+        .ph-profile { text-align: center; padding: 22px; }
+        .ph-profile-avatar {
+            width: 72px; height: 72px; border-radius: 50%; background: var(--accent);
+            color: #fff; display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display); font-weight: 700; font-size: 24px;
+            letter-spacing: 0.04em; margin: 0 auto 12px; overflow: hidden;
+        }
+        .ph-profile-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .ph-profile-name { font-size: 17px; font-weight: 700; margin: 0; }
+        .ph-profile-rank {
+            font-size: 12px; color: var(--text-secondary); margin: 4px 0 0;
+            font-family: var(--font-display); text-transform: uppercase;
+            letter-spacing: 0.14em; font-weight: 600;
+        }
+        .ph-profile-detail { font-size: 12px; color: var(--text-muted); margin-top: 4px; }
+        .ph-profile-actions { margin-top: 16px; padding-top: 16px; border-top: 1px solid var(--divider); }
+
+        /* Buttons */
+        .ph-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-family: var(--font-body); font-size: 13.5px; font-weight: 500;
+            padding: 8px 14px; border-radius: 8px; border: 1px solid transparent;
+            cursor: pointer; transition: all 0.15s; text-decoration: none; line-height: 1.2;
+        }
+        .ph-btn svg { width: 14px; height: 14px; }
+        .ph-btn-primary { background: var(--accent); color: #fff; }
+        .ph-btn-primary:hover { background: var(--accent-hover); color: #fff; box-shadow: 0 4px 6px -1px rgba(59,130,246,0.3); }
+        .ph-btn-secondary { background: var(--bg-card); color: var(--text-primary); border-color: var(--border-strong); }
+        .ph-btn-secondary:hover { background: var(--bg-page); }
+
+        /* Tutorials */
+        .ph-tutorials-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+        .ph-tutorials-head h2 { font-size: 20px; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 10px; }
+        .ph-tutorials-head h2 svg { width: 22px; height: 22px; color: var(--accent); }
+        .ph-tutorials { display: grid; grid-template-columns: repeat(3, 1fr); gap: 16px; }
+        .ph-tutorial-card {
+            background: var(--bg-card); border: 1px solid var(--border); border-radius: 16px;
+            overflow: hidden; box-shadow: var(--shadow-card); cursor: pointer; transition: all 0.2s;
+        }
+        .ph-tutorial-card:hover { transform: translateY(-2px); box-shadow: var(--shadow-hover); }
+        .ph-tutorial-cover {
+            height: 140px; background: linear-gradient(135deg, #2563eb 0%, #7c3aed 100%);
+            display: flex; align-items: center; justify-content: center; color: rgba(255,255,255,0.7);
+            overflow: hidden;
+        }
+        .ph-tutorial-cover img { width: 100%; height: 100%; object-fit: cover; }
+        .ph-tutorial-cover svg { width: 32px; height: 32px; }
+        .ph-tutorial-meta { padding: 16px; }
+        .ph-tutorial-tag {
+            font-family: var(--font-display); font-size: 10px; font-weight: 700;
+            letter-spacing: 0.18em; text-transform: uppercase; color: var(--accent);
+        }
+        .ph-tutorial-title { font-size: 15px; font-weight: 600; margin: 6px 0 4px; line-height: 1.3; }
+        .ph-tutorial-desc { font-size: 12.5px; color: var(--text-secondary); margin: 0; line-height: 1.5; }
+        .ph-tutorial-foot {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-top: 12px; padding-top: 12px; border-top: 1px solid var(--divider);
+        }
+        .ph-tutorial-attach { font-size: 12px; color: var(--text-muted); display: flex; align-items: center; gap: 4px; }
+        .ph-tutorial-attach svg { width: 13px; height: 13px; }
+        .ph-tutorials-empty {
+            grid-column: 1 / -1; text-align: center; padding: 40px 20px;
+            color: var(--text-secondary);
+        }
+        .ph-tutorials-empty svg { width: 48px; height: 48px; opacity: 0.3; display: block; margin: 0 auto 12px; }
+
+        /* ── Responsive ───────────────────────────────────────── */
+        @media (max-width: 1024px) {
+            .ph-grid-main { grid-template-columns: 1fr; }
+            .ph-sections { grid-template-columns: repeat(2, 1fr); }
+            .ph-tutorials { grid-template-columns: repeat(2, 1fr); }
+        }
+        @media (max-width: 900px) {
+            .ph-nav a span { display: none; }
+            .ph-nav a { padding: 7px 10px; }
+        }
+        @media (max-width: 640px) {
+            .ph-page { padding: 16px 16px 60px; }
+            .ph-header { padding: 0 16px; gap: 12px; }
+            .ph-carousel { height: 200px; }
+            .ph-sections { grid-template-columns: repeat(2, 1fr); }
+            .ph-tutorials { grid-template-columns: 1fr; }
+            .ph-user-name, .ph-user-rank { display: none; }
+            .ph-greet h1 { font-size: 22px; }
+            .ph-nav { display: none; }
+        }
+    </style>
+</head>
+<body>
+    <script>
+        (function(){
+            var t = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme');
+            document.body.classList.add(t);
+        })();
+    </script>
+
+    <!-- ═══════════════ HEADER ═══════════════ -->
+    <header class="ph-header">
+        <a href="{% url 'home:index' %}" class="ph-brand">
+            <div class="ph-mark">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                </svg>
+            </div>
+            <span class="ph-word">Portal GSD</span>
+        </a>
+
+        <!-- Nav links -->
+        <nav class="ph-nav">
+            <a href="{% url 'home:index' %}" class="active">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" /></svg>
+                Início
+            </a>
+            <a href="{% url 'home:inbox' %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                Caixa de Entrada
+                <span class="ph-badge-count" id="email-badge" style="position:static;background:var(--danger);color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:none;align-items:center;justify-content:center;padding:0 4px;"></span>
+            </a>
+            <a href="{% url 'home:tutorial_list' %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+                Tutoriais
+            </a>
+        </nav>
+
+        <div class="ph-header-right">
+            <!-- Notificações -->
+            <div class="ph-notif-wrap">
+                <button class="ph-icon-btn" id="notif-btn" title="Notificações">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
+                    </svg>
+                    <span class="ph-notif-dot" id="notif-dot"></span>
+                    <span class="ph-badge-count" id="notif-badge"></span>
+                </button>
+                <div class="ph-notif-panel" id="notif-panel">
+                    <div class="ph-notif-head">Notificações</div>
+                    <div class="ph-notif-body" id="notif-list">
+                        <div class="ph-notif-empty">Carregando...</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Tema -->
+            <button class="ph-icon-btn" id="theme-toggle" title="Alternar tema">
+                <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                </svg>
+                <svg id="icon-moon" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="display:none">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                </svg>
+            </button>
+
+            <!-- Perfil (com dropdown) -->
+            <div class="ph-profile-wrap" id="profile-wrap">
+                <div class="ph-user-chip" id="profile-chip">
+                    <div class="ph-avatar">
+                        {% if profile.foto %}
+                            <img src="{{ profile.foto.url }}" alt="">
+                        {% else %}
+                            {{ request.user.first_name|first|upper|default:request.user.username|first|upper }}
+                        {% endif %}
+                    </div>
+                    <div>
+                        <div class="ph-user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                        <div class="ph-user-rank">{{ request.user.groups.first.name|default:"Usuário" }}</div>
+                    </div>
+                </div>
+                <div class="ph-profile-menu" id="profile-menu">
+                    <div class="ph-profile-menu-head">
+                        <div class="ph-profile-menu-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                        <div class="ph-profile-menu-role">{{ request.user.email }}</div>
+                    </div>
+                    <a href="{% url 'home:profile_edit' %}">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z" /></svg>
+                        Editar Perfil
+                    </a>
+                    <a href="{% url 'login:logout' %}" class="danger">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" /></svg>
+                        Sair
+                    </a>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- ═══════════════ MAIN ═══════════════ -->
+    <main class="ph-page">
+
+        <!-- Saudação -->
+        <div class="ph-greet">
+            <h1>Olá, {{ request.user.first_name|default:request.user.username }} 👋</h1>
+            <p>Bem-vindo ao Portal GSD. Selecione uma seção ou acesse seus recursos abaixo.</p>
+        </div>
+
+        <!-- Área de administração: acesso rápido à seção de Informática (só admin) -->
+        {% if can_manage %}
+        <div class="ph-manage-bar">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" /></svg>
+            <span>Administrador</span>
+            <a href="{% url 'informatica:dashboard' %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:13px;height:13px"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zm0 9.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zm9.75-9.75A2.25 2.25 0 0115.75 3.75H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6z" /></svg>
+                Seção de Informática
+            </a>
+        </div>
+        {% endif %}
+
+        <!-- ──────── CARROSSEL ──────── -->
+        {% if slides %}
+        <div class="ph-carousel" id="carousel">
+            {% for slide in slides %}
+            <div class="ph-slide {% if forloop.first %}active{% endif %}"
+                 style="background-image:url('{{ slide.image.url }}')">
+                <div class="ph-slide-caption">
+                    {% if slide.title %}
+                    <div class="ph-slide-eyebrow">Destaque</div>
+                    <h2 class="ph-slide-title">{{ slide.title }}</h2>
+                    {% endif %}
+                    {% if slide.subtitle %}<p class="ph-slide-desc">{{ slide.subtitle }}</p>{% endif %}
+                    {% if slide.link_url %}
+                    <a href="{{ slide.link_url }}" target="_blank" rel="noopener"
+                       style="display:inline-flex;align-items:center;gap:6px;margin-top:12px;padding:8px 16px;background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.3);border-radius:8px;color:#fff;text-decoration:none;font-size:13px;font-weight:600;backdrop-filter:none;">
+                        Saiba mais
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:14px;height:14px"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3" /></svg>
+                    </a>
+                    {% endif %}
+                </div>
+            </div>
+            {% endfor %}
+
+            {% if slides|length > 1 %}
+            <button class="ph-arrow prev" id="car-prev">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5" /></svg>
+            </button>
+            <button class="ph-arrow next" id="car-next">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5" /></svg>
+            </button>
+            <div class="ph-dots" id="car-dots">
+                {% for slide in slides %}
+                <button class="ph-dot {% if forloop.first %}active{% endif %}" data-idx="{{ forloop.counter0 }}"></button>
+                {% endfor %}
+            </div>
+            {% endif %}
+        </div>
+        {% endif %}
+
+        <!-- ──────── SEÇÕES ──────── -->
+        {% if available_apps %}
+        <div class="ph-sections">
+            {% for app in available_apps %}
+            <a href="{% url app.url_name %}" class="ph-section-tile">
+                <div class="ph-section-icon">{{ app.icon|safe }}</div>
+                <div>
+                    <div class="ph-section-title">{{ app.display_name }}</div>
+                </div>
+            </a>
+            {% endfor %}
+        </div>
+        {% endif %}
+
+        <!-- ──────── GRADE PRINCIPAL ──────── -->
+        <div class="ph-grid-main">
+
+            <!-- Esquerda: inbox -->
+            <div class="ph-card">
+                <div class="ph-card-head">
+                    <h2 class="ph-card-title">Caixa de Entrada</h2>
+                    <a href="{% url 'home:inbox' %}" class="ph-card-link">Ver todas →</a>
+                </div>
+                <div class="ph-card-body">
+                    {% if unread_msgs %}
+                        {% for msg in unread_msgs %}
+                        <a href="{% url 'caixa_entrada:detalhe' msg.pk %}" class="ph-inbox-item">
+                            <div class="ph-inbox-icon">
+                                {{ msg.remetente.first_name|first|upper|default:msg.remetente.username|first|upper }}
+                            </div>
+                            <div class="ph-inbox-meta">
+                                <div class="ph-inbox-from">
+                                    <span>{{ msg.remetente.get_full_name|default:msg.remetente.username }}</span>
+                                    <span>{{ msg.data_envio|date:"d/m" }}</span>
+                                </div>
+                                <div class="ph-inbox-subject">{{ msg.assunto|default:"(sem assunto)" }}</div>
+                            </div>
+                        </a>
+                        {% endfor %}
+                    {% else %}
+                        <p class="ph-inbox-empty">Nenhuma mensagem não lida.</p>
+                    {% endif %}
+                </div>
+            </div>
+
+            <!-- Direita: perfil -->
+            <div class="ph-card">
+                <div class="ph-card-head">
+                    <h2 class="ph-card-title">Meu Perfil</h2>
+                </div>
+                <div class="ph-profile">
+                    <div class="ph-profile-avatar">
+                        {% if profile.foto %}
+                            <img src="{{ profile.foto.url }}" alt="Foto de perfil">
+                        {% else %}
+                            {{ request.user.first_name|first|upper|default:request.user.username|first|upper }}
+                        {% endif %}
+                    </div>
+                    <div class="ph-profile-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                    <div class="ph-profile-rank">{{ request.user.groups.first.name|default:"Usuário" }}</div>
+                    {% if profile.ramal %}
+                    <div class="ph-profile-detail">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:12px;height:12px;vertical-align:middle;margin-right:3px"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>
+                        Ramal {{ profile.ramal }}
+                    </div>
+                    {% endif %}
+                    {% if request.user.email %}
+                    <div class="ph-profile-detail">{{ request.user.email }}</div>
+                    {% endif %}
+                    <div class="ph-profile-actions">
+                        <a href="{% url 'home:profile_edit' %}" class="ph-btn ph-btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                            Editar Perfil
+                        </a>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+        <!-- ──────── TUTORIAIS ──────── -->
+        <div class="ph-tutorials-head" id="sec-tutoriais">
+            <h2>
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
+                Tutoriais
+            </h2>
+            {% if can_manage %}
+            <a href="{% url 'home:tutorial_create' %}" class="ph-btn ph-btn-primary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                Novo Tutorial
+            </a>
+            {% endif %}
+        </div>
+
+        <div class="ph-tutorials">
+            {% for tutorial in tutorials %}
+            <div class="ph-tutorial-card" onclick="window.location='{% url 'home:tutorial_detail' tutorial.pk %}'">
+                <div class="ph-tutorial-cover">
+                    {% if tutorial.cover_image %}
+                        <img src="{{ tutorial.cover_image.url }}" alt="{{ tutorial.title }}">
+                    {% else %}
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                        </svg>
+                    {% endif %}
+                </div>
+                <div class="ph-tutorial-meta">
+                    {% if tutorial.category %}<div class="ph-tutorial-tag">{{ tutorial.category }}</div>{% endif %}
+                    <div class="ph-tutorial-title">{{ tutorial.title }}</div>
+                    <div class="ph-tutorial-desc">
+                        {{ tutorial.author.get_full_name|default:tutorial.author.username }}
+                        &nbsp;·&nbsp;
+                        {{ tutorial.created_at|date:"d/m/Y" }}
+                    </div>
+                    <div class="ph-tutorial-foot">
+                        <span class="ph-tutorial-attach">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
+                            {{ tutorial.attachments.count }} anexo{{ tutorial.attachments.count|pluralize }}
+                        </span>
+                        <a href="{% url 'home:tutorial_detail' tutorial.pk %}" class="ph-btn ph-btn-primary" style="padding:6px 12px;font-size:12.5px">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.964-7.178z" /><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+                            Ver
+                        </a>
+                    </div>
+                </div>
+            </div>
+            {% empty %}
+            <div class="ph-tutorials-empty">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" />
+                </svg>
+                Nenhum tutorial publicado ainda.
+                {% if can_manage %}
+                <br><a href="{% url 'home:tutorial_create' %}" style="color:var(--accent)">Criar o primeiro tutorial →</a>
+                {% endif %}
+            </div>
+            {% endfor %}
+        </div>
+
+    </main>
+
+    <script>
+    document.addEventListener('DOMContentLoaded', function () {
+
+        // ── Tema ──────────────────────────────────────────────
+        const body = document.body;
+        const toggle = document.getElementById('theme-toggle');
+        const sun = document.getElementById('icon-sun');
+        const moon = document.getElementById('icon-moon');
+
+        function applyTheme(t) {
+            body.classList.remove('light-theme', 'dark-theme');
+            body.classList.add(t);
+            if (t === 'dark-theme') { sun.style.display = 'none'; moon.style.display = ''; }
+            else { sun.style.display = ''; moon.style.display = 'none'; }
+        }
+        applyTheme(localStorage.getItem('theme') || 'light-theme');
+        toggle.addEventListener('click', function () {
+            const next = body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme';
+            localStorage.setItem('theme', next);
+            applyTheme(next);
+        });
+
+        // ── Carrossel ────────────────────────────────────────
+        var slides = document.querySelectorAll('.ph-slide');
+        var dots   = document.querySelectorAll('.ph-dot');
+        if (slides.length > 1) {
+            var cur = 0, timer;
+            function goTo(i) {
+                slides[cur].classList.remove('active');
+                dots[cur].classList.remove('active');
+                cur = (i + slides.length) % slides.length;
+                slides[cur].classList.add('active');
+                dots[cur].classList.add('active');
+            }
+            function next() { goTo(cur + 1); }
+            function startTimer() { timer = setInterval(next, 5000); }
+            function stopTimer() { clearInterval(timer); }
+
+            var prevBtn = document.getElementById('car-prev');
+            var nextBtn = document.getElementById('car-next');
+            if (prevBtn) prevBtn.addEventListener('click', function(){ stopTimer(); goTo(cur - 1); startTimer(); });
+            if (nextBtn) nextBtn.addEventListener('click', function(){ stopTimer(); goTo(cur + 1); startTimer(); });
+            dots.forEach(function(d){ d.addEventListener('click', function(){ stopTimer(); goTo(parseInt(d.dataset.idx)); startTimer(); }); });
+            startTimer();
+        }
+
+        // ── Notificações ──────────────────────────────────────
+        var notifBtn   = document.getElementById('notif-btn');
+        var notifPanel = document.getElementById('notif-panel');
+        var notifList  = document.getElementById('notif-list');
+        var notifBadge = document.getElementById('notif-badge');
+        var notifDot   = document.getElementById('notif-dot');
+        var emailBadge = document.getElementById('email-badge');
+        var seenCount  = parseInt(sessionStorage.getItem('seenNotifCount') || '0');
+
+        async function loadNotifications() {
+            try {
+                var resp = await fetch('{% url "caixa_entrada:api_check" %}');
+                if (!resp.ok) return;
+                var data = await resp.json();
+                var total = data.count || 0;
+                if (total < seenCount) { seenCount = total; sessionStorage.setItem('seenNotifCount', seenCount); }
+                if (total > seenCount) {
+                    notifBadge.textContent = total;
+                    notifBadge.style.display = 'flex';
+                    notifDot.style.display = 'block';
+                } else {
+                    notifBadge.style.display = 'none';
+                    notifDot.style.display = 'none';
+                }
+                if (data.unread_mensagens > 0) {
+                    emailBadge.textContent = data.unread_mensagens > 99 ? '99+' : data.unread_mensagens;
+                    emailBadge.style.display = 'flex';
+                } else {
+                    emailBadge.style.display = 'none';
+                }
+                notifList.innerHTML = '';
+                if (!data.notifications || data.notifications.length === 0) {
+                    notifList.innerHTML = '<div class="ph-notif-empty">Sem notificações no momento.</div>';
+                } else {
+                    data.notifications.forEach(function(n) {
+                        var a = document.createElement('a');
+                        a.className = 'ph-notif-item';
+                        a.href = n.url || '#';
+                        a.innerHTML = '<div class="ph-notif-item-title">' + (n.titulo || '') + '</div>' +
+                            '<div class="ph-notif-item-sub">' + (n.remetente || '') + ' · ' + (n.data || '') + '</div>';
+                        notifList.appendChild(a);
+                    });
+                }
+            } catch(e) {
+                notifList.innerHTML = '<div class="ph-notif-empty">Erro ao carregar.</div>';
+            }
+        }
+
+        notifBtn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            var open = notifPanel.classList.toggle('open');
+            if (open) {
+                seenCount = parseInt(notifBadge.textContent || '0');
+                sessionStorage.setItem('seenNotifCount', seenCount);
+                notifBadge.style.display = 'none';
+                notifDot.style.display = 'none';
+                loadNotifications();
+            }
+        });
+        document.addEventListener('click', function() { notifPanel.classList.remove('open'); });
+        notifPanel.addEventListener('click', function(e) { e.stopPropagation(); });
+
+        loadNotifications();
+        setInterval(loadNotifications, 60000);
+
+        // ── Dropdown do perfil ────────────────────────────────
+        var profileChip = document.getElementById('profile-chip');
+        var profileMenu = document.getElementById('profile-menu');
+        profileChip.addEventListener('click', function(e) {
+            e.stopPropagation();
+            profileMenu.classList.toggle('open');
+            // fechar notificações se aberto
+            notifPanel.classList.remove('open');
+        });
+        document.addEventListener('click', function() {
+            profileMenu.classList.remove('open');
+        });
+        profileMenu.addEventListener('click', function(e) { e.stopPropagation(); });
+    });
+    </script>
+</body>
+</html>

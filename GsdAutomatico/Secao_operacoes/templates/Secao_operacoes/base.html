@@ -157,7 +157,8 @@
                 </a>
 
                 {% if user.is_authenticated %}
-                    <span class="user-info">
+                    <span class="user-info" style="display:flex;align-items:center;gap:8px;">
+                        {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="">{% endif %}
                         Olá, <strong>{{ user.first_name|default:user.username }}</strong>
                     </span>
                 {% endif %}

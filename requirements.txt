@@ -95,3 +95,7 @@ docker==7.1.0
 pdf2docx==0.5.8
 PyMuPDF==1.24.1
 pytesseract==0.3.10
+
+# WebSockets / Real-time
+channels==4.1.0
+daphne==4.1.2

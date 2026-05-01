@@ -1,0 +1,280 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Gerenciar Carrossel — Portal GSD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@500;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --accent:         #3b82f6;
+            --accent-hover:   #1d4ed8;
+            --accent-dim:     rgba(59,130,246,0.12);
+            --danger:         #ef4444;
+            --success:        #22c55e;
+            --bg-page:        #f0f4f8;
+            --bg-card:        #ffffff;
+            --border:         rgba(0,0,0,0.07);
+            --border-strong:  rgba(0,0,0,0.13);
+            --divider:        rgba(0,0,0,0.06);
+            --text-primary:   #0f172a;
+            --text-secondary: #64748b;
+            --text-muted:     #94a3b8;
+            --shadow-card:    0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --font-display:   'Rajdhani', system-ui, sans-serif;
+            --font-body:      'Inter', system-ui, sans-serif;
+        }
+        body.dark-theme {
+            --bg-page:        #0d1117;
+            --bg-card:        #161b22;
+            --border:         rgba(255,255,255,0.06);
+            --border-strong:  rgba(255,255,255,0.11);
+            --divider:        rgba(255,255,255,0.06);
+            --text-primary:   #e6edf3;
+            --text-secondary: #8b949e;
+            --text-muted:     #6e7681;
+            --shadow-card:    0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+        }
+        * { box-sizing: border-box; }
+        body { margin: 0; background: var(--bg-page); color: var(--text-primary); font-family: var(--font-body); }
+
+        .ph-back-bar {
+            background: #0f172a; border-bottom: 1px solid rgba(255,255,255,0.06);
+            padding: 0 32px; height: 52px; display: flex; align-items: center; gap: 16px;
+            position: sticky; top: 0; z-index: 10;
+        }
+        .ph-back {
+            display: inline-flex; align-items: center; gap: 6px; font-size: 13px;
+            color: rgba(255,255,255,0.7); text-decoration: none; font-weight: 500; transition: color 0.15s;
+        }
+        .ph-back:hover { color: #fff; }
+        .ph-back svg { width: 15px; height: 15px; }
+        .ph-back-title {
+            font-family: var(--font-display); font-size: 13px; font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.1em; color: rgba(255,255,255,0.6);
+        }
+
+        .ph-page { max-width: 900px; margin: 32px auto; padding: 0 20px 80px; }
+
+        /* Alert */
+        .ph-alert {
+            padding: 11px 16px; border-radius: 8px; font-size: 13.5px; margin-bottom: 16px;
+            display: flex; align-items: center; justify-content: space-between; gap: 10px;
+        }
+        .ph-alert-success { background: rgba(34,197,94,0.10); color: #15803d; border: 1px solid rgba(34,197,94,0.2); }
+        .ph-alert-error   { background: rgba(239,68,68,0.10); color: #b91c1c; border: 1px solid rgba(239,68,68,0.2); }
+        .ph-alert-close { background: none; border: none; cursor: pointer; color: inherit; opacity: 0.6; font-size: 16px; padding: 0; }
+
+        /* Card */
+        .ph-card {
+            background: var(--bg-card); border: 1px solid var(--border);
+            border-radius: 16px; box-shadow: var(--shadow-card); overflow: hidden; margin-bottom: 20px;
+        }
+        .ph-card-head {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 16px 20px; border-bottom: 1px solid var(--divider);
+        }
+        .ph-card-title { font-size: 15px; font-weight: 600; margin: 0; }
+        .ph-card-body { padding: 20px; }
+
+        /* Table */
+        .ph-table { width: 100%; border-collapse: collapse; }
+        .ph-table th {
+            font-family: var(--font-display); font-size: 11px; font-weight: 700;
+            letter-spacing: 0.1em; text-transform: uppercase; color: var(--text-secondary);
+            padding: 10px 12px; border-bottom: 1px solid var(--divider); text-align: left;
+            background: var(--bg-page);
+        }
+        .ph-table td {
+            padding: 12px; border-bottom: 1px solid var(--divider);
+            font-size: 13.5px; color: var(--text-primary); vertical-align: middle;
+        }
+        .ph-table tr:last-child td { border-bottom: 0; }
+        .ph-table tr:hover td { background: var(--bg-page); }
+
+        .slide-thumb {
+            width: 88px; height: 52px; object-fit: cover;
+            border-radius: 8px; border: 1px solid var(--border); display: block;
+        }
+
+        .ph-badge {
+            display: inline-flex; align-items: center; gap: 5px;
+            padding: 3px 10px; border-radius: 9999px;
+            font-size: 11.5px; font-weight: 600;
+        }
+        .ph-badge-success { background: rgba(34,197,94,0.12); color: #15803d; }
+        .ph-badge-muted   { background: var(--bg-page); color: var(--text-muted); border: 1px solid var(--border-strong); }
+        .ph-badge-dot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; }
+
+        /* Form */
+        .ph-field { margin-bottom: 16px; }
+        .ph-label { display: block; font-size: 12.5px; font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; }
+        .ph-input {
+            width: 100%; padding: 9px 13px; border: 1px solid var(--border-strong);
+            border-radius: 8px; background: var(--bg-card); color: var(--text-primary);
+            font-family: var(--font-body); font-size: 14px; outline: none; transition: border 0.15s;
+        }
+        .ph-input:focus { border-color: var(--accent); }
+        textarea.ph-input { resize: vertical; min-height: 72px; }
+        .ph-row { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 14px; }
+        .ph-check-row { display: flex; align-items: center; gap: 8px; }
+        .ph-check-row input { width: 15px; height: 15px; accent-color: var(--accent); }
+        .ph-check-row label { font-size: 13.5px; font-weight: 500; cursor: pointer; }
+
+        /* Buttons */
+        .ph-btn {
+            display: inline-flex; align-items: center; gap: 7px;
+            font-family: var(--font-body); font-size: 13px; font-weight: 500;
+            padding: 7px 14px; border-radius: 8px; border: 1px solid transparent;
+            cursor: pointer; transition: all 0.15s; text-decoration: none; line-height: 1.2;
+        }
+        .ph-btn svg { width: 13px; height: 13px; }
+        .ph-btn-primary { background: var(--accent); color: #fff; }
+        .ph-btn-primary:hover { background: var(--accent-hover); color: #fff; }
+        .ph-btn-danger { background: rgba(239,68,68,0.10); color: var(--danger); border-color: rgba(239,68,68,0.2); }
+        .ph-btn-danger:hover { background: rgba(239,68,68,0.18); }
+
+        .ph-empty { padding: 28px; text-align: center; color: var(--text-secondary); font-size: 13.5px; }
+
+        @media (max-width: 600px) {
+            .ph-page { padding: 16px 12px 60px; }
+            .ph-back-bar { padding: 0 16px; }
+        }
+    </style>
+</head>
+<body>
+    <script>
+        (function(){
+            var t = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme');
+            document.body.classList.add(t);
+        })();
+    </script>
+
+    <div class="ph-back-bar">
+        <a href="{% url 'informatica:dashboard' %}" class="ph-back">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            Informática
+        </a>
+        <span style="color:rgba(255,255,255,0.2)">/</span>
+        <span class="ph-back-title">Gerenciar Carrossel</span>
+    </div>
+
+    <div class="ph-page">
+
+        {% if messages %}
+            {% for message in messages %}
+            <div class="ph-alert ph-alert-{{ message.tags|lower }}">
+                <span>{{ message }}</span>
+                <button class="ph-alert-close" onclick="this.parentElement.remove()">&times;</button>
+            </div>
+            {% endfor %}
+        {% endif %}
+
+        <!-- Slides cadastrados -->
+        <div class="ph-card">
+            <div class="ph-card-head">
+                <h2 class="ph-card-title">Slides Cadastrados</h2>
+                <span style="font-size:12px;color:var(--text-muted)">{{ slides|length }} slide{{ slides|length|pluralize }}</span>
+            </div>
+            {% if slides %}
+            <table class="ph-table">
+                <thead>
+                    <tr>
+                        <th>Imagem</th>
+                        <th>Título</th>
+                        <th>Ordem</th>
+                        <th>Status</th>
+                        <th>Link</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for slide in slides %}
+                    <tr>
+                        <td><img src="{{ slide.image.url }}" alt="{{ slide.title }}" class="slide-thumb"></td>
+                        <td>{{ slide.title|default:"—" }}</td>
+                        <td>{{ slide.order }}</td>
+                        <td>
+                            <span class="ph-badge {% if slide.active %}ph-badge-success{% else %}ph-badge-muted{% endif %}">
+                                <span class="ph-badge-dot"></span>
+                                {% if slide.active %}Ativo{% else %}Inativo{% endif %}
+                            </span>
+                        </td>
+                        <td>
+                            {% if slide.link_url %}
+                            <a href="{{ slide.link_url }}" target="_blank" rel="noopener"
+                               style="color:var(--accent);font-size:12.5px;font-weight:500;">Abrir →</a>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            <form method="post" action="{% url 'home:carousel_slide_delete' slide.pk %}" style="margin:0">
+                                {% csrf_token %}
+                                <button type="submit" class="ph-btn ph-btn-danger"
+                                        onclick="return confirm('Remover este slide?')">
+                                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0" /></svg>
+                                    Remover
+                                </button>
+                            </form>
+                        </td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            {% else %}
+            <div class="ph-empty">Nenhum slide cadastrado ainda.</div>
+            {% endif %}
+        </div>
+
+        <!-- Adicionar novo slide -->
+        <div class="ph-card">
+            <div class="ph-card-head">
+                <h2 class="ph-card-title">Adicionar Novo Slide</h2>
+            </div>
+            <div class="ph-card-body">
+                <form method="post" enctype="multipart/form-data">
+                    {% csrf_token %}
+                    <div class="ph-row">
+                        <div class="ph-field">
+                            <label class="ph-label">Imagem *</label>
+                            <input type="file" name="image" class="ph-input" accept="image/*" required>
+                        </div>
+                        <div class="ph-field">
+                            <label class="ph-label">Título</label>
+                            <input type="text" name="title" class="ph-input" placeholder="Título do slide">
+                        </div>
+                    </div>
+                    <div class="ph-field">
+                        <label class="ph-label">Subtítulo / Texto</label>
+                        <textarea name="subtitle" class="ph-input" placeholder="Texto descritivo do slide"></textarea>
+                    </div>
+                    <div class="ph-row">
+                        <div class="ph-field">
+                            <label class="ph-label">Link (URL)</label>
+                            <input type="text" name="link_url" class="ph-input" placeholder="https://...">
+                        </div>
+                        <div class="ph-field">
+                            <label class="ph-label">Ordem</label>
+                            <input type="number" name="order" class="ph-input" value="0" min="0">
+                        </div>
+                        <div class="ph-field" style="display:flex;align-items:flex-end;padding-bottom:2px">
+                            <div class="ph-check-row">
+                                <input type="checkbox" name="active" id="active" checked>
+                                <label for="active">Ativo (exibir no portal)</label>
+                            </div>
+                        </div>
+                    </div>
+                    <button type="submit" class="ph-btn ph-btn-primary">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                        Adicionar Slide
+                    </button>
+                </form>
+            </div>
+        </div>
+
+    </div>
+</body>
+</html>

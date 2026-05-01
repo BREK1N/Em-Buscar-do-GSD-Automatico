@@ -1,304 +1,392 @@
 {% extends 'informatica/base.html' %}
 {% load static %}
 
-{% block title %}{{ page_title|default:"Dashboard Admin & TI" }}{% endblock %}
+{% block title %}Dashboard — Seção de Informática{% endblock %}
+{% block header_eyebrow %}Seção de Informática{% endblock %}
+{% block header_title %}Dashboard{% endblock %}
 
 {% block extra_head %}
 <style>
-    /* --- GRID MODERNIZADA --- */
-    .dashboard-container {
-        display: flex;
-        flex-direction: column;
-        gap: 25px;
-        margin-top: 25px;
-    }
+    /* ── Dashboard grid ── */
+    .ifa-screen { display: flex; flex-direction: column; gap: 24px; }
 
-    .dashboard-row {
+    .ifa-grid-4 {
         display: grid;
-        grid-template-columns: repeat(auto-fit, minmax(350px, 1fr));
-        gap: 25px;
+        grid-template-columns: repeat(4, 1fr);
+        gap: 16px;
+    }
+    .ifa-grid-2 {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 16px;
     }
 
-    /* --- CARDS MODERNOS --- */
-    .dashboard-card {
-        background-color: var(--bg-content);
-        border: 1px solid var(--border-color);
-        border-radius: 16px;
-        padding: 25px;
-        box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05), 0 2px 4px -1px rgba(0, 0, 0, 0.03);
-        display: flex;
-        flex-direction: column;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
-    }
-    
-    body.dark-theme .dashboard-card {
-        box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.3);
-    }
-
-    .dashboard-card:hover {
-        transform: translateY(-2px);
-    }
-
-    .dashboard-card h3 {
-        margin-top: 0;
-        margin-bottom: 20px;
-        font-size: 1.15rem;
-        font-weight: 600;
-        display: flex;
-        align-items: center;
-        gap: 12px;
-        color: var(--text-primary);
-    }
-
-    .dashboard-card h3 svg {
-        width: 24px;
-        height: 24px;
-        color: var(--accent-color);
-        background: var(--bg-main);
-        padding: 6px;
-        border-radius: 8px;
-    }
-
-    /* --- LISTAS DE MODELOS (SaaS Style) --- */
-    .model-list { list-style: none; padding: 0; margin: 0; }
-    .model-list li {
-        display: flex;
-        justify-content: space-between;
-        align-items: center;
-        padding: 12px 15px;
-        margin-bottom: 8px;
-        background-color: var(--bg-main);
-        border-radius: 10px;
-        border: 1px solid transparent;
-        transition: all 0.2s ease;
-    }
-    .model-list li:hover {
-        border-color: var(--border-color);
-        background-color: var(--bg-content);
-    }
-
-    .model-list .model-name-link {
-        color: var(--text-primary);
-        text-decoration: none;
-        font-weight: 500;
-        flex-grow: 1;
-        display: flex;
-        align-items: center;
-    }
-
-    .model-list .model-count {
-        font-size: 0.75rem;
-        color: var(--text-inverse);
-        background-color: var(--accent-color);
-        padding: 2px 8px;
-        border-radius: 12px;
-        margin-left: 10px;
-        font-weight: 600;
-    }
-
-    .model-list .model-actions a {
-        color: var(--text-secondary);
-        text-decoration: none;
-        margin-left: 12px;
-        font-size: 0.85rem;
-        transition: color 0.2s;
-    }
-    .model-list .model-actions a:hover { color: var(--accent-color); }
-
-    /* --- ESTATÍSTICAS RÁPIDAS --- */
-    .stats-grid { display: grid; grid-template-columns: repeat(2, 1fr); gap: 15px; }
-    .stat-item {
-        background-color: var(--bg-main);
-        padding: 20px 15px;
-        border-radius: 12px;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-start;
-        border: 1px solid var(--border-color);
-    }
-    .stat-item .stat-value { font-size: 1.8rem; font-weight: 700; color: var(--text-primary); line-height: 1; margin-bottom: 8px;}
-    .stat-item .stat-label { font-size: 0.85rem; color: var(--text-secondary); font-weight: 500; }
-
-    /* --- TERMINAL MINIMIZÁVEL --- */
-    .terminal-container { grid-column: 1 / -1; }
-    .terminal-window {
-        position: relative;
-        background-color: #0f172a; /* Fundo sempre escuro pro terminal */
-        border-radius: 12px;
-        border: 1px solid #334155;
+    /* ── Stat cards ── */
+    .ifa-card {
+        background: var(--bg-card);
+        border: 1px solid var(--border);
+        border-radius: 14px;
+        box-shadow: var(--shadow-card);
         overflow: hidden;
-        transition: all 0.3s ease;
     }
-    
-    .terminal-header {
-        display: flex;
-        align-items: center;
-        justify-content: space-between;
-        padding: 10px 15px;
-        background-color: #1e293b;
+    .ifa-card-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 14px 18px 10px;
+        border-bottom: 1px solid var(--divider);
+    }
+    .ifa-card-title {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 11px; font-weight: 700;
+        letter-spacing: 0.14em; text-transform: uppercase;
+        color: var(--text-muted);
+    }
+    .ifa-card-body { padding: 16px 18px; }
+
+    .ifa-stat {
+        display: flex; flex-direction: column;
+    }
+    .ifa-stat-value {
+        font-size: 2rem; font-weight: 700; line-height: 1;
+        color: var(--text-primary);
+    }
+    .ifa-stat-label {
+        font-size: 12px; color: var(--text-secondary); margin-top: 6px; font-weight: 500;
+    }
+    .ifa-stat-icon {
+        width: 36px; height: 36px; border-radius: 10px;
+        display: flex; align-items: center; justify-content: center;
+        background: var(--accent-dim); color: var(--accent); flex-shrink: 0;
+    }
+    .ifa-stat-icon svg { width: 18px; height: 18px; }
+
+    /* ── Model list rows ── */
+    .ifa-trow {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 0;
+        border-bottom: 1px solid var(--divider);
+        font-size: 13.5px;
+    }
+    .ifa-trow:last-child { border-bottom: 0; }
+    .ifa-trow-name {
+        color: var(--text-primary); font-weight: 500; flex: 1;
+        text-decoration: none; display: flex; align-items: center; gap: 8px;
+    }
+    .ifa-trow-name:hover { color: var(--accent); }
+    .ifa-badge {
+        display: inline-flex; align-items: center;
+        padding: 2px 9px; border-radius: 9999px;
+        font-size: 11px; font-weight: 600;
+        background: var(--accent-dim); color: var(--accent);
+    }
+    .ifa-trow-actions { display: flex; align-items: center; gap: 8px; margin-left: 12px; }
+    .ifa-trow-actions a {
+        color: var(--text-muted); font-size: 12px; text-decoration: none; transition: color 0.15s;
+    }
+    .ifa-trow-actions a:hover { color: var(--accent); }
+
+    /* ── Terminal ── */
+    .ifa-terminal {
+        background: #0f172a;
+        border: 1px solid #1e293b;
+        border-radius: 14px;
+        overflow: hidden;
+    }
+    .ifa-terminal-head {
+        display: flex; align-items: center; justify-content: space-between;
+        padding: 10px 16px;
+        background: #1e293b;
         border-bottom: 1px solid #334155;
-        color: #94a3b8;
-        font-size: 0.85rem;
     }
+    .ifa-terminal-dots { display: flex; gap: 6px; }
+    .ifa-terminal-dot {
+        width: 12px; height: 12px; border-radius: 50%; cursor: pointer;
+    }
+    .ifa-terminal-dot.red    { background: #ef4444; }
+    .ifa-terminal-dot.yellow { background: #eab308; }
+    .ifa-terminal-dot.green  { background: #22c55e; }
+    .ifa-terminal-title {
+        font-family: 'Inter', monospace; font-size: 12px;
+        color: #94a3b8; font-weight: 500;
+    }
+    .ifa-terminal-toggle {
+        background: transparent; border: none; color: #94a3b8;
+        cursor: pointer; font-size: 13px; padding: 3px 6px;
+        border-radius: 5px; transition: background 0.15s;
+        display: flex; align-items: center;
+    }
+    .ifa-terminal-toggle:hover { background: rgba(255,255,255,0.1); color: #fff; }
+    .ifa-terminal-body {
+        padding: 14px 16px;
+        height: 300px; overflow-y: auto;
+        font-family: 'Consolas', 'Courier New', monospace;
+        font-size: 13px; color: #e2e8f0; line-height: 1.6;
+    }
+    .ifa-terminal-body::-webkit-scrollbar { width: 6px; }
+    .ifa-terminal-body::-webkit-scrollbar-track { background: #0f172a; }
+    .ifa-terminal-body::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+    .ifa-terminal.collapsed .ifa-terminal-body { display: none; }
 
-    .terminal-header-left { display: flex; align-items: center; gap: 8px; }
-    .terminal-dot { width: 12px; height: 12px; border-radius: 50%; display: inline-block; cursor: pointer; }
-    .terminal-dot.red { background-color: #ef4444; }
-    .terminal-dot.yellow { background-color: #eab308; }
-    .terminal-dot.green { background-color: #22c55e; }
+    .log-prompt { color: #22c55e; margin-right: 6px; }
+    .log-text { color: #e2e8f0; }
+    .cursor { animation: blink 1s step-end infinite; }
+    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
 
-    .terminal-actions button {
-        background: transparent;
-        border: none;
-        color: #94a3b8;
-        cursor: pointer;
-        font-size: 1rem;
+    /* Cautela rows */
+    .ifa-cautela-row {
+        display: flex; justify-content: space-between; align-items: center;
+        padding: 11px 0; border-bottom: 1px solid var(--divider); gap: 12px;
+    }
+    .ifa-cautela-row:last-child { border-bottom: 0; padding-bottom: 0; }
+    .ifa-cautela-row:first-child { padding-top: 0; }
+    .ifa-cautela-meta .ifa-strong { font-size: 13.5px; font-weight: 600; color: var(--text-primary); }
+    .ifa-cautela-meta .ifa-muted { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+    .ifa-link { color: var(--accent); font-size: 13px; font-weight: 500; text-decoration: none; }
+    .ifa-link:hover { text-decoration: underline; }
+    .ifa-bdot { width: 6px; height: 6px; border-radius: 50%; background: currentColor; display: inline-block; }
+
+    /* ── Atalhos de Operação ── */
+    .ifa-shortcut-card {
         display: flex;
         align-items: center;
-        padding: 4px;
-        border-radius: 6px;
-        transition: background 0.2s;
+        gap: 16px;
+        text-decoration: none;
+        position: relative;
+        transition: transform .15s, box-shadow .15s;
+        cursor: pointer;
     }
-    .terminal-actions button:hover { background: rgba(255,255,255,0.1); color: #fff; }
-
-    .terminal-body {
-        padding: 15px;
-        height: 300px;
-        overflow-y: auto;
-        font-family: 'Consolas', monospace;
-        font-size: 0.85rem;
-        color: #e2e8f0;
+    .ifa-shortcut-card:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 6px 20px rgba(0,0,0,.2);
+    }
+    .ifa-shortcut-icon {
+        width: 48px;
+        height: 48px;
+        border-radius: 12px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        flex-shrink: 0;
+    }
+    .ifa-shortcut-icon svg { width: 24px; height: 24px; }
+    .ifa-shortcut-info { flex: 1; min-width: 0; }
+    .ifa-shortcut-title {
+        font-size: 15px;
+        font-weight: 700;
+        color: var(--text-primary);
+    }
+    .ifa-shortcut-sub {
+        font-size: 12px;
+        color: var(--text-secondary);
+        margin-top: 2px;
+    }
+    .ifa-notif-badge {
+        position: absolute;
+        top: 12px;
+        right: 14px;
+        background: #e94560;
+        color: #fff;
+        font-size: 11px;
+        font-weight: 800;
+        min-width: 20px;
+        height: 20px;
+        border-radius: 10px;
+        padding: 0 5px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        box-shadow: 0 2px 6px rgba(233,69,96,.45);
+        animation: pulse-badge .9s ease-in-out infinite alternate;
+    }
+    @keyframes pulse-badge {
+        from { box-shadow: 0 2px 6px rgba(233,69,96,.4); }
+        to   { box-shadow: 0 2px 14px rgba(233,69,96,.8); }
     }
 
-    /* Estado Minimizado */
-    .terminal-window.collapsed .terminal-body { display: none; }
-    
-    /* Scrollbar pro Terminal */
-    .terminal-body::-webkit-scrollbar { width: 8px; }
-    .terminal-body::-webkit-scrollbar-track { background: #0f172a; }
-    .terminal-body::-webkit-scrollbar-thumb { background: #334155; border-radius: 4px; }
+    @media (max-width: 900px) {
+        .ifa-grid-4 { grid-template-columns: repeat(2, 1fr); }
+    }
+    @media (max-width: 600px) {
+        .ifa-grid-4, .ifa-grid-2 { grid-template-columns: 1fr; }
+    }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="d-flex justify-content-between align-items-center">
-    <div>
-        <h1 style="margin-bottom: 5px;">{{ page_title|default:"Visão Geral" }}</h1>
-        <p style="color: var(--text-secondary); margin-top: 0;">Gerencie o sistema e monitore a infraestrutura em tempo real.</p>
-    </div>
-</div>
+<div class="ifa-screen">
 
-<div class="dashboard-container">
-    
-    <div class="dashboard-row">
-        {# Card 1: Estatísticas Rápidas #}
-        <div class="dashboard-card">
-            <h3>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A2.625 2.625 0 011.5 18.375v-2.25zM16.5 13.125c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v6.75c0 .621-.504 1.125-1.125 1.125h-2.25a2.625 2.625 0 01-2.625-2.625v-2.25zM16.5 13.125V18.75m0-5.625v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c-1.99 0-3.898.39-5.71.989A4.482 4.482 0 005.25 9.75v1.5m6-1.5V18.75m0-5.625c0-1.496.764-2.812 1.99-3.611A48.248 48.248 0 0012 5.25c1.99 0 3.898.39 5.71.989A4.482 4.482 0 0118.75 9.75v1.5m-6-1.5v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c-1.99 0-3.898.39-5.71.989A4.482 4.482 0 005.25 9.75v1.5m6-1.5V9.75m0 9V9.75m0 9H12m0 0H9.75m0 0v-1.5c0-1.496-.764-2.812-1.99-3.611A48.248 48.248 0 0012 5.25c1.99 0 3.898.39 5.71.989A4.482 4.482 0 0118.75 9.75v1.5" /></svg>
-                Indicadores
-            </h3>
-            <div class="card-content stats-grid">
-                 <div class="stat-item"> <span class="stat-value text-primary">{{ quick_stats.total_users|default:"0" }}</span> <span class="stat-label">Utilizadores</span> </div>
-                <div class="stat-item"> <span class="stat-value">{{ quick_stats.militares_count|default:"0" }}</span> <span class="stat-label">Militares</span> </div>
-                <div class="stat-item"> <span class="stat-value">{{ quick_stats.total_patds|default:"0" }}</span> <span class="stat-label">Total PATDs</span> </div>
-                <div class="stat-item"> <span class="stat-value">{{ quick_stats.active_patds|default:"0" }}</span> <span class="stat-label">PATDs Ativas</span> </div>
+    <!-- Stat cards -->
+    <div class="ifa-grid-4">
+        <div class="ifa-card ifa-stat">
+            <div class="ifa-card-head">
+                <span class="ifa-card-title">Acervo</span>
+                <div class="ifa-stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M20.25 7.5l-.625 10.632a2.25 2.25 0 01-2.247 2.118H6.622a2.25 2.25 0 01-2.247-2.118L3.75 7.5M10 11.25h4M3.375 7.5h17.25c.621 0 1.125-.504 1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125z"/></svg>
+                </div>
+            </div>
+            <div class="ifa-card-body">
+                <div class="ifa-stat-value">{{ quick_stats.acervo|default:"0" }}</div>
+                <div class="ifa-stat-label">Materiais cadastrados</div>
             </div>
         </div>
 
-        {# Card 2: Gerenciamento Geral #}
-        <div class="dashboard-card">
-             <h3>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" /></svg>
-                Sistema Global
-            </h3>
-            <div class="card-content">
-                <ul class="model-list">
-                    {% for app in general_admin_apps %}
-                    <li data-model="{{ app.model_name|lower }}">
-                        <a href="{{ app.list_url }}" class="model-name-link">
-                            {{ app.name }}
-                            <span class="model-count">{{ app.count }}</span>
-                        </a>
-                        <span class="model-actions">
-                            <a href="{{ app.add_url }}"><i class="fas fa-plus"></i></a>
-                            <a href="{{ app.list_url }}"><i class="fas fa-list"></i></a>
+        <div class="ifa-card ifa-stat">
+            <div class="ifa-card-head">
+                <span class="ifa-card-title">Em Cautela</span>
+                <div class="ifa-stat-icon" style="background:rgba(245,158,11,0.12);color:#b45309;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/></svg>
+                </div>
+            </div>
+            <div class="ifa-card-body">
+                <div class="ifa-stat-value" style="color:#b45309;">{{ quick_stats.em_cautela|default:"0" }}</div>
+                <div class="ifa-stat-label">Aguardando devolução</div>
+            </div>
+        </div>
+
+        <div class="ifa-card ifa-stat">
+            <div class="ifa-card-head">
+                <span class="ifa-card-title">Utilizadores</span>
+                <div class="ifa-stat-icon">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+                </div>
+            </div>
+            <div class="ifa-card-body">
+                <div class="ifa-stat-value">{{ quick_stats.total_users|default:"0" }}</div>
+                <div class="ifa-stat-label">Ativos no sistema</div>
+            </div>
+        </div>
+
+        <div class="ifa-card ifa-stat">
+            <div class="ifa-card-head">
+                <span class="ifa-card-title">Uptime</span>
+                <div class="ifa-stat-icon" style="background:rgba(34,197,94,0.12);color:#15803d;">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M5.25 14.25h13.5m-13.5 0a3 3 0 01-3-3m3 3a3 3 0 100 6h13.5a3 3 0 100-6m-13.5 0V11.25m13.5 3a3 3 0 003-3m-3 3V11.25m0 0a3 3 0 00-3-3h-7.5a3 3 0 00-3 3m13.5 0V9.75a3 3 0 00-3-3h-7.5a3 3 0 00-3 3v1.5"/></svg>
+                </div>
+            </div>
+            <div class="ifa-card-body">
+                <div class="ifa-stat-value" style="color:#15803d;">Online</div>
+                <div class="ifa-stat-label">Servidores ativos</div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Model cards -->
+    <div class="ifa-grid-2">
+        <!-- Sistema Global -->
+        <div class="ifa-card">
+            <div class="ifa-card-head">
+                <span class="ifa-card-title">Sistema Global</span>
+            </div>
+            <div class="ifa-card-body">
+                {% for app in general_admin_apps %}
+                <div class="ifa-trow">
+                    <a href="{{ app.list_url }}" class="ifa-trow-name">
+                        {{ app.name }}
+                        <span class="ifa-badge">{{ app.count }}</span>
+                    </a>
+                    <div class="ifa-trow-actions">
+                        <a href="{{ app.add_url }}" title="Adicionar"><i class="fas fa-plus"></i></a>
+                        <a href="{{ app.list_url }}" title="Listar"><i class="fas fa-list"></i></a>
+                    </div>
+                </div>
+                {% empty %}
+                <p style="color:var(--text-muted);font-size:13px;">Nenhum modelo configurado.</p>
+                {% endfor %}
+            </div>
+        </div>
+
+        <!-- Materiais em Cautela -->
+        <div class="ifa-card">
+            <div class="ifa-card-head">
+                <span class="ifa-card-title">Materiais em Cautela</span>
+                <a href="{% url 'informatica:gestao_materiais' %}" class="ifa-link">Ver todas →</a>
+            </div>
+            <div class="ifa-card-body">
+                {% for cautela in cautelas_recentes %}
+                <div class="ifa-cautela-row">
+                    <div class="ifa-cautela-meta">
+                        <div class="ifa-strong">
+                            {% with first_item=cautela.itens.first %}
+                                {% if first_item %}{{ first_item.material.nome }}{% if cautela.itens.count > 1 %} +{{ cautela.itens.count|add:"-1" }}{% endif %}{% else %}Cautela #{{ cautela.pk }}{% endif %}
+                            {% endwith %}
+                        </div>
+                        <div class="ifa-muted">{{ cautela.recebedor.posto }} {{ cautela.recebedor.nome_guerra }} · {{ cautela.data_emissao|date:"d/m/Y" }}</div>
+                    </div>
+                    <div style="flex-shrink:0;">
+                        <span class="ifa-badge" style="background:rgba(245,158,11,0.14);color:#b45309;">
+                            <span class="ifa-bdot"></span> Em Cautela
                         </span>
-                    </li>
-                    {% empty %}
-                    <li>Nenhum modelo de sistema configurado.</li>
-                    {% endfor %}
-                </ul>
-            </div>
-        </div>
-
-        {# Card 3: Gerenciamento Ouvidoria #}
-        <div class="dashboard-card">
-             <h3>
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z" /></svg>
-                Módulo Ouvidoria
-            </h3>
-            <div class="card-content">
-                <ul class="model-list">
-                    {% for app in ouvidoria_apps %}
-                     <li data-model="{{ app.model_name|lower }}">
-                        {% if app.singular == 'Configuração' %}
-                            <a href="{{ app.edit_config_url }}" class="model-name-link">{{ app.name }}</a>
-                            <span class="model-actions">
-                                <a href="{{ app.edit_config_url }}"><i class="fas fa-cog"></i></a>
-                            </span>
-                        {% else %}
-                            <a href="{{ app.list_url }}" class="model-name-link">
-                                {{ app.name }}
-                                <span class="model-count">{{ app.count }}</span>
-                            </a>
-                            <span class="model-actions">
-                                {% if app.model_name != 'patd' %}
-                                    <a href="{{ app.add_url }}"><i class="fas fa-plus"></i></a>
-                                {% endif %}
-                                <a href="{{ app.list_url }}"><i class="fas fa-list"></i></a>
-                            </span>
-                        {% endif %}
-                    </li>
-                    {% empty %}
-                     <li>Nenhum modelo configurado.</li>
-                    {% endfor %}
-                </ul>
+                    </div>
+                </div>
+                {% empty %}
+                <p style="color:var(--text-muted);font-size:13px;padding:8px 0;">Nenhuma cautela ativa no momento.</p>
+                {% endfor %}
             </div>
         </div>
     </div>
 
-    <div class="dashboard-row">
-        <div class="dashboard-card terminal-container" style="padding: 0; overflow: hidden;">
-            <div class="terminal-window" id="terminalWrapper">
-                <div class="terminal-header">
-                    <div class="terminal-header-left">
-                        <span class="terminal-dot red" id="closeTerminalAction"></span>
-                        <span class="terminal-dot yellow" id="minimizeTerminalAction"></span>
-                        <span class="terminal-dot green"></span>
-                        <span class="terminal-title ml-2" style="margin-left: 10px; font-weight: 500;">system@gsd-server: /var/log/docker</span>
-                    </div>
-                    <div class="terminal-actions">
-                        <button id="toggleTerminalBtn" title="Minimizar/Expandir">
-                            <i class="fas fa-chevron-up" id="toggleTerminalIcon"></i>
-                        </button>
-                    </div>
-                </div>
-                
-                <div class="terminal-body" id="terminalBody">
-                    {% for log in terminal_logs %}
-                        <div class="log-line">
-                            <span class="log-prompt" style="color: #22c55e;">root@docker:~$</span> 
-                            <span class="log-text">{{ log }}</span>
-                        </div>
-                    {% empty %}
-                        <div class="log-line">
-                            <span class="log-text">Aguardando novos logs do sistema...</span>
-                        </div>
-                    {% endfor %}
-                    <div class="log-line active-cursor">
-                        <span class="log-prompt" style="color: #22c55e;">root@gsd-live:~$</span> <span class="cursor">_</span>
-                    </div>
-                </div>
+    <!-- Atalhos de Operação -->
+    <div class="ifa-grid-2">
+
+        <!-- Caixa de Entrada -->
+        <a href="{% url 'caixa_entrada:inbox' %}?secao=informatica" class="ifa-card ifa-shortcut-card">
+            <div class="ifa-shortcut-icon" style="background:rgba(99,102,241,0.12);color:#6366f1;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 13.5h3.86a2.25 2.25 0 012.012 1.244l.256.512a2.25 2.25 0 002.013 1.244h3.218a2.25 2.25 0 002.013-1.244l.256-.512a2.25 2.25 0 012.013-1.244h3.859m-19.5.338V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18v-4.162c0-.224-.034-.447-.1-.661L19.24 5.338a2.25 2.25 0 00-2.15-1.588H6.911a2.25 2.25 0 00-2.15 1.588L2.35 13.177a2.25 2.25 0 00-.1.661z"/>
+                </svg>
+            </div>
+            <div class="ifa-shortcut-info">
+                <div class="ifa-shortcut-title">Caixa de Entrada</div>
+                <div class="ifa-shortcut-sub">Mensagens e comunicados</div>
+            </div>
+            {% if count_inbox > 0 %}
+            <span class="ifa-notif-badge">{{ count_inbox }}</span>
+            {% endif %}
+        </a>
+
+        <!-- Chamados de Suporte -->
+        <a href="{% url 'chamados:lista' %}?secao=informatica" class="ifa-card ifa-shortcut-card">
+            <div class="ifa-shortcut-icon" style="background:rgba(233,69,96,0.12);color:#e94560;">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.712 4.33a9.027 9.027 0 011.652 1.306c.51.51.944 1.064 1.306 1.652M16.712 4.33l-3.448 4.138m3.448-4.138a9.014 9.014 0 00-9.424 0M19.67 7.288l-4.138 3.448m4.138-3.448a9.014 9.014 0 010 9.424m-4.138-5.976a3.736 3.736 0 00-.88-1.388 3.737 3.737 0 00-1.388-.88m2.268 2.268a3.765 3.765 0 010 2.528m-2.268-4.796a3.765 3.765 0 00-2.528 0m4.796 4.796c-.181.506-.475.982-.88 1.388a3.736 3.736 0 01-1.388.88m2.268-2.268l4.138 3.448m0 0a9.027 9.027 0 01-1.306 1.652c-.51.51-1.064.944-1.652 1.306m0 0l-3.448-4.138m3.448 4.138a9.014 9.014 0 01-9.424 0m5.976-4.138a3.765 3.765 0 01-2.528 0m0 0a3.736 3.736 0 01-1.388-.88 3.737 3.737 0 01-.88-1.388m2.268 2.268L7.288 19.67m0 0a9.024 9.024 0 01-1.652-1.306 9.027 9.027 0 01-1.306-1.652m0 0l4.138-3.448M4.33 16.712a9.014 9.014 0 010-9.424m4.138 5.976a3.765 3.765 0 010-2.528m0 0c.181-.506.475-.982.88-1.388a3.736 3.736 0 011.388-.88m-2.268 2.268L4.33 7.288m6.406 1.18L7.288 4.33m0 0a9.024 9.024 0 00-1.652 1.306A9.025 9.025 0 004.33 7.288"/>
+                </svg>
+            </div>
+            <div class="ifa-shortcut-info">
+                <div class="ifa-shortcut-title">Chamados de Suporte</div>
+                <div class="ifa-shortcut-sub">Fila de atendimento</div>
+            </div>
+            {% if count_chamados > 0 %}
+            <span class="ifa-notif-badge">{{ count_chamados }}</span>
+            {% endif %}
+        </a>
+
+    </div>
+
+    <!-- Terminal -->
+    <div class="ifa-terminal" id="terminalWrapper">
+        <div class="ifa-terminal-head">
+            <div class="ifa-terminal-dots">
+                <span class="ifa-terminal-dot red"    id="closeTerminalAction"></span>
+                <span class="ifa-terminal-dot yellow" id="minimizeTerminalAction"></span>
+                <span class="ifa-terminal-dot green"></span>
+            </div>
+            <span class="ifa-terminal-title">system@gsd-server: /var/log/docker</span>
+            <button class="ifa-terminal-toggle" id="toggleTerminalBtn" title="Minimizar/Expandir">
+                <i class="fas fa-chevron-up" id="toggleTerminalIcon"></i>
+            </button>
+        </div>
+        <div class="ifa-terminal-body" id="terminalBody">
+            {% for log in terminal_logs %}
+            <div class="log-line">
+                <span class="log-prompt">root@docker:~$</span>
+                <span class="log-text">{{ log }}</span>
+            </div>
+            {% empty %}
+            <div class="log-line">
+                <span class="log-text" style="color:#64748b;">Aguardando novos logs do sistema...</span>
+            </div>
+            {% endfor %}
+            <div class="log-line active-cursor">
+                <span class="log-prompt">root@gsd-live:~$</span> <span class="cursor">_</span>
             </div>
         </div>
     </div>
@@ -306,86 +394,65 @@
 </div>
 
 <script>
-    document.addEventListener("DOMContentLoaded", function() {
-        // --- LÓGICA DE MINIMIZAR TERMINAL ---
-        const terminalWrapper = document.getElementById("terminalWrapper");
-        const toggleBtn = document.getElementById("toggleTerminalBtn");
-        const toggleIcon = document.getElementById("toggleTerminalIcon");
-        const minimizeDot = document.getElementById("minimizeTerminalAction");
+document.addEventListener('DOMContentLoaded', function() {
+    var terminalWrapper = document.getElementById('terminalWrapper');
+    var toggleBtn       = document.getElementById('toggleTerminalBtn');
+    var toggleIcon      = document.getElementById('toggleTerminalIcon');
+    var minimizeDot     = document.getElementById('minimizeTerminalAction');
+    var terminalBody    = document.getElementById('terminalBody');
 
-        // Verifica preferência salva
-        const isTerminalCollapsed = localStorage.getItem('terminalCollapsed') === 'true';
-        if (isTerminalCollapsed) {
-            terminalWrapper.classList.add('collapsed');
-            toggleIcon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+    if (localStorage.getItem('terminalCollapsed') === 'true') {
+        terminalWrapper.classList.add('collapsed');
+        toggleIcon.classList.replace('fa-chevron-up', 'fa-chevron-down');
+    }
+
+    function toggleTerminal() {
+        terminalWrapper.classList.toggle('collapsed');
+        var collapsed = terminalWrapper.classList.contains('collapsed');
+        localStorage.setItem('terminalCollapsed', collapsed);
+        toggleIcon.classList.replace(
+            collapsed ? 'fa-chevron-up' : 'fa-chevron-down',
+            collapsed ? 'fa-chevron-down' : 'fa-chevron-up'
+        );
+        if (!collapsed) terminalBody.scrollTop = terminalBody.scrollHeight;
+    }
+
+    if (toggleBtn) toggleBtn.addEventListener('click', toggleTerminal);
+    if (minimizeDot) minimizeDot.addEventListener('click', toggleTerminal);
+
+    var apiUrl = "{% url 'informatica:system_logs_api' %}";
+    var displayedLogs = new Set();
+    var userScrolledUp = false;
+
+    if (terminalBody) {
+        terminalBody.addEventListener('scroll', function() {
+            userScrolledUp = (terminalBody.scrollTop + terminalBody.clientHeight) < (terminalBody.scrollHeight - 20);
+        });
+
+        function fetchLogs() {
+            if (terminalWrapper.classList.contains('collapsed')) return;
+            fetch(apiUrl)
+                .then(function(r) { return r.json(); })
+                .then(function(data) {
+                    var hasNew = false;
+                    var cursor = terminalBody.querySelector('.active-cursor');
+                    data.logs.forEach(function(log) {
+                        var sig = log.text.trim();
+                        if (displayedLogs.has(sig)) return;
+                        displayedLogs.add(sig);
+                        hasNew = true;
+                        var color = log.text.includes('❌') ? '#ef4444' : log.text.includes('⚠️') ? '#eab308' : '#22c55e';
+                        cursor.insertAdjacentHTML('beforebegin',
+                            '<div class="log-line"><span class="log-prompt" style="color:' + color + '">root@' + log.container + ':~$</span> <span class="log-text">' + log.text + '</span></div>'
+                        );
+                    });
+                    if (hasNew && !userScrolledUp) terminalBody.scrollTop = terminalBody.scrollHeight;
+                }).catch(function() {});
         }
 
-        function toggleTerminal() {
-            terminalWrapper.classList.toggle('collapsed');
-            const isCollapsed = terminalWrapper.classList.contains('collapsed');
-            localStorage.setItem('terminalCollapsed', isCollapsed);
-            
-            if (isCollapsed) {
-                toggleIcon.classList.replace('fa-chevron-up', 'fa-chevron-down');
-            } else {
-                toggleIcon.classList.replace('fa-chevron-down', 'fa-chevron-up');
-                terminalBody.scrollTop = terminalBody.scrollHeight; // Rola pra baixo ao abrir
-            }
-        }
-
-        toggleBtn.addEventListener('click', toggleTerminal);
-        minimizeDot.addEventListener('click', toggleTerminal);
-
-        // --- LÓGICA DE ATUALIZAÇÃO DOS LOGS (Mantida a sua original, apenas ajustei escopo) ---
-        const terminalBody = document.getElementById("terminalBody");
-        const apiUrl = "{% url 'informatica:system_logs_api' %}";
-        let displayedLogs = new Set();
-        let userIsScrolledUp = false;
-
-        if (terminalBody) {
-            terminalBody.addEventListener('scroll', function() {
-                const isAtBottom = terminalBody.scrollTop + terminalBody.clientHeight >= terminalBody.scrollHeight - 20;
-                userIsScrolledUp = !isAtBottom;
-            });
-
-            function fetchLogs() {
-                if (terminalWrapper.classList.contains('collapsed')) return; // Não gasta rede se minimizado
-
-                fetch(apiUrl)
-                    .then(response => response.json())
-                    .then(data => {
-                        let hasNewContent = false;
-                        const cursorLine = terminalBody.querySelector('.active-cursor');
-
-                        data.logs.forEach(log => {
-                            const logSignature = log.text.trim();
-                            if (displayedLogs.has(logSignature)) return;
-                            
-                            displayedLogs.add(logSignature);
-                            hasNewContent = true;
-
-                            let promptColor = "#22c55e"; // Success green
-                            if (log.text.includes("❌")) promptColor = "#ef4444";
-                            if (log.text.includes("⚠️")) promptColor = "#eab308";
-
-                            const newLogHtml = `
-                                <div class="log-line">
-                                    <span class="log-prompt" style="color: ${promptColor}">root@${log.container}:~$</span> 
-                                    <span class="log-text">${log.text}</span>
-                                </div>
-                            `;
-                            cursorLine.insertAdjacentHTML('beforebegin', newLogHtml);
-                        });
-
-                        if (hasNewContent && !userIsScrolledUp) {
-                            terminalBody.scrollTop = terminalBody.scrollHeight;
-                        }
-                    }).catch(err => console.log('Silenciando erro de fetch no log.'));
-            }
-
-            setInterval(fetchLogs, 2500);
-            setTimeout(() => { terminalBody.scrollTop = terminalBody.scrollHeight; }, 100);
-        }
-    });
+        setInterval(fetchLogs, 2500);
+        setTimeout(function() { terminalBody.scrollTop = terminalBody.scrollHeight; }, 100);
+    }
+});
 </script>
 {% endblock %}

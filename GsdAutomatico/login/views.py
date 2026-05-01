@@ -43,59 +43,15 @@ def login_view(request):
 def home_redirect_view(request):
     return redirect_based_on_groups(request.user)
 
-# --- NOVA FUNÇÃO AUXILIAR ---
+# --- FUNÇÃO AUXILIAR ---
 def redirect_based_on_groups(user):
     """
-    Determina para onde redirecionar o utilizador com base nos seus grupos.
+    Redireciona o utilizador para o portal Home.
+    Superuser staff-only sem grupos vai para o admin.
     """
-    app_groups = {
-        'Ouvidoria': 'Ouvidoria:index',
-        'Informatica': 'informatica:dashboard',
-        'S1': 'Secao_pessoal:index',
-        'seção de operação': 'Secao_operacoes:index', # ADICIONADO: Seção de Operações
-    }
-    user_groups = user.groups.values_list('name', flat=True)
-
-    accessible_apps = []
-    for group_name, url_name in app_groups.items():
-        if group_name in user_groups:
-            accessible_apps.append(url_name)
-
-    # Superutilizadores têm acesso a tudo por padrão
-    if user.is_superuser:
-        # Se houver apps definidos, mostra a seleção, senão vai para o admin
-        if app_groups:
-             # Um superuser pode ter acesso implícito, vamos listar todos os apps definidos
-             accessible_apps = list(app_groups.values())
-             if len(accessible_apps) > 1:
-                 return redirect('login:select_app')
-             elif len(accessible_apps) == 1:
-                 return redirect(accessible_apps[0])
-             else: # Se não houver apps mapeados, vai para o admin
-                 return redirect('/admin/')
-        else:
-            return redirect('/admin/') # Superuser sem apps definidos vai para admin
-
-    # Lógica para utilizadores normais
-    if len(accessible_apps) == 1:
-        # Pertence a exatamente um grupo de app
-        return redirect(accessible_apps[0])
-    elif len(accessible_apps) > 1:
-        # Pertence a múltiplos grupos de app
-        return redirect('login:select_app')
-    else:
-        # Não pertence a nenhum grupo de app específico
-        if user.is_staff:
-            # Se for staff (mas não superuser), pode ir para o admin
-            return redirect('/admin/')
-        else:
-            # Fallback para utilizadores sem grupo e não staff (pode ajustar)
-            # É necessário passar o request para messages.warning
-            # Como esta função não recebe request, vamos retornar um URL
-            # e a view que chamar esta função pode adicionar a mensagem.
-            # Idealmente, a lógica de mensagens seria movida para a view principal.
-            # Por agora, apenas redireciona para o login.
-            return redirect('login:login') # Ou outra página padrão
+    if user.is_superuser and not user.groups.exists():
+        return redirect('/admin/')
+    return redirect('home:index')
 
 # --- NOVA VIEW PARA SELEÇÃO DE APP ---
 @login_required

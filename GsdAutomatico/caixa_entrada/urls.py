@@ -9,6 +9,7 @@ urlpatterns = [
     path('enviados/', views.EnviadosListView.as_view(), name='enviados'),
     path('rascunhos/', views.RascunhosListView.as_view(), name='rascunhos'),
     path('excluidos/', views.ExcluidosListView.as_view(), name='excluidos'),
+    path('favoritos/', views.FavoritosListView.as_view(), name='favoritos'),
 
     # Escrever / editar rascunho
     path('nova/', views.EscreveView.as_view(), name='nova'),
@@ -21,6 +22,8 @@ urlpatterns = [
     path('<int:pk>/excluir/', views.excluir_mensagem_view, name='excluir'),
     path('<int:pk>/excluir-definitivo/', views.excluir_definitivo_view, name='excluir_definitivo'),
     path('<int:pk>/restaurar/', views.restaurar_mensagem_view, name='restaurar'),
+    path('<int:pk>/favoritar/', views.favoritar_mensagem_view, name='favoritar'),
+    path('<int:pk>/marcar-lida/', views.marcar_lida_view, name='marcar_lida'),
     path('lote/', views.excluir_lote_view, name='excluir_lote'),
 
     # Chamados (admin)

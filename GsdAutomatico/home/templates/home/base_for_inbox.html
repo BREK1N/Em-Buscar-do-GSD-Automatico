@@ -1,0 +1,194 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Caixa de Entrada{% endblock %} — Portal GSD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <style>
+        :root {
+            --accent:          #3b82f6;
+            --accent-hover:    #1d4ed8;
+            --danger:          #ef4444;
+            --success:         #22c55e;
+            --bg-page:         #f0f4f8;
+            --bg-card:         #ffffff;
+            --border:          rgba(0,0,0,0.07);
+            --border-strong:   rgba(0,0,0,0.13);
+            --divider:         rgba(0,0,0,0.06);
+            --text-primary:    #0f172a;
+            --text-secondary:  #64748b;
+            --text-muted:      #94a3b8;
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --font-display:    'Rajdhani', system-ui, sans-serif;
+            --font-body:       'Inter', system-ui, sans-serif;
+
+            /* Aliases para compatibilidade com o inbox template */
+            --bg-primary:      var(--bg-card);
+            --bg-secondary:    var(--bg-page);
+            --border-color:    var(--border-strong);
+            --text-color:      var(--text-primary);
+            --text-muted-color: var(--text-muted);
+            --header-height:   60px;
+        }
+        body.dark-theme {
+            --bg-page:         #0d1117;
+            --bg-card:         #161b22;
+            --border:          rgba(255,255,255,0.06);
+            --border-strong:   rgba(255,255,255,0.11);
+            --divider:         rgba(255,255,255,0.06);
+            --text-primary:    #e6edf3;
+            --text-secondary:  #8b949e;
+            --text-muted:      #6e7681;
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+            --bg-primary:      #161b22;
+            --bg-secondary:    #0d1117;
+            --border-color:    rgba(255,255,255,0.11);
+        }
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+        body { font-family: var(--font-body); background: var(--bg-page); color: var(--text-primary); }
+
+        /* Header */
+        .ph-header {
+            position: sticky; top: 0; z-index: 20;
+            background: #0f172a;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            height: 60px;
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 32px; gap: 24px;
+        }
+        .ph-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; flex-shrink: 0; }
+        .ph-mark {
+            width: 32px; height: 32px; border-radius: 8px; background: var(--accent);
+            display: flex; align-items: center; justify-content: center; color: #fff; flex-shrink: 0;
+        }
+        .ph-mark svg { width: 18px; height: 18px; }
+        .ph-word {
+            font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.06em; color: #fff; font-size: 17px;
+        }
+        .ph-nav { display: flex; align-items: center; gap: 2px; flex: 1; justify-content: center; }
+        .ph-nav a {
+            display: flex; align-items: center; gap: 7px;
+            padding: 7px 13px; border-radius: 8px;
+            font-size: 13.5px; font-weight: 500;
+            color: rgba(255,255,255,0.75); text-decoration: none;
+            transition: all 0.15s; white-space: nowrap;
+        }
+        .ph-nav a svg { width: 16px; height: 16px; }
+        .ph-nav a:hover { background: rgba(255,255,255,0.08); color: #fff; }
+        .ph-nav a.active { background: rgba(59,130,246,0.18); color: #fff; }
+        .ph-header-right { display: flex; align-items: center; gap: 8px; }
+        .ph-icon-btn {
+            width: 36px; height: 36px; border-radius: 8px; border: 0;
+            background: rgba(255,255,255,0.06); color: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s; text-decoration: none;
+        }
+        .ph-icon-btn svg { width: 18px; height: 18px; }
+        .ph-icon-btn:hover { background: rgba(255,255,255,0.12); }
+        .ph-user-chip {
+            display: flex; align-items: center; gap: 8px;
+            padding: 4px 12px 4px 4px; border-radius: 9999px;
+            background: rgba(255,255,255,0.06); font-size: 13px; font-weight: 500; color: #fff;
+        }
+        .ph-avatar {
+            width: 28px; height: 28px; border-radius: 50%; background: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            font-family: var(--font-display); font-weight: 700; font-size: 11px; color: #fff;
+            overflow: hidden; flex-shrink: 0;
+        }
+        .ph-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+        /* Content area */
+        .ph-content { height: calc(100vh - 60px); overflow: hidden; }
+
+        @media (max-width: 640px) {
+            .ph-header { padding: 0 16px; }
+            .ph-nav { display: none; }
+        }
+    </style>
+    {% block extra_head %}{% endblock %}
+</head>
+<body>
+    <script>
+        (function(){
+            var t = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme');
+            document.body.classList.add(t);
+        })();
+    </script>
+
+    <header class="ph-header">
+        <a href="{% url 'home:index' %}" class="ph-brand">
+            <div class="ph-mark">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                </svg>
+            </div>
+            <span class="ph-word">Portal GSD</span>
+        </a>
+
+        <nav class="ph-nav">
+            <a href="{% url 'home:index' %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" /></svg>
+                Início
+            </a>
+            <a href="{% url 'home:inbox' %}" class="active">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
+                Caixa de Entrada
+            </a>
+            <a href="{% url 'home:tutorial_list' %}">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
+                Tutoriais
+            </a>
+        </nav>
+
+        <div class="ph-header-right">
+            <button class="ph-icon-btn" id="theme-toggle" title="Alternar tema">
+                <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                </svg>
+                <svg id="icon-moon" style="display:none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                </svg>
+            </button>
+            {% if user.is_authenticated %}
+            <div class="ph-user-chip">
+                <div class="ph-avatar">
+                    {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" alt="">{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
+                </div>
+                <span>{{ user.get_full_name|default:user.username }}</span>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="ph-content">
+        {% block content %}{% endblock %}
+    </div>
+
+    <script>
+    (function(){
+        var toggle = document.getElementById('theme-toggle');
+        var sun = document.getElementById('icon-sun');
+        var moon = document.getElementById('icon-moon');
+        function applyTheme(t) {
+            document.body.className = t;
+            localStorage.setItem('theme', t);
+            if (sun) sun.style.display = t === 'dark-theme' ? 'none' : 'block';
+            if (moon) moon.style.display = t === 'dark-theme' ? 'block' : 'none';
+        }
+        applyTheme(localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme'));
+        if (toggle) toggle.addEventListener('click', function() {
+            applyTheme(document.body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme');
+        });
+    })();
+    </script>
+    {% block extra_js %}{% endblock %}
+</body>
+</html>
