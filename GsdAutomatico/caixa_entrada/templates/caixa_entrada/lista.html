@@ -7,7 +7,7 @@
     align-items: center;
     gap: 8px;
     padding: 10px 16px;
-    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    border-bottom: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     background: var(--bg-secondary, #16213e);
     flex-wrap: wrap;
     min-height: 52px;
@@ -23,7 +23,7 @@
     align-items: center;
     gap: 6px;
     background: var(--bg-primary, #1a1a2e);
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     border-radius: 24px;
     padding: 5px 12px;
     flex: 1;
@@ -40,7 +40,7 @@
 .toolbar-search svg { color: var(--text-secondary, #a0a0c0); flex-shrink: 0; }
 .toolbar-filter select {
     background: var(--bg-primary, #1a1a2e);
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     color: var(--text-secondary, #a0a0c0);
     border-radius: 8px;
     padding: 5px 10px;
@@ -48,7 +48,7 @@
     cursor: pointer;
     outline: none;
 }
-.toolbar-filter select:focus { border-color: var(--accent-color, #e94560); }
+.toolbar-filter select:focus { border-color: var(--accent-color, var(--accent, #3b82f6)); }
 
 /* ── Bulk bar ── */
 .bulk-bar {
@@ -65,14 +65,14 @@
 .bulk-btn {
     padding: 5px 14px;
     border-radius: 6px;
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     background: var(--bg-secondary, #16213e);
     color: var(--text-primary, #e0e0ff);
     font-size: .78rem;
     cursor: pointer;
     transition: all .15s;
 }
-.bulk-btn:hover { background: var(--accent-color, #e94560); border-color: var(--accent-color, #e94560); color: #fff; }
+.bulk-btn:hover { background: var(--accent-color, var(--accent, #3b82f6)); border-color: var(--accent-color, var(--accent, #3b82f6)); color: #fff; }
 .bulk-btn.danger { border-color: rgba(233,69,96,.5); color: #e94560; }
 .bulk-btn.danger:hover { background: #e94560; border-color: #e94560; color: #fff; }
 .bulk-btn.success { border-color: rgba(77,187,110,.5); color: #4dbb6e; }
@@ -84,7 +84,7 @@
     align-items: center;
     gap: 10px;
     padding: 7px 16px;
-    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    border-bottom: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     background: var(--bg-secondary, #16213e);
 }
 .select-all-row label {
@@ -94,7 +94,7 @@
     margin: 0;
     user-select: none;
 }
-input[type=checkbox] { accent-color: var(--accent-color, #e94560); cursor: pointer; }
+input[type=checkbox] { accent-color: var(--accent-color, var(--accent, #3b82f6)); cursor: pointer; }
 
 /* ── Lista de emails ── */
 .msg-list { flex: 1; overflow-y: auto; }
@@ -104,7 +104,7 @@ input[type=checkbox] { accent-color: var(--accent-color, #e94560); cursor: point
     display: flex;
     align-items: center;
     gap: 0;
-    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    border-bottom: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     cursor: pointer;
     transition: background .12s;
     position: relative;
@@ -117,7 +117,7 @@ input[type=checkbox] { accent-color: var(--accent-color, #e94560); cursor: point
     position: absolute;
     left: 0; top: 0; bottom: 0;
     width: 3px;
-    background: var(--accent-color, #e94560);
+    background: var(--accent-color, var(--accent, #3b82f6));
     border-radius: 0 2px 2px 0;
 }
 
@@ -134,7 +134,7 @@ input[type=checkbox] { accent-color: var(--accent-color, #e94560); cursor: point
     width: 36px;
     height: 36px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-color, #e94560), #b73050);
+    background: linear-gradient(135deg, var(--accent-color, var(--accent, #3b82f6)), #b73050);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -211,7 +211,7 @@ input[type=checkbox] { accent-color: var(--accent-color, #e94560); cursor: point
     color: var(--text-secondary, #a0a0c0);
     white-space: nowrap;
 }
-.email-row.unread .email-date { color: var(--accent-color, #e94560); font-weight: 600; }
+.email-row.unread .email-date { color: var(--accent-color, var(--accent, #3b82f6)); font-weight: 600; }
 .email-badges { display: flex; gap: 4px; align-items: center; }
 
 /* Badges */
@@ -263,7 +263,7 @@ input[type=checkbox] { accent-color: var(--accent-color, #e94560); cursor: point
 }
 .empty-state svg { opacity: .25; }
 .empty-state p { margin: 0; font-size: .9rem; }
-.empty-state a { color: var(--accent-color, #e94560); font-size: .85rem; }
+.empty-state a { color: var(--accent-color, var(--accent, #3b82f6)); font-size: .85rem; }
 
 /* ── Paginação ── */
 .pagination-bar {
@@ -271,21 +271,21 @@ input[type=checkbox] { accent-color: var(--accent-color, #e94560); cursor: point
     justify-content: center;
     gap: 4px;
     padding: 12px;
-    border-top: 1px solid var(--border-color, #2a2a4a);
+    border-top: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     background: var(--bg-secondary, #16213e);
 }
 .pagination-bar a, .pagination-bar span {
     padding: 5px 11px;
     border-radius: 6px;
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     font-size: .78rem;
     color: var(--text-primary, #e0e0ff);
     text-decoration: none;
     background: var(--bg-primary, #1a1a2e);
     transition: border-color .15s;
 }
-.pagination-bar a:hover { border-color: var(--accent-color, #e94560); color: var(--accent-color, #e94560); }
-.pagination-bar span.current { background: var(--accent-color, #e94560); border-color: var(--accent-color, #e94560); color: #fff; }
+.pagination-bar a:hover { border-color: var(--accent-color, var(--accent, #3b82f6)); color: var(--accent-color, var(--accent, #3b82f6)); }
+.pagination-bar span.current { background: var(--accent-color, var(--accent, #3b82f6)); border-color: var(--accent-color, var(--accent, #3b82f6)); color: #fff; }
 {% endblock %}
 
 {% block inbox_content %}
@@ -373,9 +373,9 @@ input[type=checkbox] { accent-color: var(--accent-color, #e94560); cursor: point
         <a href="{% url 'caixa_entrada:detalhe' msg.pk %}" class="email-body">
             <div class="email-from">
                 {% if pasta_ativa == 'enviados' or pasta_ativa == 'rascunhos' %}
-                    Para: {% for d in msg.destinatarios.all|slice:":2" %}{{ d.get_full_name|default:d.username }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if msg.destinatarios.count > 2 %} +{{ msg.destinatarios.count|add:"-2" }}{% endif %}
+                    Para: {% for d in msg.destinatarios.all|slice:":2" %}{% if d.profile.militar %}{{ d.profile.militar.posto }} {{ d.profile.militar.nome_guerra }}{% else %}{{ d.get_full_name|default:d.username }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% if msg.destinatarios.count > 2 %} +{{ msg.destinatarios.count|add:"-2" }}{% endif %}
                 {% else %}
-                    {{ msg.remetente.get_full_name|default:msg.remetente.username }}
+                    {% if msg.remetente.profile.militar %}{{ msg.remetente.profile.militar.posto }} {{ msg.remetente.profile.militar.nome_guerra }}{% else %}{{ msg.remetente.get_full_name|default:msg.remetente.username }}{% endif %}
                 {% endif %}
             </div>
             <div class="email-subject-line">

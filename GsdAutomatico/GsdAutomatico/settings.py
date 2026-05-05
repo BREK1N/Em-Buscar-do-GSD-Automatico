@@ -57,6 +57,7 @@ INSTALLED_APPS = [
     'caixa_entrada',
     'home',
     'chamados',
+    'notificacoes',
 ]
 
 # ── Django Channels ───────────────────────────────────────────────────────────
@@ -183,6 +184,8 @@ LOGOUT_REDIRECT_URL = 'login:login'
 LOG_DIR = os.path.join(BASE_DIR, 'logs')
 if not os.path.exists(LOG_DIR):
     os.makedirs(LOG_DIR)
+_log_file_writable = os.access(os.path.join(LOG_DIR, 'sistema.log'), os.W_OK) or \
+                     not os.path.exists(os.path.join(LOG_DIR, 'sistema.log'))
 
 LOGGING = {
     'version': 1,
@@ -204,35 +207,37 @@ LOGGING = {
             'class': 'logging.StreamHandler',
             'formatter': 'simple',
         },
-        'file': {
-            'level': 'INFO',
-            'class': 'logging.handlers.TimedRotatingFileHandler',
-            'filename': os.path.join(LOG_DIR, 'sistema.log'),
-            'when': 'midnight',
-            'backupCount': 7,
-            'formatter': 'verbose',
-            'encoding': 'utf-8',
-        },
+        **({
+            'file': {
+                'level': 'INFO',
+                'class': 'logging.handlers.TimedRotatingFileHandler',
+                'filename': os.path.join(LOG_DIR, 'sistema.log'),
+                'when': 'midnight',
+                'backupCount': 7,
+                'formatter': 'verbose',
+                'encoding': 'utf-8',
+            },
+        } if _log_file_writable else {}),
     },
     'root': {
-        'handlers': ['console', 'file'],
+        'handlers': ['console', 'file'] if _log_file_writable else ['console'],
         'level': 'INFO',
     },
     'loggers': {
         'django': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'file'] if _log_file_writable else ['console'],
             'level': 'INFO',
-            'propagate': False,  # <--- ALTERADO PARA FALSE (Evita duplicidade)
+            'propagate': False,
         },
         'django.server': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'file'] if _log_file_writable else ['console'],
             'level': 'INFO',
-            'propagate': False,  # <--- ALTERADO PARA FALSE
+            'propagate': False,
         },
         'django.request': {
-            'handlers': ['console', 'file'],
+            'handlers': ['console', 'file'] if _log_file_writable else ['console'],
             'level': 'INFO',
-            'propagate': False,  # <--- ALTERADO PARA FALSE
+            'propagate': False,
         },
     },
 }

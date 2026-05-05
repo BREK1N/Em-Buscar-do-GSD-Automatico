@@ -373,10 +373,10 @@
                 <svg width="11" height="11" fill="currentColor" viewBox="0 0 16 16" style="margin-right:3px;vertical-align:middle;">
                     <path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6zm2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0zm4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4zm-1-.004c-.001-.246-.154-.986-.832-1.664C11.516 10.68 10.029 10 8 10c-2.029 0-3.516.68-4.168 1.332-.678.678-.83 1.418-.832 1.664h10z"/>
                 </svg>
-                <strong>{{ chamado.solicitante.get_full_name|default:chamado.solicitante.username }}</strong>
+                <strong>{% if chamado.solicitante.profile.militar %}{{ chamado.solicitante.profile.militar.posto }} {{ chamado.solicitante.profile.militar.nome_guerra }}{% else %}{{ chamado.solicitante.get_full_name|default:chamado.solicitante.username }}{% endif %}</strong>
             </span>
             <span>
-                Atribuído: <strong>{% if chamado.atribuido_a %}{{ chamado.atribuido_a.get_full_name|default:chamado.atribuido_a.username }}{% else %}—{% endif %}</strong>
+                Atribuído: <strong>{% if chamado.atribuido_a %}{% if chamado.atribuido_a.profile.militar %}{{ chamado.atribuido_a.profile.militar.posto }} {{ chamado.atribuido_a.profile.militar.nome_guerra }}{% else %}{{ chamado.atribuido_a.get_full_name|default:chamado.atribuido_a.username }}{% endif %}{% else %}—{% endif %}</strong>
             </span>
             <span>{{ chamado.created_at|date:"d/m/Y H:i" }}</span>
             {% if chamado.fechado_em %}<span>Encerrado: {{ chamado.fechado_em|date:"d/m/Y H:i" }}</span>{% endif %}
@@ -426,7 +426,7 @@
             </div>
             <div class="ch-bubble">
                 <div class="ch-bubble-meta">
-                    <span class="ch-bubble-author">{{ chamado.solicitante.get_full_name|default:chamado.solicitante.username }}</span>
+                    <span class="ch-bubble-author">{% if chamado.solicitante.profile.militar %}{{ chamado.solicitante.profile.militar.posto }} {{ chamado.solicitante.profile.militar.nome_guerra }}{% else %}{{ chamado.solicitante.get_full_name|default:chamado.solicitante.username }}{% endif %}</span>
                     <span class="ch-bubble-time">{{ chamado.created_at|date:"d/m/Y H:i" }}</span>
                 </div>
                 <div class="ch-bubble-text">{{ chamado.descricao }}</div>
@@ -447,7 +447,7 @@
             </div>
             <div class="ch-bubble">
                 <div class="ch-bubble-meta">
-                    <span class="ch-bubble-author">{{ msg.autor.get_full_name|default:msg.autor.username }}</span>
+                    <span class="ch-bubble-author">{% if msg.autor.profile.militar %}{{ msg.autor.profile.militar.posto }} {{ msg.autor.profile.militar.nome_guerra }}{% else %}{{ msg.autor.get_full_name|default:msg.autor.username }}{% endif %}</span>
                     <span class="ch-bubble-time">{{ msg.created_at|date:"d/m/Y H:i" }}</span>
                 </div>
                 <div class="ch-bubble-text">{{ msg.texto }}</div>
@@ -471,7 +471,7 @@
             </div>
             <div class="ch-bubble">
                 <div class="ch-bubble-meta">
-                    <span class="ch-bubble-author">{{ msg.autor.get_full_name|default:msg.autor.username }}</span>
+                    <span class="ch-bubble-author">{% if msg.autor.profile.militar %}{{ msg.autor.profile.militar.posto }} {{ msg.autor.profile.militar.nome_guerra }}{% else %}{{ msg.autor.get_full_name|default:msg.autor.username }}{% endif %}</span>
                     <span class="ch-bubble-time">{{ msg.created_at|date:"d/m/Y H:i" }}</span>
                     <span class="ch-tag-ti">Informática</span>
                 </div>

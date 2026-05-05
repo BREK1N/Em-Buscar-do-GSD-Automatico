@@ -43,6 +43,8 @@
             /* Aliases para compatibilidade com style.css */
             --bg-content:      var(--bg-card);
             --bg-main:         var(--bg-page);
+            --bg-primary:      var(--bg-card);
+            --bg-secondary:    var(--bg-page);
             --border-color:    var(--border-strong);
             --accent-color:    var(--accent);
             --success-color:   var(--success);
@@ -73,6 +75,8 @@
 
             --bg-content:      var(--bg-card);
             --bg-main:         var(--bg-page);
+            --bg-primary:      var(--bg-card);
+            --bg-secondary:    var(--bg-page);
             --border-color:    var(--border-strong);
             --accent-color:    var(--accent);
             --box-shadow:      var(--shadow-card);
@@ -322,6 +326,15 @@
             margin: 0 auto;
         }
 
+        /* Caixa de entrada ocupa toda a largura disponível */
+        .content-column:has(.inbox-root) {
+            max-width: 100%;
+            padding: 0;
+        }
+        .main-container:has(.inbox-root) {
+            padding: 1rem 1rem 0;
+        }
+
         /* ── Alerts ──────────────────────────────────────────────────── */
         .alert {
             border-radius: 10px;
@@ -336,75 +349,6 @@
         .alert-danger   { background: var(--danger-dim);  color: var(--danger);   border-color: rgba(239,68,68,0.25); }
         .alert-warning  { background: rgba(245,158,11,.1); color: var(--warning); border-color: rgba(245,158,11,.25); }
         .alert-info     { background: var(--accent-dim);  color: var(--accent);   border-color: rgba(245,158,11,0.25); }
-
-        /* ── Painel de notificações ─────────────────────────────────── */
-        .notifications-container {
-            position: relative;
-            display: inline-block;
-        }
-        .notifications-button {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            width: 34px; height: 34px;
-            background: none;
-            border: 1px solid var(--border-strong);
-            border-radius: 8px;
-            color: var(--text-secondary);
-            cursor: pointer;
-            position: relative;
-            transition: all 0.16s;
-        }
-        .notifications-button:hover { background: var(--badge-bg); color: var(--text-primary); }
-        .notifications-button svg { width: 16px; height: 16px; }
-        .notifications-button .badge {
-            position: absolute;
-            top: -5px; right: -5px;
-            background-color: var(--danger);
-            color: white;
-            width: 16px; height: 16px;
-            border-radius: 50%;
-            font-size: 9px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            font-weight: bold;
-            border: 2px solid var(--bg-card);
-        }
-        .notifications-panel {
-            display: none;
-            position: absolute;
-            top: 120%; right: 0;
-            width: 360px;
-            background: var(--bg-card);
-            border: 1px solid var(--border-strong);
-            border-radius: 12px;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.15);
-            z-index: 1200;
-            overflow: hidden;
-        }
-        .notifications-panel.active { display: block; }
-        .notifications-panel-header {
-            padding: 0.75rem 1rem;
-            font-weight: 600;
-            font-size: 0.85rem;
-            border-bottom: 1px solid var(--border-strong);
-            background: var(--badge-bg);
-            color: var(--text-primary);
-        }
-        .notifications-panel-body { max-height: 400px; overflow-y: auto; }
-        .notificacoes-list { list-style: none; padding: 0; margin: 0; }
-        .notificacao-item {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 0.75rem 1rem;
-            border-bottom: 1px solid var(--border);
-            font-size: 0.8rem;
-        }
-        .notificacao-item:last-child { border-bottom: none; }
-        .notificacao-info { flex-grow: 1; margin-right: 0.75rem; color: var(--text-primary); }
-        .notificacao-actions { display: flex; gap: 6px; flex-shrink: 0; }
 
         /* ── Scrollbar global ────────────────────────────────────────── */
         ::-webkit-scrollbar { width: 5px; height: 5px; }
@@ -603,20 +547,7 @@
             </a>
 
             <!-- Notificações -->
-            <div class="notifications-container">
-                <button class="notifications-button" id="notifications-toggle-btn" title="Notificações">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
-                        <path d="M8 16a2 2 0 0 0 2-2H6a2 2 0 0 0 2 2zM8 1.918l-.797.161A4.002 4.002 0 0 0 4 6c0 .628-.134 2.197-.459 3.742-.16.767-.376 1.566-.663 2.258h10.244c-.287-.692-.502-1.49-.663-2.258C12.134 8.197 12 6.628 12 6a4.002 4.002 0 0 0-3.203-3.92L8 1.917zM14.22 12c.223.447.481.801.78 1H1c.299-.199.557-.553.78-1C2.68 10.2 3 6.88 3 6c0-2.42 1.72-4.44 4.005-4.901a1 1 0 1 1 1.99 0A5.002 5.002 0 0 1 13 6c0 .88.32 4.2 1.22 6z"/>
-                    </svg>
-                    <span id="notificacao-badge" class="badge" style="display: none;"></span>
-                </button>
-                <div class="notifications-panel" id="notifications-panel">
-                    <div class="notifications-panel-header">Notificações</div>
-                    <div class="notifications-panel-body">
-                        <ul class="notificacoes-list" id="notificacoes-list-container"></ul>
-                    </div>
-                </div>
-            </div>
+            {% include 'notificacoes/panel_include.html' %}
 
             <!-- Tema -->
             <button class="header-btn" id="theme-toggle" title="Alternar tema">
@@ -630,17 +561,25 @@
 
             <!-- Usuário logado -->
             {% if user.is_authenticated %}
-            <div class="user-chip">
-                <div class="user-avatar" style="{% if user.profile.foto %}background:none;padding:0;overflow:hidden;{% endif %}">
-                    {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">{% elif user.profile and user.profile.militar %}{{ user.profile.militar.nome_guerra|slice:":2"|upper }}{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
+            <div style="position:relative;" id="user-dropdown-wrap-ouv">
+                <div class="user-chip" id="user-chip-toggle-ouv" style="cursor:pointer;">
+                    <div class="user-avatar" style="{% if user.profile.foto %}background:none;padding:0;overflow:hidden;{% endif %}">
+                        {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">{% elif user.profile and user.profile.militar %}{{ user.profile.militar.nome_guerra|slice:":2"|upper }}{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
+                    </div>
+                    <span>{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:11px;height:11px;opacity:0.6;margin-left:2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
                 </div>
-                <span>
-                    {% if user.profile and user.profile.militar %}
-                        {{ user.profile.militar.nome_guerra }}
-                    {% else %}
-                        {{ user.username }}
-                    {% endif %}
-                </span>
+                <div id="user-dropdown-menu-ouv" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;background:var(--bg-card,#1e2235);border:1px solid var(--border-color,#2a2a4a);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:200;overflow:hidden;">
+                    <div style="padding:10px 14px;border-bottom:1px solid var(--border-color,#2a2a4a);font-size:11.5px;color:var(--text-secondary,#888);">{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</div>
+                    <a href="{% url 'home:profile_edit' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:var(--text-primary,#e0e0ff);text-decoration:none;" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                        Editar Perfil
+                    </a>
+                    <a href="{% url 'login:logout' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:#ef4444;text-decoration:none;" onmouseenter="this.style.background='rgba(239,68,68,0.08)'" onmouseleave="this.style.background='transparent'">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
+                        Sair
+                    </a>
+                </div>
             </div>
             {% endif %}
         </div>
@@ -814,6 +753,17 @@
         const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')
             ? document.querySelector('[name=csrfmiddlewaretoken]').value
             : '{{ csrf_token }}';
+
+        // ── User Dropdown ──
+        const userChipOuv = document.getElementById('user-chip-toggle-ouv');
+        const userMenuOuv = document.getElementById('user-dropdown-menu-ouv');
+        if (userChipOuv && userMenuOuv) {
+            userChipOuv.addEventListener('click', e => {
+                e.stopPropagation();
+                userMenuOuv.style.display = userMenuOuv.style.display === 'none' ? 'block' : 'none';
+            });
+            document.addEventListener('click', () => { userMenuOuv.style.display = 'none'; });
+        }
 
         // ── Tema ──
         const themeToggle = document.getElementById('theme-toggle');
@@ -1038,18 +988,12 @@
         }
 
         // ── Notificações ──
-        const notificationsBtn    = document.getElementById('notifications-toggle-btn');
-        const notificationsPanel  = document.getElementById('notifications-panel');
-        const notificacoesListContainer = document.getElementById('notificacoes-list-container');
-        const notificacaoBadge    = document.getElementById('notificacao-badge');
         const atribuicoesBadge    = document.getElementById('atribuicoes-badge');
         const comandanteBadge     = document.getElementById('comandante-badge');
         const extenderIndividualModal = document.getElementById('extender-prazo-individual-modal');
         const extenderIndividualForm  = document.getElementById('extender-prazo-individual-form');
         const cancelExtenderIndividualBtn = document.getElementById('cancel-extender-prazo-individual-btn');
-
-        let totalNotificacoes = 0;
-        let seenNotificacoesCount = parseInt(sessionStorage.getItem('seenNotificacoesCount') || '0', 10);
+        const notificacoesListContainer = document.getElementById('notificacoes-list-container');
 
         function loadAtribuicoesPendentes() {
             {% if request.user.profile.militar.oficial %}
@@ -1079,104 +1023,12 @@
             {% endif %}
         }
 
-        function updateBadgeUI(count) {
-            if (notificacaoBadge) {
-                notificacaoBadge.textContent = count;
-                notificacaoBadge.style.display = count > 0 ? 'flex' : 'none';
-            }
-        }
-
-        async function loadAllNotifications(forceOpen = false) {
-            let dataOuvidoria = [];
-            let dataGeral = { count: 0, notifications: [] };
-            const prevTotal = totalNotificacoes;
-
-            try {
-                const r = await fetch("{% url 'Ouvidoria:patds_expirados_json' %}");
-                if (r.ok) { try { dataOuvidoria = await r.json(); } catch (e) {} }
-            } catch (e) {}
-            try {
-                const r = await fetch("{% url 'caixa_entrada:api_check' %}");
-                if (r.ok) { try { dataGeral = await r.json(); } catch (e) {} }
-            } catch (e) {}
-
-            const countOuvidoria = Array.isArray(dataOuvidoria) ? dataOuvidoria.length : 0;
-            const countGeral     = dataGeral ? dataGeral.count : 0;
-            totalNotificacoes    = countOuvidoria + countGeral;
-
-            if (totalNotificacoes < seenNotificacoesCount) {
-                seenNotificacoesCount = totalNotificacoes;
-                sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
-            }
-            updateBadgeUI(totalNotificacoes);
-
-            // Badge do ícone de email (mensagens não lidas)
-            const emailBadge = document.getElementById('email-badge');
-            if (emailBadge && dataGeral && dataGeral.unread_mensagens > 0) {
-                emailBadge.textContent = dataGeral.unread_mensagens > 99 ? '99+' : dataGeral.unread_mensagens;
-                emailBadge.style.display = 'block';
-            } else if (emailBadge) {
-                emailBadge.style.display = 'none';
-            }
-
-            if (notificationsPanel && (notificationsPanel.classList.contains('active') || forceOpen)) {
-                notificacoesListContainer.innerHTML = '';
-                if (totalNotificacoes === 0) {
-                    notificacoesListContainer.innerHTML = '<li style="padding:15px;text-align:center;border:none;color:var(--text-secondary);">Nenhuma notificação no momento.</li>';
-                    return;
-                }
-                if (dataOuvidoria && dataOuvidoria.length > 0) {
-                    dataOuvidoria.forEach(patd => {
-                        const li = document.createElement('li');
-                        li.className = 'notificacao-item';
-                        li.style.borderLeft = '4px solid var(--danger)';
-                        li.innerHTML = `
-                            <div class="notificacao-info">
-                                <span><b>PATD Nº ${patd.numero_patd}</b> (${patd.militar_nome}) - Prazo expirado.</span>
-                            </div>
-                            <div class="notificacao-actions">
-                                <a href="/Ouvidoria/patd/${patd.id}/" class="btn btn-sm btn-secondary">Ver</a>
-                                <button class="btn btn-sm btn-warning extender-prazo-individual-btn" data-patd-id="${patd.id}" data-patd-numero="${patd.numero_patd}">Estender</button>
-                                <button class="btn btn-sm btn-delete prosseguir-sem-alegacao-btn" data-patd-id="${patd.id}">Prosseguir</button>
-                            </div>`;
-                        notificacoesListContainer.appendChild(li);
-                    });
-                }
-                if (dataGeral && dataGeral.notifications && dataGeral.notifications.length > 0) {
-                    dataGeral.notifications.forEach(notif => {
-                        const li = document.createElement('li');
-                        li.className = 'notificacao-item';
-                        let linkAcao = `{% url 'caixa_entrada:comunicacoes' %}?secao=ouvidoria&ler=${notif.id}`;
-                        let textoAcao = 'Ler';
-                        if (notif.is_autorizacao) {
-                            linkAcao = `{% url 'caixa_entrada:comunicacoes' %}?secao=ouvidoria&box=autorizacoes`;
-                            textoAcao = 'Ver';
-                            li.style.borderLeft = '4px solid var(--warning)';
-                        } else {
-                            li.style.borderLeft = '4px solid var(--accent)';
-                        }
-                        li.innerHTML = `
-                            <div class="notificacao-info">
-                                <span><b>${notif.remetente}:</b> ${notif.titulo}</span>
-                                <br><small style="color:var(--text-muted)">${notif.data}</small>
-                            </div>
-                            <div class="notificacao-actions">
-                                <a href="${linkAcao}" class="btn btn-sm btn-primary">${textoAcao}</a>
-                            </div>`;
-                        notificacoesListContainer.appendChild(li);
-                    });
-                }
-            }
-            return totalNotificacoes !== prevTotal;
-        }
-
         function prosseguirSemAlegacao(patdId) {
             if (!confirm('Tem certeza que deseja prosseguir sem a alegação de defesa? Esta ação não poderá ser desfeita.')) return;
             fetch(`/Ouvidoria/patd/${patdId}/prosseguir_sem_alegacao/`, {
                 method: 'POST', headers: { 'X-CSRFToken': csrfToken }
             }).then(r => r.json()).then(data => {
                 if (data.status === 'success') {
-                    loadAllNotifications(true);
                     if (window.location.pathname.includes(`/patd/${patdId}`)) window.location.reload();
                 } else if (data.code === 'testemunhas_ausentes') {
                     alert('⚠️ ' + data.message + '\n\nAcesse a PATD e atribua as testemunhas na aba "Editar" antes de prosseguir.');
@@ -1184,25 +1036,7 @@
             }).catch(() => {});
         }
 
-        if (notificationsBtn) {
-            notificationsBtn.addEventListener('click', (e) => {
-                e.stopPropagation();
-                const isActive = notificationsPanel.classList.toggle('active');
-                if (isActive) {
-                    seenNotificacoesCount = totalNotificacoes;
-                    sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
-                    updateBadgeUI(totalNotificacoes);
-                    verificarPrazosECarregarNotificacoes(true);
-                }
-            });
-        }
-
-        document.addEventListener('click', (e) => {
-            if (notificationsPanel && !notificationsPanel.contains(e.target) && notificationsBtn && !notificationsBtn.contains(e.target))
-                notificationsPanel.classList.remove('active');
-        });
-
-        notificacoesListContainer.addEventListener('click', function(e) {
+        if (notificacoesListContainer) notificacoesListContainer.addEventListener('click', function(e) {
             if (e.target.classList.contains('extender-prazo-individual-btn')) {
                 document.getElementById('extender-individual-title').textContent = `Extender Prazo - PATD Nº ${e.target.dataset.patdNumero}`;
                 document.getElementById('extender-patd-id').value = e.target.dataset.patdId;
@@ -1232,7 +1066,6 @@
                 }).then(r => r.json()).then(data => {
                     if (data.status === 'success') {
                         extenderIndividualModal.classList.remove('active');
-                        loadAllNotifications(false);
                         if (window.location.pathname.includes('/patd_list/')) window.location.reload();
                     } else { alert('Erro: ' + data.message); }
                 }).catch(() => alert('Erro de comunicação.'))
@@ -1244,59 +1077,6 @@
         loadAtribuicoesPendentes();
         loadComandantePendencias();
 
-        const _prazoTimeouts = {};
-        let _ultimaVerificacaoPrazos = 0;
-        const INTERVALO_VERIFICACAO_PRAZOS = 5 * 60 * 1000;
-
-        function verificarPrazosECarregarNotificacoes(forceOpen) {
-            const agora = Date.now();
-            if ((agora - _ultimaVerificacaoPrazos) >= INTERVALO_VERIFICACAO_PRAZOS) {
-                _ultimaVerificacaoPrazos = agora;
-                fetch("{% url 'Ouvidoria:verificar_e_atualizar_prazos' %}", {
-                    method: 'POST', headers: { 'X-CSRFToken': csrfToken }
-                }).then(r => r.ok ? r.json() : null)
-                  .then(() => loadAllNotifications(forceOpen))
-                  .catch(() => loadAllNotifications(forceOpen));
-            } else {
-                loadAllNotifications(forceOpen);
-            }
-        }
-
-        function agendarExpiracoesPendentes() {
-            fetch("{% url 'Ouvidoria:patds_aguardando_prazo_json' %}", { cache: 'no-store' })
-                .then(r => r.ok ? r.json() : [])
-                .then(patds => {
-                    patds.forEach(p => {
-                        if (_prazoTimeouts[p.id]) return;
-                        const msRestantes = new Date(p.deadline) - Date.now();
-                        if (msRestantes <= 0) {
-                            _ultimaVerificacaoPrazos = 0;
-                            verificarPrazosECarregarNotificacoes(false);
-                        } else {
-                            _prazoTimeouts[p.id] = setTimeout(() => {
-                                delete _prazoTimeouts[p.id];
-                                _ultimaVerificacaoPrazos = 0;
-                                verificarPrazosECarregarNotificacoes(false);
-                                setTimeout(agendarExpiracoesPendentes, 5000);
-                            }, msRestantes);
-                        }
-                    });
-                }).catch(() => {});
-        }
-
-        verificarPrazosECarregarNotificacoes(false);
-        agendarExpiracoesPendentes();
-        setInterval(agendarExpiracoesPendentes, 10 * 60 * 1000);
-
-        let _pollInterval = 60_000;
-        function scheduleNextPoll() {
-            setTimeout(async () => {
-                verificarPrazosECarregarNotificacoes(false);
-                _pollInterval = totalNotificacoes > 0 ? 60_000 : Math.min(_pollInterval * 1.5, 300_000);
-                scheduleNextPoll();
-            }, _pollInterval);
-        }
-        scheduleNextPoll();
     });
 </script>
 

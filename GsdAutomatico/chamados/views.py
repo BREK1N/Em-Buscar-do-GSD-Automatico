@@ -58,19 +58,12 @@ class _ChamadoMixin(InboxMixin):
 # ── Notificações de sistema (somente eventos relevantes vão para a inbox) ────
 
 def _notificar_sistema(remetente, destinatario, assunto, corpo):
-    """
-    Cria uma Mensagem na caixa de entrada SOMENTE para eventos de sistema:
-    abertura de chamado, atribuição e mudança de status.
-    Respostas de chat NÃO devem chamar esta função.
-    """
-    from caixa_entrada.models import Mensagem
-    msg = Mensagem.objects.create(
-        remetente=remetente,
-        assunto=assunto,
-        corpo=corpo,
-        tipo='mensagem',
-    )
-    msg.destinatarios.add(destinatario)
+    """Cria Notificacao no novo sistema unificado para eventos de chamado."""
+    try:
+        from notificacoes.utils import notificar
+        notificar(destinatario, assunto, corpo=corpo, tipo='sistema')
+    except Exception:
+        pass
 
 
 def _msg_sistema(chamado, texto):

@@ -289,10 +289,24 @@
                                 </a>
 
                 {% if user.is_authenticated %}
-                    <span class="user-info" style="display:flex;align-items:center;gap:8px;">
+                <div style="position:relative;" id="user-dropdown-wrap-s1">
+                    <div id="user-chip-toggle-s1" style="display:flex;align-items:center;gap:8px;cursor:pointer;padding:4px 10px;border-radius:9999px;background:rgba(255,255,255,0.06);transition:background 0.15s;" onmouseenter="this.style.background='rgba(255,255,255,0.12)'" onmouseleave="this.style.background='rgba(255,255,255,0.06)'">
                         {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" style="width:28px;height:28px;border-radius:50%;object-fit:cover;flex-shrink:0;" alt="">{% endif %}
-                        Olá, <strong>{{ user.first_name|default:user.username }}</strong>
-                    </span>
+                        <strong style="font-size:13px;">{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.first_name|default:user.username }}{% endif %}</strong>
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:12px;height:12px;opacity:0.6;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                    </div>
+                    <div id="user-dropdown-menu-s1" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;background:var(--bg-card,#1e2235);border:1px solid var(--border-color,#2a2a4a);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:200;overflow:hidden;">
+                        <div style="padding:10px 14px;border-bottom:1px solid var(--border-color,#2a2a4a);font-size:11.5px;color:var(--text-secondary,#888);">{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</div>
+                        <a href="{% url 'home:profile_edit' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:var(--text-primary,#e0e0ff);text-decoration:none;" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                            Editar Perfil
+                        </a>
+                        <a href="{% url 'login:logout' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:#ef4444;text-decoration:none;" onmouseenter="this.style.background='rgba(239,68,68,0.08)'" onmouseleave="this.style.background='transparent'">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
+                            Sair
+                        </a>
+                    </div>
+                </div>
                 {% endif %}
 
                 <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=s1" class="theme-switcher" title="Comunicações" style="margin-right: 10px; margin-left: 15px; text-decoration: none; display: flex; align-items: center; justify-content: center; position: relative;">
@@ -302,23 +316,7 @@
                     <span id="email-badge" style="display:none;position:absolute;top:-4px;right:-6px;min-width:16px;height:16px;border-radius:8px;background:#e94560;color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 3px;"></span>
                 </a>
 
-                <div class="notifications-container">
-                    <button class="notifications-button" id="notifications-toggle-btn" title="Notificações">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                        </svg>
-                        <span id="notificacao-badge" class="badge" style="display: none;"></span>
-                    </button>
-                    <div class="notifications-panel" id="notifications-panel">
-                        <div class="notifications-panel-header">
-                            Notificações
-                        </div>
-                        <div class="notifications-panel-body">
-                            <ul class="notificacoes-list" id="notificacoes-list-container">
-                                </ul>
-                        </div>
-                    </div>
-                </div>
+                {% include 'notificacoes/panel_include.html' %}
 
                 <button class="theme-switcher" id="theme-toggle" title="Alterar tema">
                     <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
@@ -350,151 +348,6 @@
             const moonIcon = document.getElementById('theme-icon-moon');
             const mobileNavToggle = document.getElementById('mobile-nav-toggle');
             const sidebar = document.getElementById('sidebar');
-
-            // --- LÓGICA PARA NOTIFICAÇÕES NO HEADER (copiado/adaptado de Ouvidoria) ---
-            const notificationsBtn = document.getElementById('notifications-toggle-btn');
-            const notificationsPanel = document.getElementById('notifications-panel');
-            const notificacoesListContainer = document.getElementById('notificacoes-list-container');
-            const notificacaoBadge = document.getElementById('notificacao-badge');
-            let totalNotificacoes = 0;
-            let seenNotificacoesCount = parseInt(sessionStorage.getItem('seenNotificacoesCount') || '0');
-
-            function updateExpiradosBadgeUI(total, seen) {
-                if (notificacaoBadge) {
-                    if (total > seen && total > 0) {
-                        notificacaoBadge.textContent = total;
-                        notificacaoBadge.style.display = 'flex';
-                    } else {
-                        notificacaoBadge.style.display = 'none';
-                    }
-                }
-            }
-
-            // Função unificada para carregar notificações
-            async function loadAllNotifications(forceOpen = false) {
-                let dataOuvidoria = [];
-                let dataGeral = { count: 0, notifications: [] };
-
-                // 1. Busca Ouvidoria (Isolado para não quebrar se houver erro de permissão)
-                try {
-                    const respOuvidoria = await fetch("{% url 'Ouvidoria:patds_expirados_json' %}");
-                    if (respOuvidoria.ok) {
-                        const textOuvidoria = await respOuvidoria.text();
-                        try { dataOuvidoria = JSON.parse(textOuvidoria); } catch (e) { /* Redirecionado */ }
-                    }
-                } catch (error) { console.warn("Erro ao buscar notificações da Ouvidoria", error); }
-                
-                // 2. Busca Notificações Gerais (S1)
-                try {
-                    const respGeral = await fetch("{% url 'caixa_entrada:api_check' %}"); 
-                    if (respGeral.ok) {
-                        const textGeral = await respGeral.text();
-                        try { dataGeral = JSON.parse(textGeral); } catch (e) { /* Redirecionado */ }
-                    }
-                } catch (error) { console.warn("Erro ao buscar notificações gerais", error); }
-
-                const countOuvidoria = Array.isArray(dataOuvidoria) ? dataOuvidoria.length : 0;
-                const countGeral = dataGeral ? dataGeral.count : 0;
-                totalNotificacoes = countOuvidoria + countGeral;
-
-                // Se o número de notificações diminuiu (ex: o utilizador leu uma), atualizamos as "vistas"
-                if (totalNotificacoes < seenNotificacoesCount) {
-                    seenNotificacoesCount = totalNotificacoes;
-                    sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
-                }
-
-                updateExpiradosBadgeUI(totalNotificacoes, seenNotificacoesCount);
-
-                // Badge do ícone de email (mensagens não lidas)
-                const emailBadge = document.getElementById('email-badge');
-                if (emailBadge && dataGeral && dataGeral.unread_mensagens > 0) {
-                    emailBadge.textContent = dataGeral.unread_mensagens > 99 ? '99+' : dataGeral.unread_mensagens;
-                    emailBadge.style.display = 'block';
-                } else if (emailBadge) {
-                    emailBadge.style.display = 'none';
-                }
-                
-                try {
-
-                    if (!notificationsPanel) return;
-
-                    // Se o painel estiver aberto ou forçado, renderiza a lista
-                    if (notificationsPanel.classList.contains('active') || forceOpen) {
-                        notificacoesListContainer.innerHTML = '';
-
-                        if (totalNotificacoes === 0) {
-                            notificacoesListContainer.innerHTML = '<li style="padding: 15px; text-align: center; border: none; color: var(--text-secondary);">Nenhuma notificação no momento.</li>';
-                            return;
-                        }
-
-                        // Renderiza Ouvidoria
-                        if (dataOuvidoria && dataOuvidoria.length > 0) {
-                            dataOuvidoria.forEach(patd => {
-                                const listItem = document.createElement('li');
-                                listItem.className = 'notificacao-item';
-                                listItem.style.borderLeft = '4px solid #dc3545'; // Vermelho para urgência
-                                listItem.innerHTML = `
-                                    <div class="notificacao-info">
-                                        <span><b>PATD Nº ${patd.numero_patd}</b> (${patd.militar_nome}) - Prazo expirado.</span>
-                                    </div>
-                                    <div class="notificacao-actions">
-                                        <a href="/Ouvidoria/patd/${patd.id}/" class="btn btn-sm btn-secondary">Ver</a>
-                                    </div>
-                                `;
-                                notificacoesListContainer.appendChild(listItem);
-                            });
-                        }
-
-                        // Renderiza Gerais
-                        if (dataGeral && dataGeral.notifications.length > 0) {
-                            dataGeral.notifications.forEach(notif => {
-                                const listItem = document.createElement('li');
-                                listItem.className = 'notificacao-item';
-                                let linkAcao = notif.url;
-                                let textoAcao = notif.is_autorizacao ? 'Ver' : 'Ler';
-                                
-                                if (notif.is_autorizacao) {
-                                    listItem.style.borderLeft = '4px solid var(--warning-color)';
-                                } else {
-                                    listItem.style.borderLeft = '4px solid var(--accent-color)';
-                                }
-                                listItem.innerHTML = `
-                                    <div class="notificacao-info">
-                                        <span><b>${notif.remetente}:</b> ${notif.titulo}</span>
-                                        <br><small style="color:#888">${notif.data}</small>
-                                    </div>
-                                    <div class="notificacao-actions">
-                                        <a href="${linkAcao}" class="btn btn-sm btn-primary">${textoAcao}</a>
-                                    </div>
-                                `;
-                                notificacoesListContainer.appendChild(listItem);
-                            });
-                        }
-                    }
-
-                } catch (error) {
-                    console.error('Erro ao carregar notificações:', error);
-                }
-            }
-
-            if (notificationsBtn) {
-                notificationsBtn.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (notificationsPanel) notificationsPanel.classList.toggle('active');
-                    
-                    if (notificationsPanel && notificationsPanel.classList.contains('active')) {
-                        seenNotificacoesCount = totalNotificacoes;
-                        sessionStorage.setItem('seenNotificacoesCount', seenNotificacoesCount);
-                        updateExpiradosBadgeUI(totalNotificacoes, seenNotificacoesCount);
-                    }
-                    
-                    loadAllNotifications(true);
-                });
-            }
-
-            // Carrega inicialmente as notificações (badge)
-            try { loadAllNotifications(false); } catch (e) { /* ignore */ }
-            setInterval(() => loadAllNotifications(false), 5000); // Polling a cada 05 segundos
 
             // --- Lógica do Dropdown ---
             const submenuToggles = document.querySelectorAll('.submenu-toggle');
@@ -533,6 +386,17 @@
                     let newTheme = body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme';
                     applyTheme(newTheme);
                 });
+            }
+
+            // ── User Dropdown ──
+            const userChipS1   = document.getElementById('user-chip-toggle-s1');
+            const userMenuS1   = document.getElementById('user-dropdown-menu-s1');
+            if (userChipS1 && userMenuS1) {
+                userChipS1.addEventListener('click', e => {
+                    e.stopPropagation();
+                    userMenuS1.style.display = userMenuS1.style.display === 'none' ? 'block' : 'none';
+                });
+                document.addEventListener('click', () => { userMenuS1.style.display = 'none'; });
             }
 
             // Lógica Sidebar Mobile

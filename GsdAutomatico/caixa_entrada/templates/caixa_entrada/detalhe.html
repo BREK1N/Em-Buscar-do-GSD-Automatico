@@ -15,7 +15,7 @@
     align-items: center;
     gap: 6px;
     padding: 10px 16px;
-    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    border-bottom: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     background: var(--bg-secondary, #16213e);
     flex-shrink: 0;
 }
@@ -25,7 +25,7 @@
     gap: 6px;
     padding: 6px 14px;
     border-radius: 6px;
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     background: transparent;
     color: var(--text-secondary, #a0a0c0);
     font-size: .8rem;
@@ -34,7 +34,7 @@
     transition: all .15s;
 }
 .action-btn:hover { background: rgba(255,255,255,.06); color: var(--text-primary, #e0e0ff); border-color: rgba(255,255,255,.15); }
-.action-btn.primary { background: var(--accent-color, #e94560); border-color: var(--accent-color, #e94560); color: #fff; }
+.action-btn.primary { background: var(--accent-color, var(--accent, #3b82f6)); border-color: var(--accent-color, var(--accent, #3b82f6)); color: #fff; }
 .action-btn.primary:hover { opacity: .85; color: #fff; }
 .action-btn.danger { border-color: rgba(233,69,96,.4); color: #e94560; }
 .action-btn.danger:hover { background: #e94560; border-color: #e94560; color: #fff; }
@@ -66,7 +66,7 @@
 /* ── Card de mensagem (estilo email thread) ── */
 .msg-card {
     margin: 0 24px 20px;
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     border-radius: 12px;
     overflow: hidden;
     flex-shrink: 0;
@@ -77,13 +77,13 @@
     gap: 12px;
     padding: 16px 20px;
     background: var(--bg-secondary, #16213e);
-    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    border-bottom: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
 }
 .msg-avatar {
     width: 40px;
     height: 40px;
     border-radius: 50%;
-    background: linear-gradient(135deg, var(--accent-color, #e94560), #b73050);
+    background: linear-gradient(135deg, var(--accent-color, var(--accent, #3b82f6)), #b73050);
     display: flex;
     align-items: center;
     justify-content: center;
@@ -125,7 +125,7 @@
 /* ── Anexos ── */
 .anexos-wrap {
     padding: 12px 20px 16px;
-    border-top: 1px solid var(--border-color, #2a2a4a);
+    border-top: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     background: var(--bg-secondary, #16213e);
 }
 .anexos-label {
@@ -142,7 +142,7 @@
     align-items: center;
     gap: 7px;
     padding: 7px 13px;
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     border-radius: 8px;
     background: var(--bg-primary, #1a1a2e);
     text-decoration: none;
@@ -150,14 +150,14 @@
     font-size: .8rem;
     transition: border-color .15s;
 }
-.anexo-chip:hover { border-color: var(--accent-color, #e94560); color: var(--accent-color, #e94560); }
+.anexo-chip:hover { border-color: var(--accent-color, var(--accent, #3b82f6)); color: var(--accent-color, var(--accent, #3b82f6)); }
 .anexo-size { font-size: .7rem; color: var(--text-secondary, #a0a0c0); }
 
 /* ── Leituras ── */
 .leituras-wrap {
     margin: 0 24px 20px;
     padding: 14px 18px;
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     border-radius: 10px;
     background: var(--bg-secondary, #16213e);
     flex-shrink: 0;
@@ -201,7 +201,7 @@
 .status-form { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
 .status-select {
     background: var(--bg-primary, #1a1a2e);
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     color: var(--text-primary, #e0e0ff);
     border-radius: 6px;
     padding: 7px 12px;
@@ -213,7 +213,7 @@
 /* ── Caixa de resposta rápida ── */
 .quick-reply {
     margin: 0 24px 24px;
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     border-radius: 12px;
     overflow: hidden;
     flex-shrink: 0;
@@ -225,7 +225,7 @@
     background: var(--bg-secondary, #16213e);
     font-size: .78rem;
     color: var(--text-secondary, #a0a0c0);
-    border-bottom: 1px solid var(--border-color, #2a2a4a);
+    border-bottom: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
 }
 .quick-reply-header strong { color: var(--text-primary, #e0e0ff); }
 .quick-reply textarea {
@@ -248,7 +248,7 @@
     gap: 8px;
     padding: 10px 14px;
     background: var(--bg-secondary, #16213e);
-    border-top: 1px solid var(--border-color, #2a2a4a);
+    border-top: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
 }
 {% endblock %}
 
@@ -307,11 +307,11 @@
         <div class="msg-card-header">
             <div class="msg-avatar" style="{% if msg.remetente.profile.foto %}background:none;padding:0;overflow:hidden;{% endif %}">{% if msg.remetente.profile.foto %}<img src="{{ msg.remetente.profile.foto.url }}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;" alt="">{% else %}{{ msg.remetente.get_full_name|default:msg.remetente.username|slice:":2" }}{% endif %}</div>
             <div class="msg-sender-info">
-                <div class="msg-sender-name">{{ msg.remetente.get_full_name|default:msg.remetente.username }}</div>
+                <div class="msg-sender-name">{% if msg.remetente.profile.militar %}{{ msg.remetente.profile.militar.posto }} {{ msg.remetente.profile.militar.nome_guerra }}{% else %}{{ msg.remetente.get_full_name|default:msg.remetente.username }}{% endif %}</div>
                 <div class="msg-sender-meta">
-                    Para: {% for d in msg.destinatarios.all %}<strong>{{ d.get_full_name|default:d.username }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}
+                    Para: {% for d in msg.destinatarios.all %}<strong>{% if d.profile.militar %}{{ d.profile.militar.posto }} {{ d.profile.militar.nome_guerra }}{% else %}{{ d.get_full_name|default:d.username }}{% endif %}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}
                     {% if msg.cc.exists %}
-                    &nbsp;·&nbsp; CC: {% for d in msg.cc.all %}<strong>{{ d.get_full_name|default:d.username }}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}
+                    &nbsp;·&nbsp; CC: {% for d in msg.cc.all %}<strong>{% if d.profile.militar %}{{ d.profile.militar.posto }} {{ d.profile.militar.nome_guerra }}{% else %}{{ d.get_full_name|default:d.username }}{% endif %}</strong>{% if not forloop.last %}, {% endif %}{% endfor %}
                     {% endif %}
                 </div>
             </div>
@@ -362,14 +362,14 @@
         {% for l in leituras %}
         <div class="leitura-row done">
             <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M13.854 3.646a.5.5 0 0 1 0 .708l-7 7a.5.5 0 0 1-.708 0l-3.5-3.5a.5.5 0 1 1 .708-.708L6.5 10.293l6.646-6.647a.5.5 0 0 1 .708 0z"/></svg>
-            <strong>{{ l.usuario.get_full_name|default:l.usuario.username }}</strong> leu em {{ l.data_leitura|date:"d/m/Y H:i" }}
+            <strong>{% if l.usuario.profile.militar %}{{ l.usuario.profile.militar.posto }} {{ l.usuario.profile.militar.nome_guerra }}{% else %}{{ l.usuario.get_full_name|default:l.usuario.username }}{% endif %}</strong> leu em {{ l.data_leitura|date:"d/m/Y H:i" }}
         </div>
         {% endfor %}
         {% for d in msg.destinatarios.all %}
             {% if d not in msg.lida_por.all %}
             <div class="leitura-row">
                 <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/></svg>
-                <strong>{{ d.get_full_name|default:d.username }}</strong> ainda não leu
+                <strong>{% if d.profile.militar %}{{ d.profile.militar.posto }} {{ d.profile.militar.nome_guerra }}{% else %}{{ d.get_full_name|default:d.username }}{% endif %}</strong> ainda não leu
             </div>
             {% endif %}
         {% endfor %}
@@ -377,7 +377,7 @@
             {% if d not in msg.lida_por.all %}
             <div class="leitura-row">
                 <svg width="12" height="12" fill="currentColor" viewBox="0 0 16 16"><path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/></svg>
-                <strong>{{ d.get_full_name|default:d.username }}</strong> (CC) ainda não leu
+                <strong>{% if d.profile.militar %}{{ d.profile.militar.posto }} {{ d.profile.militar.nome_guerra }}{% else %}{{ d.get_full_name|default:d.username }}{% endif %}</strong> (CC) ainda não leu
             </div>
             {% endif %}
         {% endfor %}
@@ -388,7 +388,7 @@
     <form method="post" action="{% url 'caixa_entrada:nova' %}" id="quick-reply-form" style="display:contents;">
     <div class="quick-reply">
         <div class="quick-reply-header">
-            Responder para <strong>{{ msg.remetente.get_full_name|default:msg.remetente.username }}</strong>
+            Responder para <strong>{% if msg.remetente.profile.militar %}{{ msg.remetente.profile.militar.posto }} {{ msg.remetente.profile.militar.nome_guerra }}{% else %}{{ msg.remetente.get_full_name|default:msg.remetente.username }}{% endif %}</strong>
         </div>
         <textarea id="quick-reply-body" placeholder="Escreva sua resposta…" rows="4"></textarea>
         <div class="quick-reply-actions">

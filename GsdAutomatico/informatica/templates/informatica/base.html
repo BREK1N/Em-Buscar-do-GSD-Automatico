@@ -49,6 +49,10 @@
             --danger-color:    var(--danger);
             --text-inverse:    #ffffff;
 
+            /* Aliases para a caixa de entrada */
+            --bg-primary:      var(--bg-card);
+            --bg-secondary:    var(--bg-page);
+
             --sidebar-w: 240px;
             --header-h:  56px;
         }
@@ -72,6 +76,8 @@
             --bg-content:      var(--bg-card);
             --bg-main:         var(--bg-page);
             --border-color:    var(--border-strong);
+            --bg-primary:      var(--bg-card);
+            --bg-secondary:    var(--bg-page);
         }
 
         /* ── Reset & Base ──────────────────────────────────────────── */
@@ -516,6 +522,9 @@
                 <span id="email-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 3px;"></span>
             </a>
 
+            <!-- Notificações -->
+            {% include 'notificacoes/panel_include.html' %}
+
             <!-- Tema -->
             <button class="header-btn" id="theme-toggle" title="Alternar tema">
                 <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
@@ -528,11 +537,25 @@
 
             <!-- Usuário logado -->
             {% if user.is_authenticated %}
-            <div class="user-chip">
-                <div class="user-avatar">
-                    {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" alt="">{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
+            <div style="position:relative;" id="user-dropdown-wrap-inf">
+                <div class="user-chip" id="user-chip-toggle-inf" style="cursor:pointer;">
+                    <div class="user-avatar">
+                        {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" alt="">{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
+                    </div>
+                    <span>{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:11px;height:11px;opacity:0.6;margin-left:2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
                 </div>
-                <span>{{ user.get_full_name|default:user.username }}</span>
+                <div id="user-dropdown-menu-inf" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;background:var(--bg-card,#1e2235);border:1px solid var(--border-color,#2a2a4a);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:200;overflow:hidden;">
+                    <div style="padding:10px 14px;border-bottom:1px solid var(--border-color,#2a2a4a);font-size:11.5px;color:var(--text-secondary,#888);">{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</div>
+                    <a href="{% url 'home:profile_edit' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:var(--text-primary,#e0e0ff);text-decoration:none;" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                        Editar Perfil
+                    </a>
+                    <a href="{% url 'login:logout' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:#ef4444;text-decoration:none;" onmouseenter="this.style.background='rgba(239,68,68,0.08)'" onmouseleave="this.style.background='transparent'">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
+                        Sair
+                    </a>
+                </div>
             </div>
             {% endif %}
         </div>
@@ -553,6 +576,17 @@
 <script>
     document.addEventListener('DOMContentLoaded', function() {
         const body = document.body;
+
+        // ── User Dropdown ──
+        const userChipInf = document.getElementById('user-chip-toggle-inf');
+        const userMenuInf = document.getElementById('user-dropdown-menu-inf');
+        if (userChipInf && userMenuInf) {
+            userChipInf.addEventListener('click', e => {
+                e.stopPropagation();
+                userMenuInf.style.display = userMenuInf.style.display === 'none' ? 'block' : 'none';
+            });
+            document.addEventListener('click', () => { userMenuInf.style.display = 'none'; });
+        }
 
         // ── Tema ──
         const themeToggle = document.getElementById('theme-toggle');

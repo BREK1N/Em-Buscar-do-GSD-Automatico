@@ -13,8 +13,8 @@
     background: var(--bg-primary, #1a1a2e);
     border-radius: 14px;
     overflow: hidden;
-    border: 1px solid var(--border-color, #2a2a4a);
-    box-shadow: 0 4px 24px rgba(0,0,0,.25);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
+    box-shadow: 0 4px 24px rgba(0,0,0,.15);
 }
 
 /* ═══════════════════════════════════════════════════════
@@ -24,21 +24,21 @@
     width: 230px;
     flex-shrink: 0;
     background: var(--bg-secondary, #16213e);
-    border-right: 1px solid var(--border-color, #2a2a4a);
+    border-right: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
     display: flex;
     flex-direction: column;
     padding: 16px 0 16px;
     overflow-y: auto;
 }
 
-/* Botão Escrever (estilo Gmail pill) */
+/* Botão Escrever */
 .btn-compose {
     margin: 0 16px 20px;
     display: flex;
     align-items: center;
     gap: 10px;
-    padding: 14px 20px;
-    background: var(--accent-color, #e94560);
+    padding: 12px 20px;
+    background: var(--accent-color, var(--accent, #3b82f6));
     color: #fff;
     border: none;
     border-radius: 50px;
@@ -46,12 +46,12 @@
     font-weight: 700;
     text-decoration: none;
     cursor: pointer;
-    transition: box-shadow .2s, transform .1s;
-    box-shadow: 0 2px 8px rgba(233,69,96,.35);
+    transition: opacity .15s, transform .1s;
+    box-shadow: 0 2px 8px rgba(0,0,0,.15);
     letter-spacing: .01em;
 }
 .btn-compose:hover {
-    box-shadow: 0 4px 16px rgba(233,69,96,.5);
+    opacity: .88;
     transform: translateY(-1px);
     color: #fff;
 }
@@ -65,7 +65,7 @@
     gap: 12px;
     padding: 10px 12px;
     margin-bottom: 2px;
-    border-radius: 0 50px 50px 0;
+    border-radius: 8px;
     color: var(--text-secondary, #a0a0c0);
     text-decoration: none;
     font-size: .875rem;
@@ -73,12 +73,12 @@
     position: relative;
 }
 .inbox-nav a:hover {
-    background: rgba(255,255,255,.05);
+    background: var(--bg-sidebar-item, rgba(0,0,0,.05));
     color: var(--text-primary, #e0e0ff);
 }
 .inbox-nav a.active {
-    background: rgba(233,69,96,.15);
-    color: var(--accent-color, #e94560);
+    background: var(--accent-dim, rgba(59,130,246,.12));
+    color: var(--accent-color, var(--accent, #3b82f6));
     font-weight: 700;
 }
 .inbox-nav a .nav-badge {
@@ -87,19 +87,19 @@
     font-weight: 800;
     padding: 1px 7px;
     border-radius: 10px;
-    background: var(--accent-color, #e94560);
+    background: var(--accent-color, var(--accent, #3b82f6));
     color: #fff;
 }
 .inbox-nav a .nav-badge.muted {
     background: transparent;
     color: var(--text-secondary, #a0a0c0);
-    border: 1px solid var(--border-color, #2a2a4a);
+    border: 1px solid var(--border-color, var(--border-strong, #2a2a4a));
 }
-.inbox-nav a.active .nav-badge { background: var(--accent-color, #e94560); }
+.inbox-nav a.active .nav-badge { background: var(--accent-color, var(--accent, #3b82f6)); }
 
 .nav-divider {
     height: 1px;
-    background: var(--border-color, #2a2a4a);
+    background: var(--border-color, var(--border-strong, #2a2a4a));
     margin: 8px 16px;
 }
 

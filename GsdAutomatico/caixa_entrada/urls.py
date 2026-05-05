@@ -35,6 +35,7 @@ urlpatterns = [
 
     # APIs
     path('api/check/', views.api_notificacoes_check, name='api_check'),
+    path('api/limpar/', views.api_limpar_notificacoes, name='api_limpar'),
     path('api/usuarios/', views.api_buscar_usuarios, name='api_usuarios'),
 
     # Compatibilidade legada

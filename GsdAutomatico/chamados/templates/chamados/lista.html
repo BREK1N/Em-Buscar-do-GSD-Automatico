@@ -323,10 +323,10 @@
             <div class="ch-row-proto">#{{ c.protocolo }}</div>
             <div class="ch-row-title">{{ c.titulo }}</div>
             <div class="ch-row-meta">
-                {{ c.solicitante.get_full_name|default:c.solicitante.username }}
+                {% if c.solicitante.profile.militar %}{{ c.solicitante.profile.militar.posto }} {{ c.solicitante.profile.militar.nome_guerra }}{% else %}{{ c.solicitante.get_full_name|default:c.solicitante.username }}{% endif %}
                 {% if is_informatica and c.atribuido_a %}
                 &nbsp;·&nbsp; <svg width="10" height="10" fill="currentColor" viewBox="0 0 16 16" style="vertical-align:middle;"><path d="M8 8a3 3 0 1 0 0-6 3 3 0 0 0 0 6m2-3a2 2 0 1 1-4 0 2 2 0 0 1 4 0m4 8c0 1-1 1-1 1H3s-1 0-1-1 1-4 6-4 6 3 6 4"/></svg>
-                {{ c.atribuido_a.get_full_name|default:c.atribuido_a.username }}
+                {% if c.atribuido_a.profile.militar %}{{ c.atribuido_a.profile.militar.posto }} {{ c.atribuido_a.profile.militar.nome_guerra }}{% else %}{{ c.atribuido_a.get_full_name|default:c.atribuido_a.username }}{% endif %}
                 {% elif is_informatica %}
                 &nbsp;·&nbsp; <span style="color:#f59e0b;font-size:.72rem;">Sem atribuição</span>
                 {% endif %}

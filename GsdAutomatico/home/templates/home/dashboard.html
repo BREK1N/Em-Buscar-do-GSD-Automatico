@@ -144,30 +144,6 @@
         .ph-user-name { font-size: 13px; font-weight: 600; color: #fff; line-height: 1.2; }
         .ph-user-rank { font-size: 11px; color: rgba(255,255,255,0.55); line-height: 1.2; }
 
-        /* Notification panel */
-        .ph-notif-wrap { position: relative; }
-        .ph-notif-panel {
-            display: none; position: absolute; top: calc(100% + 10px); right: 0;
-            width: 320px; background: var(--bg-card); border: 1px solid var(--border-strong);
-            border-radius: 12px; box-shadow: 0 8px 24px rgba(0,0,0,.2); z-index: 50; overflow: hidden;
-        }
-        .ph-notif-panel.open { display: block; }
-        .ph-notif-head {
-            padding: 12px 16px; font-weight: 600; font-size: 13.5px;
-            border-bottom: 1px solid var(--divider); color: var(--text-primary);
-        }
-        .ph-notif-body { max-height: 300px; overflow-y: auto; }
-        .ph-notif-item {
-            display: block; padding: 10px 16px; border-bottom: 1px solid var(--divider);
-            font-size: 13px; color: var(--text-primary); cursor: pointer; text-decoration: none;
-            transition: background 0.12s;
-        }
-        .ph-notif-item:hover { background: var(--bg-page); }
-        .ph-notif-item:last-child { border-bottom: 0; }
-        .ph-notif-item-title { font-weight: 600; }
-        .ph-notif-item-sub { color: var(--text-secondary); font-size: 11.5px; margin-top: 2px; }
-        .ph-notif-empty { padding: 24px; text-align: center; color: var(--text-secondary); font-size: 13px; }
-
         /* ── Page ─────────────────────────────────────────────── */
         .ph-page { max-width: 1280px; margin: 0 auto; padding: 28px 32px 80px; }
 
@@ -446,21 +422,7 @@
 
         <div class="ph-header-right">
             <!-- Notificações -->
-            <div class="ph-notif-wrap">
-                <button class="ph-icon-btn" id="notif-btn" title="Notificações">
-                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0" />
-                    </svg>
-                    <span class="ph-notif-dot" id="notif-dot"></span>
-                    <span class="ph-badge-count" id="notif-badge"></span>
-                </button>
-                <div class="ph-notif-panel" id="notif-panel">
-                    <div class="ph-notif-head">Notificações</div>
-                    <div class="ph-notif-body" id="notif-list">
-                        <div class="ph-notif-empty">Carregando...</div>
-                    </div>
-                </div>
-            </div>
+            {% include 'notificacoes/panel_include.html' %}
 
             <!-- Tema -->
             <button class="ph-icon-btn" id="theme-toggle" title="Alternar tema">
@@ -483,13 +445,13 @@
                         {% endif %}
                     </div>
                     <div>
-                        <div class="ph-user-name">{{ request.user.get_full_name|default:request.user.username }}</div>
-                        <div class="ph-user-rank">{{ request.user.groups.first.name|default:"Usuário" }}</div>
+                        <div class="ph-user-name">{% if request.user.profile.militar %}{{ request.user.profile.militar.posto }} {{ request.user.profile.militar.nome_guerra }}{% else %}{{ request.user.get_full_name|default:request.user.username }}{% endif %}</div>
+                        <div class="ph-user-rank">{% if request.user.is_superuser %}Administrador{% else %}{{ request.user.groups.first.name|default:"Usuário" }}{% endif %}</div>
                     </div>
                 </div>
                 <div class="ph-profile-menu" id="profile-menu">
                     <div class="ph-profile-menu-head">
-                        <div class="ph-profile-menu-name">{{ request.user.get_full_name|default:request.user.username }}</div>
+                        <div class="ph-profile-menu-name">{% if request.user.profile.militar %}{{ request.user.profile.militar.posto }} {{ request.user.profile.militar.nome_guerra }}{% else %}{{ request.user.get_full_name|default:request.user.username }}{% endif %}</div>
                         <div class="ph-profile-menu-role">{{ request.user.email }}</div>
                     </div>
                     <a href="{% url 'home:profile_edit' %}">
@@ -510,7 +472,7 @@
 
         <!-- Saudação -->
         <div class="ph-greet">
-            <h1>Olá, {{ request.user.first_name|default:request.user.username }} 👋</h1>
+            <h1>Olá, {% if request.user.profile.militar %}{{ request.user.profile.militar.posto }} {{ request.user.profile.militar.nome_guerra }}{% else %}{{ request.user.first_name|default:request.user.username }}{% endif %} 👋</h1>
             <p>Bem-vindo ao Portal GSD. Selecione uma seção ou acesse seus recursos abaixo.</p>
         </div>
 
@@ -623,8 +585,8 @@
                             {{ request.user.first_name|first|upper|default:request.user.username|first|upper }}
                         {% endif %}
                     </div>
-                    <div class="ph-profile-name">{{ request.user.get_full_name|default:request.user.username }}</div>
-                    <div class="ph-profile-rank">{{ request.user.groups.first.name|default:"Usuário" }}</div>
+                    <div class="ph-profile-name">{% if request.user.profile.militar %}{{ request.user.profile.militar.posto }} {{ request.user.profile.militar.nome_guerra }}{% else %}{{ request.user.get_full_name|default:request.user.username }}{% endif %}</div>
+                    <div class="ph-profile-rank">{% if request.user.is_superuser %}Administrador{% else %}{{ request.user.groups.first.name|default:"Usuário" }}{% endif %}</div>
                     {% if profile.ramal %}
                     <div class="ph-profile-detail">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:12px;height:12px;vertical-align:middle;margin-right:3px"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 6.75c0 8.284 6.716 15 15 15h2.25a2.25 2.25 0 002.25-2.25v-1.372c0-.516-.351-.966-.852-1.091l-4.423-1.106c-.44-.11-.902.055-1.173.417l-.97 1.293c-.282.376-.769.542-1.21.38a12.035 12.035 0 01-7.143-7.143c-.162-.441.004-.928.38-1.21l1.293-.97c.363-.271.527-.734.417-1.173L6.963 3.102a1.125 1.125 0 00-1.091-.852H4.5A2.25 2.25 0 002.25 4.5v2.25z" /></svg>
@@ -754,71 +716,6 @@
             startTimer();
         }
 
-        // ── Notificações ──────────────────────────────────────
-        var notifBtn   = document.getElementById('notif-btn');
-        var notifPanel = document.getElementById('notif-panel');
-        var notifList  = document.getElementById('notif-list');
-        var notifBadge = document.getElementById('notif-badge');
-        var notifDot   = document.getElementById('notif-dot');
-        var emailBadge = document.getElementById('email-badge');
-        var seenCount  = parseInt(sessionStorage.getItem('seenNotifCount') || '0');
-
-        async function loadNotifications() {
-            try {
-                var resp = await fetch('{% url "caixa_entrada:api_check" %}');
-                if (!resp.ok) return;
-                var data = await resp.json();
-                var total = data.count || 0;
-                if (total < seenCount) { seenCount = total; sessionStorage.setItem('seenNotifCount', seenCount); }
-                if (total > seenCount) {
-                    notifBadge.textContent = total;
-                    notifBadge.style.display = 'flex';
-                    notifDot.style.display = 'block';
-                } else {
-                    notifBadge.style.display = 'none';
-                    notifDot.style.display = 'none';
-                }
-                if (data.unread_mensagens > 0) {
-                    emailBadge.textContent = data.unread_mensagens > 99 ? '99+' : data.unread_mensagens;
-                    emailBadge.style.display = 'flex';
-                } else {
-                    emailBadge.style.display = 'none';
-                }
-                notifList.innerHTML = '';
-                if (!data.notifications || data.notifications.length === 0) {
-                    notifList.innerHTML = '<div class="ph-notif-empty">Sem notificações no momento.</div>';
-                } else {
-                    data.notifications.forEach(function(n) {
-                        var a = document.createElement('a');
-                        a.className = 'ph-notif-item';
-                        a.href = n.url || '#';
-                        a.innerHTML = '<div class="ph-notif-item-title">' + (n.titulo || '') + '</div>' +
-                            '<div class="ph-notif-item-sub">' + (n.remetente || '') + ' · ' + (n.data || '') + '</div>';
-                        notifList.appendChild(a);
-                    });
-                }
-            } catch(e) {
-                notifList.innerHTML = '<div class="ph-notif-empty">Erro ao carregar.</div>';
-            }
-        }
-
-        notifBtn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            var open = notifPanel.classList.toggle('open');
-            if (open) {
-                seenCount = parseInt(notifBadge.textContent || '0');
-                sessionStorage.setItem('seenNotifCount', seenCount);
-                notifBadge.style.display = 'none';
-                notifDot.style.display = 'none';
-                loadNotifications();
-            }
-        });
-        document.addEventListener('click', function() { notifPanel.classList.remove('open'); });
-        notifPanel.addEventListener('click', function(e) { e.stopPropagation(); });
-
-        loadNotifications();
-        setInterval(loadNotifications, 60000);
-
         // ── Dropdown do perfil ────────────────────────────────
         var profileChip = document.getElementById('profile-chip');
         var profileMenu = document.getElementById('profile-menu');
@@ -826,7 +723,8 @@
             e.stopPropagation();
             profileMenu.classList.toggle('open');
             // fechar notificações se aberto
-            notifPanel.classList.remove('open');
+            var _np = document.getElementById('notif-panel') || document.getElementById('notifications-panel');
+            if (_np) _np.classList.remove('open', 'active');
         });
         document.addEventListener('click', function() {
             profileMenu.classList.remove('open');

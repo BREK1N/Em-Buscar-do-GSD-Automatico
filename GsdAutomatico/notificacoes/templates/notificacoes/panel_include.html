@@ -1,0 +1,400 @@
+{% load static %}
+<style>
+/* ── Notificações: Wrapper & Bell ─────────────────────────── */
+.notif-wrap {
+    position: relative;
+    display: inline-flex;
+    align-items: center;
+}
+.notif-bell-btn {
+    display: flex; align-items: center; justify-content: center;
+    width: 36px; height: 36px;
+    background: transparent;
+    border: 1px solid var(--border-strong, rgba(255,255,255,.13));
+    border-radius: 9px;
+    color: var(--text-secondary, #94a3b8);
+    cursor: pointer;
+    position: relative;
+    transition: background .15s, color .15s, border-color .15s, transform .1s;
+    flex-shrink: 0;
+}
+.notif-bell-btn:hover {
+    background: var(--badge-bg, rgba(99,102,241,.1));
+    color: var(--accent, #6366f1);
+    border-color: var(--accent, #6366f1);
+}
+.notif-bell-btn.has-notif {
+    color: var(--accent, #6366f1);
+    border-color: var(--accent, #6366f1);
+    background: var(--accent-dim, rgba(99,102,241,.08));
+}
+.notif-bell-btn svg { width: 17px; height: 17px; }
+.notif-badge {
+    position: absolute; top: -6px; right: -6px;
+    min-width: 18px; height: 18px;
+    background: var(--danger, #ef4444);
+    color: #fff;
+    border-radius: 9px;
+    font-size: 10px; font-weight: 800;
+    display: flex; align-items: center; justify-content: center;
+    padding: 0 4px;
+    border: 2px solid var(--bg-card, var(--bg-page, #fff));
+    line-height: 1;
+    animation: notif-pop .25s cubic-bezier(.34,1.56,.64,1);
+}
+@keyframes notif-pop {
+    from { transform: scale(0); }
+    to   { transform: scale(1); }
+}
+
+/* ── Panel ────────────────────────────────────────────────── */
+.notif-panel {
+    display: none;
+    position: absolute; top: calc(100% + 10px); right: 0;
+    width: 380px;
+    background: var(--bg-card, #fff);
+    border: 1px solid var(--border-strong, rgba(0,0,0,.1));
+    border-radius: 14px;
+    box-shadow: 0 12px 40px rgba(0,0,0,.18), 0 2px 8px rgba(0,0,0,.08);
+    z-index: 1300;
+    overflow: hidden;
+    transform-origin: top right;
+    animation: notif-panel-in .18s ease;
+}
+@keyframes notif-panel-in {
+    from { opacity: 0; transform: scale(.95) translateY(-6px); }
+    to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+.notif-panel.open { display: block; }
+
+/* ── Panel header ─────────────────────────────────────────── */
+.notif-panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--border, rgba(0,0,0,.07));
+    background: var(--badge-bg, rgba(0,0,0,.03));
+}
+.notif-panel-title {
+    display: flex; align-items: center; gap: 8px;
+    font-weight: 700; font-size: .88rem;
+    color: var(--text-primary, #0f172a);
+}
+.notif-panel-title svg { width: 15px; height: 15px; color: var(--accent, #6366f1); }
+.notif-clear-btn {
+    font-size: .74rem; font-weight: 600;
+    color: var(--text-muted, #94a3b8);
+    background: none; border: none; cursor: pointer;
+    padding: 3px 8px; border-radius: 5px;
+    transition: background .15s, color .15s;
+}
+.notif-clear-btn:hover { background: rgba(239,68,68,.1); color: var(--danger, #ef4444); }
+
+/* ── Items ────────────────────────────────────────────────── */
+.notif-panel-body { max-height: 440px; overflow-y: auto; }
+.notif-panel-body::-webkit-scrollbar { width: 4px; }
+.notif-panel-body::-webkit-scrollbar-track { background: transparent; }
+.notif-panel-body::-webkit-scrollbar-thumb { background: var(--border-strong, rgba(0,0,0,.15)); border-radius: 2px; }
+
+.notif-item {
+    display: flex; align-items: flex-start; gap: 10px;
+    padding: .75rem 1rem;
+    border-bottom: 1px solid var(--border, rgba(0,0,0,.05));
+    transition: background .12s;
+}
+.notif-item:last-child { border-bottom: none; }
+.notif-item:hover { background: var(--badge-bg, rgba(0,0,0,.02)); }
+
+.notif-dot {
+    width: 8px; height: 8px; border-radius: 50%;
+    flex-shrink: 0; margin-top: 5px;
+}
+.notif-item-info { flex: 1; min-width: 0; }
+.notif-item-titulo {
+    font-size: .82rem; font-weight: 600;
+    color: var(--text-primary, #0f172a);
+    line-height: 1.35;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.notif-item-corpo {
+    font-size: .76rem;
+    color: var(--text-secondary, #64748b);
+    margin-top: 2px;
+    display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical;
+    overflow: hidden;
+    line-height: 1.4;
+}
+.notif-item-time {
+    font-size: .7rem;
+    color: var(--text-muted, #94a3b8);
+    margin-top: 4px;
+    display: flex; align-items: center; gap: 4px;
+}
+.notif-item-time svg { width: 10px; height: 10px; }
+
+.notif-item-actions {
+    display: flex; gap: 4px; flex-shrink: 0; align-items: center; padding-top: 1px;
+}
+.notif-ver-btn {
+    display: inline-flex; align-items: center; gap: 4px;
+    padding: 4px 10px;
+    font-size: .74rem; font-weight: 600;
+    border-radius: 6px;
+    border: none; cursor: pointer;
+    background: var(--accent, #6366f1);
+    color: #fff;
+    text-decoration: none;
+    transition: background .15s, transform .1s;
+    white-space: nowrap;
+}
+.notif-ver-btn:hover { background: var(--accent-hover, #4f46e5); transform: translateY(-1px); color: #fff; }
+.notif-ver-btn svg { width: 11px; height: 11px; }
+.notif-dismiss {
+    display: flex; align-items: center; justify-content: center;
+    width: 26px; height: 26px;
+    background: none;
+    border: 1px solid transparent;
+    border-radius: 6px;
+    cursor: pointer;
+    color: var(--text-muted, #94a3b8);
+    font-size: .8rem;
+    transition: background .15s, color .15s, border-color .15s;
+    flex-shrink: 0;
+}
+.notif-dismiss:hover {
+    background: rgba(239,68,68,.08);
+    border-color: rgba(239,68,68,.2);
+    color: var(--danger, #ef4444);
+}
+
+/* ── Empty state ──────────────────────────────────────────── */
+.notif-empty {
+    padding: 32px 16px;
+    text-align: center;
+    color: var(--text-muted, #94a3b8);
+    font-size: .83rem;
+}
+.notif-empty-icon { font-size: 2rem; margin-bottom: 8px; opacity: .4; }
+.notif-empty p { margin: 0; }
+</style>
+
+<div class="notif-wrap" id="notif-wrap">
+    <button class="notif-bell-btn" id="notif-bell-btn" title="Notificações" aria-label="Abrir notificações">
+        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round"
+                  d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+        </svg>
+        <span class="notif-badge" id="notif-badge" style="display:none;" aria-live="polite"></span>
+    </button>
+
+    <div class="notif-panel" id="notif-panel" role="dialog" aria-label="Notificações">
+        <div class="notif-panel-header">
+            <div class="notif-panel-title">
+                <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round"
+                          d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+                </svg>
+                Notificações
+            </div>
+            <button class="notif-clear-btn" id="notif-clear-btn" title="Marcar todas como lidas">Limpar tudo</button>
+        </div>
+        <div class="notif-panel-body" id="notif-panel-body">
+            <ul style="list-style:none;padding:0;margin:0;" id="notif-list"></ul>
+        </div>
+    </div>
+</div>
+
+<script>
+(function () {
+    'use strict';
+
+    var API_URL    = "{% url 'notificacoes:api' %}";
+    var LIMPAR_URL = "{% url 'notificacoes:api_limpar' %}";
+    var CSRF       = '{{ csrf_token }}';
+    var POLL_MS    = 5000;
+
+    var bellBtn  = document.getElementById('notif-bell-btn');
+    var panel    = document.getElementById('notif-panel');
+    var badge    = document.getElementById('notif-badge');
+    var list     = document.getElementById('notif-list');
+    var clearBtn = document.getElementById('notif-clear-btn');
+
+    var currentTotal = 0;
+    var cleared      = false;
+
+    var TIPO_COLOR = {
+        mensagem:    '#6366f1',
+        autorizacao: '#f59e0b',
+        sistema:     '#6366f1',
+        patd:        '#ef4444',
+    };
+    var TIPO_LABEL = {
+        mensagem:    'Mensagem',
+        autorizacao: 'Autorização',
+        sistema:     'Sistema',
+        patd:        'PATD',
+    };
+
+    function setBadge(n) {
+        if (!badge || !bellBtn) return;
+        if (n > 0) {
+            badge.textContent = n > 99 ? '99+' : String(n);
+            badge.style.display = 'flex';
+            bellBtn.classList.add('has-notif');
+        } else {
+            badge.style.display = 'none';
+            bellBtn.classList.remove('has-notif');
+        }
+    }
+
+    function render(notifications) {
+        if (!list) return;
+        list.innerHTML = '';
+        if (!notifications || notifications.length === 0) {
+            list.innerHTML =
+                '<li class="notif-empty">'
+                + '<div class="notif-empty-icon">🔔</div>'
+                + '<p>Nenhuma notificação pendente.</p>'
+                + '</li>';
+            return;
+        }
+        notifications.forEach(function (n) {
+            var li = document.createElement('li');
+            li.className = 'notif-item';
+
+            var cor = TIPO_COLOR[n.tipo] || TIPO_COLOR.sistema;
+
+            var verBtn = n.url
+                ? '<a href="' + esc(n.url) + '" class="notif-ver-btn" data-notif-id="' + n.id + '">'
+                  + '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/></svg>'
+                  + 'Ver</a>'
+                : '';
+
+            li.innerHTML =
+                '<div class="notif-dot" style="background:' + cor + ';box-shadow:0 0 5px ' + cor + '40;"></div>'
+                + '<div class="notif-item-info">'
+                    + '<div class="notif-item-titulo">' + esc(n.titulo) + '</div>'
+                    + (n.corpo ? '<div class="notif-item-corpo">' + esc(n.corpo) + '</div>' : '')
+                    + '<div class="notif-item-time">'
+                        + '<svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6v6h4.5m4.5 0a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>'
+                        + esc(n.criado_em)
+                    + '</div>'
+                + '</div>'
+                + '<div class="notif-item-actions">'
+                    + verBtn
+                    + '<button class="notif-dismiss" data-id="' + n.id + '" title="Dispensar">'
+                      + '<svg fill="none" viewBox="0 0 24 24" stroke-width="2.5" stroke="currentColor" width="12" height="12"><path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/></svg>'
+                      + '</button>'
+                + '</div>';
+
+            // Ver: marca como lida e navega
+            var link = li.querySelector('.notif-ver-btn');
+            if (link) {
+                (function (notifId, notifUrl) {
+                    link.addEventListener('click', function (e) {
+                        e.preventDefault();
+                        post(LIMPAR_URL, {id: notifId}).finally(function () {
+                            window.location.href = notifUrl;
+                        });
+                    });
+                })(n.id, n.url);
+            }
+
+            // Dismiss individual
+            var dismissBtn = li.querySelector('.notif-dismiss');
+            if (dismissBtn) {
+                (function (notifId, liEl) {
+                    dismissBtn.addEventListener('click', function (e) {
+                        e.stopPropagation();
+                        liEl.style.transition = 'opacity .2s, transform .2s';
+                        liEl.style.opacity = '0';
+                        liEl.style.transform = 'translateX(12px)';
+                        post(LIMPAR_URL, {id: notifId}).then(function () {
+                            liEl.remove();
+                            currentTotal = Math.max(0, currentTotal - 1);
+                            setBadge(currentTotal);
+                            if (list.children.length === 0) render([]);
+                        }).catch(function () {
+                            liEl.style.opacity = '1';
+                            liEl.style.transform = '';
+                        });
+                    });
+                })(n.id, li);
+            }
+
+            list.appendChild(li);
+        });
+    }
+
+    function load(forceRender) {
+        fetch(API_URL, {credentials: 'same-origin'})
+            .then(function (r) { return r.ok ? r.json() : Promise.reject(); })
+            .then(function (data) {
+                var n = data.count || 0;
+                currentTotal = n;
+                setBadge(n);
+                var isOpen = panel && panel.classList.contains('open');
+                if ((isOpen || forceRender) && !cleared) {
+                    render(data.notifications || []);
+                }
+            })
+            .catch(function () {});
+    }
+
+    if (bellBtn) {
+        bellBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            if (!panel) return;
+            var opening = !panel.classList.contains('open');
+            panel.classList.toggle('open');
+            if (opening) {
+                cleared = false;
+                load(true);
+            }
+        });
+    }
+
+    document.addEventListener('click', function (e) {
+        if (!panel || !panel.classList.contains('open')) return;
+        var wrap = document.getElementById('notif-wrap');
+        if (wrap && !wrap.contains(e.target)) panel.classList.remove('open');
+    });
+
+    if (clearBtn) {
+        clearBtn.addEventListener('click', function (e) {
+            e.stopPropagation();
+            post(LIMPAR_URL, {}).then(function () {
+                cleared = true;
+                currentTotal = 0;
+                setBadge(0);
+                render([]);
+            }).catch(function () {});
+        });
+    }
+
+    function post(url, params) {
+        var body = Object.keys(params).map(function (k) {
+            return encodeURIComponent(k) + '=' + encodeURIComponent(params[k]);
+        }).join('&');
+        return fetch(url, {
+            method: 'POST',
+            credentials: 'same-origin',
+            headers: {
+                'X-CSRFToken': CSRF,
+                'Content-Type': 'application/x-www-form-urlencoded',
+            },
+            body: body,
+        }).then(function (r) { return r.ok ? r.json() : Promise.reject(r); });
+    }
+
+    function esc(s) {
+        if (!s) return '';
+        return String(s)
+            .replace(/&/g, '&amp;').replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    load(false);
+    setInterval(function () { if (!cleared) load(false); }, POLL_MS);
+
+})();
+</script>

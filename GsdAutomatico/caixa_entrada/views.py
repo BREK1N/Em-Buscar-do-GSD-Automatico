@@ -656,6 +656,7 @@ def api_notificacoes_check(request):
                     'remetente': n.remetente.nome_guerra if n.remetente else "Sistema",
                     'data': n.data_criacao.strftime('%d/%m %H:%M') if n.data_criacao else "",
                     'is_autorizacao': False,
+                    'is_mensagem': False,
                     'url': reverse('caixa_entrada:comunicacoes') + f'?ler={n.id}',
                 })
 
@@ -677,6 +678,7 @@ def api_notificacoes_check(request):
                 'remetente': nome,
                 'data': m.data_envio.strftime('%d/%m %H:%M'),
                 'is_autorizacao': False,
+                'is_mensagem': True,
                 'url': reverse('caixa_entrada:detalhe', kwargs={'pk': m.pk}),
             })
 
@@ -690,6 +692,39 @@ def api_notificacoes_check(request):
         json.dumps({'count': 0, 'notifications': []}),
         content_type='application/json'
     )
+
+
+@login_required
+def api_limpar_notificacoes(request):
+    from django.http import JsonResponse
+    if request.method != 'POST':
+        return JsonResponse({'error': 'Método inválido.'}, status=405)
+    user = request.user
+    notif_id = request.POST.get('id', '').strip()
+    tipo = request.POST.get('tipo', 'mensagem')
+    try:
+        if notif_id:
+            if tipo == 'mensagem':
+                msg = Mensagem.objects.filter(pk=notif_id, destinatarios=user).first()
+                if msg:
+                    LeituraMensagem.objects.get_or_create(mensagem=msg, usuario=user)
+            else:
+                if hasattr(user, 'profile') and getattr(user.profile, 'militar', None):
+                    Notificacao.objects.filter(pk=notif_id, destinatario=user.profile.militar).update(lida=True)
+        else:
+            # Limpar todas as mensagens não lidas
+            msgs_nao_lidas = Mensagem.objects.filter(
+                destinatarios=user, eh_rascunho=False
+            ).exclude(lida_por=user).exclude(excluida_por=user).exclude(permanentemente_excluida_por=user)
+            for msg in msgs_nao_lidas:
+                LeituraMensagem.objects.get_or_create(mensagem=msg, usuario=user)
+            # Limpar notificações de sistema
+            if hasattr(user, 'profile') and getattr(user.profile, 'militar', None):
+                Notificacao.objects.filter(destinatario=user.profile.militar, lida=False).update(lida=True)
+        return JsonResponse({'ok': True})
+    except Exception as e:
+        print(f"[api_limpar_notificacoes] Erro: {e}")
+        return JsonResponse({'error': str(e)}, status=500)
 
 
 # ─── API busca de usuários para o campo destinatários ────────────────────────
@@ -707,6 +742,7 @@ def api_buscar_usuarios(request):
         Qdb(username__icontains=term) |
         Qdb(first_name__icontains=term) |
         Qdb(last_name__icontains=term) |
+        Qdb(profile__militar__posto__icontains=term) |
         Qdb(profile__militar__nome_guerra__icontains=term) |
         Qdb(profile__militar__nome_completo__icontains=term)
     ).exclude(pk=request.user.pk).distinct()[:20]
