@@ -1,0 +1,84 @@
+{% extends 'Secao_operacoes/base.html' %}
+{% block title %}Catálogo de Equipamentos{% endblock %}
+{% block page_title %}Catálogo de Equipamentos{% endblock %}
+
+{% block content %}
+<style>
+.form-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:14px; padding:2rem; box-shadow:var(--shadow-card); margin-bottom:1.5rem; }
+.section-title { font-family:'Rajdhani',sans-serif; font-size:1rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:1rem; padding-bottom:6px; border-bottom:1px solid var(--border); }
+.form-control { width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:14px; }
+.btn-primary { display:inline-flex; align-items:center; gap:6px; background:var(--accent); color:#fff; border:none; padding:9px 20px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; }
+.btn-danger { background:none; border:none; color:#ef4444; cursor:pointer; padding:4px 10px; border-radius:5px; font-size:14px; }
+.btn-danger:hover { background:rgba(239,68,68,.1); }
+table { width:100%; border-collapse:collapse; }
+th { font-size:11px; font-weight:700; color:var(--text-muted); letter-spacing:.08em; text-transform:uppercase; padding:8px 10px; border-bottom:1px solid var(--border); text-align:left; }
+td { padding:8px 10px; border-bottom:1px solid var(--border); font-size:14px; }
+</style>
+
+<div class="form-card">
+    <div class="section-title"><i class="fas fa-list" style="margin-right:6px;"></i>Adicionar Equipamento ao Catálogo</div>
+    <div style="display:flex; gap:10px; align-items:flex-end;">
+        <div style="flex:1;">
+            <label style="font-size:12px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px;">Nome do Equipamento</label>
+            <input type="text" id="novo-equip" class="form-control" placeholder="Ex: COLETE BALÍSTICO (NV IIIA)" autocomplete="off">
+        </div>
+        <button class="btn-primary" onclick="adicionarEquip()"><i class="fas fa-plus"></i> Adicionar</button>
+    </div>
+    <div id="msg" style="margin-top:8px; font-size:13px;"></div>
+</div>
+
+<div class="form-card">
+    <div class="section-title"><i class="fas fa-shield-alt" style="margin-right:6px;"></i>Equipamentos Cadastrados</div>
+    <table>
+        <thead><tr><th>Nome</th><th style="width:80px;"></th></tr></thead>
+        <tbody id="catalogo-body">
+            {% for item in itens %}
+            <tr id="row-{{ item.pk }}">
+                <td>{{ item.nome }}</td>
+                <td><button class="btn-danger" onclick="excluirEquip({{ item.pk }})"><i class="fas fa-trash"></i></button></td>
+            </tr>
+            {% empty %}
+            <tr id="row-empty"><td colspan="2" style="color:var(--text-muted); text-align:center;">Nenhum equipamento cadastrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+const csrfToken = '{{ csrf_token }}';
+
+async function adicionarEquip() {
+    const input = document.getElementById('novo-equip');
+    const nome = input.value.trim();
+    if (!nome) return;
+    const res = await fetch("{% url 'Secao_operacoes:equipamento_catalogo_add' %}", {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({nome})
+    });
+    const data = await res.json();
+    if (data.error) return;
+    const msg = document.getElementById('msg');
+    if (!data.created) { msg.textContent = 'Equipamento já existe no catálogo.'; msg.style.color = 'var(--text-muted)'; return; }
+    msg.textContent = 'Adicionado com sucesso!'; msg.style.color = '#22c55e';
+    document.getElementById('row-empty')?.remove();
+    const tbody = document.getElementById('catalogo-body');
+    const tr = document.createElement('tr');
+    tr.id = 'row-' + data.id;
+    tr.innerHTML = `<td>${data.nome}</td><td><button class="btn-danger" onclick="excluirEquip(${data.id})"><i class="fas fa-trash"></i></button></td>`;
+    tbody.appendChild(tr);
+    input.value = '';
+    setTimeout(() => msg.textContent = '', 3000);
+}
+
+async function excluirEquip(pk) {
+    if (!confirm('Remover do catálogo?')) return;
+    await fetch(`/operacoes/equipamentos/catalogo/${pk}/excluir/`, {
+        method: 'POST', headers: {'X-CSRFToken': csrfToken}
+    });
+    document.getElementById('row-' + pk)?.remove();
+}
+
+document.getElementById('novo-equip').addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); adicionarEquip(); } });
+</script>
+{% endblock %}

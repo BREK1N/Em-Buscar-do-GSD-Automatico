@@ -1064,9 +1064,13 @@ def configuracao_secoes(request):
             'nome': 'Seção de Operações',
             'icon': 'fa-cogs',
             'cor': '#f59e0b',
-            'stats': [],
+            'stats': [
+                {'label': 'Missões', 'value': __import__('Secao_operacoes.models', fromlist=['Missao']).Missao.objects.count()},
+            ],
             'links': [
                 {'label': 'Acessar Seção', 'url': 'Secao_operacoes:index', 'icon': 'fa-arrow-right'},
+                {'label': 'Missões (OMIS)', 'url': 'Secao_operacoes:missao_list', 'icon': 'fa-clipboard-list'},
+                {'label': 'Configurações de Operações', 'url': 'Secao_operacoes:config_operacoes', 'icon': 'fa-cog'},
             ],
         },
         {
