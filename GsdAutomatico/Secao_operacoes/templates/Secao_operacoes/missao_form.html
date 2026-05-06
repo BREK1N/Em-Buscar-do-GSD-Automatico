@@ -64,7 +64,13 @@ textarea.form-control { resize:vertical; }
     cursor:pointer; transition:all 0.15s; text-decoration:none;
 }
 .btn-cancel:hover { background:var(--bg-sidebar-item); color:var(--text-primary); }
-.form-actions { display:flex; gap:12px; margin-top:1.5rem; flex-wrap:wrap; }
+.form-actions {
+    position:fixed; bottom:0; left:var(--sidebar-w); right:0; z-index:500;
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:var(--bg-card); border-top:1px solid var(--border-strong);
+    padding:12px 24px; box-shadow:0 -4px 16px rgba(0,0,0,.12);
+}
+.form-actions-spacer { height:72px; }
 .errorlist { list-style:none; padding:0; margin:4px 0 0; color:#ef4444; font-size:12px; }
 
 /* Autocomplete missão */
@@ -86,9 +92,19 @@ textarea.form-control { resize:vertical; }
 .catalogo-item:last-child { border-bottom:none; }
 .catalogo-item:hover { background:var(--accent-dim); color:var(--accent); }
 .catalogo-item-pick { font-size:11px; color:var(--text-muted); }
+
+@media (max-width: 768px) {
+    .form-card { padding: 1.25rem 1rem; }
+    .form-grid-3, .form-grid-2 { grid-template-columns: 1fr !important; }
+    .efetivo-grid { grid-template-columns: repeat(3, 1fr) !important; }
+    .items-table { font-size: 12px; }
+    .items-table th, .items-table td { padding: 6px 8px; }
+    .catalogo-box { width: 95vw; }
+    .picker-results { position: fixed !important; left: 1rem !important; right: 1rem !important; width: auto !important; }
+}
 </style>
 
-<form method="post">
+<form method="post" id="missao-form">
 {% csrf_token %}
 
 <!-- 1. Identificação -->
@@ -131,18 +147,15 @@ textarea.form-control { resize:vertical; }
         {{ form.endereco }}
     </div>
     <div style="margin-top:1rem;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <label style="margin-bottom:0;">Diretriz 1</label>
-            <button type="button" onclick="restaurarDiretriz(1)" style="font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;"><i class="fas fa-undo"></i> Restaurar padrão</button>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+            <label style="margin-bottom:0;">Diretrizes</label>
+            <div style="display:flex;gap:6px;">
+                <button type="button" onclick="adicionarDiretriz()" style="font-size:11px;background:none;border:1px solid var(--border-strong);padding:3px 8px;border-radius:5px;color:var(--accent);cursor:pointer;"><i class="fas fa-plus"></i> Adicionar</button>
+                <button type="button" onclick="restaurarDiretrizesPadrao()" style="font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;"><i class="fas fa-undo"></i> Restaurar padrão</button>
+            </div>
         </div>
-        {{ form.diretriz_1 }}
-    </div>
-    <div style="margin-top:1rem;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <label style="margin-bottom:0;">Diretriz 2</label>
-            <button type="button" onclick="restaurarDiretriz(2)" style="font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;"><i class="fas fa-undo"></i> Restaurar padrão</button>
-        </div>
-        {{ form.diretriz_2 }}
+        <div id="diretrizes-list" style="display:flex;flex-direction:column;gap:6px;"></div>
+        <p style="font-size:11px;color:var(--text-muted);margin-top:6px;">Arraste ⠿ para reordenar. Diretrizes padrão ficam ao final.</p>
     </div>
 </div>
 
@@ -221,7 +234,12 @@ textarea.form-control { resize:vertical; }
         </div>
     </div>
     <div style="margin-top:1rem;">
-        <label>Armamento conforme RIMB (ex: 0008; 0009; 0010)</label>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <label style="margin-bottom:0;">Armamento conforme RIMB (ex: 0008; 0009; 0010)</label>
+            {% if obs_armamento_padrao %}
+            <button type="button" onclick="restaurarObsArmamento()" style="font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;"><i class="fas fa-undo"></i> Restaurar padrão</button>
+            {% endif %}
+        </div>
         {{ form.observacoes_armamento }}
     </div>
 </div>
@@ -329,8 +347,9 @@ textarea.form-control { resize:vertical; }
 
 <!-- 6. Efetivo -->
 <style>
-.picker-search { width:100%; padding:7px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:13px; margin-bottom:6px; }
-.picker-results { max-height:160px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; background:var(--bg-card); }
+.picker-wrap { position:relative; }
+.picker-search { width:100%; padding:7px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:13px; margin-bottom:0; box-sizing:border-box; }
+.picker-results { position:absolute; left:0; right:0; z-index:200; top:calc(100% + 2px); max-height:200px; overflow-y:auto; border:1px solid var(--border-strong); border-radius:8px; background:var(--bg-card); box-shadow:0 6px 20px rgba(0,0,0,.18); display:none; }
 .picker-item { padding:7px 12px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; }
 .picker-item:last-child { border-bottom:none; }
 .picker-item:hover { background:var(--accent-dim); color:var(--accent); }
@@ -367,9 +386,11 @@ textarea.form-control { resize:vertical; }
         </div>
         <div id="cmt_picker_area" {% if missao.cmt_a_cargo %}style="display:none;"{% endif %}>
             <input type="hidden" name="cmt_missao_id" id="cmt_id" value="{{ missao.cmt_missao.pk|default:'' }}">
-            <input type="text" class="picker-search" id="cmt_search" placeholder="Buscar CMT..." autocomplete="off">
-            <div class="picker-results" id="cmt_results" style="display:none;"></div>
-            <div id="cmt_chip">
+            <div class="picker-wrap">
+                <input type="text" class="picker-search" id="cmt_search" placeholder="Buscar CMT..." autocomplete="off">
+                <div class="picker-results" id="cmt_results"></div>
+            </div>
+            <div id="cmt_chip" style="margin-top:6px;">
                 {% if missao.cmt_missao %}
                 <div class="pessoa-selecionada">
                     <span>{{ missao.cmt_missao.posto }} {{ missao.cmt_missao.nome_guerra }}</span>
@@ -379,7 +400,7 @@ textarea.form-control { resize:vertical; }
             </div>
         </div>
         <div id="cmt_cargo_area" {% if not missao.cmt_a_cargo %}style="display:none;"{% endif %}>
-            <input type="text" name="cmt_a_cargo" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.cmt_a_cargo|default:'' }}" style="margin-top:4px;">
+            <input type="text" name="cmt_a_cargo" id="cmt_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.cmt_a_cargo|default:'' }}" style="margin-top:4px;">
         </div>
     </div>
 
@@ -393,9 +414,11 @@ textarea.form-control { resize:vertical; }
         </div>
         <div id="mot_picker_area" {% if missao.mot_a_cargo %}style="display:none;"{% endif %}>
             <input type="hidden" name="motorista_id" id="mot_id" value="{{ missao.motorista.pk|default:'' }}">
-            <input type="text" class="picker-search" id="mot_search" placeholder="Buscar motorista..." autocomplete="off">
-            <div class="picker-results" id="mot_results" style="display:none;"></div>
-            <div id="mot_chip">
+            <div class="picker-wrap">
+                <input type="text" class="picker-search" id="mot_search" placeholder="Buscar motorista..." autocomplete="off">
+                <div class="picker-results" id="mot_results"></div>
+            </div>
+            <div id="mot_chip" style="margin-top:6px;">
                 {% if missao.motorista %}
                 <div class="pessoa-selecionada">
                     <span>{{ missao.motorista.posto }} {{ missao.motorista.nome_guerra }}</span>
@@ -405,7 +428,7 @@ textarea.form-control { resize:vertical; }
             </div>
         </div>
         <div id="mot_cargo_area" {% if not missao.mot_a_cargo %}style="display:none;"{% endif %}>
-            <input type="text" name="mot_a_cargo" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.mot_a_cargo|default:'' }}" style="margin-top:4px;">
+            <input type="text" name="mot_a_cargo" id="mot_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.mot_a_cargo|default:'' }}" style="margin-top:4px;">
         </div>
     </div>
 
@@ -418,9 +441,11 @@ textarea.form-control { resize:vertical; }
             </label>
         </div>
         <div id="equipe_picker_area" {% if missao.equipe_a_cargo %}style="display:none;"{% endif %}>
-            <input type="text" class="picker-search" id="equipe_search" placeholder="Buscar e adicionar à equipe..." autocomplete="off">
-            <div class="picker-results" id="equipe_results" style="display:none;"></div>
-            <div id="equipe_chips" style="margin-top:6px;">
+            <div class="picker-wrap">
+                <input type="text" class="picker-search" id="equipe_search" placeholder="Buscar e adicionar à equipe..." autocomplete="off">
+                <div class="picker-results" id="equipe_results"></div>
+            </div>
+            <div id="equipe_chips" style="margin-top:8px;">
                 {% for e in missao.equipe.all %}
                 <span class="pessoa-chip" data-id="{{ e.pk }}">
                     {{ e.posto }} {{ e.nome_guerra }}
@@ -430,19 +455,28 @@ textarea.form-control { resize:vertical; }
             </div>
         </div>
         <div id="equipe_cargo_area" {% if not missao.equipe_a_cargo %}style="display:none;"{% endif %}>
-            <input type="text" name="equipe_a_cargo" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.equipe_a_cargo|default:'' }}" style="margin-top:4px;">
+            <input type="text" name="equipe_a_cargo" id="equipe_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.equipe_a_cargo|default:'' }}" style="margin-top:4px;">
         </div>
     </div>
 </div>
 
+<div class="form-actions-spacer"></div>
+</form>
+
 <div class="form-actions">
-    <button type="submit" class="btn-submit">
+    <a href="{% url 'Secao_operacoes:missao_list' %}" class="btn-cancel">
+        <i class="fas fa-arrow-left"></i> Voltar
+    </a>
+    {% if missao %}
+    <a href="{% url 'Secao_operacoes:missao_pdf' missao.pk %}" class="btn-cancel" target="_blank">
+        <i class="fas fa-file-pdf"></i> Gerar PDF
+    </a>
+    {% endif %}
+    <button type="submit" form="missao-form" class="btn-submit" style="margin-left:auto;">
         <i class="fas fa-save"></i>
         {% if missao %}Salvar Alterações{% else %}Criar Missão{% endif %}
     </button>
-    <a href="{% url 'Secao_operacoes:missao_list' %}" class="btn-cancel">Cancelar</a>
 </div>
-</form>
 
 <script>
 const TODOS_EFETIVO = {{ efetivo_json|safe }};
@@ -456,8 +490,9 @@ const UNIFORME_ADD_URL       = "{% url 'Secao_operacoes:uniforme_catalogo_add' %
 const ARMAMENTO_JSON_URL     = "{% url 'Secao_operacoes:armamento_catalogo_json' %}";
 const ARMAMENTO_ADD_URL      = "{% url 'Secao_operacoes:armamento_catalogo_add' %}";
 const CSRF = '{{ csrf_token }}';
-const DIRETRIZ_PADRAO_1 = "{{ diretriz_padrao_1|escapejs }}";
-const DIRETRIZ_PADRAO_2 = "{{ diretriz_padrao_2|escapejs }}";
+const DIRETRIZES_INICIAIS = {{ diretrizes_iniciais|default:"[]"|safe }};
+const DIRETRIZES_PADRAO   = {{ diretrizes_padrao_json|default:"[]"|safe }};
+const OBS_ARMAMENTO_PADRAO = "{{ obs_armamento_padrao|escapejs }}";
 
 // All standard schedule items (key, label, field_name)
 const STD_HORARIOS = [
@@ -564,11 +599,76 @@ function setVal(id, val) {
     if (el && val !== undefined && val !== null) el.value = val;
 }
 
-/* ── Diretriz padrão ── */
-function restaurarDiretriz(n) {
-    const val = n === 1 ? DIRETRIZ_PADRAO_1 : DIRETRIZ_PADRAO_2;
-    const el = document.getElementById(`id_diretriz_${n}`);
-    if (el) el.value = val;
+/* ── Diretrizes dinâmicas ── */
+function _criarRowDiretriz(texto, isPadrao) {
+    const div = document.createElement('div');
+    div.className = 'diretriz-row';
+    div.draggable = true;
+    div.dataset.isPadrao = isPadrao ? '1' : '0';
+    div.style.cssText = 'display:flex;align-items:flex-start;gap:6px;background:var(--bg-page);border:1px solid var(--border-strong);border-radius:8px;padding:6px 8px;';
+    div.innerHTML = `
+        <span class="drag-handle" style="cursor:grab;color:var(--text-muted);padding-top:4px;font-size:13px;">⠿</span>
+        <textarea name="diretriz_texto[]" rows="2" style="flex:1;padding:4px 8px;border-radius:6px;border:1px solid var(--border-strong);background:var(--bg-input);color:var(--text-primary);font-size:13px;font-family:'Inter',sans-serif;resize:vertical;">${texto || ''}</textarea>
+        <input type="hidden" name="diretriz_is_padrao[]" value="${isPadrao ? '1' : '0'}">
+        ${isPadrao ? '<span style="font-size:10px;color:var(--accent);white-space:nowrap;padding-top:6px;font-weight:600;">PADRÃO</span>' : ''}
+        <button type="button" onclick="removerDiretriz(this)" style="background:none;border:none;color:#ef4444;cursor:pointer;padding-top:4px;font-size:13px;" title="Remover"><i class="fas fa-times"></i></button>
+    `;
+    _setupDiretrizDrag(div);
+    return div;
+}
+
+function _setupDiretrizDrag(row) {
+    row.addEventListener('dragstart', e => { e.dataTransfer.effectAllowed = 'move'; window._dragDiretriz = row; row.style.opacity = '0.4'; });
+    row.addEventListener('dragend',   e => { row.style.opacity = '1'; window._dragDiretriz = null; });
+    row.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    row.addEventListener('drop',      e => {
+        e.preventDefault();
+        const src = window._dragDiretriz;
+        if (!src || src === row) return;
+        const list = document.getElementById('diretrizes-list');
+        list.insertBefore(src, row);
+    });
+}
+
+function adicionarDiretriz(texto, isPadrao) {
+    const list = document.getElementById('diretrizes-list');
+    const row = _criarRowDiretriz(texto || '', isPadrao || false);
+    if (isPadrao) {
+        list.appendChild(row);
+    } else {
+        // inserir antes das padrão
+        const padroes = list.querySelectorAll('.diretriz-row[data-is-padrao="1"]');
+        if (padroes.length) list.insertBefore(row, padroes[0]);
+        else list.appendChild(row);
+    }
+}
+
+function removerDiretriz(btn) {
+    btn.closest('.diretriz-row').remove();
+}
+
+function restaurarDiretrizesPadrao() {
+    // Remove todas as padrão atuais e adiciona do config
+    const list = document.getElementById('diretrizes-list');
+    list.querySelectorAll('.diretriz-row[data-is-padrao="1"]').forEach(r => r.remove());
+    DIRETRIZES_PADRAO.forEach(txt => adicionarDiretriz(txt, true));
+}
+
+function _initDiretrizes() {
+    DIRETRIZES_INICIAIS.forEach(d => adicionarDiretriz(d.texto, d.is_padrao));
+    if (DIRETRIZES_INICIAIS.length === 0) {
+        // Nova missão: pre-preencher com padrões
+        DIRETRIZES_PADRAO.forEach(txt => adicionarDiretriz(txt, true));
+    }
+}
+document.addEventListener('DOMContentLoaded', _initDiretrizes);
+
+/* ── Restaurar padrões ── */
+function restaurarDiretriz(n) { /* legacy - não usado */ }
+
+function restaurarObsArmamento() {
+    const el = document.getElementById('id_observacoes_armamento');
+    if (el) el.value = OBS_ARMAMENTO_PADRAO;
 }
 
 /* ── Horários unificados (drag-and-drop) ── */
@@ -840,11 +940,10 @@ function toggleACargo(role) {
     const chk = document.getElementById(`${role}_cargo_chk`).checked;
     document.getElementById(`${role}_picker_area`).style.display = chk ? 'none' : '';
     document.getElementById(`${role}_cargo_area`).style.display  = chk ? '' : 'none';
-    // limpa o picker ao ativar "a cargo"
-    if (chk) {
-        if (role === 'cmt') limparCmt();
-        if (role === 'mot') limparMot();
-        if (role === 'equipe') { equipeIds.clear(); document.getElementById('equipe_chips').innerHTML = ''; }
+    if (!chk) {
+        // Desmarcando: limpa o texto para não enviar no POST e não persistir
+        const inp = document.getElementById(`${role}_cargo_input`);
+        if (inp) inp.value = '';
     }
     atualizarModoEfetivo();
 }

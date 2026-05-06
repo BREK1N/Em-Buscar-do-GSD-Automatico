@@ -1,10 +1,11 @@
 {% extends 'Secao_operacoes/base.html' %}
+{% load operacoes_extras %}
 {% block title %}Missões (OMIS){% endblock %}
 {% block page_title %}Missões (OMIS){% endblock %}
 
 {% block content %}
 <style>
-.page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.5rem; flex-wrap:wrap; gap:12px; }
+.page-header { display:flex; align-items:center; justify-content:space-between; margin-bottom:1.2rem; flex-wrap:wrap; gap:12px; }
 .page-title { font-family:'Rajdhani',sans-serif; font-size:1.5rem; font-weight:700; color:var(--text-primary); margin:0; }
 .btn-primary {
     display:inline-flex; align-items:center; gap:6px;
@@ -13,6 +14,30 @@
     cursor:pointer; text-decoration:none; transition:opacity 0.15s;
 }
 .btn-primary:hover { opacity:0.88; color:#fff; }
+
+/* Filtro */
+.filter-bar {
+    display:flex; align-items:center; gap:10px; flex-wrap:wrap;
+    background:var(--bg-card); border:1px solid var(--border-strong);
+    border-radius:10px; padding:12px 16px; margin-bottom:1.2rem;
+}
+.filter-bar label { font-size:12px; font-weight:600; color:var(--text-muted); white-space:nowrap; }
+.filter-date {
+    padding:7px 12px; border-radius:8px; border:1px solid var(--border-strong);
+    background:var(--bg-input); color:var(--text-primary); font-size:13px;
+    font-family:'Inter',sans-serif;
+}
+.filter-date:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
+.btn-filter {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:7px 14px; border-radius:8px; font-size:13px; font-weight:600;
+    border:1px solid var(--border-strong); background:var(--bg-page);
+    color:var(--text-secondary); cursor:pointer; text-decoration:none; transition:all 0.15s;
+}
+.btn-filter:hover { background:var(--bg-sidebar-item); color:var(--text-primary); }
+.btn-filter.active { background:var(--accent); color:#fff; border-color:var(--accent); }
+.btn-filter-clear { color:var(--text-muted); font-size:12px; }
+.filter-count { font-size:12px; color:var(--text-muted); margin-left:auto; white-space:nowrap; }
 
 .card {
     background:var(--bg-card); border:1px solid var(--border-strong);
@@ -32,11 +57,9 @@ tbody tr:last-child { border-bottom:none; }
 tbody tr:hover { background:var(--bg-sidebar-item); }
 tbody td { padding:12px 16px; font-size:0.875rem; color:var(--text-primary); vertical-align:middle; }
 
-.badge {
-    display:inline-block; padding:3px 9px; border-radius:20px;
-    font-size:11px; font-weight:600;
-}
+.badge { display:inline-block; padding:3px 9px; border-radius:20px; font-size:11px; font-weight:600; }
 .badge-warning { background:rgba(245,158,11,.15); color:var(--warning); }
+.badge-today { background:rgba(99,102,241,.15); color:var(--accent); }
 
 .actions-cell { display:flex; gap:6px; }
 .btn-sm {
@@ -52,6 +75,20 @@ tbody td { padding:12px 16px; font-size:0.875rem; color:var(--text-primary); ver
 
 .empty-state { text-align:center; padding:48px 24px; color:var(--text-muted); }
 .empty-state i { font-size:2.5rem; margin-bottom:12px; display:block; }
+
+@media (max-width: 768px) {
+    .page-header { flex-direction:column; align-items:flex-start; gap:8px; }
+    .page-header > div { width:100%; }
+    .page-header > div > a, .page-header > div > div { width:100%; }
+    .btn-primary { justify-content:center; }
+    .filter-bar { flex-direction:column; align-items:stretch; gap:8px; padding:10px 12px; }
+    .filter-bar .filter-count { margin-left:0; }
+    /* esconder colunas menos importantes na tabela */
+    thead th:nth-child(3), tbody td:nth-child(3),
+    thead th:nth-child(5), tbody td:nth-child(5) { display:none; }
+    .actions-cell { gap:4px; flex-wrap:wrap; }
+    .btn-sm span { display:none; }
+}
 </style>
 
 <div class="page-header">
@@ -59,10 +96,92 @@ tbody td { padding:12px 16px; font-size:0.875rem; color:var(--text-primary); ver
         <i class="fas fa-clipboard-list" style="color:var(--accent);margin-right:8px;"></i>
         Missões (OMIS)
     </h1>
-    <a href="{% url 'Secao_operacoes:missao_create' %}" class="btn-primary">
-        <i class="fas fa-plus"></i> Nova Missão
-    </a>
+    <div style="display:flex;gap:8px;align-items:center;">
+        <div style="position:relative;">
+            <button type="button" onclick="toggleConfigMenu()" class="btn-filter" id="config-btn" style="gap:6px;">
+                <i class="fas fa-cog"></i> Configurações
+                <i class="fas fa-chevron-down" style="font-size:10px;opacity:0.7;"></i>
+            </button>
+            <div id="config-menu" style="display:none;position:absolute;right:0;top:calc(100% + 6px);background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:999;min-width:210px;padding:6px;">
+                <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);padding:6px 10px 4px;">Catálogos</div>
+                <a href="{% url 'Secao_operacoes:armamento_catalogo_list' %}" class="config-menu-item">
+                    <i class="fas fa-crosshairs"></i> Armamentos
+                </a>
+                <a href="{% url 'Secao_operacoes:equipamento_catalogo_list' %}" class="config-menu-item">
+                    <i class="fas fa-shield-alt"></i> Equipamentos
+                </a>
+                <a href="{% url 'Secao_operacoes:radio_catalogo_list' %}" class="config-menu-item">
+                    <i class="fas fa-broadcast-tower"></i> Rádios
+                </a>
+                <a href="{% url 'Secao_operacoes:uniforme_catalogo_list' %}" class="config-menu-item">
+                    <i class="fas fa-tshirt"></i> Uniformes
+                </a>
+                {% if user|is_sop_operacoes %}
+                <div style="border-top:1px solid var(--border);margin:6px 0 4px;"></div>
+                <div style="font-size:10px;font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--text-muted);padding:4px 10px;">Textos Padrão</div>
+                <a href="{% url 'Secao_operacoes:config_operacoes' %}" class="config-menu-item">
+                    <i class="fas fa-sliders-h"></i> Configurações Gerais
+                </a>
+                {% endif %}
+            </div>
+        </div>
+        <a href="{% url 'Secao_operacoes:missao_create' %}" class="btn-primary">
+            <i class="fas fa-plus"></i> Nova Missão
+        </a>
+    </div>
 </div>
+
+<style>
+.config-menu-item {
+    display:flex; align-items:center; gap:9px;
+    padding:8px 12px; border-radius:7px; font-size:13px; font-weight:500;
+    color:var(--text-secondary); text-decoration:none; transition:all 0.13s;
+}
+.config-menu-item:hover { background:var(--accent-dim); color:var(--accent); }
+.config-menu-item i { width:14px; text-align:center; opacity:0.75; }
+</style>
+
+<script>
+function toggleConfigMenu() {
+    const menu = document.getElementById('config-menu');
+    menu.style.display = menu.style.display === 'none' ? 'block' : 'none';
+}
+document.addEventListener('click', e => {
+    if (!e.target.closest('#config-btn') && !e.target.closest('#config-menu'))
+        document.getElementById('config-menu').style.display = 'none';
+});
+</script>
+
+<!-- Barra de filtro -->
+<form method="get" class="filter-bar" id="filter-form">
+    <input type="hidden" name="ordem" value="{{ ordem }}">
+
+    <div style="position:relative;flex:1;min-width:200px;max-width:340px;">
+        <i class="fas fa-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;pointer-events:none;z-index:1;"></i>
+        <input id="search-q" type="text" name="q" value="{{ busca }}" placeholder="Buscar por nome ou Nº OMIS..."
+               class="filter-date" style="padding-left:34px;width:100%;" autocomplete="off">
+        <div id="search-suggestions" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:999;overflow:hidden;"></div>
+    </div>
+
+    <input type="date" name="data" class="filter-date" value="{{ data_filtro }}"
+           onchange="this.form.submit()" {% if busca %}disabled{% endif %}>
+
+    <button type="submit" class="btn-filter" style="border-color:var(--accent);color:var(--accent);">
+        <i class="fas fa-search"></i> Buscar
+    </button>
+
+    <a href="?hoje=1&ordem={{ ordem }}" class="btn-filter {% if filtro_hoje %}active{% endif %}">
+        <i class="fas fa-calendar-day"></i> Hoje
+    </a>
+
+    {% if data_filtro or busca %}
+    <a href="{% url 'Secao_operacoes:missao_list' %}" class="btn-filter btn-filter-clear">
+        <i class="fas fa-times"></i> Limpar
+    </a>
+    {% endif %}
+
+    <span class="filter-count">{{ missoes|length }} missão{% if missoes|length != 1 %}ões{% endif %} encontrada{% if missoes|length != 1 %}s{% endif %}</span>
+</form>
 
 <div class="card">
     <div class="table-wrap">
@@ -70,7 +189,17 @@ tbody td { padding:12px 16px; font-size:0.875rem; color:var(--text-primary); ver
         <table>
             <thead>
                 <tr>
-                    <th>Nº OMIS</th>
+                    <th>
+                        {% if ordem == 'desc' %}
+                        <a href="?q={{ busca }}&data={{ data_filtro }}&ordem=asc" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">
+                            Nº OMIS <i class="fas fa-sort-down" style="font-size:11px;opacity:0.7;"></i>
+                        </a>
+                        {% else %}
+                        <a href="?q={{ busca }}&data={{ data_filtro }}&ordem=desc" style="color:inherit;text-decoration:none;display:inline-flex;align-items:center;gap:5px;white-space:nowrap;">
+                            Nº OMIS <i class="fas fa-sort-up" style="font-size:11px;opacity:0.7;"></i>
+                        </a>
+                        {% endif %}
+                    </th>
                     <th>Missão</th>
                     <th>Local</th>
                     <th>Data</th>
@@ -81,12 +210,21 @@ tbody td { padding:12px 16px; font-size:0.875rem; color:var(--text-primary); ver
             <tbody>
                 {% for m in missoes %}
                 <tr>
-                    <td><span class="badge badge-warning">Nº {{ m.numero }}</span></td>
+                    <td>
+                        <span class="badge {% if m.data_missao|date:'Y-m-d' == hoje %}badge-today{% else %}badge-warning{% endif %}">
+                            Nº {{ m.numero }}
+                        </span>
+                    </td>
                     <td style="font-weight:600;">{{ m.nome_missao }}</td>
                     <td style="color:var(--text-secondary);">{{ m.local }}</td>
-                    <td style="color:var(--text-secondary);">{{ m.data_missao|date:"d/m/Y" }}</td>
                     <td style="color:var(--text-secondary);">
-                        {% if m.cmt_missao %}{{ m.cmt_missao.posto }} {{ m.cmt_missao.nome_guerra }}{% else %}—{% endif %}
+                        {{ m.data_missao|date:"d/m/Y" }}
+                        {% if m.data_missao|date:'Y-m-d' == hoje %}
+                        <span style="font-size:10px;color:var(--accent);font-weight:700;margin-left:4px;">HOJE</span>
+                        {% endif %}
+                    </td>
+                    <td style="color:var(--text-secondary);">
+                        {% if m.cmt_a_cargo %}{{ m.cmt_a_cargo }}{% elif m.cmt_missao %}{{ m.cmt_missao.posto }} {{ m.cmt_missao.nome_guerra }}{% else %}—{% endif %}
                     </td>
                     <td>
                         <div class="actions-cell">
@@ -114,12 +252,97 @@ tbody td { padding:12px 16px; font-size:0.875rem; color:var(--text-primary); ver
         {% else %}
         <div class="empty-state">
             <i class="fas fa-clipboard-list"></i>
+            {% if data_filtro %}
+            <p>Nenhuma missão encontrada para esta data.</p>
+            <a href="{% url 'Secao_operacoes:missao_list' %}" class="btn-primary" style="margin-top:12px; display:inline-flex;">
+                <i class="fas fa-times"></i> Limpar filtro
+            </a>
+            {% else %}
             <p>Nenhuma missão cadastrada ainda.</p>
-            <a href="{% url 'Secao_operacoes:missao_create' %}" class="btn-primary" style="margin-top:12px;">
+            <a href="{% url 'Secao_operacoes:missao_create' %}" class="btn-primary" style="margin-top:12px; display:inline-flex;">
                 <i class="fas fa-plus"></i> Criar primeira missão
             </a>
+            {% endif %}
         </div>
         {% endif %}
     </div>
 </div>
+
+<style>
+.search-item {
+    display:flex; align-items:center; gap:10px;
+    padding:9px 14px; cursor:pointer; transition:background 0.12s;
+    border-bottom:1px solid var(--border); font-size:13px;
+}
+.search-item:last-child { border-bottom:none; }
+.search-item:hover, .search-item.active { background:var(--accent-dim); }
+.search-item-num { font-weight:700; color:var(--accent); min-width:48px; }
+.search-item-nome { color:var(--text-primary); flex:1; }
+.search-item-data { font-size:11px; color:var(--text-muted); white-space:nowrap; }
+</style>
+
+<script>
+const BUSCA_URL = "{% url 'Secao_operacoes:missao_busca_json' %}";
+const searchInput = document.getElementById('search-q');
+const suggestions = document.getElementById('search-suggestions');
+let debounce, activeIdx = -1;
+
+searchInput.addEventListener('input', () => {
+    clearTimeout(debounce);
+    activeIdx = -1;
+    const q = searchInput.value.trim();
+    if (!q) { suggestions.style.display = 'none'; return; }
+    debounce = setTimeout(() => fetchSuggestions(q), 200);
+});
+
+searchInput.addEventListener('keydown', e => {
+    const items = suggestions.querySelectorAll('.search-item');
+    if (!items.length) return;
+    if (e.key === 'ArrowDown') { e.preventDefault(); setActive(Math.min(activeIdx + 1, items.length - 1), items); }
+    else if (e.key === 'ArrowUp') { e.preventDefault(); setActive(Math.max(activeIdx - 1, 0), items); }
+    else if (e.key === 'Enter' && activeIdx >= 0) { e.preventDefault(); items[activeIdx].click(); }
+    else if (e.key === 'Escape') { suggestions.style.display = 'none'; }
+});
+
+function setActive(idx, items) {
+    items.forEach(i => i.classList.remove('active'));
+    activeIdx = idx;
+    if (idx >= 0) items[idx].classList.add('active');
+}
+
+async function fetchSuggestions(q) {
+    try {
+        const res = await fetch(`${BUSCA_URL}?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        renderSuggestions(data);
+    } catch {}
+}
+
+function renderSuggestions(items) {
+    if (!items.length) { suggestions.style.display = 'none'; return; }
+    suggestions.innerHTML = items.map(m => {
+        const parts = m.label.split(' – ');
+        const num = parts[0] || '';
+        const nome = parts.slice(1).join(' – ');
+        return `<div class="search-item" data-q="${m.label}" onclick="escolherSugestao('${m.label.replace(/'/g,"\\'")}')">
+            <span class="search-item-num">${num}</span>
+            <span class="search-item-nome">${nome}</span>
+        </div>`;
+    }).join('');
+    suggestions.style.display = 'block';
+}
+
+function escolherSugestao(label) {
+    // extrair nome da missão (depois do " – ")
+    const nome = label.replace(/^Nº \d+ – /, '');
+    searchInput.value = nome;
+    suggestions.style.display = 'none';
+    document.getElementById('filter-form').submit();
+}
+
+document.addEventListener('click', e => {
+    if (!e.target.closest('#search-q') && !e.target.closest('#search-suggestions'))
+        suggestions.style.display = 'none';
+});
+</script>
 {% endblock %}

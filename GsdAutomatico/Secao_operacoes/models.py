@@ -104,6 +104,11 @@ class ConfiguracaoOperacoes(models.Model):
         default="O relatório da missão deverá ser confeccionado pelo Cmt da mesma e entregue, em até 24h, ao Sgt de dia ao GSD GL. Deverá conter além das informações inerentes a missão, o horário do término da mesma, as alterações de cumprimento do quadro de horários, transporte, alimentação, faltas, sugestões, ocorrências, bem como as providências adotadas.",
         verbose_name="Diretriz padrão 2"
     )
+    observacoes_armamento_padrao = models.CharField(
+        max_length=300, blank=True, default='',
+        verbose_name="Armamento conforme RIMB (padrão)"
+    )
+    diretrizes_padrao_json = models.TextField(blank=True, default='', verbose_name="Diretrizes padrão (JSON)")
 
     class Meta:
         verbose_name = "Configuração de Operações"
@@ -130,6 +135,7 @@ class Missao(models.Model):
 
     diretriz_1 = models.TextField(blank=True, verbose_name="Diretriz 1")
     diretriz_2 = models.TextField(blank=True, verbose_name="Diretriz 2")
+    diretrizes_json = models.TextField(blank=True, default='', verbose_name="Diretrizes (JSON)")
 
     data_emissao = models.DateField(verbose_name="Data de Emissão")
     data_missao = models.DateField(verbose_name="Data da Missão")

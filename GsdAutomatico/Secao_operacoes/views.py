@@ -88,6 +88,53 @@ def _horarios_pdf_ctx(missao):
     return result
 
 
+def _get_diretrizes_padrao(config):
+    """Retorna lista de textos padrão do config, migrando campos antigos se necessário."""
+    if config.diretrizes_padrao_json:
+        try:
+            return json.loads(config.diretrizes_padrao_json)
+        except Exception:
+            pass
+    # fallback para campos legados
+    result = []
+    if config.diretriz_padrao_1:
+        result.append(config.diretriz_padrao_1)
+    if config.diretriz_padrao_2:
+        result.append(config.diretriz_padrao_2)
+    return result
+
+
+def _get_diretrizes_missao(missao):
+    """Retorna lista de dicts {texto, is_padrao} para a missão."""
+    if missao and missao.diretrizes_json:
+        try:
+            return json.loads(missao.diretrizes_json)
+        except Exception:
+            pass
+    if missao:
+        # fallback para campos legados
+        result = []
+        if missao.diretriz_1:
+            result.append({'texto': missao.diretriz_1, 'is_padrao': False})
+        if missao.diretriz_2:
+            result.append({'texto': missao.diretriz_2, 'is_padrao': False})
+        return result
+    return []
+
+
+def _salvar_diretrizes(request, missao):
+    textos = request.POST.getlist('diretriz_texto[]')
+    padrao_flags = request.POST.getlist('diretriz_is_padrao[]')
+    result = []
+    for i, txt in enumerate(textos):
+        t = txt.strip()
+        if t:
+            is_p = padrao_flags[i] == '1' if i < len(padrao_flags) else False
+            result.append({'texto': t, 'is_padrao': is_p})
+    missao.diretrizes_json = json.dumps(result, ensure_ascii=False)
+    missao.save(update_fields=['diretrizes_json'])
+
+
 def _is_sop_operacoes(user):
     if not user.is_authenticated:
         return False
@@ -480,8 +527,46 @@ def api_escala_eventos(request, pk):
 
 @sop_required
 def missao_list(request):
+    from django.db.models import Q
+    hoje = date.today()
+    data_filtro = request.GET.get('data', '')
+    filtro_hoje = request.GET.get('hoje', '')
+    busca = request.GET.get('q', '').strip()
+    ordem = request.GET.get('ordem', 'desc')
+
     missoes = Missao.objects.all().select_related('cmt_missao')
-    return render(request, 'Secao_operacoes/missao_list.html', {'missoes': missoes})
+
+    if busca:
+        # tenta busca por número exato; se não for número busca pelo nome
+        try:
+            num = int(busca)
+            missoes = missoes.filter(Q(numero=num) | Q(nome_missao__icontains=busca))
+        except ValueError:
+            missoes = missoes.filter(nome_missao__icontains=busca)
+    elif filtro_hoje:
+        missoes = missoes.filter(data_missao=hoje)
+        data_filtro = hoje.strftime('%Y-%m-%d')
+    elif data_filtro:
+        try:
+            from datetime import datetime
+            d = datetime.strptime(data_filtro, '%Y-%m-%d').date()
+            missoes = missoes.filter(data_missao=d)
+        except ValueError:
+            data_filtro = ''
+
+    if ordem == 'asc':
+        missoes = missoes.order_by('numero')
+    else:
+        missoes = missoes.order_by('-numero')
+
+    return render(request, 'Secao_operacoes/missao_list.html', {
+        'missoes': missoes,
+        'data_filtro': data_filtro,
+        'filtro_hoje': bool(filtro_hoje),
+        'hoje': hoje.strftime('%Y-%m-%d'),
+        'busca': busca,
+        'ordem': ordem,
+    })
 
 
 @sop_required
@@ -498,6 +583,7 @@ def missao_create(request):
             missao.save()
             _salvar_equipe_post(request, missao)
             _salvar_horarios(request, missao)
+            _salvar_diretrizes(request, missao)
             _salvar_armamentos_equipamentos(request, missao)
             messages.success(request, f'OMIS Nº {missao.numero} criada com sucesso.')
             return redirect('Secao_operacoes:missao_detail', pk=missao.pk)
@@ -506,15 +592,18 @@ def missao_create(request):
         cfg = ConfiguracaoOperacoes.get_instance()
         form = MissaoForm(initial={
             'numero': proximo,
-            'diretriz_1': cfg.diretriz_padrao_1,
-            'diretriz_2': cfg.diretriz_padrao_2,
+            'observacoes_armamento': cfg.observacoes_armamento_padrao,
         })
     cfg = ConfiguracaoOperacoes.get_instance()
+    diretrizes_padrao = _get_diretrizes_padrao(cfg)
     return render(request, 'Secao_operacoes/missao_form.html', {
         'form': form, 'title': 'Nova Missão (OMIS)',
         'efetivo_json': _efetivo_json_ctx(),
-        'diretriz_padrao_1': cfg.diretriz_padrao_1,
-        'diretriz_padrao_2': cfg.diretriz_padrao_2,
+        'diretrizes_iniciais': json.dumps(
+            [{'texto': t, 'is_padrao': True} for t in diretrizes_padrao], ensure_ascii=False
+        ),
+        'diretrizes_padrao_json': json.dumps(diretrizes_padrao, ensure_ascii=False),
+        'obs_armamento_padrao': cfg.observacoes_armamento_padrao,
         'horarios_form': _horarios_form_ctx(None),
         'std_horarios_disponiveis': STD_HORARIOS,
     })
@@ -534,6 +623,7 @@ def missao_edit(request, pk):
             missao.save()
             _salvar_equipe_post(request, missao)
             _salvar_horarios(request, missao)
+            _salvar_diretrizes(request, missao)
             missao.armamentos.all().delete()
             missao.equipamentos.all().delete()
             _salvar_armamentos_equipamentos(request, missao)
@@ -542,11 +632,13 @@ def missao_edit(request, pk):
     else:
         form = MissaoForm(instance=missao)
     cfg = ConfiguracaoOperacoes.get_instance()
+    diretrizes_padrao = _get_diretrizes_padrao(cfg)
     return render(request, 'Secao_operacoes/missao_form.html', {
         'form': form, 'title': 'Editar Missão', 'missao': missao,
         'efetivo_json': _efetivo_json_ctx(),
-        'diretriz_padrao_1': cfg.diretriz_padrao_1,
-        'diretriz_padrao_2': cfg.diretriz_padrao_2,
+        'diretrizes_iniciais': json.dumps(_get_diretrizes_missao(missao), ensure_ascii=False),
+        'diretrizes_padrao_json': json.dumps(diretrizes_padrao, ensure_ascii=False),
+        'obs_armamento_padrao': cfg.observacoes_armamento_padrao,
         'horarios_form': _horarios_form_ctx(missao),
         'std_horarios_disponiveis': STD_HORARIOS,
     })
@@ -618,6 +710,8 @@ def missao_pdf(request, pk):
         'linhas_arma_equip': linhas_arma_equip,
         'equipe_por_posto': equipe_por_posto,
         'horarios_ordenados': _horarios_pdf_ctx(missao),
+        'diretrizes': _get_diretrizes_missao(missao),
+        'tem_armamento': missao.armamentos.exists(),
     }, request=request)
     pdf = HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf()
     response = HttpResponse(pdf, content_type='application/pdf')
@@ -640,14 +734,18 @@ def efetivo_busca_json(request):
 @sop_required
 def missao_busca_json(request):
     q = request.GET.get('q', '').strip()
-    if len(q) < 2:
+    if len(q) < 1:
         return JsonResponse([], safe=False)
-    missoes = Missao.objects.filter(nome_missao__icontains=q).order_by('-data_missao')[:10]
+    try:
+        num = int(q)
+        missoes = Missao.objects.filter(Q(numero=num) | Q(nome_missao__icontains=q)).order_by('-data_missao')[:10]
+    except ValueError:
+        missoes = Missao.objects.filter(nome_missao__icontains=q).order_by('-data_missao')[:10]
     resultado = []
     for m in missoes:
         resultado.append({
             'id': m.pk,
-            'label': f"{m.nome_missao} – {m.data_missao.strftime('%d/%m/%Y')}",
+            'label': f"Nº {m.numero} – {m.nome_missao}",
             'nome_missao': m.nome_missao,
             'local': m.local,
             'acionador': m.acionador,
@@ -909,12 +1007,18 @@ def config_operacoes(request):
         cmt_id = request.POST.get('comandante_gsd')
         config.chefe_sop = Efetivo.objects.filter(pk=chefe_id).first() if chefe_id else None
         config.comandante_gsd = Efetivo.objects.filter(pk=cmt_id).first() if cmt_id else None
-        config.diretriz_padrao_1 = request.POST.get('diretriz_padrao_1', '').strip()
-        config.diretriz_padrao_2 = request.POST.get('diretriz_padrao_2', '').strip()
+        config.observacoes_armamento_padrao = request.POST.get('observacoes_armamento_padrao', '').strip()
+        # salvar diretrizes padrão como JSON
+        textos_padrao = [t.strip() for t in request.POST.getlist('diretriz_padrao_texto[]') if t.strip()]
+        config.diretrizes_padrao_json = json.dumps(textos_padrao, ensure_ascii=False)
         config.save()
         messages.success(request, 'Configurações salvas com sucesso.')
         return redirect('Secao_operacoes:config_operacoes')
+    diretrizes_padrao = _get_diretrizes_padrao(config)
     return render(request, 'Secao_operacoes/config_operacoes.html', {
         'config': config,
         'efetivos': efetivos,
+        'is_admin': request.user.is_superuser,
+        'diretrizes_padrao': diretrizes_padrao,
+        'diretrizes_padrao_json': json.dumps(diretrizes_padrao, ensure_ascii=False),
     })

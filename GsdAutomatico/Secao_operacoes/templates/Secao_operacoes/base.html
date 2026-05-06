@@ -359,8 +359,29 @@
             .main-wrapper { margin-left: 0; }
             .main-header { left: 0; }
             .mobile-nav-toggle { display: flex; }
-            .main-container { padding: 1.25rem 1rem 3rem; }
+            .main-container { padding: 1rem 0.75rem 5rem; }
             .user-chip span { display: none; }
+
+            /* Tabelas: scroll horizontal */
+            .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
+
+            /* Cards e grids genéricos */
+            .page-header { flex-direction: column; align-items: flex-start !important; gap: 8px !important; }
+            .filter-bar { flex-direction: column; align-items: stretch !important; gap: 8px !important; }
+            .filter-bar .filter-count { margin-left: 0 !important; }
+            .filter-bar input[type="date"],
+            .filter-bar input[type="text"] { width: 100% !important; max-width: 100% !important; }
+            .filter-bar .btn-filter { justify-content: center; }
+
+            /* Form grid de 2 colunas vira 1 coluna */
+            .form-grid { grid-template-columns: 1fr !important; }
+
+            /* Barra fixa de ações do form */
+            .form-actions { left: 0 !important; padding: 10px 14px !important; gap: 8px !important; }
+            .form-actions .btn-submit { margin-left: auto; }
+
+            /* Actions na listagem */
+            .actions-cell { flex-wrap: wrap; gap: 4px; }
         }
     </style>
 
@@ -389,16 +410,10 @@
 
     <nav class="sidebar-nav">
         <ul>
-            <li style="padding: 8px 10px 2px;">
-                <span class="sidebar-section-label" style="padding:0">Operação</span>
-            </li>
-            <li>
-                <a href="{% url 'Secao_operacoes:index' %}" class="{% if request.resolver_match.url_name == 'index' %}active{% endif %}">
-                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                    </svg>
-                    <span>Início</span>
-                </a>
+
+            <!-- ── GEAL ── -->
+            <li style="padding: 10px 10px 2px;">
+                <span class="sidebar-section-label" style="padding:0">GERAL</span>
             </li>
             <li>
                 <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=operacoes" class="{% if 'comunicacoes' in request.path %}active{% endif %}">
@@ -416,6 +431,11 @@
                     <span>Chamada</span>
                 </a>
             </li>
+
+            <!-- ── ESCALA ── -->
+            <li style="padding: 10px 10px 2px;">
+                <span class="sidebar-section-label" style="padding:0">ESCALA</span>
+            </li>
             <li>
                 <a href="{% url 'Secao_operacoes:escala_list' %}" class="{% if 'escala' in request.path %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -425,9 +445,10 @@
                 </a>
             </li>
 
+            <!-- ── OPERAÇÕES ── -->
             {% if user|is_sop_operacoes %}
-            <li style="padding: 8px 10px 2px; margin-top: 4px;">
-                <span class="sidebar-section-label" style="padding:0">SOP</span>
+            <li style="padding: 10px 10px 2px;">
+                <span class="sidebar-section-label" style="padding:0">OPERAÇÕES</span>
             </li>
             <li>
                 <a href="{% url 'Secao_operacoes:missao_list' %}" class="{% if 'missao' in request.path %}active{% endif %}">
@@ -438,6 +459,7 @@
                 </a>
             </li>
             {% endif %}
+
         </ul>
     </nav>
 

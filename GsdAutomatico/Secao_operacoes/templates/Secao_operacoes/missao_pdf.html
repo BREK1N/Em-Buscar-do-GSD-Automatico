@@ -99,8 +99,7 @@
             <p style="margin:1px 0;"><strong>Acionador da missão: {{ missao.acionador }}</strong></p>
             <p style="margin:1px 0;">- <strong>Objetivo da missão:</strong> {{ missao.objetivo }}</p>
             {% if missao.endereco %}<p style="margin:1px 0;">- <strong>Endereço:</strong> {{ missao.endereco }}</p>{% endif %}
-            {% if missao.diretriz_1 %}<p style="margin:1px 0;">- {{ missao.diretriz_1 }}</p>{% endif %}
-            {% if missao.diretriz_2 %}<p style="margin:1px 0;">- {{ missao.diretriz_2 }}</p>{% endif %}
+            {% for d in diretrizes %}<p style="margin:1px 0;">- {{ d.texto }}</p>{% endfor %}
         </td>
     </tr>
 
@@ -157,22 +156,24 @@
     <!-- ══ 6 – ARMAMENTO E EQUIPAMENTO ══ -->
     <tr>
         <td colspan="8">
+            {% if tem_armamento %}
             <strong>6 - ARMAMENTO CONFORME</strong> {{ missao.observacoes_armamento|default:"RIMB" }} <strong>e EQUIPAMENTO:</strong>
+            {% else %}
+            <strong>6 - NÃO HAVERÁ ARMAMENTO</strong>
+            {% endif %}
         </td>
     </tr>
-
-    <!-- Cabeçalhos: cada coluna de armamento usa 1 coluna base -->
+    <!-- Cabeçalhos -->
     <tr>
-        <td class="col-hdr">ARMA</td>           <!-- c1 18% -->
-        <td class="col-hdr">QTD</td>            <!-- c2  7% -->
-        <td class="col-hdr">Carregador</td>     <!-- c3  9% -->
-        <td class="col-hdr">Cartucho</td>       <!-- c4  8% -->
-        <td class="col-hdr">EQUIPAMENTO</td>    <!-- c5 18% -->
-        <td class="col-hdr">QTD</td>            <!-- c6  7% -->
-        <td class="col-hdr">EQUIPAMENTO</td>    <!-- c7 17% -->
-        <td class="col-hdr">QTD</td>            <!-- c8 16% -->
+        <td class="col-hdr">ARMA</td>
+        <td class="col-hdr">QTD</td>
+        <td class="col-hdr">Carregador</td>
+        <td class="col-hdr">Cartucho</td>
+        <td class="col-hdr">EQUIPAMENTO</td>
+        <td class="col-hdr">QTD</td>
+        <td class="col-hdr">EQUIPAMENTO</td>
+        <td class="col-hdr">QTD</td>
     </tr>
-
     {% for linha in linhas_arma_equip %}
     <tr style="height:18px;">
         <td>{% if linha.arma %}{{ linha.arma.arma }}{% endif %}</td>

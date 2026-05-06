@@ -130,7 +130,8 @@ class MissaoForm(forms.ModelForm):
         exclude = ['criado_por', 'criado_em', 'atualizado_em', 'data_emissao', 'radio_nome',
                    'efetivo_of', 'efetivo_so_sgt', 'efetivo_cb', 'efetivo_s1', 'efetivo_s2', 'efetivo_rec',
                    'cmt_a_cargo', 'mot_a_cargo', 'equipe_a_cargo',
-                   'cmt_missao', 'equipe', 'motorista', 'horarios_config']
+                   'cmt_missao', 'equipe', 'motorista', 'horarios_config',
+                   'diretriz_1', 'diretriz_2', 'diretrizes_json']
         widgets = {
             'numero': forms.NumberInput(attrs={'class': 'form-control'}),
             'nome_missao': forms.TextInput(attrs={'class': 'form-control'}),

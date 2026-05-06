@@ -1,0 +1,123 @@
+{% extends 'Secao_operacoes/base.html' %}
+{% block title %}Catálogo de Armamentos{% endblock %}
+{% block page_title %}Catálogo de Armamentos{% endblock %}
+
+{% block content %}
+<style>
+.form-card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:14px; padding:2rem; box-shadow:var(--shadow-card); margin-bottom:1.5rem; }
+.section-title { font-family:'Rajdhani',sans-serif; font-size:1rem; font-weight:700; letter-spacing:.08em; text-transform:uppercase; color:var(--accent); margin-bottom:1rem; padding-bottom:6px; border-bottom:1px solid var(--border); }
+label { font-size:12px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px; }
+.form-control { width:100%; padding:8px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:14px; }
+.btn-primary { display:inline-flex; align-items:center; gap:6px; background:var(--accent); color:#fff; border:none; padding:9px 20px; border-radius:8px; font-size:14px; font-weight:600; cursor:pointer; white-space:nowrap; }
+.btn-danger { background:none; border:none; color:#ef4444; cursor:pointer; padding:4px 10px; border-radius:5px; font-size:14px; }
+.btn-danger:hover { background:rgba(239,68,68,.1); }
+table { width:100%; border-collapse:collapse; }
+th { font-size:11px; font-weight:700; color:var(--text-muted); letter-spacing:.08em; text-transform:uppercase; padding:8px 12px; border-bottom:1px solid var(--border); text-align:left; }
+td { padding:8px 12px; border-bottom:1px solid var(--border); font-size:14px; }
+.help { font-size:11px; color:var(--text-muted); margin-top:4px; }
+</style>
+
+<div class="form-card">
+    <div class="section-title"><i class="fas fa-plus-circle" style="margin-right:6px;"></i>Adicionar Armamento ao Catálogo</div>
+    <div style="display:flex; gap:12px; align-items:flex-end; flex-wrap:wrap;">
+        <div style="flex:2; min-width:180px;">
+            <label>Nome da Arma</label>
+            <input type="text" id="novo-nome" class="form-control" placeholder="Ex: FUZIL HK-33" autocomplete="off">
+        </div>
+        <div style="width:130px;">
+            <label>Carregadores/arma</label>
+            <input type="number" id="novo-carg" class="form-control" value="0" min="0">
+        </div>
+        <div style="width:130px;">
+            <label>Cartuchos/arma</label>
+            <input type="number" id="novo-cart" class="form-control" value="0" min="0">
+        </div>
+        <button class="btn-primary" onclick="adicionarArma()"><i class="fas fa-plus"></i> Adicionar</button>
+    </div>
+    <p class="help">Os valores de carregadores e cartuchos por arma serão usados para calcular automaticamente o total na OMIS.</p>
+    <div id="msg" style="margin-top:8px; font-size:13px;"></div>
+</div>
+
+<div class="form-card">
+    <div class="section-title"><i class="fas fa-crosshairs" style="margin-right:6px;"></i>Armamentos Cadastrados</div>
+    <table>
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th style="width:140px; text-align:center;">Carregadores/arma</th>
+                <th style="width:140px; text-align:center;">Cartuchos/arma</th>
+                <th style="width:60px;"></th>
+            </tr>
+        </thead>
+        <tbody id="catalogo-body">
+            {% for item in itens %}
+            <tr id="row-{{ item.pk }}">
+                <td>{{ item.nome }}</td>
+                <td style="text-align:center;">{{ item.carregadores_por_unidade }}</td>
+                <td style="text-align:center;">{{ item.cartuchos_por_unidade }}</td>
+                <td><button class="btn-danger" onclick="excluirArma({{ item.pk }})"><i class="fas fa-trash"></i></button></td>
+            </tr>
+            {% empty %}
+            <tr id="row-empty"><td colspan="4" style="color:var(--text-muted); text-align:center; padding:24px;">Nenhum armamento cadastrado.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<script>
+const csrfToken = '{{ csrf_token }}';
+const ADD_URL    = "{% url 'Secao_operacoes:armamento_catalogo_add' %}";
+
+async function adicionarArma() {
+    const nome = document.getElementById('novo-nome').value.trim();
+    if (!nome) return;
+    const carg = parseInt(document.getElementById('novo-carg').value) || 0;
+    const cart = parseInt(document.getElementById('novo-cart').value) || 0;
+
+    const res = await fetch(ADD_URL, {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json', 'X-CSRFToken': csrfToken},
+        body: JSON.stringify({nome, carregadores_por_unidade: carg, cartuchos_por_unidade: cart})
+    });
+    const data = await res.json();
+    if (data.error) return;
+
+    const msg = document.getElementById('msg');
+    if (!data.created) {
+        msg.textContent = 'Armamento já existe no catálogo.';
+        msg.style.color = 'var(--text-muted)';
+        return;
+    }
+    msg.textContent = 'Adicionado com sucesso!';
+    msg.style.color = '#22c55e';
+
+    document.getElementById('row-empty')?.remove();
+    const tbody = document.getElementById('catalogo-body');
+    const tr = document.createElement('tr');
+    tr.id = 'row-' + data.id;
+    tr.innerHTML = `
+        <td>${data.nome}</td>
+        <td style="text-align:center;">${carg}</td>
+        <td style="text-align:center;">${cart}</td>
+        <td><button class="btn-danger" onclick="excluirArma(${data.id})"><i class="fas fa-trash"></i></button></td>`;
+    tbody.appendChild(tr);
+
+    document.getElementById('novo-nome').value = '';
+    document.getElementById('novo-carg').value = '0';
+    document.getElementById('novo-cart').value = '0';
+    setTimeout(() => msg.textContent = '', 3000);
+}
+
+async function excluirArma(pk) {
+    if (!confirm('Remover armamento do catálogo?')) return;
+    await fetch(`/secao_operacoes/armamentos/catalogo/${pk}/excluir/`, {
+        method: 'POST', headers: {'X-CSRFToken': csrfToken}
+    });
+    document.getElementById('row-' + pk)?.remove();
+}
+
+document.getElementById('novo-nome').addEventListener('keydown', e => {
+    if (e.key === 'Enter') { e.preventDefault(); adicionarArma(); }
+});
+</script>
+{% endblock %}
