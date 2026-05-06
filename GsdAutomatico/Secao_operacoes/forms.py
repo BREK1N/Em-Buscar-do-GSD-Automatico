@@ -1,5 +1,5 @@
 from django import forms
-from .models import Escala, TurnoEscala, PostoEscala
+from .models import Escala, TurnoEscala, PostoEscala, Missao
 from Secao_pessoal.models import Efetivo
 
 
@@ -115,3 +115,51 @@ class TurnoEscalaForm(forms.ModelForm):
                     self.add_error('militar', 'Este militar já está escalado para esta escala neste dia.')
 
         return cleaned_data
+
+
+class MissaoForm(forms.ModelForm):
+    equipe = forms.ModelMultipleChoiceField(
+        queryset=Efetivo.objects.filter(deleted=False).order_by('nome_guerra'),
+        widget=forms.SelectMultiple(attrs={'class': 'form-select', 'size': '8'}),
+        required=False,
+        label="Equipe"
+    )
+
+    class Meta:
+        model = Missao
+        exclude = ['criado_por', 'criado_em', 'atualizado_em', 'data_emissao', 'radio_nome',
+                   'efetivo_of', 'efetivo_so_sgt', 'efetivo_cb', 'efetivo_s1', 'efetivo_s2', 'efetivo_rec',
+                   'cmt_a_cargo', 'mot_a_cargo', 'equipe_a_cargo',
+                   'cmt_missao', 'equipe', 'motorista', 'horarios_config']
+        widgets = {
+            'numero': forms.NumberInput(attrs={'class': 'form-control'}),
+            'nome_missao': forms.TextInput(attrs={'class': 'form-control'}),
+            'local': forms.TextInput(attrs={'class': 'form-control'}),
+            'objetivo': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'endereco': forms.TextInput(attrs={'class': 'form-control'}),
+            'acionador': forms.TextInput(attrs={'class': 'form-control'}),
+            'data_emissao': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}),
+            'data_missao': forms.DateInput(attrs={'class': 'form-control', 'type': 'date'}, format='%Y-%m-%d'),
+            'horario_chamada': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'horario_armamento': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'horario_alimentacao': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'horario_sala_sgt': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'horario_saida': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'horario_pronto': forms.TimeInput(attrs={'class': 'form-control', 'type': 'time'}),
+            'transporte': forms.TextInput(attrs={'class': 'form-control'}),
+            'radio_qtd': forms.NumberInput(attrs={'class': 'form-control'}),
+            'radio_canal': forms.TextInput(attrs={'class': 'form-control'}),
+            'diretriz_1': forms.Textarea(attrs={'class': 'form-control', 'rows': 2}),
+            'diretriz_2': forms.Textarea(attrs={'class': 'form-control', 'rows': 3}),
+            'uniforme': forms.TextInput(attrs={'class': 'form-control'}),
+            'observacoes_armamento': forms.TextInput(attrs={'class': 'form-control'}),
+            'efetivo_so_sgt': forms.NumberInput(attrs={'class': 'form-control'}),
+            'efetivo_cb': forms.NumberInput(attrs={'class': 'form-control'}),
+            'efetivo_s1': forms.NumberInput(attrs={'class': 'form-control'}),
+            'efetivo_s2': forms.NumberInput(attrs={'class': 'form-control'}),
+            'cmt_missao': forms.Select(attrs={'class': 'form-select'}),
+            'motorista': forms.Select(attrs={'class': 'form-select'}),
+        }
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)

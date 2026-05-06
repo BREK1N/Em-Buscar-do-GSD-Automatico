@@ -1,0 +1,73 @@
+{% extends 'Secao_operacoes/base.html' %}
+{% block title %}Configurações de Operações{% endblock %}
+{% block page_title %}Configurações{% endblock %}
+
+{% block content %}
+<style>
+.page-title { font-family:'Rajdhani',sans-serif; font-size:1.4rem; font-weight:700; color:var(--text-primary); margin-bottom:0.25rem; }
+.page-sub { font-size:13px; color:var(--text-muted); margin-bottom:1.5rem; }
+.card { background:var(--bg-card); border:1px solid var(--border-strong); border-radius:14px; padding:1.75rem; box-shadow:var(--shadow-card); max-width:640px; }
+.card-title { font-family:'Rajdhani',sans-serif; font-size:0.85rem; font-weight:700; letter-spacing:.12em; text-transform:uppercase; color:var(--accent); margin-bottom:1rem; }
+label { font-size:12px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px; }
+.form-select {
+    width:100%; padding:8px 12px; border-radius:8px;
+    border:1px solid var(--border-strong); background:var(--bg-input);
+    color:var(--text-primary); font-size:14px; font-family:'Inter',sans-serif;
+}
+.form-select:focus { outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow); }
+.form-group { margin-bottom:1.25rem; }
+.btn-submit {
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--accent); color:#fff; border:none;
+    padding:10px 24px; border-radius:9px; font-size:0.9rem; font-weight:600;
+    cursor:pointer; transition:opacity 0.15s;
+}
+.btn-submit:hover { opacity:0.88; }
+.help-text { font-size:11px; color:var(--text-muted); margin-top:4px; }
+</style>
+
+<h1 class="page-title"><i class="fas fa-cog" style="color:var(--accent);margin-right:8px;"></i>Configurações de Operações</h1>
+<p class="page-sub">Define os militares que assinarão as Ordens de Missão (OMIS).</p>
+
+<div class="card">
+    <div class="card-title"><i class="fas fa-signature"></i> Assinaturas Padrão</div>
+    <form method="post">
+        {% csrf_token %}
+        <div class="form-group">
+            <label>Chefe da Seção de Operações</label>
+            <select name="chefe_sop" class="form-select">
+                <option value="">— Nenhum —</option>
+                {% for e in efetivos %}
+                <option value="{{ e.pk }}" {% if config.chefe_sop and config.chefe_sop.pk == e.pk %}selected{% endif %}>
+                    {{ e.posto }} {{ e.nome_guerra }} ({{ e.nome_completo }})
+                </option>
+                {% endfor %}
+            </select>
+            <div class="help-text">Aparecerá como "Chefe da Seção de Operações" nas OMIS geradas.</div>
+        </div>
+        <div class="form-group">
+            <label>Comandante do GSD GL</label>
+            <select name="comandante_gsd" class="form-select">
+                <option value="">— Nenhum —</option>
+                {% for e in efetivos %}
+                <option value="{{ e.pk }}" {% if config.comandante_gsd and config.comandante_gsd.pk == e.pk %}selected{% endif %}>
+                    {{ e.posto }} {{ e.nome_guerra }} ({{ e.nome_completo }})
+                </option>
+                {% endfor %}
+            </select>
+            <div class="help-text">Aparecerá como "Comandante do GSD GL" nas OMIS geradas.</div>
+        </div>
+        <div style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1.5rem;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Diretriz Padrão 1</label>
+            <textarea name="diretriz_padrao_1" class="form-select" rows="2" style="resize:vertical;font-size:13px;padding:8px 12px;">{{ config.diretriz_padrao_1 }}</textarea>
+        </div>
+        <div style="margin-top:1rem;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-muted);display:block;margin-bottom:4px;">Diretriz Padrão 2</label>
+            <textarea name="diretriz_padrao_2" class="form-select" rows="4" style="resize:vertical;font-size:13px;padding:8px 12px;">{{ config.diretriz_padrao_2 }}</textarea>
+        </div>
+        <button type="submit" class="btn-submit" style="margin-top:1.5rem;">
+            <i class="fas fa-save"></i> Salvar Configurações
+        </button>
+    </form>
+</div>
+{% endblock %}

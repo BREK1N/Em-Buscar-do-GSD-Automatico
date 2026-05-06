@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4; margin: 1.5cm 1.8cm 1.8cm 1.8cm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 8.5pt;
+        color: #000;
+        line-height: 1.25;
+    }
+
+    /*
+      8 colunas que somam 100%:
+        c1  18%   ARMA / rótulo seção
+        c2   7%   QTD
+        c3   9%   Carregador
+        c4   8%   Cartucho
+        c5  18%   EQUIP-1 / valor de horário
+        ─── esquerda (c1-c5) = 60% ───────────────────
+        c6   7%   QTD-1
+        c7  17%   EQUIP-2 / TRANSPORTE/COMUNICAÇÃO
+        c8  16%   QTD-2 / CANAL
+        ─── direita (c6-c8) = 40% ────────────────────
+    */
+
+    table.omis {
+        width: 100%;
+        border-collapse: collapse;
+        border: 1.5px solid #000;
+    }
+    table.omis td {
+        border: 1px solid #000;
+        padding: 2px 5px;
+        vertical-align: middle;
+        font-size: 8.5pt;
+    }
+
+    /* Linhas de horário com altura controlada */
+    tr.hor td { padding: 1px 5px; height: 14px; line-height: 1.1; }
+
+    .bold   { font-weight: bold; }
+    .center { text-align: center; }
+    .right  { text-align: right; }
+    .top    { vertical-align: top; }
+    .mid    { vertical-align: middle; }
+
+    .sec {
+        font-weight: bold;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .col-hdr {
+        font-weight: bold;
+        font-size: 7.5pt;
+        text-align: center;
+        vertical-align: middle;
+    }
+    .hor { font-weight: bold; font-size: 8pt; }
+    .val { text-align: center; font-size: 8pt; }
+</style>
+</head>
+<body>
+
+<table class="omis">
+
+    <!-- ══ CABEÇALHO DO DOCUMENTO (1ª linha da tabela) ══ -->
+    <tr>
+        <td colspan="3" class="bold center" style="font-size:8pt; white-space:nowrap;">
+            OMIS Nº {{ missao.numero }}/SOPGSDGL/GSD GL
+        </td>
+        <td colspan="3" class="center bold" style="font-size:9pt; line-height:1.6;">
+            COMANDO DA AERONÁUTICA<br>BAGL<br>GSD GL
+        </td>
+        <td colspan="2" class="right" style="font-size:8pt;">
+            Galeão, {{ missao.data_emissao|date:"d" }} de {{ missao.data_emissao|date:"F" }} de {{ missao.data_emissao|date:"Y" }}.
+        </td>
+    </tr>
+
+    <!-- ══ 1 – MISSÃO ══ -->
+    <tr>
+        <td class="sec" style="width:18%;">1 - MISSÃO</td>
+        <td colspan="7" class="bold" style="font-size:9pt;">{{ missao.nome_missao|upper }}</td>
+    </tr>
+
+    <!-- ══ LOCAL ══ -->
+    <tr>
+        <td class="sec">LOCAL</td>
+        <td colspan="7">{{ missao.local }}</td>
+    </tr>
+
+    <!-- ══ DIRETRIZES ══ -->
+    <tr>
+        <td class="sec">DIRETRIZES</td>
+        <td colspan="7" class="top" style="padding:3px 5px; font-size:8pt;">
+            <p style="margin:1px 0;"><strong>Acionador da missão: {{ missao.acionador }}</strong></p>
+            <p style="margin:1px 0;">- <strong>Objetivo da missão:</strong> {{ missao.objetivo }}</p>
+            {% if missao.endereco %}<p style="margin:1px 0;">- <strong>Endereço:</strong> {{ missao.endereco }}</p>{% endif %}
+            {% if missao.diretriz_1 %}<p style="margin:1px 0;">- {{ missao.diretriz_1 }}</p>{% endif %}
+            {% if missao.diretriz_2 %}<p style="margin:1px 0;">- {{ missao.diretriz_2 }}</p>{% endif %}
+        </td>
+    </tr>
+
+    <!-- ══ QUADROS DE HORÁRIOS – cabeçalho (largura total) ══ -->
+    <tr>
+        <td colspan="8" class="sec" style="text-align:left; padding-left:5px;">2 – QUADROS DE HORÁRIOS</td>
+    </tr>
+
+    <!-- Data da missão – largura total -->
+    <tr class="hor">
+        <td colspan="8" style="font-size:8pt; height:15px;">
+            Data da missão: {{ missao.data_missao|date:"d" }} de {{ missao.data_missao|date:"F" }} de {{ missao.data_missao|date:"Y" }}
+        </td>
+    </tr>
+
+    <!--
+      Esquerda 50% = c1-c4 (label colspan=3 + valor colspan=1)
+      Direita  50% = c5-c8 (TRANSPORTE rowspan=4 / COMUNICAÇÃO)
+    -->
+
+    {% for h in horarios_ordenados %}
+    <tr class="hor">
+        <td colspan="3" class="hor {% if h.label|length > 20 %}{% else %}center{% endif %}" style="{% if h.label|length > 20 %}font-size:7.5pt;{% endif %}">{{ h.label|upper }}</td>
+        <td class="val">{{ h.horario|time:"H:i"|default:"-" }}</td>
+        {% if forloop.counter == 1 %}
+        <td colspan="4" style="padding:1px 5px; text-align:left; font-size:8pt; font-weight:bold;">3 - TRANSPORTE</td>
+        {% elif forloop.counter == 2 %}
+        <td colspan="4" style="padding:1px 5px; text-align:center; font-size:8pt;">{{ missao.transporte|default:"" }}</td>
+        {% elif forloop.counter == 5 %}
+        <td colspan="4" class="sec" style="text-align:left; padding-left:5px;">4 - COMUNICAÇÃO</td>
+        {% elif forloop.counter == 6 %}
+        <td class="col-hdr" style="width:12%;">RÁDIO</td>
+        <td class="col-hdr" style="width:13%;">QTD</td>
+        <td class="col-hdr" colspan="2" style="width:25%;">CANAL</td>
+        {% else %}
+        <td colspan="4"></td>
+        {% endif %}
+    </tr>
+    {% endfor %}
+
+    <!-- Dados de Comunicação -->
+    <tr class="hor">
+        <td colspan="4"></td>
+        <td class="val">{{ missao.radio_nome|default:"-" }}</td>
+        <td class="val">{% if missao.radio_qtd > 0 %}{{ missao.radio_qtd }}{% else %}-{% endif %}</td>
+        <td class="val" colspan="2">{{ missao.radio_canal|default:"-" }}</td>
+    </tr>
+
+    <!-- ══ 5 – UNIFORME ══ -->
+    <tr>
+        <td colspan="8"><strong>5 – UNIFORME:</strong> {{ missao.uniforme|default:"—" }}</td>
+    </tr>
+
+    <!-- ══ 6 – ARMAMENTO E EQUIPAMENTO ══ -->
+    <tr>
+        <td colspan="8">
+            <strong>6 - ARMAMENTO CONFORME</strong> {{ missao.observacoes_armamento|default:"RIMB" }} <strong>e EQUIPAMENTO:</strong>
+        </td>
+    </tr>
+
+    <!-- Cabeçalhos: cada coluna de armamento usa 1 coluna base -->
+    <tr>
+        <td class="col-hdr">ARMA</td>           <!-- c1 18% -->
+        <td class="col-hdr">QTD</td>            <!-- c2  7% -->
+        <td class="col-hdr">Carregador</td>     <!-- c3  9% -->
+        <td class="col-hdr">Cartucho</td>       <!-- c4  8% -->
+        <td class="col-hdr">EQUIPAMENTO</td>    <!-- c5 18% -->
+        <td class="col-hdr">QTD</td>            <!-- c6  7% -->
+        <td class="col-hdr">EQUIPAMENTO</td>    <!-- c7 17% -->
+        <td class="col-hdr">QTD</td>            <!-- c8 16% -->
+    </tr>
+
+    {% for linha in linhas_arma_equip %}
+    <tr style="height:18px;">
+        <td>{% if linha.arma %}{{ linha.arma.arma }}{% endif %}</td>
+        <td class="center">{% if linha.arma %}{{ linha.arma.quantidade }}{% endif %}</td>
+        <td class="center">{% if linha.arma %}{{ linha.arma.carregadores }}{% endif %}</td>
+        <td class="center">{% if linha.arma %}{{ linha.arma.cartuchos }}{% endif %}</td>
+        <td>{% if linha.eq1 %}{{ linha.eq1.equipamento }}{% endif %}</td>
+        <td class="center">{% if linha.eq1 %}{{ linha.eq1.quantidade }}{% endif %}</td>
+        <td>{% if linha.eq2 %}{{ linha.eq2.equipamento }}{% endif %}</td>
+        <td class="center">{% if linha.eq2 %}{{ linha.eq2.quantidade }}{% endif %}</td>
+    </tr>
+    {% endfor %}
+
+    <!-- ══ 7 – EFETIVO ══ -->
+    <tr>
+        <td colspan="8" class="sec" style="text-align:left; padding-left:5px;">7 - EFETIVO</td>
+    </tr>
+    <tr>
+        <td colspan="8" style="border-bottom:1px solid #000;">{% if missao.efetivo_of %}OF: {{ missao.efetivo_of }} – {% endif %}SO/SGT: {{ missao.efetivo_so_sgt }} – CB: {{ missao.efetivo_cb }} – S1: {{ missao.efetivo_s1 }} – S2: {{ missao.efetivo_s2 }}{% if missao.efetivo_rec %} – REC: {{ missao.efetivo_rec }}{% endif %}</td>
+    </tr>
+    <tr>
+        <td colspan="8" style="border-top:none; border-bottom:none;">
+            <strong>CMT:</strong> {% if missao.cmt_a_cargo %}{{ missao.cmt_a_cargo }}{% elif missao.cmt_missao %}{{ missao.cmt_missao.posto }} {{ missao.cmt_missao.nome_guerra }}{% else %}—{% endif %}.
+        </td>
+    </tr>
+    <tr>
+        <td colspan="8" style="border-top:none; border-bottom:none;">
+            <strong>EQUIPE:</strong>
+            {% if missao.equipe_a_cargo %}{{ missao.equipe_a_cargo }}{% else %}{% for posto, nomes in equipe_por_posto %}{{ posto }}: {% for n in nomes %}{{ n }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if not forloop.last %} – {% endif %}{% empty %}—{% endfor %}{% endif %}.
+        </td>
+    </tr>
+    {% if missao.motorista or missao.mot_a_cargo %}
+    <tr>
+        <td colspan="8" style="border-top:none;">
+            <strong>MOT:</strong> {% if missao.mot_a_cargo %}{{ missao.mot_a_cargo }}{% else %}{{ missao.motorista.posto }} {{ missao.motorista.nome_guerra }}{% endif %}.
+        </td>
+    </tr>
+    {% else %}
+    <tr><td colspan="8" style="border-top:none;"></td></tr>
+    {% endif %}
+
+</table>
+
+<!-- ══ ASSINATURAS ══ -->
+<table style="width:100%; border-collapse:collapse; border:1.5px solid #000; margin-top:0; border-top:none;">
+    <tr>
+        <td style="width:50%; text-align:center; padding:50px 40px 10px 40px; vertical-align:bottom; border-right:1px solid #000;">
+            <div style="border-top:1.5px solid #000; padding-top:5px;">
+                <strong style="font-size:8.5pt; display:block;">
+                    {% if config.chefe_sop %}
+                        {{ config.chefe_sop.nome_completo|upper }} {{ config.chefe_sop.posto }}
+                    {% else %}
+                        &nbsp;
+                    {% endif %}
+                </strong>
+                <span style="font-size:8pt;">Chefe da Seção de Operações</span>
+            </div>
+        </td>
+        <td style="width:50%; text-align:center; padding:50px 40px 10px 40px; vertical-align:bottom;">
+            <div style="border-top:1.5px solid #000; padding-top:5px;">
+                <strong style="font-size:8.5pt; display:block;">
+                    {% if config.comandante_gsd %}
+                        {{ config.comandante_gsd.nome_completo|upper }} {{ config.comandante_gsd.posto }}
+                    {% else %}
+                        &nbsp;
+                    {% endif %}
+                </strong>
+                <span style="font-size:8pt;">Comandante do GSD GL</span>
+            </div>
+        </td>
+    </tr>
+</table>
+
+</body>
+</html>

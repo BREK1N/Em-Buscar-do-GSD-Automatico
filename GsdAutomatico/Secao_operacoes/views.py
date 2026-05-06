@@ -1,13 +1,110 @@
 from django.shortcuts import render, redirect, get_object_or_404
+from django.db import models
 from django.contrib.auth.decorators import login_required
 from django.contrib import messages
-from django.http import JsonResponse
+from django.http import JsonResponse, HttpResponse
 from datetime import date
-from .models import Escala, TurnoEscala, PostoEscala
-from .forms import EscalaForm, TurnoEscalaForm, PostoEscalaForm
+import json
+from .models import Escala, TurnoEscala, PostoEscala, Missao, ItemArmamento, ItemEquipamento, ItemHorario, ConfiguracaoOperacoes, EquipamentoCatalogo, RadioCatalogo, UniformeCatalogo, ArmamentoCatalogo
+from .forms import EscalaForm, TurnoEscalaForm, PostoEscalaForm, MissaoForm
 from Secao_pessoal.models import Efetivo
 from django.contrib.auth import get_user_model
 User = get_user_model()
+
+STD_HORARIOS = [
+    ('chamada',     'horario_chamada',     'CHAMADA'),
+    ('armamento',   'horario_armamento',   'ARMAMENTO'),
+    ('alimentacao', 'horario_alimentacao', 'ALIMENTAÇÃO'),
+    ('sala_sgt',    'horario_sala_sgt',    'HORÁRIO NA SALA SGT DE DIA AO GSD GL'),
+    ('saida',       'horario_saida',       'SAÍDA DO GSD GL'),
+    ('pronto',      'horario_pronto',      'PRONTO NO OBJETIVO'),
+]
+_STD_MAP = {k: (f, l) for k, f, l in STD_HORARIOS}
+
+
+def _horarios_form_ctx(missao=None):
+    """Returns ordered list of schedule items for the form template."""
+    if missao and missao.horarios_config:
+        try:
+            config = json.loads(missao.horarios_config)
+        except (json.JSONDecodeError, ValueError):
+            config = []
+    else:
+        config = [{'tipo': 'padrao', 'key': k} for k, _, _ in STD_HORARIOS]
+
+    extras = list(missao.horarios_extras.all()) if missao else []
+    extra_idx = 0
+    result = []
+    for entry in config:
+        key = entry.get('key', '')
+        tipo = entry.get('tipo', 'padrao' if key else 'extra')
+        if tipo == 'padrao' and key in _STD_MAP:
+            field_name, label = _STD_MAP[key]
+            v = getattr(missao, field_name, None) if missao else None
+            value = v.strftime('%H:%M') if v else ''
+            result.append({'tipo': 'padrao', 'key': key, 'label': label,
+                           'field_name': field_name, 'value': value})
+        elif tipo == 'extra' and extra_idx < len(extras):
+            e = extras[extra_idx]
+            result.append({'tipo': 'extra', 'label': e.label,
+                           'value': e.horario.strftime('%H:%M') if e.horario else ''})
+            extra_idx += 1
+    while extra_idx < len(extras):
+        e = extras[extra_idx]
+        result.append({'tipo': 'extra', 'label': e.label,
+                       'value': e.horario.strftime('%H:%M') if e.horario else ''})
+        extra_idx += 1
+    return result
+
+
+def _horarios_pdf_ctx(missao):
+    """Returns ordered list of {label, horario} for the PDF template."""
+    if missao.horarios_config:
+        try:
+            config = json.loads(missao.horarios_config)
+        except (json.JSONDecodeError, ValueError):
+            config = [{'tipo': 'padrao', 'key': k} for k, _, _ in STD_HORARIOS]
+    else:
+        config = [{'tipo': 'padrao', 'key': k} for k, _, _ in STD_HORARIOS]
+
+    std_labels = {k: l for k, _, l in STD_HORARIOS}
+    std_fields = {k: getattr(missao, f) for k, f, _ in STD_HORARIOS}
+    extras = list(missao.horarios_extras.all())
+    extra_idx = 0
+    result = []
+    for entry in config:
+        key = entry.get('key', '')
+        tipo = entry.get('tipo', 'padrao' if key else 'extra')
+        if tipo == 'padrao' and key in std_labels:
+            result.append({'label': std_labels[key], 'horario': std_fields[key]})
+        elif tipo == 'extra' and extra_idx < len(extras):
+            e = extras[extra_idx]
+            result.append({'label': e.label, 'horario': e.horario})
+            extra_idx += 1
+    while extra_idx < len(extras):
+        e = extras[extra_idx]
+        result.append({'label': e.label, 'horario': e.horario})
+        extra_idx += 1
+    return result
+
+
+def _is_sop_operacoes(user):
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or user.is_staff:
+        return True
+    return user.groups.filter(name='SOP - Operações').exists()
+
+
+def sop_required(view_func):
+    from functools import wraps
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not _is_sop_operacoes(request.user):
+            messages.error(request, 'Acesso restrito ao grupo SOP - Operações.')
+            return redirect('Secao_operacoes:index')
+        return view_func(request, *args, **kwargs)
+    return login_required(wrapper)
 
 
 # ── Helpers ─────────────────────────────────────────────────────────────────
@@ -377,3 +474,447 @@ def api_escala_eventos(request, pk):
 
         eventos.append(evento)
     return JsonResponse(eventos, safe=False)
+
+
+# ── Missões (OMIS) ────────────────────────────────────────────────────────────
+
+@sop_required
+def missao_list(request):
+    missoes = Missao.objects.all().select_related('cmt_missao')
+    return render(request, 'Secao_operacoes/missao_list.html', {'missoes': missoes})
+
+
+@sop_required
+def missao_create(request):
+    if request.method == 'POST':
+        form = MissaoForm(request.POST)
+        if form.is_valid():
+            from django.utils import timezone
+            missao = form.save(commit=False)
+            missao.criado_por = request.user
+            missao.data_emissao = timezone.localdate()
+            missao.radio_nome = request.POST.get('radio_nome', '').strip()
+            _salvar_efetivo_post(request, missao)
+            missao.save()
+            _salvar_equipe_post(request, missao)
+            _salvar_horarios(request, missao)
+            _salvar_armamentos_equipamentos(request, missao)
+            messages.success(request, f'OMIS Nº {missao.numero} criada com sucesso.')
+            return redirect('Secao_operacoes:missao_detail', pk=missao.pk)
+    else:
+        proximo = (Missao.objects.aggregate(m=models.Max('numero'))['m'] or 0) + 1
+        cfg = ConfiguracaoOperacoes.get_instance()
+        form = MissaoForm(initial={
+            'numero': proximo,
+            'diretriz_1': cfg.diretriz_padrao_1,
+            'diretriz_2': cfg.diretriz_padrao_2,
+        })
+    cfg = ConfiguracaoOperacoes.get_instance()
+    return render(request, 'Secao_operacoes/missao_form.html', {
+        'form': form, 'title': 'Nova Missão (OMIS)',
+        'efetivo_json': _efetivo_json_ctx(),
+        'diretriz_padrao_1': cfg.diretriz_padrao_1,
+        'diretriz_padrao_2': cfg.diretriz_padrao_2,
+        'horarios_form': _horarios_form_ctx(None),
+        'std_horarios_disponiveis': STD_HORARIOS,
+    })
+
+
+@sop_required
+def missao_edit(request, pk):
+    missao = get_object_or_404(Missao, pk=pk)
+    if request.method == 'POST':
+        form = MissaoForm(request.POST, instance=missao)
+        if form.is_valid():
+            from django.utils import timezone
+            missao = form.save(commit=False)
+            missao.data_emissao = timezone.localdate()
+            missao.radio_nome = request.POST.get('radio_nome', '').strip()
+            _salvar_efetivo_post(request, missao)
+            missao.save()
+            _salvar_equipe_post(request, missao)
+            _salvar_horarios(request, missao)
+            missao.armamentos.all().delete()
+            missao.equipamentos.all().delete()
+            _salvar_armamentos_equipamentos(request, missao)
+            messages.success(request, 'Missão atualizada com sucesso.')
+            return redirect('Secao_operacoes:missao_detail', pk=missao.pk)
+    else:
+        form = MissaoForm(instance=missao)
+    cfg = ConfiguracaoOperacoes.get_instance()
+    return render(request, 'Secao_operacoes/missao_form.html', {
+        'form': form, 'title': 'Editar Missão', 'missao': missao,
+        'efetivo_json': _efetivo_json_ctx(),
+        'diretriz_padrao_1': cfg.diretriz_padrao_1,
+        'diretriz_padrao_2': cfg.diretriz_padrao_2,
+        'horarios_form': _horarios_form_ctx(missao),
+        'std_horarios_disponiveis': STD_HORARIOS,
+    })
+
+
+@sop_required
+def missao_detail(request, pk):
+    missao = get_object_or_404(Missao, pk=pk)
+    config = ConfiguracaoOperacoes.get_instance()
+    return render(request, 'Secao_operacoes/missao_detail.html', {
+        'missao': missao,
+        'config': config,
+    })
+
+
+@sop_required
+def missao_delete(request, pk):
+    missao = get_object_or_404(Missao, pk=pk)
+    if request.method == 'POST':
+        numero = missao.numero
+        missao.delete()
+        messages.success(request, f'OMIS Nº {numero} excluída com sucesso.')
+        return redirect('Secao_operacoes:missao_list')
+    return redirect('Secao_operacoes:missao_list')
+
+
+@sop_required
+def missao_pdf(request, pk):
+    from django.template.loader import render_to_string
+    from weasyprint import HTML
+    missao = get_object_or_404(Missao, pk=pk)
+    config = ConfiguracaoOperacoes.get_instance()
+
+    armas = list(missao.armamentos.all())
+    equips = list(missao.equipamentos.all())
+
+    # Monta linhas da tabela: cada linha tem 1 arma + 2 equipamentos (lado a lado)
+    max_linhas = max(len(armas), (len(equips) + 1) // 2, 4)
+    linhas_arma_equip = []
+    for i in range(max_linhas):
+        linhas_arma_equip.append({
+            'arma':  armas[i] if i < len(armas) else None,
+            'eq1':   equips[i * 2]     if i * 2 < len(equips) else None,
+            'eq2':   equips[i * 2 + 1] if i * 2 + 1 < len(equips) else None,
+        })
+
+    # Agrupa toda a equipe (cmt + equipe + motorista) por posto, omitindo postos vazios
+    from collections import defaultdict
+    todos = []
+    if missao.cmt_missao:
+        todos.append(('CMT', missao.cmt_missao))
+    for p in missao.equipe.all().order_by('posto', 'nome_guerra'):
+        todos.append(('equipe', p))
+    if missao.motorista:
+        todos.append(('MOT', missao.motorista))
+
+    # Agrupa equipe por posto (mantendo ordem de aparição)
+    grupos_equipe = defaultdict(list)
+    ordem_postos = []
+    for _, p in [(r, p) for r, p in todos if r == 'equipe']:
+        if p.posto not in grupos_equipe:
+            ordem_postos.append(p.posto)
+        grupos_equipe[p.posto].append(p.nome_guerra)
+    equipe_por_posto = [(posto, grupos_equipe[posto]) for posto in ordem_postos]
+
+    html_string = render_to_string('Secao_operacoes/missao_pdf.html', {
+        'missao': missao,
+        'config': config,
+        'linhas_arma_equip': linhas_arma_equip,
+        'equipe_por_posto': equipe_por_posto,
+        'horarios_ordenados': _horarios_pdf_ctx(missao),
+    }, request=request)
+    pdf = HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf()
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'filename="OMIS_{missao.numero}.pdf"'
+    return response
+
+
+@sop_required
+def efetivo_busca_json(request):
+    q = request.GET.get('q', '').strip()
+    qs = Efetivo.objects.filter(deleted=False).order_by('posto', 'nome_guerra')
+    if q:
+        qs = qs.filter(nome_guerra__icontains=q) | qs.filter(nome_completo__icontains=q) | qs.filter(posto__icontains=q)
+    return JsonResponse([{
+        'id': e.pk, 'posto': e.posto, 'nome_guerra': e.nome_guerra,
+        'label': f"{e.posto} {e.nome_guerra}".strip(), 'oficial': e.oficial,
+    } for e in qs[:30]], safe=False)
+
+
+@sop_required
+def missao_busca_json(request):
+    q = request.GET.get('q', '').strip()
+    if len(q) < 2:
+        return JsonResponse([], safe=False)
+    missoes = Missao.objects.filter(nome_missao__icontains=q).order_by('-data_missao')[:10]
+    resultado = []
+    for m in missoes:
+        resultado.append({
+            'id': m.pk,
+            'label': f"{m.nome_missao} – {m.data_missao.strftime('%d/%m/%Y')}",
+            'nome_missao': m.nome_missao,
+            'local': m.local,
+            'acionador': m.acionador,
+            'objetivo': m.objetivo,
+            'endereco': m.endereco,
+            'horario_chamada': m.horario_chamada.strftime('%H:%M') if m.horario_chamada else '',
+            'horario_armamento': m.horario_armamento.strftime('%H:%M') if m.horario_armamento else '',
+            'horario_alimentacao': m.horario_alimentacao.strftime('%H:%M') if m.horario_alimentacao else '',
+            'horario_sala_sgt': m.horario_sala_sgt.strftime('%H:%M') if m.horario_sala_sgt else '',
+            'horario_saida': m.horario_saida.strftime('%H:%M') if m.horario_saida else '',
+            'horario_pronto': m.horario_pronto.strftime('%H:%M') if m.horario_pronto else '',
+            'transporte': m.transporte,
+            'radio_nome': m.radio_nome,
+            'radio_qtd': m.radio_qtd,
+            'radio_canal': m.radio_canal,
+            'uniforme': m.uniforme,
+            'observacoes_armamento': m.observacoes_armamento,
+            'cmt_a_cargo': m.cmt_a_cargo,
+            'mot_a_cargo': m.mot_a_cargo,
+            'equipe_a_cargo': m.equipe_a_cargo,
+            'efetivo_of': m.efetivo_of,
+            'efetivo_so_sgt': m.efetivo_so_sgt,
+            'efetivo_cb': m.efetivo_cb,
+            'efetivo_s1': m.efetivo_s1,
+            'efetivo_s2': m.efetivo_s2,
+            'efetivo_rec': m.efetivo_rec,
+            'armamentos': [{'arma': a.arma, 'quantidade': a.quantidade, 'carregadores': a.carregadores, 'cartuchos': a.cartuchos} for a in m.armamentos.all()],
+            'equipamentos': [{'equipamento': e.equipamento, 'quantidade': e.quantidade} for e in m.equipamentos.all()],
+        })
+    return JsonResponse(resultado, safe=False)
+
+
+@sop_required
+def equipamento_catalogo_json(request):
+    q = request.GET.get('q', '').strip()
+    qs = EquipamentoCatalogo.objects.all()
+    if q:
+        qs = qs.filter(nome__icontains=q)
+    return JsonResponse([{'id': e.pk, 'nome': e.nome} for e in qs], safe=False)
+
+
+@sop_required
+def equipamento_catalogo_add(request):
+    if request.method == 'POST':
+        import json
+        data = json.loads(request.body)
+        nome = data.get('nome', '').strip().upper()
+        if nome:
+            obj, created = EquipamentoCatalogo.objects.get_or_create(nome=nome)
+            return JsonResponse({'id': obj.pk, 'nome': obj.nome, 'created': created})
+    return JsonResponse({'error': 'invalid'}, status=400)
+
+
+@sop_required
+def equipamento_catalogo_delete(request, pk):
+    if request.method == 'POST':
+        EquipamentoCatalogo.objects.filter(pk=pk).delete()
+        return JsonResponse({'ok': True})
+    return JsonResponse({'error': 'invalid'}, status=400)
+
+
+@sop_required
+def equipamento_catalogo_list(request):
+    itens = EquipamentoCatalogo.objects.all()
+    return render(request, 'Secao_operacoes/equipamento_catalogo.html', {'itens': itens})
+
+
+def _catalogo_views(Model, add_fields_fn, list_template):
+    pass  # helper não usado diretamente
+
+
+def _make_catalogo_json(Model, extra_fields=None):
+    @sop_required
+    def view(request):
+        q = request.GET.get('q', '').strip()
+        qs = Model.objects.all()
+        if q:
+            qs = qs.filter(nome__icontains=q)
+        result = []
+        for obj in qs:
+            d = {'id': obj.pk, 'nome': obj.nome}
+            if extra_fields:
+                for f in extra_fields:
+                    d[f] = getattr(obj, f, '')
+            result.append(d)
+        return JsonResponse(result, safe=False)
+    return view
+
+
+def _make_catalogo_add(Model, extra_fields=None):
+    @sop_required
+    def view(request):
+        if request.method == 'POST':
+            import json
+            data = json.loads(request.body)
+            nome = data.get('nome', '').strip().upper()
+            if not nome:
+                return JsonResponse({'error': 'nome vazio'}, status=400)
+            defaults = {}
+            if extra_fields:
+                for f in extra_fields:
+                    val = data.get(f, '')
+                    if val != '':
+                        defaults[f] = val
+            obj, created = Model.objects.get_or_create(nome=nome, defaults=defaults)
+            if not created and defaults:
+                for f, v in defaults.items():
+                    setattr(obj, f, v)
+                obj.save()
+            d = {'id': obj.pk, 'nome': obj.nome, 'created': created}
+            if extra_fields:
+                for f in extra_fields:
+                    d[f] = getattr(obj, f, '')
+            return JsonResponse(d)
+        return JsonResponse({'error': 'invalid'}, status=400)
+    return view
+
+
+def _make_catalogo_delete(Model):
+    @sop_required
+    def view(request, pk):
+        if request.method == 'POST':
+            Model.objects.filter(pk=pk).delete()
+            return JsonResponse({'ok': True})
+        return JsonResponse({'error': 'invalid'}, status=400)
+    return view
+
+
+# ── Rádio catálogo ──
+radio_catalogo_json = _make_catalogo_json(RadioCatalogo, extra_fields=['canal_padrao'])
+radio_catalogo_add = _make_catalogo_add(RadioCatalogo, extra_fields=['canal_padrao'])
+radio_catalogo_delete = _make_catalogo_delete(RadioCatalogo)
+
+
+@sop_required
+def radio_catalogo_list(request):
+    return render(request, 'Secao_operacoes/radio_catalogo.html', {'itens': RadioCatalogo.objects.all()})
+
+
+# ── Uniforme catálogo ──
+uniforme_catalogo_json = _make_catalogo_json(UniformeCatalogo)
+uniforme_catalogo_add = _make_catalogo_add(UniformeCatalogo)
+uniforme_catalogo_delete = _make_catalogo_delete(UniformeCatalogo)
+
+
+@sop_required
+def uniforme_catalogo_list(request):
+    return render(request, 'Secao_operacoes/uniforme_catalogo.html', {'itens': UniformeCatalogo.objects.all()})
+
+
+# ── Armamento catálogo ──
+armamento_catalogo_json = _make_catalogo_json(ArmamentoCatalogo, extra_fields=['carregadores_por_unidade', 'cartuchos_por_unidade'])
+armamento_catalogo_add = _make_catalogo_add(ArmamentoCatalogo, extra_fields=['carregadores_por_unidade', 'cartuchos_por_unidade'])
+armamento_catalogo_delete = _make_catalogo_delete(ArmamentoCatalogo)
+
+
+@sop_required
+def armamento_catalogo_list(request):
+    return render(request, 'Secao_operacoes/armamento_catalogo.html', {'itens': ArmamentoCatalogo.objects.all()})
+
+
+def _efetivo_json_ctx():
+    import json
+    qs = Efetivo.objects.filter(deleted=False).order_by('posto', 'nome_guerra')
+    return json.dumps([{
+        'id': e.pk, 'posto': e.posto, 'nome_guerra': e.nome_guerra,
+        'label': f"{e.posto} {e.nome_guerra}".strip(), 'oficial': e.oficial,
+    } for e in qs])
+
+
+def _salvar_efetivo_post(request, missao):
+    missao.efetivo_of     = int(request.POST.get('efetivo_of', 0) or 0)
+    missao.efetivo_so_sgt = int(request.POST.get('efetivo_so_sgt', 0) or 0)
+    missao.efetivo_cb     = int(request.POST.get('efetivo_cb', 0) or 0)
+    missao.efetivo_s1     = int(request.POST.get('efetivo_s1', 0) or 0)
+    missao.efetivo_s2     = int(request.POST.get('efetivo_s2', 0) or 0)
+    missao.efetivo_rec    = int(request.POST.get('efetivo_rec', 0) or 0)
+    missao.cmt_a_cargo    = request.POST.get('cmt_a_cargo', '').strip()
+    missao.mot_a_cargo    = request.POST.get('mot_a_cargo', '').strip()
+    missao.equipe_a_cargo = request.POST.get('equipe_a_cargo', '').strip()
+    cmt_id = request.POST.get('cmt_missao_id')
+    missao.cmt_missao = Efetivo.objects.filter(pk=cmt_id).first() if cmt_id else None
+    mot_id = request.POST.get('motorista_id')
+    missao.motorista = Efetivo.objects.filter(pk=mot_id).first() if mot_id else None
+
+
+def _salvar_equipe_post(request, missao):
+    ids = request.POST.getlist('equipe_ids[]')
+    missao.equipe.set(Efetivo.objects.filter(pk__in=ids))
+
+
+def _salvar_horarios(request, missao):
+    item_keys = request.POST.getlist('horario_item_key[]')
+    extra_labels = request.POST.getlist('horario_extra_label[]')
+    extra_horas  = request.POST.getlist('horario_extra_hora[]')
+
+    # Build config for PDF ordering
+    config = []
+    extra_idx = 0
+    for key in item_keys:
+        if key and key in _STD_MAP:
+            config.append({'tipo': 'padrao', 'key': key})
+        else:
+            config.append({'tipo': 'extra'})
+
+    # Save extra schedule items
+    missao.horarios_extras.all().delete()
+    extra_ordem = 0
+    for i, label in enumerate(extra_labels):
+        if label.strip():
+            h = extra_horas[i].strip() if i < len(extra_horas) else ''
+            ItemHorario.objects.create(
+                missao=missao, label=label.strip(),
+                horario=h if h else None, ordem=extra_ordem,
+            )
+            extra_ordem += 1
+
+    missao.horarios_config = json.dumps(config)
+    missao.save(update_fields=['horarios_config'])
+
+
+def _salvar_armamentos_equipamentos(request, missao):
+    armas = request.POST.getlist('arma[]')
+    qtd_armas = request.POST.getlist('qtd_arma[]')
+    carregadores = request.POST.getlist('carregadores[]')
+    cartuchos = request.POST.getlist('cartuchos[]')
+    for i, arma in enumerate(armas):
+        if arma.strip():
+            ItemArmamento.objects.create(
+                missao=missao,
+                arma=arma.strip(),
+                quantidade=int(qtd_armas[i] or 0),
+                carregadores=int(carregadores[i] or 0),
+                cartuchos=int(cartuchos[i] or 0),
+            )
+    equips = request.POST.getlist('equipamento[]')
+    qtd_equips = request.POST.getlist('qtd_equip[]')
+    for i, eq in enumerate(equips):
+        if eq.strip():
+            ItemEquipamento.objects.create(
+                missao=missao,
+                equipamento=eq.strip(),
+                quantidade=int(qtd_equips[i] or 0),
+            )
+
+
+# ── Configuração de Operações (apenas admin) ──────────────────────────────────
+
+@login_required
+def config_operacoes(request):
+    from informatica.views import is_informatica_admin
+    if not is_informatica_admin(request.user):
+        messages.error(request, 'Acesso restrito ao administrador.')
+        return redirect('Secao_operacoes:index')
+    config = ConfiguracaoOperacoes.get_instance()
+    efetivos = Efetivo.objects.filter(deleted=False).order_by('nome_guerra')
+    if request.method == 'POST':
+        chefe_id = request.POST.get('chefe_sop')
+        cmt_id = request.POST.get('comandante_gsd')
+        config.chefe_sop = Efetivo.objects.filter(pk=chefe_id).first() if chefe_id else None
+        config.comandante_gsd = Efetivo.objects.filter(pk=cmt_id).first() if cmt_id else None
+        config.diretriz_padrao_1 = request.POST.get('diretriz_padrao_1', '').strip()
+        config.diretriz_padrao_2 = request.POST.get('diretriz_padrao_2', '').strip()
+        config.save()
+        messages.success(request, 'Configurações salvas com sucesso.')
+        return redirect('Secao_operacoes:config_operacoes')
+    return render(request, 'Secao_operacoes/config_operacoes.html', {
+        'config': config,
+        'efetivos': efetivos,
+    })

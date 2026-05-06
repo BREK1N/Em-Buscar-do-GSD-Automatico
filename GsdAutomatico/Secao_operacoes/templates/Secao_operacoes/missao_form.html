@@ -1,0 +1,1062 @@
+{% extends 'Secao_operacoes/base.html' %}
+{% block title %}{{ title }}{% endblock %}
+{% block page_title %}{{ title }}{% endblock %}
+
+{% block content %}
+<style>
+.form-card {
+    background:var(--bg-card); border:1px solid var(--border-strong);
+    border-radius:14px; padding:2rem;
+    box-shadow:var(--shadow-card); margin-bottom:1.5rem;
+}
+.section-title {
+    font-family:'Rajdhani',sans-serif; font-size:1rem; font-weight:700;
+    letter-spacing:0.08em; text-transform:uppercase;
+    color:var(--accent); margin-bottom:1rem; padding-bottom:6px;
+    border-bottom:1px solid var(--border);
+}
+.form-grid { display:grid; grid-template-columns:repeat(auto-fill, minmax(220px, 1fr)); gap:1rem; }
+.form-grid-3 { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; }
+.form-grid-2 { display:grid; grid-template-columns:repeat(2,1fr); gap:1rem; }
+label { font-size:12px; font-weight:600; color:var(--text-secondary); display:block; margin-bottom:4px; }
+.form-control, .form-select {
+    width:100%; padding:8px 12px; border-radius:8px;
+    border:1px solid var(--border-strong); background:var(--bg-input);
+    color:var(--text-primary); font-size:14px; font-family:'Inter',sans-serif;
+    transition:border 0.15s;
+}
+.form-control:focus, .form-select:focus {
+    outline:none; border-color:var(--accent); box-shadow:0 0 0 3px var(--accent-glow);
+}
+.form-control::placeholder { color:var(--text-muted); }
+textarea.form-control { resize:vertical; }
+
+/* Armamento / Equipamento dinâmico */
+.items-table { width:100%; border-collapse:collapse; margin-top:8px; }
+.items-table th { font-size:11px; font-weight:700; color:var(--text-muted); letter-spacing:.08em; text-transform:uppercase; padding:6px 8px; border-bottom:1px solid var(--border); }
+.items-table td { padding:6px 8px; }
+.items-table td input { width:100%; }
+.btn-add-row {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:6px 14px; border-radius:7px; font-size:13px; font-weight:500;
+    border:1px dashed var(--border-strong); background:transparent;
+    color:var(--text-secondary); cursor:pointer; transition:all 0.15s; margin-top:8px;
+}
+.btn-add-row:hover { border-color:var(--accent); color:var(--accent); background:var(--accent-dim); }
+.btn-remove-row {
+    background:none; border:none; color:#ef4444; cursor:pointer; padding:4px 8px;
+    border-radius:5px; transition:background 0.15s; font-size:14px;
+}
+.btn-remove-row:hover { background:rgba(239,68,68,.1); }
+
+.btn-submit {
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--accent); color:#fff; border:none;
+    padding:10px 24px; border-radius:9px; font-size:0.9rem; font-weight:600;
+    cursor:pointer; transition:opacity 0.15s;
+}
+.btn-submit:hover { opacity:0.88; }
+.btn-cancel {
+    display:inline-flex; align-items:center; gap:8px;
+    background:var(--bg-page); color:var(--text-secondary);
+    border:1px solid var(--border-strong);
+    padding:10px 24px; border-radius:9px; font-size:0.9rem; font-weight:600;
+    cursor:pointer; transition:all 0.15s; text-decoration:none;
+}
+.btn-cancel:hover { background:var(--bg-sidebar-item); color:var(--text-primary); }
+.form-actions { display:flex; gap:12px; margin-top:1.5rem; flex-wrap:wrap; }
+.errorlist { list-style:none; padding:0; margin:4px 0 0; color:#ef4444; font-size:12px; }
+
+/* Autocomplete missão */
+.autocomplete-wrap { position:relative; }
+.autocomplete-list { position:absolute; top:100%; left:0; right:0; z-index:999;
+    background:var(--bg-card); border:1px solid var(--border-strong); border-radius:8px;
+    box-shadow:0 8px 24px rgba(0,0,0,.18); max-height:220px; overflow-y:auto; margin-top:2px; }
+.autocomplete-item { padding:9px 14px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border); }
+.autocomplete-item:last-child { border-bottom:none; }
+.autocomplete-item:hover { background:var(--accent-dim); color:var(--accent); }
+
+/* Modal catálogo equipamento */
+.catalogo-modal { display:none; position:fixed; inset:0; z-index:1050; background:rgba(0,0,0,.5); align-items:center; justify-content:center; }
+.catalogo-modal.open { display:flex; }
+.catalogo-box { background:var(--bg-card); border-radius:14px; padding:1.5rem; width:420px; max-height:80vh; display:flex; flex-direction:column; gap:12px; }
+.catalogo-search { padding:8px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:14px; width:100%; }
+.catalogo-items { overflow-y:auto; flex:1; border:1px solid var(--border); border-radius:8px; }
+.catalogo-item { padding:9px 14px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; align-items:center; }
+.catalogo-item:last-child { border-bottom:none; }
+.catalogo-item:hover { background:var(--accent-dim); color:var(--accent); }
+.catalogo-item-pick { font-size:11px; color:var(--text-muted); }
+</style>
+
+<form method="post">
+{% csrf_token %}
+
+<!-- 1. Identificação -->
+<div class="form-card">
+    <div class="section-title"><i class="fas fa-id-card" style="margin-right:6px;"></i>Identificação</div>
+    <div class="form-grid">
+        <div>
+            <label>Número da OMIS *</label>
+            {{ form.numero }}
+            {{ form.numero.errors }}
+        </div>
+        <div>
+            <label>Data da Missão *</label>
+            {{ form.data_missao }}
+        </div>
+    </div>
+    <div style="margin-top:1rem;">
+        <label>Nome / Tipo da Missão *</label>
+        <div class="autocomplete-wrap">
+            {{ form.nome_missao }}
+            <div class="autocomplete-list" id="missao-suggestions" style="display:none;"></div>
+        </div>
+    </div>
+    <div class="form-grid" style="margin-top:1rem;">
+        <div>
+            <label>Local</label>
+            {{ form.local }}
+        </div>
+        <div>
+            <label>Acionador (Ofício Nº)</label>
+            {{ form.acionador }}
+        </div>
+    </div>
+    <div style="margin-top:1rem;">
+        <label>Objetivo da Missão *</label>
+        {{ form.objetivo }}
+    </div>
+    <div style="margin-top:1rem;">
+        <label>Endereço</label>
+        {{ form.endereco }}
+    </div>
+    <div style="margin-top:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <label style="margin-bottom:0;">Diretriz 1</label>
+            <button type="button" onclick="restaurarDiretriz(1)" style="font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;"><i class="fas fa-undo"></i> Restaurar padrão</button>
+        </div>
+        {{ form.diretriz_1 }}
+    </div>
+    <div style="margin-top:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <label style="margin-bottom:0;">Diretriz 2</label>
+            <button type="button" onclick="restaurarDiretriz(2)" style="font-size:11px;background:none;border:none;color:var(--text-muted);cursor:pointer;"><i class="fas fa-undo"></i> Restaurar padrão</button>
+        </div>
+        {{ form.diretriz_2 }}
+    </div>
+</div>
+
+<!-- 2. Quadro de Horários -->
+<div class="form-card">
+    <div class="section-title"><i class="fas fa-clock" style="margin-right:6px;"></i>Quadro de Horários</div>
+    <p style="font-size:11px;color:var(--text-muted);margin-bottom:10px;">Arraste ⠿ para reordenar. Clique × para remover um horário desta missão.</p>
+    <table class="items-table" style="margin-top:0;">
+        <thead>
+            <tr>
+                <th style="width:32px;"></th>
+                <th>Descrição</th>
+                <th style="width:130px;">Horário</th>
+                <th style="width:32px;"></th>
+            </tr>
+        </thead>
+        <tbody id="horarios-body">
+            {% for h in horarios_form %}
+            {% if h.tipo == 'padrao' %}
+            <tr class="hor-row hor-padrao-row" data-tipo="padrao" data-key="{{ h.key }}">
+                <td class="drag-handle" style="cursor:grab;text-align:center;color:var(--text-muted);">⠿</td>
+                <td>
+                    <input type="hidden" name="horario_item_key[]" value="{{ h.key }}">
+                    <span style="font-size:13px;font-weight:600;color:var(--text-primary);">{{ h.label }}</span>
+                </td>
+                <td><input type="time" name="{{ h.field_name }}" value="{{ h.value }}" class="form-control"></td>
+                <td><button type="button" class="btn-remove-row" onclick="removerHorario(this)" title="Remover desta missão"><i class="fas fa-times"></i></button></td>
+            </tr>
+            {% else %}
+            <tr class="hor-row hor-extra-row" data-tipo="extra">
+                <td class="drag-handle" style="cursor:grab;text-align:center;color:var(--text-muted);">⠿</td>
+                <td>
+                    <input type="hidden" name="horario_item_key[]" value="">
+                    <input type="text" name="horario_extra_label[]" value="{{ h.label }}" class="form-control" placeholder="Ex: CONFERÊNCIA DE MATERIAL">
+                </td>
+                <td><input type="time" name="horario_extra_hora[]" value="{{ h.value }}" class="form-control"></td>
+                <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
+            </tr>
+            {% endif %}
+            {% endfor %}
+        </tbody>
+    </table>
+    <div style="display:flex;gap:8px;margin-top:10px;flex-wrap:wrap;align-items:center;">
+        <button type="button" class="btn-add-row" onclick="addHorarioExtra()">
+            <i class="fas fa-plus"></i> Adicionar Horário
+        </button>
+        <div id="restaurar-std-wrap" style="position:relative;">
+            <button type="button" class="btn-add-row" id="restaurar-std-btn" onclick="toggleRestaurarStd()" style="display:none;">
+                <i class="fas fa-undo"></i> Restaurar Padrão
+            </button>
+            <div id="restaurar-std-list" style="display:none;position:absolute;top:100%;left:0;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:999;min-width:260px;margin-top:4px;"></div>
+        </div>
+    </div>
+</div>
+
+<!-- 3. Transporte e Comunicação -->
+<div class="form-card">
+    <div class="section-title"><i class="fas fa-car" style="margin-right:6px;"></i>Transporte e Comunicação</div>
+    <div class="form-grid">
+        <div><label>Transporte</label>{{ form.transporte }}</div>
+        <div>
+            <label>Rádio (nome/modelo)</label>
+            <div style="display:flex;gap:6px;">
+                <input type="text" id="radio_nome" name="radio_nome" value="{{ missao.radio_nome|default:'' }}" class="form-control" placeholder="Ex: MOTOROLA" autocomplete="off" style="flex:1;">
+                <button type="button" class="btn-add-row" style="margin-top:0;white-space:nowrap;" onclick="abrirCatalogoRadio()"><i class="fas fa-list"></i></button>
+            </div>
+        </div>
+        <div><label>Rádios (Qtd)</label>{{ form.radio_qtd }}</div>
+        <div><label>Canal</label>{{ form.radio_canal }}</div>
+        <div>
+            <label>Uniforme</label>
+            <div style="display:flex;gap:6px;">
+                {{ form.uniforme }}
+                <button type="button" class="btn-add-row" style="margin-top:0;white-space:nowrap;" onclick="abrirCatalogoUniforme()"><i class="fas fa-list"></i></button>
+            </div>
+        </div>
+    </div>
+    <div style="margin-top:1rem;">
+        <label>Armamento conforme RIMB (ex: 0008; 0009; 0010)</label>
+        {{ form.observacoes_armamento }}
+    </div>
+</div>
+
+<!-- 4. Armamentos -->
+<div class="form-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <div class="section-title" style="margin-bottom:0;border-bottom:none;"><i class="fas fa-crosshairs" style="margin-right:6px;"></i>Armamentos</div>
+        <a href="{% url 'Secao_operacoes:armamento_catalogo_list' %}" target="_blank" style="font-size:12px;color:var(--text-muted);text-decoration:none;"><i class="fas fa-cog"></i> Gerenciar catálogo</a>
+    </div>
+    <table class="items-table" id="armamentos-table">
+        <thead>
+            <tr>
+                <th style="width:33%">Arma</th>
+                <th style="width:10%">Qtd</th>
+                <th style="width:18%">Carregadores</th>
+                <th style="width:18%">Cartuchos</th>
+                <th style="width:11%"></th>
+            </tr>
+        </thead>
+        <tbody id="armamentos-body">
+            {% if missao %}
+                {% for item in missao.armamentos.all %}
+                <tr data-carg-un="0" data-cart-un="0">
+                    <td><input type="text" name="arma[]" value="{{ item.arma }}" class="form-control arma-nome" placeholder="Ex: FUZIL HK-33" autocomplete="off"></td>
+                    <td><input type="number" name="qtd_arma[]" value="{{ item.quantidade }}" class="form-control arma-qtd" min="0"></td>
+                    <td><input type="number" name="carregadores[]" value="{{ item.carregadores }}" class="form-control arma-carg" min="0"></td>
+                    <td><input type="number" name="cartuchos[]" value="{{ item.cartuchos }}" class="form-control arma-cart" min="0"></td>
+                    <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr data-carg-un="0" data-cart-un="0">
+                    <td><input type="text" name="arma[]" class="form-control arma-nome" placeholder="Ex: FUZIL HK-33" autocomplete="off"></td>
+                    <td><input type="number" name="qtd_arma[]" value="0" class="form-control arma-qtd" min="0"></td>
+                    <td><input type="number" name="carregadores[]" value="0" class="form-control arma-carg" min="0"></td>
+                    <td><input type="number" name="cartuchos[]" value="0" class="form-control arma-cart" min="0"></td>
+                    <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    <div style="display:flex;gap:8px;margin-top:8px;">
+        <button type="button" class="btn-add-row" onclick="addArmamento()"><i class="fas fa-plus"></i> Adicionar Linha</button>
+        <button type="button" class="btn-add-row" onclick="abrirCatalogoArmamento()"><i class="fas fa-list"></i> Escolher do Catálogo</button>
+    </div>
+</div>
+
+<!-- 5. Equipamentos -->
+<div class="form-card">
+    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem;">
+        <div class="section-title" style="margin-bottom:0; border-bottom:none;"><i class="fas fa-shield-alt" style="margin-right:6px;"></i>Equipamentos</div>
+        <a href="{% url 'Secao_operacoes:equipamento_catalogo_list' %}" target="_blank" style="font-size:12px; color:var(--text-muted); text-decoration:none;">
+            <i class="fas fa-cog"></i> Gerenciar catálogo
+        </a>
+    </div>
+    <table class="items-table">
+        <thead>
+            <tr>
+                <th style="width:75%">Equipamento</th>
+                <th style="width:15%">Qtd</th>
+                <th style="width:10%"></th>
+            </tr>
+        </thead>
+        <tbody id="equipamentos-body">
+            {% if missao %}
+                {% for item in missao.equipamentos.all %}
+                <tr>
+                    <td><input type="text" name="equipamento[]" value="{{ item.equipamento }}" class="form-control equip-input" placeholder="Nome do equipamento" autocomplete="off"></td>
+                    <td><input type="number" name="qtd_equip[]" value="{{ item.quantidade }}" class="form-control" min="0"></td>
+                    <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
+                </tr>
+                {% endfor %}
+            {% else %}
+                <tr>
+                    <td><input type="text" name="equipamento[]" class="form-control equip-input" placeholder="Nome do equipamento" autocomplete="off"></td>
+                    <td><input type="number" name="qtd_equip[]" value="0" class="form-control" min="0"></td>
+                    <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>
+                </tr>
+            {% endif %}
+        </tbody>
+    </table>
+    <div style="display:flex; gap:8px; margin-top:8px;">
+        <button type="button" class="btn-add-row" onclick="addEquipamento()">
+            <i class="fas fa-plus"></i> Adicionar Linha
+        </button>
+        <button type="button" class="btn-add-row" onclick="abrirCatalogo()">
+            <i class="fas fa-list"></i> Escolher do Catálogo
+        </button>
+    </div>
+</div>
+
+<!-- Modal genérico de catálogo -->
+<div class="catalogo-modal" id="catalogo-modal">
+    <div class="catalogo-box">
+        <div style="display:flex;justify-content:space-between;align-items:center;">
+            <strong id="catalogo-modal-titulo" style="font-size:15px;"></strong>
+            <button type="button" onclick="fecharCatalogo()" style="background:none;border:none;cursor:pointer;font-size:18px;color:var(--text-muted);">&times;</button>
+        </div>
+        <input type="text" class="catalogo-search" id="catalogo-search" placeholder="Buscar..." autocomplete="off">
+        <div class="catalogo-items" id="catalogo-items"></div>
+        <div id="catalogo-add-area" style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;"></div>
+    </div>
+</div>
+
+<!-- 6. Efetivo -->
+<style>
+.picker-search { width:100%; padding:7px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:13px; margin-bottom:6px; }
+.picker-results { max-height:160px; overflow-y:auto; border:1px solid var(--border); border-radius:8px; background:var(--bg-card); }
+.picker-item { padding:7px 12px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; }
+.picker-item:last-child { border-bottom:none; }
+.picker-item:hover { background:var(--accent-dim); color:var(--accent); }
+.pessoa-chip { display:inline-flex; align-items:center; gap:5px; background:var(--accent-dim); color:var(--accent); border-radius:20px; padding:3px 10px; font-size:12px; font-weight:600; margin:3px; }
+.pessoa-chip button { background:none; border:none; color:inherit; cursor:pointer; font-size:14px; padding:0; line-height:1; }
+.efetivo-grid { display:grid; grid-template-columns:repeat(5,1fr); gap:8px; margin-bottom:1rem; }
+.ef-field { display:flex; flex-direction:column; }
+.ef-field label { font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:4px; }
+.ef-field input { padding:6px 10px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:14px; text-align:center; }
+.pessoa-selecionada { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:8px; background:var(--accent-dim); color:var(--accent); font-size:13px; font-weight:600; margin-top:6px; }
+.pessoa-selecionada button { background:none; border:none; color:inherit; cursor:pointer; font-size:16px; }
+</style>
+<div class="form-card">
+    <div class="section-title"><i class="fas fa-users" style="margin-right:6px;"></i>Efetivo</div>
+
+    <!-- Contadores -->
+    <div class="efetivo-grid" style="grid-template-columns:repeat(6,1fr);">
+        <div class="ef-field"><label>OF</label><input type="number" name="efetivo_of" id="ef_of" value="{{ missao.efetivo_of|default:0 }}" min="0" readonly></div>
+        <div class="ef-field"><label>SO/SGT</label><input type="number" name="efetivo_so_sgt" id="ef_so_sgt" value="{{ missao.efetivo_so_sgt|default:0 }}" min="0" readonly></div>
+        <div class="ef-field"><label>CB</label><input type="number" name="efetivo_cb" id="ef_cb" value="{{ missao.efetivo_cb|default:0 }}" min="0" readonly></div>
+        <div class="ef-field"><label>S1</label><input type="number" name="efetivo_s1" id="ef_s1" value="{{ missao.efetivo_s1|default:0 }}" min="0" readonly></div>
+        <div class="ef-field"><label>S2</label><input type="number" name="efetivo_s2" id="ef_s2" value="{{ missao.efetivo_s2|default:0 }}" min="0" readonly></div>
+        <div class="ef-field"><label>REC</label><input type="number" name="efetivo_rec" id="ef_rec" value="{{ missao.efetivo_rec|default:0 }}" min="0" readonly></div>
+    </div>
+    <p id="ef_auto_msg" style="font-size:11px;color:var(--text-muted);margin-bottom:1rem;">Contadores preenchidos automaticamente pela seleção abaixo.</p>
+
+    <!-- CMT -->
+    <div style="margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Comandante da Missão (CMT)</label>
+            <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;">
+                <input type="checkbox" id="cmt_cargo_chk" {% if missao.cmt_a_cargo %}checked{% endif %} onchange="toggleACargo('cmt')"> A Cargo de
+            </label>
+        </div>
+        <div id="cmt_picker_area" {% if missao.cmt_a_cargo %}style="display:none;"{% endif %}>
+            <input type="hidden" name="cmt_missao_id" id="cmt_id" value="{{ missao.cmt_missao.pk|default:'' }}">
+            <input type="text" class="picker-search" id="cmt_search" placeholder="Buscar CMT..." autocomplete="off">
+            <div class="picker-results" id="cmt_results" style="display:none;"></div>
+            <div id="cmt_chip">
+                {% if missao.cmt_missao %}
+                <div class="pessoa-selecionada">
+                    <span>{{ missao.cmt_missao.posto }} {{ missao.cmt_missao.nome_guerra }}</span>
+                    <button type="button" onclick="limparCmt()">×</button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div id="cmt_cargo_area" {% if not missao.cmt_a_cargo %}style="display:none;"{% endif %}>
+            <input type="text" name="cmt_a_cargo" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.cmt_a_cargo|default:'' }}" style="margin-top:4px;">
+        </div>
+    </div>
+
+    <!-- MOT -->
+    <div style="margin-bottom:1rem;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Motorista (MOT)</label>
+            <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;">
+                <input type="checkbox" id="mot_cargo_chk" {% if missao.mot_a_cargo %}checked{% endif %} onchange="toggleACargo('mot')"> A Cargo de
+            </label>
+        </div>
+        <div id="mot_picker_area" {% if missao.mot_a_cargo %}style="display:none;"{% endif %}>
+            <input type="hidden" name="motorista_id" id="mot_id" value="{{ missao.motorista.pk|default:'' }}">
+            <input type="text" class="picker-search" id="mot_search" placeholder="Buscar motorista..." autocomplete="off">
+            <div class="picker-results" id="mot_results" style="display:none;"></div>
+            <div id="mot_chip">
+                {% if missao.motorista %}
+                <div class="pessoa-selecionada">
+                    <span>{{ missao.motorista.posto }} {{ missao.motorista.nome_guerra }}</span>
+                    <button type="button" onclick="limparMot()">×</button>
+                </div>
+                {% endif %}
+            </div>
+        </div>
+        <div id="mot_cargo_area" {% if not missao.mot_a_cargo %}style="display:none;"{% endif %}>
+            <input type="text" name="mot_a_cargo" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.mot_a_cargo|default:'' }}" style="margin-top:4px;">
+        </div>
+    </div>
+
+    <!-- EQUIPE -->
+    <div>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Equipe</label>
+            <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;">
+                <input type="checkbox" id="equipe_cargo_chk" {% if missao.equipe_a_cargo %}checked{% endif %} onchange="toggleACargo('equipe')"> A Cargo de
+            </label>
+        </div>
+        <div id="equipe_picker_area" {% if missao.equipe_a_cargo %}style="display:none;"{% endif %}>
+            <input type="text" class="picker-search" id="equipe_search" placeholder="Buscar e adicionar à equipe..." autocomplete="off">
+            <div class="picker-results" id="equipe_results" style="display:none;"></div>
+            <div id="equipe_chips" style="margin-top:6px;">
+                {% for e in missao.equipe.all %}
+                <span class="pessoa-chip" data-id="{{ e.pk }}">
+                    {{ e.posto }} {{ e.nome_guerra }}
+                    <button type="button" onclick="removerEquipe(this, {{ e.pk }})">×</button>
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        <div id="equipe_cargo_area" {% if not missao.equipe_a_cargo %}style="display:none;"{% endif %}>
+            <input type="text" name="equipe_a_cargo" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.equipe_a_cargo|default:'' }}" style="margin-top:4px;">
+        </div>
+    </div>
+</div>
+
+<div class="form-actions">
+    <button type="submit" class="btn-submit">
+        <i class="fas fa-save"></i>
+        {% if missao %}Salvar Alterações{% else %}Criar Missão{% endif %}
+    </button>
+    <a href="{% url 'Secao_operacoes:missao_list' %}" class="btn-cancel">Cancelar</a>
+</div>
+</form>
+
+<script>
+const TODOS_EFETIVO = {{ efetivo_json|safe }};
+const BUSCA_URL              = "{% url 'Secao_operacoes:missao_busca_json' %}";
+const CATALOGO_JSON_URL      = "{% url 'Secao_operacoes:equipamento_catalogo_json' %}";
+const CATALOGO_ADD_URL       = "{% url 'Secao_operacoes:equipamento_catalogo_add' %}";
+const RADIO_JSON_URL         = "{% url 'Secao_operacoes:radio_catalogo_json' %}";
+const RADIO_ADD_URL          = "{% url 'Secao_operacoes:radio_catalogo_add' %}";
+const UNIFORME_JSON_URL      = "{% url 'Secao_operacoes:uniforme_catalogo_json' %}";
+const UNIFORME_ADD_URL       = "{% url 'Secao_operacoes:uniforme_catalogo_add' %}";
+const ARMAMENTO_JSON_URL     = "{% url 'Secao_operacoes:armamento_catalogo_json' %}";
+const ARMAMENTO_ADD_URL      = "{% url 'Secao_operacoes:armamento_catalogo_add' %}";
+const CSRF = '{{ csrf_token }}';
+const DIRETRIZ_PADRAO_1 = "{{ diretriz_padrao_1|escapejs }}";
+const DIRETRIZ_PADRAO_2 = "{{ diretriz_padrao_2|escapejs }}";
+
+// All standard schedule items (key, label, field_name)
+const STD_HORARIOS = [
+    {key:'chamada',     label:'CHAMADA',                                   field:'horario_chamada'},
+    {key:'armamento',   label:'ARMAMENTO',                                 field:'horario_armamento'},
+    {key:'alimentacao', label:'ALIMENTAÇÃO',                               field:'horario_alimentacao'},
+    {key:'sala_sgt',    label:'HORÁRIO NA SALA SGT DE DIA AO GSD GL',      field:'horario_sala_sgt'},
+    {key:'saida',       label:'SAÍDA DO GSD GL',                           field:'horario_saida'},
+    {key:'pronto',      label:'PRONTO NO OBJETIVO',                        field:'horario_pronto'},
+];
+
+/* ── Autocomplete de missão ── */
+const nomeMissaoInput = document.getElementById('id_nome_missao');
+const suggestions = document.getElementById('missao-suggestions');
+let debounceTimer;
+
+nomeMissaoInput.addEventListener('input', () => {
+    clearTimeout(debounceTimer);
+    const q = nomeMissaoInput.value.trim();
+    if (q.length < 2) { suggestions.style.display = 'none'; return; }
+    debounceTimer = setTimeout(async () => {
+        const res = await fetch(`${BUSCA_URL}?q=${encodeURIComponent(q)}`);
+        const data = await res.json();
+        if (!data.length) { suggestions.style.display = 'none'; return; }
+        suggestions.innerHTML = data.map(m =>
+            `<div class="autocomplete-item" data-id="${m.id}" onclick="preencherMissao(${JSON.stringify(m).replace(/"/g,'&quot;')})">${m.label}</div>`
+        ).join('');
+        suggestions.style.display = 'block';
+    }, 250);
+});
+
+document.addEventListener('click', e => {
+    if (!e.target.closest('.autocomplete-wrap')) suggestions.style.display = 'none';
+});
+
+function preencherMissao(m) {
+    suggestions.style.display = 'none';
+    nomeMissaoInput.value = m.nome_missao;
+    setVal('id_local', m.local);
+    setVal('id_acionador', m.acionador);
+    setVal('id_objetivo', m.objetivo);
+    setVal('id_endereco', m.endereco);
+    // Fill standard schedule time fields in the unified table
+    const horarioMap = {
+        chamada: m.horario_chamada, armamento: m.horario_armamento,
+        alimentacao: m.horario_alimentacao, sala_sgt: m.horario_sala_sgt,
+        saida: m.horario_saida, pronto: m.horario_pronto,
+    };
+    document.querySelectorAll('#horarios-body tr[data-tipo="padrao"]').forEach(tr => {
+        const key = tr.dataset.key;
+        if (horarioMap[key] !== undefined) {
+            const inp = tr.querySelector('input[type="time"]');
+            if (inp) inp.value = horarioMap[key] || '';
+        }
+    });
+    setVal('id_transporte', m.transporte);
+    setVal('radio_nome', m.radio_nome);
+    setVal('id_radio_qtd', m.radio_qtd);
+    setVal('id_radio_canal', m.radio_canal);
+    setVal('id_uniforme', m.uniforme);
+    setVal('id_observacoes_armamento', m.observacoes_armamento);
+
+    // A Cargo de + efetivo
+    ['cmt', 'mot', 'equipe'].forEach(role => {
+        const cargo = m[`${role}_a_cargo`] || '';
+        const chk = document.getElementById(`${role}_cargo_chk`);
+        chk.checked = !!cargo;
+        toggleACargo(role);
+        if (cargo) {
+            const inp = document.querySelector(`#${role}_cargo_area input`);
+            if (inp) inp.value = cargo;
+        }
+    });
+    if (m.cmt_a_cargo || m.mot_a_cargo || m.equipe_a_cargo) {
+        // modo manual: preenche os quantitativos
+        setVal('ef_of',     m.efetivo_of);
+        setVal('ef_so_sgt', m.efetivo_so_sgt);
+        setVal('ef_cb',     m.efetivo_cb);
+        setVal('ef_s1',     m.efetivo_s1);
+        setVal('ef_s2',     m.efetivo_s2);
+        setVal('ef_rec',    m.efetivo_rec);
+    }
+
+    // Armamentos
+    const abody = document.getElementById('armamentos-body');
+    abody.innerHTML = '';
+    (m.armamentos.length ? m.armamentos : [{}]).forEach(a => {
+        const qtd = a.quantidade || 0;
+        const cargUn = qtd > 0 ? Math.round((a.carregadores || 0) / qtd) : 0;
+        const cartUn = qtd > 0 ? Math.round((a.cartuchos   || 0) / qtd) : 0;
+        criarLinhaArmamento(a.arma || '', qtd, a.carregadores || 0, a.cartuchos || 0, cargUn, cartUn);
+    });
+
+    // Equipamentos
+    const ebody = document.getElementById('equipamentos-body');
+    ebody.innerHTML = '';
+    (m.equipamentos.length ? m.equipamentos : [{}]).forEach(e => {
+        adicionarLinhaEquip(e.equipamento||'', e.quantidade||0);
+    });
+}
+
+function setVal(id, val) {
+    const el = document.getElementById(id);
+    if (el && val !== undefined && val !== null) el.value = val;
+}
+
+/* ── Diretriz padrão ── */
+function restaurarDiretriz(n) {
+    const val = n === 1 ? DIRETRIZ_PADRAO_1 : DIRETRIZ_PADRAO_2;
+    const el = document.getElementById(`id_diretriz_${n}`);
+    if (el) el.value = val;
+}
+
+/* ── Horários unificados (drag-and-drop) ── */
+function addHorarioExtra() {
+    const tbody = document.getElementById('horarios-body');
+    const tr = document.createElement('tr');
+    tr.className = 'hor-row hor-extra-row';
+    tr.dataset.tipo = 'extra';
+    tr.innerHTML = `
+        <td class="drag-handle" style="cursor:grab;text-align:center;color:var(--text-muted);">⠿</td>
+        <td>
+            <input type="hidden" name="horario_item_key[]" value="">
+            <input type="text" name="horario_extra_label[]" class="form-control" placeholder="Ex: CONFERÊNCIA DE MATERIAL">
+        </td>
+        <td><input type="time" name="horario_extra_hora[]" class="form-control"></td>
+        <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>`;
+    tbody.appendChild(tr);
+    initDragRow(tr);
+    atualizarRestaurarBtn();
+}
+
+function removerHorario(btn) {
+    // Remove a standard schedule row; extra rows use removeRow()
+    btn.closest('tr').remove();
+    atualizarRestaurarBtn();
+}
+
+function atualizarRestaurarBtn() {
+    const tbody = document.getElementById('horarios-body');
+    const keys = new Set([...tbody.querySelectorAll('tr[data-tipo="padrao"]')].map(r => r.dataset.key));
+    const removidos = STD_HORARIOS.filter(h => !keys.has(h.key));
+    const btn = document.getElementById('restaurar-std-btn');
+    btn.style.display = removidos.length ? '' : 'none';
+    const list = document.getElementById('restaurar-std-list');
+    list.innerHTML = removidos.map(h =>
+        `<div class="autocomplete-item" onclick="restaurarHorarioPadrao('${h.key}')" style="font-size:13px;">${h.label}</div>`
+    ).join('');
+}
+
+function toggleRestaurarStd() {
+    const list = document.getElementById('restaurar-std-list');
+    list.style.display = list.style.display === 'none' ? 'block' : 'none';
+}
+
+function restaurarHorarioPadrao(key) {
+    const std = STD_HORARIOS.find(h => h.key === key);
+    if (!std) return;
+    const tbody = document.getElementById('horarios-body');
+    const tr = document.createElement('tr');
+    tr.className = 'hor-row hor-padrao-row';
+    tr.dataset.tipo = 'padrao';
+    tr.dataset.key = key;
+    tr.innerHTML = `
+        <td class="drag-handle" style="cursor:grab;text-align:center;color:var(--text-muted);">⠿</td>
+        <td>
+            <input type="hidden" name="horario_item_key[]" value="${key}">
+            <span style="font-size:13px;font-weight:600;color:var(--text-primary);">${std.label}</span>
+        </td>
+        <td><input type="time" name="${std.field}" class="form-control"></td>
+        <td><button type="button" class="btn-remove-row" onclick="removerHorario(this)" title="Remover desta missão"><i class="fas fa-times"></i></button></td>`;
+    tbody.appendChild(tr);
+    initDragRow(tr);
+    document.getElementById('restaurar-std-list').style.display = 'none';
+    atualizarRestaurarBtn();
+}
+
+// Drag-and-drop nas linhas
+let dragSrc = null;
+
+function initDragRow(tr) {
+    const handle = tr.querySelector('.drag-handle');
+    handle.addEventListener('mousedown', () => { tr.draggable = true; });
+    handle.addEventListener('mouseup',   () => { tr.draggable = false; });
+    tr.addEventListener('dragstart', e => { dragSrc = tr; e.dataTransfer.effectAllowed = 'move'; tr.style.opacity = '0.5'; });
+    tr.addEventListener('dragend',   () => { dragSrc = null; tr.style.opacity = ''; tr.draggable = false; });
+    tr.addEventListener('dragover',  e => { e.preventDefault(); e.dataTransfer.dropEffect = 'move'; });
+    tr.addEventListener('drop', e => {
+        e.preventDefault();
+        if (dragSrc && dragSrc !== tr) {
+            const tbody = tr.parentNode;
+            const rows = [...tbody.querySelectorAll('tr')];
+            const srcIdx = rows.indexOf(dragSrc);
+            const tgtIdx = rows.indexOf(tr);
+            if (srcIdx < tgtIdx) tbody.insertBefore(dragSrc, tr.nextSibling);
+            else tbody.insertBefore(dragSrc, tr);
+        }
+    });
+}
+
+// Close "restaurar" dropdown on outside click
+document.addEventListener('click', e => {
+    if (!e.target.closest('#restaurar-std-wrap'))
+        document.getElementById('restaurar-std-list').style.display = 'none';
+});
+
+// Init drag on existing rows and show restore button if needed
+document.querySelectorAll('.hor-row').forEach(initDragRow);
+atualizarRestaurarBtn();
+
+/* ── Armamentos ── */
+function criarLinhaArmamento(nome='', qtd=0, carg=0, cart=0, cargUn=0, cartUn=0) {
+    const tbody = document.getElementById('armamentos-body');
+    const tr = document.createElement('tr');
+    tr.dataset.cargUn = cargUn;
+    tr.dataset.cartUn = cartUn;
+    tr.innerHTML = `
+        <td><input type="text" name="arma[]" value="${nome}" class="form-control arma-nome" placeholder="Ex: FUZIL HK-33" autocomplete="off"></td>
+        <td><input type="number" name="qtd_arma[]" value="${qtd}" class="form-control arma-qtd" min="0"></td>
+        <td><input type="number" name="carregadores[]" value="${carg}" class="form-control arma-carg" min="0"></td>
+        <td><input type="number" name="cartuchos[]" value="${cart}" class="form-control arma-cart" min="0"></td>
+        <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>`;
+    tbody.appendChild(tr);
+    // listener de cálculo automático na quantidade
+    tr.querySelector('.arma-qtd').addEventListener('input', () => recalcularArma(tr));
+}
+
+function addArmamento() { criarLinhaArmamento(); }
+
+function recalcularArma(tr) {
+    const qtd = parseInt(tr.querySelector('.arma-qtd').value) || 0;
+    const cargUn = parseInt(tr.dataset.cargUn) || 0;
+    const cartUn = parseInt(tr.dataset.cartUn) || 0;
+    if (cargUn > 0) tr.querySelector('.arma-carg').value = qtd * cargUn;
+    if (cartUn > 0) tr.querySelector('.arma-cart').value = qtd * cartUn;
+}
+
+// Adicionar listeners nas linhas existentes (edição)
+document.querySelectorAll('#armamentos-body tr').forEach(tr => {
+    tr.querySelector('.arma-qtd')?.addEventListener('input', () => recalcularArma(tr));
+});
+
+/* ── Equipamentos ── */
+function adicionarLinhaEquip(nome='', qtd=0) {
+    const tbody = document.getElementById('equipamentos-body');
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+        <td><input type="text" name="equipamento[]" value="${nome}" class="form-control equip-input" placeholder="Nome do equipamento" autocomplete="off"></td>
+        <td><input type="number" name="qtd_equip[]" value="${qtd}" class="form-control" min="0"></td>
+        <td><button type="button" class="btn-remove-row" onclick="removeRow(this)"><i class="fas fa-times"></i></button></td>`;
+    tbody.appendChild(tr);
+}
+
+function addEquipamento() { adicionarLinhaEquip(); }
+
+function removeRow(btn) { btn.closest('tr').remove(); }
+
+/* ══ Catálogo modal genérico ══ */
+let catalogoAtual = { jsonUrl: '', addUrl: '', onSelect: null, extraFields: [] };
+let catalogoItens = [];
+
+function abrirModalCatalogo({ titulo, jsonUrl, addUrl, extraFields=[], onSelect, addAreaHtml }) {
+    catalogoAtual = { jsonUrl, addUrl, onSelect, extraFields };
+    document.getElementById('catalogo-modal-titulo').textContent = titulo;
+    document.getElementById('catalogo-search').value = '';
+    document.getElementById('catalogo-add-area').innerHTML = addAreaHtml;
+    document.getElementById('catalogo-modal').classList.add('open');
+    carregarCatalogoGenerico('');
+    document.getElementById('catalogo-search').focus();
+}
+
+function fecharCatalogo() {
+    document.getElementById('catalogo-modal').classList.remove('open');
+}
+
+async function carregarCatalogoGenerico(q) {
+    const res = await fetch(`${catalogoAtual.jsonUrl}?q=${encodeURIComponent(q)}`);
+    catalogoItens = await res.json();
+    renderCatalogoGenerico();
+}
+
+function renderCatalogoGenerico() {
+    const container = document.getElementById('catalogo-items');
+    if (!catalogoItens.length) {
+        container.innerHTML = '<div style="padding:12px;color:var(--text-muted);text-align:center;font-size:13px;">Nenhum item encontrado</div>';
+        return;
+    }
+    container.innerHTML = catalogoItens.map(e => {
+        const sub = catalogoAtual.extraFields.map(f => `<span style="font-size:11px;color:var(--text-muted);margin-left:8px;">${e[f]||''}</span>`).join('');
+        return `<div class="catalogo-item" onclick="selecionarItemCatalogo(${e.id})">
+            <span>${e.nome}${sub}</span>
+            <span class="catalogo-item-pick">Selecionar</span>
+        </div>`;
+    }).join('');
+}
+
+function selecionarItemCatalogo(id) {
+    const item = catalogoItens.find(e => e.id === id);
+    if (item && catalogoAtual.onSelect) catalogoAtual.onSelect(item);
+    fecharCatalogo();
+}
+
+async function salvarNoCatalogo(extraData={}) {
+    const nome = document.getElementById('catalogo-novo-nome').value.trim();
+    if (!nome) return;
+    const payload = { nome, ...extraData };
+    const res = await fetch(catalogoAtual.addUrl, {
+        method: 'POST',
+        headers: {'Content-Type':'application/json','X-CSRFToken':CSRF},
+        body: JSON.stringify(payload)
+    });
+    await res.json();
+    document.getElementById('catalogo-novo-nome').value = '';
+    catalogoAtual.extraFields.forEach(f => {
+        const el = document.getElementById(`catalogo-novo-${f}`);
+        if (el) el.value = '';
+    });
+    await carregarCatalogoGenerico(document.getElementById('catalogo-search').value);
+}
+
+document.getElementById('catalogo-search').addEventListener('input', e => {
+    carregarCatalogoGenerico(e.target.value.trim());
+});
+document.getElementById('catalogo-modal').addEventListener('click', e => {
+    if (e.target === document.getElementById('catalogo-modal')) fecharCatalogo();
+});
+
+/* ── Catálogo equipamento ── */
+function abrirCatalogo() {
+    abrirModalCatalogo({
+        titulo: 'Catálogo de Equipamentos',
+        jsonUrl: CATALOGO_JSON_URL,
+        addUrl: CATALOGO_ADD_URL,
+        onSelect: item => adicionarLinhaEquip(item.nome, 1),
+        addAreaHtml: `
+            <input type="text" id="catalogo-novo-nome" class="catalogo-search" placeholder="Novo equipamento..." style="flex:1;">
+            <button type="button" onclick="salvarNoCatalogo()" style="background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;"><i class="fas fa-plus"></i> Salvar</button>`
+    });
+}
+
+/* ── Catálogo rádio ── */
+function abrirCatalogoRadio() {
+    abrirModalCatalogo({
+        titulo: 'Catálogo de Rádios',
+        jsonUrl: RADIO_JSON_URL,
+        addUrl: RADIO_ADD_URL,
+        extraFields: ['canal_padrao'],
+        onSelect: item => {
+            document.getElementById('radio_nome').value = item.nome;
+            if (item.canal_padrao) document.getElementById('id_radio_canal').value = item.canal_padrao;
+        },
+        addAreaHtml: `
+            <input type="text" id="catalogo-novo-nome" class="catalogo-search" placeholder="Nome do rádio..." style="flex:1;">
+            <input type="text" id="catalogo-novo-canal_padrao" class="catalogo-search" placeholder="Canal padrão" style="width:120px;">
+            <button type="button" onclick="salvarNoCatalogo({canal_padrao: document.getElementById('catalogo-novo-canal_padrao').value})" style="background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;"><i class="fas fa-plus"></i> Salvar</button>`
+    });
+}
+
+/* ── Catálogo uniforme ── */
+function abrirCatalogoUniforme() {
+    abrirModalCatalogo({
+        titulo: 'Catálogo de Uniformes',
+        jsonUrl: UNIFORME_JSON_URL,
+        addUrl: UNIFORME_ADD_URL,
+        onSelect: item => { document.getElementById('id_uniforme').value = item.nome; },
+        addAreaHtml: `
+            <input type="text" id="catalogo-novo-nome" class="catalogo-search" placeholder="Novo uniforme..." style="flex:1;">
+            <button type="button" onclick="salvarNoCatalogo()" style="background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;"><i class="fas fa-plus"></i> Salvar</button>`
+    });
+}
+
+/* ══ A Cargo de ══ */
+function temACargo() {
+    return document.getElementById('cmt_cargo_chk').checked ||
+           document.getElementById('mot_cargo_chk').checked ||
+           document.getElementById('equipe_cargo_chk').checked;
+}
+
+function toggleACargo(role) {
+    const chk = document.getElementById(`${role}_cargo_chk`).checked;
+    document.getElementById(`${role}_picker_area`).style.display = chk ? 'none' : '';
+    document.getElementById(`${role}_cargo_area`).style.display  = chk ? '' : 'none';
+    // limpa o picker ao ativar "a cargo"
+    if (chk) {
+        if (role === 'cmt') limparCmt();
+        if (role === 'mot') limparMot();
+        if (role === 'equipe') { equipeIds.clear(); document.getElementById('equipe_chips').innerHTML = ''; }
+    }
+    atualizarModoEfetivo();
+}
+
+function atualizarModoEfetivo() {
+    const manual = temACargo();
+    const campos = ['ef_of','ef_so_sgt','ef_cb','ef_s1','ef_s2','ef_rec'];
+    campos.forEach(id => {
+        const el = document.getElementById(id);
+        el.readOnly = !manual;
+        el.style.background = manual ? '' : 'var(--bg-page)';
+        el.style.cursor = manual ? '' : 'default';
+    });
+    document.getElementById('ef_auto_msg').textContent = manual
+        ? 'Modo manual: preencha os quantitativos manualmente.'
+        : 'Contadores preenchidos automaticamente pela seleção abaixo.';
+    if (!manual) recalcularEfetivo();
+}
+
+// Inicializa estado ao carregar
+atualizarModoEfetivo();
+
+/* ══ Picker de Efetivo ══ */
+const POSTOS_OF    = ['ASP','ASPIRANTE','2T','1T','CAP','CAPITÃO','CAPITAO','CP','MAJ','MAJOR','MJ','TC','CEL','CORONEL','CL','BRIG','BRIGADEIRO','BG'];
+const POSTOS_SO_SGT = ['SO','SGT','1S','2S','3S'];
+const POSTOS_CB    = ['CB','CABO'];
+const POSTOS_S1    = ['S1','SD1','SDP1'];
+const POSTOS_S2    = ['S2','SD2','SDP2','SD','SOL','SOLDADO'];
+
+function categoriaPosto(posto) {
+    const p = (posto||'').toUpperCase().trim();
+    if (POSTOS_OF.includes(p)) return 'of';
+    if (POSTOS_SO_SGT.some(s => p === s || p.startsWith(s+' '))) return 'so_sgt';
+    if (POSTOS_CB.includes(p)) return 'cb';
+    if (POSTOS_S1.includes(p)) return 's1';
+    if (POSTOS_S2.includes(p)) return 's2';
+    return null;
+}
+
+function recalcularEfetivo() {
+    if (temACargo()) return; // modo manual, não sobrescreve
+    const contagem = {of:0, so_sgt:0, cb:0, s1:0, s2:0, rec:0};
+
+    // CMT
+    const cmtId = parseInt(document.getElementById('cmt_id').value);
+    if (cmtId) {
+        const p = TODOS_EFETIVO.find(e => e.id === cmtId);
+        if (p) { const c = p.oficial ? 'of' : categoriaPosto(p.posto); if (c) contagem[c]++; }
+    }
+    // MOT
+    const motId = parseInt(document.getElementById('mot_id').value);
+    if (motId) {
+        const p = TODOS_EFETIVO.find(e => e.id === motId);
+        if (p) { const c = p.oficial ? 'of' : categoriaPosto(p.posto); if (c) contagem[c]++; }
+    }
+    // EQUIPE
+    document.querySelectorAll('#equipe_chips [data-id]').forEach(chip => {
+        const id = parseInt(chip.dataset.id);
+        const p = TODOS_EFETIVO.find(e => e.id === id);
+        if (p) { const c = p.oficial ? 'of' : categoriaPosto(p.posto); if (c) contagem[c]++; }
+    });
+
+    document.getElementById('ef_of').value     = contagem.of;
+    document.getElementById('ef_so_sgt').value = contagem.so_sgt;
+    document.getElementById('ef_cb').value     = contagem.cb;
+    document.getElementById('ef_s1').value     = contagem.s1;
+    document.getElementById('ef_s2').value     = contagem.s2;
+    document.getElementById('ef_rec').value    = contagem.rec;
+}
+
+function buscarEfetivo(q) {
+    const lq = q.toLowerCase();
+    return TODOS_EFETIVO.filter(e =>
+        e.nome_guerra.toLowerCase().includes(lq) ||
+        e.posto.toLowerCase().includes(lq) ||
+        e.label.toLowerCase().includes(lq)
+    ).slice(0, 20);
+}
+
+/* — CMT — */
+setupPicker('cmt_search', 'cmt_results', {
+    onSelect(pessoa) {
+        document.getElementById('cmt_id').value = pessoa.id;
+        document.getElementById('cmt_chip').innerHTML = `
+            <div class="pessoa-selecionada">
+                <span>${pessoa.label}</span>
+                <button type="button" onclick="limparCmt()">×</button>
+            </div>`;
+        document.getElementById('cmt_search').value = '';
+        document.getElementById('cmt_results').style.display = 'none';
+        recalcularEfetivo();
+    }
+});
+function limparCmt() {
+    document.getElementById('cmt_id').value = '';
+    document.getElementById('cmt_chip').innerHTML = '';
+    recalcularEfetivo();
+}
+
+/* — MOT — */
+setupPicker('mot_search', 'mot_results', {
+    onSelect(pessoa) {
+        document.getElementById('mot_id').value = pessoa.id;
+        document.getElementById('mot_chip').innerHTML = `
+            <div class="pessoa-selecionada">
+                <span>${pessoa.label}</span>
+                <button type="button" onclick="limparMot()">×</button>
+            </div>`;
+        document.getElementById('mot_search').value = '';
+        document.getElementById('mot_results').style.display = 'none';
+        recalcularEfetivo();
+    }
+});
+function limparMot() {
+    document.getElementById('mot_id').value = '';
+    document.getElementById('mot_chip').innerHTML = '';
+    recalcularEfetivo();
+}
+
+/* — EQUIPE — */
+const equipeIds = new Set(
+    [...document.querySelectorAll('#equipe_chips [data-id]')].map(el => parseInt(el.dataset.id))
+);
+
+setupPicker('equipe_search', 'equipe_results', {
+    onSelect(pessoa) {
+        if (equipeIds.has(pessoa.id)) return;
+        equipeIds.add(pessoa.id);
+        const chip = document.createElement('span');
+        chip.className = 'pessoa-chip';
+        chip.dataset.id = pessoa.id;
+        chip.innerHTML = `${pessoa.label} <button type="button" onclick="removerEquipe(this, ${pessoa.id})">×</button>`;
+
+        // hidden input para o POST
+        const inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'equipe_ids[]'; inp.value = pessoa.id; inp.id = `eq_hid_${pessoa.id}`;
+        chip.appendChild(inp);
+
+        document.getElementById('equipe_chips').appendChild(chip);
+        document.getElementById('equipe_search').value = '';
+        document.getElementById('equipe_results').style.display = 'none';
+        recalcularEfetivo();
+    }
+});
+
+function removerEquipe(btn, id) {
+    equipeIds.delete(id);
+    btn.closest('[data-id]').remove();
+    recalcularEfetivo();
+}
+
+// Injeta os hidden inputs dos membros já carregados (edição)
+document.querySelectorAll('#equipe_chips [data-id]').forEach(chip => {
+    if (!chip.querySelector('input[type=hidden]')) {
+        const inp = document.createElement('input');
+        inp.type = 'hidden'; inp.name = 'equipe_ids[]'; inp.value = chip.dataset.id;
+        chip.appendChild(inp);
+    }
+});
+
+function setupPicker(searchId, resultsId, { onSelect }) {
+    const searchEl = document.getElementById(searchId);
+    const resultsEl = document.getElementById(resultsId);
+    let timer;
+    searchEl.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = searchEl.value.trim();
+        if (q.length < 1) { resultsEl.style.display = 'none'; return; }
+        timer = setTimeout(() => {
+            const lista = buscarEfetivo(q);
+            if (!lista.length) { resultsEl.style.display = 'none'; return; }
+            resultsEl.innerHTML = lista.map(p =>
+                `<div class="picker-item" data-id="${p.id}">
+                    <span>${p.label}</span>
+                </div>`
+            ).join('');
+            resultsEl.querySelectorAll('.picker-item').forEach(el => {
+                el.addEventListener('click', () => {
+                    const id = parseInt(el.dataset.id);
+                    onSelect(TODOS_EFETIVO.find(e => e.id === id));
+                });
+            });
+            resultsEl.style.display = 'block';
+        }, 150);
+    });
+    document.addEventListener('click', e => {
+        if (!e.target.closest(`#${searchId}`) && !e.target.closest(`#${resultsId}`))
+            resultsEl.style.display = 'none';
+    });
+}
+
+// Também atualiza o preencherMissao para incluir radio_nome
+const _origPreencherMissao = preencherMissao;
+
+/* ── Catálogo armamento ── */
+function abrirCatalogoArmamento() {
+    abrirModalCatalogo({
+        titulo: 'Catálogo de Armamentos',
+        jsonUrl: ARMAMENTO_JSON_URL,
+        addUrl: ARMAMENTO_ADD_URL,
+        extraFields: ['carregadores_por_unidade', 'cartuchos_por_unidade'],
+        onSelect: item => {
+            criarLinhaArmamento(item.nome, 1,
+                item.carregadores_por_unidade, item.cartuchos_por_unidade,
+                item.carregadores_por_unidade, item.cartuchos_por_unidade);
+        },
+        addAreaHtml: `
+            <input type="text" id="catalogo-novo-nome" class="catalogo-search" placeholder="Nome da arma..." style="flex:1 1 150px;">
+            <input type="number" id="catalogo-novo-carregadores_por_unidade" class="catalogo-search" placeholder="Carg/arma" style="width:90px;" min="0">
+            <input type="number" id="catalogo-novo-cartuchos_por_unidade" class="catalogo-search" placeholder="Cart/arma" style="width:90px;" min="0">
+            <button type="button" onclick="salvarNoCatalogo({carregadores_por_unidade: document.getElementById('catalogo-novo-carregadores_por_unidade').value||0, cartuchos_por_unidade: document.getElementById('catalogo-novo-cartuchos_por_unidade').value||0})" style="background:var(--accent);color:#fff;border:none;padding:8px 14px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;"><i class="fas fa-plus"></i> Salvar</button>`
+    });
+}
+</script>
+{% endblock %}
