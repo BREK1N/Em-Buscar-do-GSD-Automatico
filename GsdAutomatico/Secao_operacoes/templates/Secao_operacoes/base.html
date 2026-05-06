@@ -9,7 +9,6 @@
 
     <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
 
     <style>
         /* ── Design Tokens ─────────────────────────────────────────── */
@@ -75,6 +74,7 @@
             --bg-secondary:    var(--bg-page);
         }
 
+        /* ── Reset & Base ──────────────────────────────────────────── */
         *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
         body {
@@ -175,10 +175,10 @@
             background: var(--accent);
             border-radius: 0 3px 3px 0;
         }
-        .sidebar-nav a svg, .sidebar-nav a i { flex-shrink: 0; opacity: 0.75; }
-        .sidebar-nav a.active svg, .sidebar-nav a:hover svg,
-        .sidebar-nav a.active i, .sidebar-nav a:hover i { opacity: 1; }
+        .sidebar-nav a svg { flex-shrink: 0; opacity: 0.75; }
+        .sidebar-nav a.active svg, .sidebar-nav a:hover svg { opacity: 1; }
 
+        /* ── Sidebar Footer ────────────────────────────────────────── */
         .sidebar-footer {
             padding: 0.75rem 0.65rem;
             border-top: 1px solid rgba(255,255,255,0.06);
@@ -272,7 +272,6 @@
             color: var(--text-secondary);
             font-family: 'Inter', sans-serif;
             cursor: pointer;
-            position: relative;
         }
 
         .user-avatar {
@@ -361,27 +360,11 @@
             .mobile-nav-toggle { display: flex; }
             .main-container { padding: 1rem 0.75rem 5rem; }
             .user-chip span { display: none; }
-
-            /* Tabelas: scroll horizontal */
             .table-wrap { overflow-x: auto; -webkit-overflow-scrolling: touch; }
-
-            /* Cards e grids genéricos */
             .page-header { flex-direction: column; align-items: flex-start !important; gap: 8px !important; }
             .filter-bar { flex-direction: column; align-items: stretch !important; gap: 8px !important; }
-            .filter-bar .filter-count { margin-left: 0 !important; }
-            .filter-bar input[type="date"],
-            .filter-bar input[type="text"] { width: 100% !important; max-width: 100% !important; }
-            .filter-bar .btn-filter { justify-content: center; }
-
-            /* Form grid de 2 colunas vira 1 coluna */
             .form-grid { grid-template-columns: 1fr !important; }
-
-            /* Barra fixa de ações do form */
             .form-actions { left: 0 !important; padding: 10px 14px !important; gap: 8px !important; }
-            .form-actions .btn-submit { margin-left: auto; }
-
-            /* Actions na listagem */
-            .actions-cell { flex-wrap: wrap; gap: 4px; }
         }
     </style>
 
@@ -397,52 +380,22 @@
     })();
 </script>
 
-                <li>
-                    <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=operacoes" class="{% if 'comunicacoes' in request.path %}active{% endif %}">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
-                        </svg>
-                        <span>Caixa de Entrada</span>
-                    </a>
-                </li>
-
-                <li>
-                    <a href="{% url 'chamada:chamada_index' %}" class="{% if 'chamada' in request.path %}active{% endif %}">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
-                        </svg>
-                        <span>Chamada</span>
-                    </a>
-                </li>
-
-                <li>
-                    <a href="{% url 'Secao_operacoes:escala_list' %}" class="{% if 'escala' in request.path %}active{% endif %}">
-                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5" />
-                        </svg>
-                        <span>Escalas</span>
-                    </a>
-                </li>
-            </ul>
-        </div>
-        
-        <div class="sidebar-footer">
-            <a href="{% url 'login:logout' %}">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9" />
-                </svg>
-                <span>Sair</span>
-            </a>
+<!-- ── Sidebar ── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="#fff" viewBox="0 0 24 24">
+                <path fill="none" stroke="#fff" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25z"/>
+            </svg>
         </div>
         <span class="sidebar-brand-name">Operações</span>
     </div>
 
     <nav class="sidebar-nav">
         <ul>
-
-            <!-- ── GEAL ── -->
-            <li style="padding: 10px 10px 2px;">
-                <span class="sidebar-section-label" style="padding:0">GERAL</span>
+            <!-- GERAL -->
+            <li style="padding: 8px 10px 2px;">
+                <span class="sidebar-section-label" style="padding:0">Geral</span>
             </li>
             <li>
                 <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=operacoes" class="{% if 'comunicacoes' in request.path %}active{% endif %}">
@@ -453,7 +406,7 @@
                 </a>
             </li>
             <li>
-                <a href="{% url 'Secao_pessoal:chamada_index' %}?secao=operacoes" class="{% if 'chamada' in request.path %}active{% endif %}">
+                <a href="{% url 'chamada:chamada_index' %}?secao=operacoes" class="{% if 'chamada' in request.path %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4" />
                     </svg>
@@ -461,9 +414,9 @@
                 </a>
             </li>
 
-            <!-- ── ESCALA ── -->
+            <!-- ESCALA -->
             <li style="padding: 10px 10px 2px;">
-                <span class="sidebar-section-label" style="padding:0">ESCALA</span>
+                <span class="sidebar-section-label" style="padding:0">Escala</span>
             </li>
             <li>
                 <a href="{% url 'Secao_operacoes:escala_list' %}" class="{% if 'escala' in request.path %}active{% endif %}">
@@ -474,10 +427,10 @@
                 </a>
             </li>
 
-            <!-- ── OPERAÇÕES ── -->
+            <!-- OPERAÇÕES -->
             {% if user|is_sop_operacoes %}
             <li style="padding: 10px 10px 2px;">
-                <span class="sidebar-section-label" style="padding:0">OPERAÇÕES</span>
+                <span class="sidebar-section-label" style="padding:0">Operações</span>
             </li>
             <li>
                 <a href="{% url 'Secao_operacoes:missao_list' %}" class="{% if 'missao' in request.path %}active{% endif %}">
@@ -488,7 +441,6 @@
                 </a>
             </li>
             {% endif %}
-
         </ul>
     </nav>
 
@@ -506,46 +458,57 @@
 <div class="main-wrapper">
     <header class="main-header">
         <div class="header-left">
-            <button class="mobile-nav-toggle" id="mobile-nav-toggle">
-                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5" /></svg>
+            <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Menu">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+                </svg>
             </button>
             <div class="header-title-group">
-                <div class="header-eyebrow">GSD GL</div>
-                <h1 class="header-h1">{% block page_title %}Seção de Operações{% endblock %}</h1>
+                <div class="header-eyebrow">{% block header_eyebrow %}Seção de Operações{% endblock %}</div>
+                <div class="header-h1">{% block header_title %}{% block page_title %}Início{% endblock %}{% endblock %}</div>
             </div>
         </div>
 
         <div class="header-right">
-            <a href="{% url 'login:go_home' %}" class="header-btn" title="Menu Principal">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" /></svg>
+            <!-- Home -->
+            <a href="{% url 'login:go_home' %}" class="header-btn" title="Página Inicial">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
+                </svg>
             </a>
 
-            <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=operacoes" class="header-btn" title="Comunicações" style="position:relative;">
+            <!-- Comunicações -->
+            <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=operacoes" class="header-btn" title="Comunicações">
                 <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                     <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" />
                 </svg>
-                <span id="email-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:#e94560;color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 3px;"></span>
+                <span id="email-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 3px;"></span>
             </a>
 
+            <!-- Notificações -->
             {% include 'notificacoes/panel_include.html' %}
 
-            <button class="header-btn" id="theme-toggle" title="Alterar tema">
-                <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" /></svg>
-                <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="display:none;"><path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" /></svg>
+            <!-- Tema -->
+            <button class="header-btn" id="theme-toggle" title="Alternar tema">
+                <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                </svg>
+                <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="display:none;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                </svg>
             </button>
 
+            <!-- Usuário logado -->
             {% if user.is_authenticated %}
             <div style="position:relative;" id="user-chip-wrap">
                 <div class="user-chip" id="user-chip-toggle">
                     <div class="user-avatar">
-                        {% if user.profile.foto %}
-                            <img src="{{ user.profile.foto.url }}" alt="">
-                        {% else %}
-                            {{ user.profile.militar.nome_guerra|slice:":1"|upper|default:user.username|slice:":1"|upper }}
-                        {% endif %}
+                        {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" alt="">{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
                     </div>
-                    <span>{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.first_name|default:user.username }}{% endif %}</span>
-                    <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="opacity:0.6;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                    <span>{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" width="11" height="11" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="opacity:0.6;margin-left:2px;">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+                    </svg>
                 </div>
                 <div class="user-dropdown" id="user-dropdown">
                     <div class="user-dropdown-header">{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</div>
@@ -574,29 +537,28 @@
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     const body = document.body;
+
+    // ── Tema ──
     const themeToggle = document.getElementById('theme-toggle');
-    const sunIcon = document.getElementById('theme-icon-sun');
-    const moonIcon = document.getElementById('theme-icon-moon');
-    const sidebar = document.getElementById('sidebar');
-    const mobileToggle = document.getElementById('mobile-nav-toggle');
-    const userChip = document.getElementById('user-chip-toggle');
-    const userDropdown = document.getElementById('user-dropdown');
+    const sunIcon     = document.getElementById('theme-icon-sun');
+    const moonIcon    = document.getElementById('theme-icon-moon');
 
     function applyTheme(theme) {
-        body.className = '';
-        body.classList.add(theme);
+        body.className = theme;
         localStorage.setItem('theme', theme);
         if (sunIcon && moonIcon) {
-            sunIcon.style.display = (theme === 'dark-theme') ? 'none' : 'block';
-            moonIcon.style.display = (theme === 'dark-theme') ? 'block' : 'none';
+            sunIcon.style.display  = theme === 'dark-theme' ? 'none'  : 'block';
+            moonIcon.style.display = theme === 'dark-theme' ? 'block' : 'none';
         }
     }
 
-    const savedTheme = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
-    applyTheme(savedTheme);
+    const saved = localStorage.getItem('theme') ||
+        (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
+    applyTheme(saved);
 
     if (themeToggle) {
         themeToggle.addEventListener('click', () => {
@@ -604,18 +566,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    if (mobileToggle && sidebar) {
-        mobileToggle.addEventListener('click', e => {
-            e.stopPropagation();
-            sidebar.classList.toggle('active');
-        });
-        document.addEventListener('click', e => {
-            if (sidebar.classList.contains('active') && !sidebar.contains(e.target) && !mobileToggle.contains(e.target)) {
-                sidebar.classList.remove('active');
-            }
-        });
-    }
-
+    // ── User Dropdown ──
+    const userChip     = document.getElementById('user-chip-toggle');
+    const userDropdown = document.getElementById('user-dropdown');
     if (userChip && userDropdown) {
         userChip.addEventListener('click', e => {
             e.stopPropagation();
@@ -623,10 +576,33 @@ document.addEventListener('DOMContentLoaded', function() {
         });
         document.addEventListener('click', () => { userDropdown.style.display = 'none'; });
     }
+
+    // ── Sidebar Mobile ──
+    const mobileToggle = document.getElementById('mobile-nav-toggle');
+    const sidebar      = document.getElementById('sidebar');
+    if (mobileToggle && sidebar) {
+        mobileToggle.addEventListener('click', e => { e.stopPropagation(); sidebar.classList.toggle('active'); });
+        document.addEventListener('click', e => {
+            if (sidebar.classList.contains('active') && !sidebar.contains(e.target) && !mobileToggle.contains(e.target))
+                sidebar.classList.remove('active');
+        });
+    }
+
+    // ── Badge de emails não lidos ──
+    (async function() {
+        try {
+            const resp = await fetch("{% url 'caixa_entrada:api_check' %}");
+            if (!resp.ok) return;
+            const data = await resp.json();
+            const badge = document.getElementById('email-badge');
+            if (badge && data.unread_mensagens > 0) {
+                badge.textContent = data.unread_mensagens > 99 ? '99+' : data.unread_mensagens;
+                badge.style.display = 'block';
+            }
+        } catch(e) {}
+    })();
 });
 </script>
-
-<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
 {% block extra_js %}{% endblock %}
 </body>
 </html>
