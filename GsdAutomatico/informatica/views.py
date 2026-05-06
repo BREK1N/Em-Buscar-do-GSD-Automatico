@@ -1057,7 +1057,7 @@ def configuracao_secoes(request):
             ],
             'links': [
                 {'label': 'Gestão de Efetivo', 'url': 'Secao_pessoal:index', 'icon': 'fa-users'},
-                {'label': 'Chamada', 'url': 'Secao_pessoal:chamada_index', 'icon': 'fa-check-square'},
+                {'label': 'Chamada', 'url': 'chamada:chamada_index', 'icon': 'fa-check-square'},
             ],
         },
         {

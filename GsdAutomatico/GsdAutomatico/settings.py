@@ -58,6 +58,7 @@ INSTALLED_APPS = [
     'home',
     'chamados',
     'notificacoes',
+    'chamada.apps.ChamadaConfig',
 ]
 
 # ── Django Channels ───────────────────────────────────────────────────────────

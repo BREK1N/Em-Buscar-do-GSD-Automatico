@@ -1,0 +1,266 @@
+{% extends base_template|default:'Secao_pessoal/base.html' %}
+
+{% block content %}
+<style>
+    .chamada-card {
+        border-radius: 12px;
+        overflow: hidden;
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        box-shadow: var(--box-shadow);
+    }
+    .chamada-header {
+        padding: 15px 20px;
+        border-bottom: 1px solid var(--border-color);
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        background-color: var(--bg-main);
+    }
+    .chamada-header h4 {
+        margin: 0;
+        color: var(--text-primary);
+        font-size: 1.2rem;
+        font-weight: 600;
+        border: none;
+    }
+    .chamada-table th {
+        text-transform: uppercase;
+        font-size: 0.85rem;
+        letter-spacing: 0.5px;
+        color: var(--text-secondary);
+    }
+    .today-col {
+        background-color: var(--sidebar-active-bg) !important;
+        border-left: 2px solid var(--accent-color) !important;
+        border-right: 2px solid var(--accent-color) !important;
+    }
+    .today-col-header {
+        background-color: var(--accent-color) !important;
+        color: white !important;
+        border-top: 2px solid var(--accent-hover) !important;
+        box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+    }
+    .today-col-header small {
+        color: rgba(255, 255, 255, 0.8) !important;
+    }
+    .status-badge {
+        min-width: 110px;
+        display: inline-block;
+        font-weight: 600;
+        padding: 0.4em 0.7em;
+        border-radius: 50px;
+        text-align: center;
+        font-size: 0.85rem;
+    }
+    .status-P { background-color: var(--success-color); color: #fff; }
+    .status-F { background-color: var(--danger-color); color: #fff; }
+    .status-M { background-color: var(--warning-color); color: #fff; }
+    .status-ESV { background-color: var(--accent-color); color: #fff; }
+    .status-SSV { background-color: #8b5cf6; color: #fff; }
+    .status-DPC { background-color: #14b8a6; color: #fff; }
+    .status-aguardando { background-color: var(--text-secondary); color: #fff; }
+
+    .btn-group-chamada {
+        margin-top: 5px;
+    }
+    
+    .nav-semana-btn {
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        padding: 5px 10px;
+        border-radius: 6px;
+        text-decoration: none;
+        transition: all 0.2s;
+        display: inline-flex;
+        align-items: center;
+    }
+    .nav-semana-btn:hover {
+        background-color: var(--accent-color);
+        color: #fff;
+        border-color: var(--accent-color);
+    }
+    .nav-semana-text {
+        background-color: var(--bg-content);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        padding: 5px 12px;
+        font-weight: 600;
+        border-radius: 6px;
+        display: inline-flex;
+        align-items: center;
+    }
+    .setor-badge {
+        font-family: 'Rajdhani', sans-serif;
+        font-size: 0.85rem;
+        font-weight: 700;
+        letter-spacing: 0.05em;
+        text-transform: uppercase;
+        color: var(--text-secondary);
+        background-color: var(--sidebar-active-bg, rgba(148, 163, 184, 0.1));
+        border: 1px solid var(--border-color);
+        padding: 0.4em 0.9em;
+        border-radius: 50px;
+        display: inline-flex;
+        align-items: center;
+    }
+</style>
+
+<div class="main-container">
+    <div class="content-column">
+        
+        <div class="chamada-card mb-4 mt-3">
+            <div class="chamada-header flex-wrap gap-3">
+                <h4><i class="fas fa-calendar-check me-2"></i> Chamada Semanal</h4>
+                <div class="d-flex align-items-center flex-wrap gap-2">
+                    <button type="button" class="btn btn-sm btn-success fw-bold me-2" id="btn-marcar-todos" title="Marcar todos como presentes no dia atual">
+                        <i class="fas fa-check-double me-1"></i> Todos Presentes
+                    </button>
+                    <span class="setor-badge"><i class="fas fa-building me-2"></i> {{ setor_nome }}</span>
+                    <div class="d-flex gap-1 ms-1">
+                        <a href="?{% if request.GET.secao %}secao={{ request.GET.secao }}&{% endif %}data={{ semana_anterior }}" class="nav-semana-btn" title="Semana Anterior"><i class="fas fa-chevron-left"></i></a>
+                        <span class="nav-semana-text"><i class="fas fa-calendar-alt me-2"></i> {{ dias_semana.0|date:"d/m" }} a {{ dias_semana.6|date:"d/m" }}</span>
+                        <a href="?{% if request.GET.secao %}secao={{ request.GET.secao }}&{% endif %}data={{ proxima_semana }}" class="nav-semana-btn" title="Próxima Semana"><i class="fas fa-chevron-right"></i></a>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="card-body p-0">
+                <div class="table-responsive">
+                    <table class="table table-hover align-middle mb-0 text-center chamada-table">
+                        <thead>
+                            <tr>
+                                <th class="align-middle" style="width: 10%;">Posto</th>
+                                <th class="align-middle text-start" style="width: 20%;">Nome de Guerra</th>
+                                {% for dia in dias_semana %}
+                                <th class="align-middle {% if dia == hoje %}today-col-header{% endif %}" style="width: 10%;">
+                                    <div class="fw-bold fs-6">{{ dia|date:"D"|upper }}</div>
+                                    <small class="{% if dia == hoje %}text-white-50{% else %}text-muted{% endif %}">{{ dia|date:"d/m" }}</small>
+                                </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+
+                            {% for item in lista_chamada %}
+                            <tr>
+                                <td class="{% if not item.pode_editar %}text-muted{% endif %} fw-bold align-middle">{{ item.militar.posto }}</td>
+                                <td class="{% if not item.pode_editar %}text-muted{% endif %} align-middle text-start fw-medium">{{ item.militar.nome_guerra }}</td>
+                                
+                                {% for dia_status in item.dias %}
+                                <td id="status-{{ item.militar.id }}-{{ dia_status.data_str }}" class="align-middle {% if dia_status.is_hoje %}today-col{% endif %}">
+                                    <div class="mb-2 status-label">
+                                        {% if not dia_status.status %}
+                                            <span class="status-badge status-aguardando shadow-sm"><i class="fas fa-clock me-1"></i> Aguardando</span>
+                                        {% else %}
+                                            {% if dia_status.status == 'P' %}
+                                                <span class="status-badge status-P shadow-sm"><i class="fas fa-check-circle me-1"></i> Presente</span>
+                                            {% elif dia_status.status == 'F' %}
+                                                <span class="status-badge status-F shadow-sm"><i class="fas fa-times-circle me-1"></i> Falta</span>
+                                            {% elif dia_status.status == 'M' %}
+                                                <span class="status-badge status-M shadow-sm"><i class="fas fa-briefcase me-1"></i> Missão</span>
+                                            {% elif dia_status.status == 'ESV' %}
+                                                <span class="status-badge status-ESV shadow-sm"><i class="fas fa-sign-in-alt me-1"></i> Entrando Sv</span>
+                                            {% elif dia_status.status == 'SSV' %}
+                                                <span class="status-badge status-SSV shadow-sm"><i class="fas fa-sign-out-alt me-1"></i> Saindo Sv</span>
+                                            {% elif dia_status.status == 'DPC' %}
+                                                <span class="status-badge status-DPC shadow-sm"><i class="fas fa-user-check me-1"></i> Dispensado</span>
+                                            {% endif %}
+                                        {% endif %}
+                                    </div>
+                                    {% if not dia_status.is_futuro and item.pode_editar and dia_status.is_hoje or not dia_status.is_futuro and item.pode_editar and user.is_superuser %}
+                                    <div class="dropdown btn-group-chamada">
+                                        <button class="btn btn-sm btn-outline-secondary dropdown-toggle" type="button" data-bs-toggle="dropdown" aria-expanded="false" style="font-size: 0.75rem; padding: 2px 8px;">
+                                            Opções
+                                        </button>
+                                        <ul class="dropdown-menu shadow-sm" style="font-size: 0.85rem; min-width: 180px;">
+                                            <li><a class="dropdown-item btn-presenca" href="javascript:void(0)" data-id="{{ item.militar.id }}" data-date="{{ dia_status.data_str }}" data-status="P"><i class="fas fa-check-circle text-success me-2"></i> Presente (P)</a></li>
+                                            <li><a class="dropdown-item btn-presenca" href="javascript:void(0)" data-id="{{ item.militar.id }}" data-date="{{ dia_status.data_str }}" data-status="F"><i class="fas fa-times-circle text-danger me-2"></i> Falta (F)</a></li>
+                                            <li><a class="dropdown-item btn-presenca" href="javascript:void(0)" data-id="{{ item.militar.id }}" data-date="{{ dia_status.data_str }}" data-status="M"><i class="fas fa-briefcase text-warning me-2"></i> Missão (M)</a></li>
+                                            <li><a class="dropdown-item btn-presenca" href="javascript:void(0)" data-id="{{ item.militar.id }}" data-date="{{ dia_status.data_str }}" data-status="ESV"><i class="fas fa-sign-in-alt text-primary me-2"></i> Entrando de Sv (ESV)</a></li>
+                                            <li><a class="dropdown-item btn-presenca" href="javascript:void(0)" data-id="{{ item.militar.id }}" data-date="{{ dia_status.data_str }}" data-status="SSV"><i class="fas fa-sign-out-alt me-2" style="color: #8b5cf6;"></i> Saindo de Sv (SSV)</a></li>
+                                            <li><a class="dropdown-item btn-presenca" href="javascript:void(0)" data-id="{{ item.militar.id }}" data-date="{{ dia_status.data_str }}" data-status="DPC"><i class="fas fa-user-check me-2" style="color: #14b8a6;"></i> Dispensado (DPC)</a></li>
+                                        </ul>
+                                    </div>
+                                    {% elif dia_status.is_futuro %}
+                                        <div class="text-muted small mt-2" title="Dia futuro"><i class="fas fa-lock"></i></div>
+                                    {% elif not item.pode_editar or not dia_status.is_hoje and not user.is_superuser %}
+                                        <div class="text-muted small mt-2" title="Sem permissão para editar"><i class="fas fa-lock"></i></div>
+                                    {% endif %}
+                                </td>
+                                {% endfor %}
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="9" class="text-center py-5">
+                                    <div class="text-muted">
+                                        <i class="fas fa-users-slash fs-1 mb-3 text-secondary opacity-50"></i>
+                                        <h5 class="fw-light">Nenhum militar ativo encontrado nesta seção.</h5>
+                                    </div>
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ? document.querySelector('[name=csrfmiddlewaretoken]').value : '{{ csrf_token }}';
+
+    document.querySelectorAll('.btn-presenca').forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.preventDefault();
+            const militarId = this.dataset.id;
+            const status = this.dataset.status;
+            const dateStr = this.dataset.date;
+            
+            fetch("{% url 'chamada:chamada_toggle' %}", {
+                method: 'POST',
+                headers: {
+                    'X-CSRFToken': csrfToken,
+                    'Content-Type': 'application/x-www-form-urlencoded',
+                },
+                body: new URLSearchParams({'militar_id': militarId, 'status': status, 'data': dateStr})
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    const statusTd = document.getElementById('status-' + militarId + '-' + dateStr);
+                    let badgeHtml = '';
+                    const val = data.status_val;
+                    if (val === 'P') badgeHtml = '<span class="status-badge status-P shadow-sm"><i class="fas fa-check-circle me-1"></i> Presente</span>';
+                    else if (val === 'F') badgeHtml = '<span class="status-badge status-F shadow-sm"><i class="fas fa-times-circle me-1"></i> Falta</span>';
+                    else if (val === 'M') badgeHtml = '<span class="status-badge status-M shadow-sm"><i class="fas fa-briefcase me-1"></i> Missão</span>';
+                    else if (val === 'ESV') badgeHtml = '<span class="status-badge status-ESV shadow-sm"><i class="fas fa-sign-in-alt me-1"></i> Entrando Sv</span>';
+                    else if (val === 'SSV') badgeHtml = '<span class="status-badge status-SSV shadow-sm"><i class="fas fa-sign-out-alt me-1"></i> Saindo Sv</span>';
+                    else if (val === 'DPC') badgeHtml = '<span class="status-badge status-DPC shadow-sm"><i class="fas fa-user-check me-1"></i> Dispensado</span>';
+                    else badgeHtml = '<span class="status-badge status-aguardando shadow-sm"><i class="fas fa-clock me-1"></i> Aguardando</span>';
+
+                    statusTd.querySelector('.status-label').innerHTML = badgeHtml;
+                } else { alert(data.message); }
+            })
+            .catch(err => console.error(err));
+        });
+    });
+
+    const btnMarcarTodos = document.getElementById('btn-marcar-todos');
+    if (btnMarcarTodos) {
+        btnMarcarTodos.addEventListener('click', function() {
+            if(confirm('Deseja marcar todos os militares visíveis como PRESENTE para o dia de hoje?')) {
+                const botoesHoje = document.querySelectorAll('.today-col .btn-presenca[data-status="P"]');
+                if (botoesHoje.length === 0) { alert('Nenhum botão de presença disponível para o dia atual.'); return; }
+                botoesHoje.forEach((btn, index) => {
+                    setTimeout(() => { btn.click(); }, index * 50); 
+                });
+            }
+        });
+    }
+});
+</script>
+{% endblock %}

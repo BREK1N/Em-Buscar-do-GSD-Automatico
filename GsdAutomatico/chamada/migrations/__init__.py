@@ -1,0 +1,1 @@
+# Arquivo de inicialização do módulo de migrações
