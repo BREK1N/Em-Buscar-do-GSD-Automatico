@@ -433,6 +433,7 @@
             </li>
 
             <!-- ── ESCALA ── -->
+            {% if user|can_see_escalas %}
             <li style="padding: 10px 10px 2px;">
                 <span class="sidebar-section-label" style="padding:0">ESCALA</span>
             </li>
@@ -444,9 +445,10 @@
                     <span>Escalas</span>
                 </a>
             </li>
+            {% endif %}
 
             <!-- ── OPERAÇÕES ── -->
-            {% if user|is_sop_operacoes %}
+            {% if user|can_see_missoes %}
             <li style="padding: 10px 10px 2px;">
                 <span class="sidebar-section-label" style="padding:0">OPERAÇÕES</span>
             </li>

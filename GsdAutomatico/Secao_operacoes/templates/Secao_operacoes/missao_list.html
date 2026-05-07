@@ -125,11 +125,68 @@ tbody td { padding:12px 16px; font-size:0.875rem; color:var(--text-primary); ver
                 {% endif %}
             </div>
         </div>
+        <button type="button" class="btn-primary" style="background:var(--warning,#f59e0b);" onclick="abrirModalExtrato()">
+            <i class="fas fa-file-alt"></i> Criar Extrato de Missão
+        </button>
         <a href="{% url 'Secao_operacoes:missao_create' %}" class="btn-primary">
             <i class="fas fa-plus"></i> Nova Missão
         </a>
     </div>
 </div>
+
+<!-- Modal Extrato de Missão -->
+<div id="modal-extrato" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);">
+    <div style="background:var(--bg-card,#fff);border:1px solid var(--border-strong,#ccc);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.28);padding:28px 32px;min-width:320px;max-width:400px;width:100%;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.15rem;font-weight:700;color:var(--text-primary);margin:0;">
+                <i class="fas fa-file-alt" style="color:var(--warning,#f59e0b);margin-right:8px;"></i>
+                Extrato de Missões
+            </h2>
+            <button onclick="fecharModalExtrato()" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;line-height:1;padding:0;">&#x2715;</button>
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:18px;">
+            Selecione o dia para gerar o extrato em PDF com todas as missões do período.
+        </p>
+        <label style="display:block;font-size:12px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:7px;">Data</label>
+        <input type="date" id="extrato-data" class="filter-date" style="width:100%;margin-bottom:20px;">
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="fecharModalExtrato()" class="btn-filter" style="padding:9px 18px;">Cancelar</button>
+            <button onclick="gerarExtrato()" class="btn-primary" style="background:var(--warning,#f59e0b);">
+                <i class="fas fa-file-pdf"></i> Gerar PDF
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+(function(){
+    // define data padrão como hoje
+    const input = document.getElementById('extrato-data');
+    if (input) {
+        const hoje = new Date();
+        const y = hoje.getFullYear();
+        const m = String(hoje.getMonth()+1).padStart(2,'0');
+        const d = String(hoje.getDate()).padStart(2,'0');
+        input.value = `${y}-${m}-${d}`;
+    }
+})();
+
+function abrirModalExtrato() {
+    document.getElementById('modal-extrato').style.display = 'flex';
+}
+function fecharModalExtrato() {
+    document.getElementById('modal-extrato').style.display = 'none';
+}
+function gerarExtrato() {
+    const data = document.getElementById('extrato-data').value;
+    if (!data) { alert('Selecione uma data.'); return; }
+    window.open("{% url 'Secao_operacoes:extrato_missao_pdf' %}?data=" + data, '_blank');
+    fecharModalExtrato();
+}
+document.getElementById('modal-extrato').addEventListener('click', function(e){
+    if (e.target === this) fecharModalExtrato();
+});
+</script>
 
 <style>
 .config-menu-item {
@@ -174,13 +231,39 @@ document.addEventListener('click', e => {
         <i class="fas fa-calendar-day"></i> Hoje
     </a>
 
-    {% if data_filtro or busca %}
+    <a href="?semana=atual&ordem={{ ordem }}" class="btn-filter {% if filtro_semana == 'atual' %}active{% endif %}" title="Semana atual">
+        <i class="fas fa-calendar-week"></i> Semana Atual
+    </a>
+
+    <div style="position:relative;" id="semana-wrap">
+        <button type="button" class="btn-filter {% if filtro_semana and filtro_semana != 'atual' %}active{% endif %}" onclick="toggleSemanaInput()" title="Escolher semana">
+            <i class="fas fa-calendar-alt"></i>
+            {% if semana_inicio and filtro_semana != 'atual' %}
+                {{ semana_inicio|date:"d/m" }} – {{ semana_fim|date:"d/m" }}
+            {% else %}
+                Semana
+            {% endif %}
+        </button>
+        <div id="semana-picker" style="display:none;position:absolute;top:calc(100% + 6px);left:0;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:999;padding:14px;min-width:220px;">
+            <label style="display:block;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:8px;">Selecionar Semana</label>
+            <input type="week" id="semana-input" value="{{ semana_atual_value }}"
+                   style="width:100%;padding:7px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-input);color:var(--text-primary);font-size:13px;margin-bottom:10px;">
+            <button type="button" onclick="aplicarSemana()" class="btn-primary" style="width:100%;justify-content:center;">
+                <i class="fas fa-check"></i> Aplicar
+            </button>
+        </div>
+    </div>
+
+    {% if data_filtro or busca or filtro_semana %}
     <a href="{% url 'Secao_operacoes:missao_list' %}" class="btn-filter btn-filter-clear">
         <i class="fas fa-times"></i> Limpar
     </a>
     {% endif %}
 
-    <span class="filter-count">{{ missoes|length }} missão{% if missoes|length != 1 %}ões{% endif %} encontrada{% if missoes|length != 1 %}s{% endif %}</span>
+    <span class="filter-count">
+        {{ missoes|length }} missão{% if missoes|length != 1 %}ões{% endif %} encontrada{% if missoes|length != 1 %}s{% endif %}
+        {% if semana_inicio %}&nbsp;({{ semana_inicio|date:"d/m" }} – {{ semana_fim|date:"d/m/Y" }}){% endif %}
+    </span>
 </form>
 
 <div class="card">
@@ -343,6 +426,20 @@ function escolherSugestao(label) {
 document.addEventListener('click', e => {
     if (!e.target.closest('#search-q') && !e.target.closest('#search-suggestions'))
         suggestions.style.display = 'none';
+    if (!e.target.closest('#semana-wrap'))
+        document.getElementById('semana-picker').style.display = 'none';
 });
+
+function toggleSemanaInput() {
+    const picker = document.getElementById('semana-picker');
+    picker.style.display = picker.style.display === 'none' ? 'block' : 'none';
+}
+
+function aplicarSemana() {
+    const val = document.getElementById('semana-input').value;
+    if (!val) return;
+    // val está no formato 'YYYY-WNN', redirecionamos com semana=YYYY-WNN
+    window.location.href = '?semana=' + encodeURIComponent(val) + '&ordem={{ ordem }}';
+}
 </script>
 {% endblock %}

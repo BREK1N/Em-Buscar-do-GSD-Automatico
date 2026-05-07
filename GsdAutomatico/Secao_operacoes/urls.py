@@ -26,9 +26,11 @@ urlpatterns = [
     path('missoes/<int:pk>/editar/', views.missao_edit, name='missao_edit'),
     path('missoes/<int:pk>/excluir/', views.missao_delete, name='missao_delete'),
     path('missoes/<int:pk>/pdf/', views.missao_pdf, name='missao_pdf'),
+    path('missoes/extrato/pdf/', views.extrato_missao_pdf, name='extrato_missao_pdf'),
 
     # API missão busca
     path('missoes/api/busca/', views.missao_busca_json, name='missao_busca_json'),
+    path('missoes/api/conflitos/', views.militar_conflitos_json, name='militar_conflitos_json'),
     path('api/efetivo/', views.efetivo_busca_json, name='efetivo_busca_json'),
 
     # Catálogo de equipamentos

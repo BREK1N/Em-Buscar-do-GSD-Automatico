@@ -1,0 +1,118 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4 landscape; margin: 1.5cm 1.8cm 1.8cm 1.8cm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+        font-family: Arial, Helvetica, sans-serif;
+        font-size: 9pt;
+        color: #000;
+        line-height: 1.3;
+    }
+
+    .titulo {
+        text-align: center;
+        font-size: 13pt;
+        font-weight: bold;
+        text-decoration: underline;
+        margin-bottom: 18px;
+        text-transform: uppercase;
+    }
+
+    table {
+        width: 100%;
+        border-collapse: collapse;
+    }
+
+    thead th {
+        border: 1px solid #000;
+        padding: 6px 8px;
+        text-align: center;
+        font-size: 8.5pt;
+        font-weight: bold;
+        text-transform: uppercase;
+        background: #fff;
+        vertical-align: middle;
+    }
+
+    tbody td {
+        border: 1px solid #000;
+        padding: 5px 8px;
+        text-align: center;
+        font-size: 8.5pt;
+        font-weight: bold;
+        vertical-align: middle;
+    }
+
+    tbody tr:nth-child(even) {
+        background: #f5f5f5;
+    }
+
+    .col-omis    { width: 5%; }
+    .col-chamada { width: 10%; }
+    .col-missao  { width: 25%; }
+    .col-solic   { width: 25%; }
+    .col-cmt     { width: 20%; }
+    .col-efetivo { width: 15%; }
+</style>
+</head>
+<body>
+
+<div class="titulo">
+    Extrato de Missões - SGT de Dia GSD-GL &ndash; {{ data_exibicao }}
+</div>
+
+<table>
+    <thead>
+        <tr>
+            <th class="col-omis">OMIS</th>
+            <th class="col-chamada">CHAMADA</th>
+            <th class="col-missao">MISSÃO</th>
+            <th class="col-solic">SOLICITANTE</th>
+            <th class="col-cmt">CMT DA MISSÃO</th>
+            <th class="col-efetivo">EFETIVO<br>EMPREGADO</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for m in missoes %}
+        <tr>
+            <td>{{ m.numero }}</td>
+            <td>
+                {% if m.horario_chamada %}
+                    {{ m.horario_chamada|time:"H:i" }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td style="text-align:left;">{{ m.nome_missao|upper }}</td>
+            <td>{{ m.acionador|upper|default:"—" }}</td>
+            <td>
+                {% if m.cmt_a_cargo %}
+                    {{ m.cmt_a_cargo|upper }}
+                {% elif m.cmt_missao %}
+                    {{ m.cmt_missao.posto|upper }} {{ m.cmt_missao.nome_guerra|upper }}
+                {% else %}
+                    —
+                {% endif %}
+            </td>
+            <td>
+                {% with total=m.efetivo_of|add:m.efetivo_so_sgt|add:m.efetivo_cb|add:m.efetivo_s1|add:m.efetivo_s2|add:m.efetivo_rec %}
+                    {{ total }} {% if total == 1 %}MILITAR{% else %}MILITARES{% endif %}
+                {% endwith %}
+            </td>
+        </tr>
+        {% empty %}
+        <tr>
+            <td colspan="6" style="text-align:center;padding:16px;font-style:italic;">
+                Nenhuma missão encontrada para esta data.
+            </td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
+
+</body>
+</html>

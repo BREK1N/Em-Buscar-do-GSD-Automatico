@@ -100,7 +100,7 @@ textarea.form-control { resize:vertical; }
     .items-table { font-size: 12px; }
     .items-table th, .items-table td { padding: 6px 8px; }
     .catalogo-box { width: 95vw; }
-    .picker-results { position: fixed !important; left: 1rem !important; right: 1rem !important; width: auto !important; }
+    /* picker-results usa position:absolute dentro do picker-wrap */
 }
 </style>
 
@@ -347,9 +347,9 @@ textarea.form-control { resize:vertical; }
 
 <!-- 6. Efetivo -->
 <style>
-.picker-wrap { position:relative; }
+.picker-wrap { position:relative; overflow:visible; }
 .picker-search { width:100%; padding:7px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:13px; margin-bottom:0; box-sizing:border-box; }
-.picker-results { position:absolute; left:0; right:0; z-index:200; top:calc(100% + 2px); max-height:200px; overflow-y:auto; border:1px solid var(--border-strong); border-radius:8px; background:var(--bg-card); box-shadow:0 6px 20px rgba(0,0,0,.18); display:none; }
+.picker-results { position:absolute; top:100%; left:0; right:0; z-index:9998; max-height:200px; overflow-y:auto; border:1px solid var(--border-strong); border-radius:8px; background:var(--bg-card); box-shadow:0 6px 20px rgba(0,0,0,.18); display:none; }
 .picker-item { padding:7px 12px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; }
 .picker-item:last-child { border-bottom:none; }
 .picker-item:hover { background:var(--accent-dim); color:var(--accent); }
@@ -478,8 +478,12 @@ textarea.form-control { resize:vertical; }
     </button>
 </div>
 
+{{ diretrizes_iniciais|json_script:"data-diretrizes-iniciais" }}
+{{ diretrizes_padrao_json|json_script:"data-diretrizes-padrao" }}
 <script>
 const TODOS_EFETIVO = {{ efetivo_json|safe }};
+const CONFLITOS_URL          = "{% url 'Secao_operacoes:militar_conflitos_json' %}";
+const MISSAO_ID_ATUAL        = "{{ missao.pk|default:'' }}";
 const BUSCA_URL              = "{% url 'Secao_operacoes:missao_busca_json' %}";
 const CATALOGO_JSON_URL      = "{% url 'Secao_operacoes:equipamento_catalogo_json' %}";
 const CATALOGO_ADD_URL       = "{% url 'Secao_operacoes:equipamento_catalogo_add' %}";
@@ -490,8 +494,8 @@ const UNIFORME_ADD_URL       = "{% url 'Secao_operacoes:uniforme_catalogo_add' %
 const ARMAMENTO_JSON_URL     = "{% url 'Secao_operacoes:armamento_catalogo_json' %}";
 const ARMAMENTO_ADD_URL      = "{% url 'Secao_operacoes:armamento_catalogo_add' %}";
 const CSRF = '{{ csrf_token }}';
-const DIRETRIZES_INICIAIS = {{ diretrizes_iniciais|default:"[]"|safe }};
-const DIRETRIZES_PADRAO   = {{ diretrizes_padrao_json|default:"[]"|safe }};
+const DIRETRIZES_INICIAIS = JSON.parse(document.getElementById('data-diretrizes-iniciais').textContent) || [];
+const DIRETRIZES_PADRAO   = JSON.parse(document.getElementById('data-diretrizes-padrao').textContent) || [];
 const OBS_ARMAMENTO_PADRAO = "{{ obs_armamento_padrao|escapejs }}";
 
 // All standard schedule items (key, label, field_name)
@@ -963,15 +967,15 @@ function atualizarModoEfetivo() {
     if (!manual) recalcularEfetivo();
 }
 
-// Inicializa estado ao carregar
-atualizarModoEfetivo();
-
 /* ══ Picker de Efetivo ══ */
 const POSTOS_OF    = ['ASP','ASPIRANTE','2T','1T','CAP','CAPITÃO','CAPITAO','CP','MAJ','MAJOR','MJ','TC','CEL','CORONEL','CL','BRIG','BRIGADEIRO','BG'];
 const POSTOS_SO_SGT = ['SO','SGT','1S','2S','3S'];
 const POSTOS_CB    = ['CB','CABO'];
 const POSTOS_S1    = ['S1','SD1','SDP1'];
 const POSTOS_S2    = ['S2','SD2','SDP2','SD','SOL','SOLDADO'];
+
+// Inicializa estado ao carregar
+atualizarModoEfetivo();
 
 function categoriaPosto(posto) {
     const p = (posto||'').toUpperCase().trim();
@@ -1023,90 +1027,57 @@ function buscarEfetivo(q) {
     ).slice(0, 20);
 }
 
-/* — CMT — */
-setupPicker('cmt_search', 'cmt_results', {
-    onSelect(pessoa) {
-        document.getElementById('cmt_id').value = pessoa.id;
-        document.getElementById('cmt_chip').innerHTML = `
-            <div class="pessoa-selecionada">
-                <span>${pessoa.label}</span>
-                <button type="button" onclick="limparCmt()">×</button>
-            </div>`;
-        document.getElementById('cmt_search').value = '';
-        document.getElementById('cmt_results').style.display = 'none';
-        recalcularEfetivo();
-    }
-});
-function limparCmt() {
-    document.getElementById('cmt_id').value = '';
-    document.getElementById('cmt_chip').innerHTML = '';
-    recalcularEfetivo();
+/* ── Verificação de conflitos ── */
+function getDataMissao() {
+    const el = document.getElementById('id_data_missao');
+    return el ? el.value : '';
 }
 
-/* — MOT — */
-setupPicker('mot_search', 'mot_results', {
-    onSelect(pessoa) {
-        document.getElementById('mot_id').value = pessoa.id;
-        document.getElementById('mot_chip').innerHTML = `
-            <div class="pessoa-selecionada">
-                <span>${pessoa.label}</span>
-                <button type="button" onclick="limparMot()">×</button>
-            </div>`;
-        document.getElementById('mot_search').value = '';
-        document.getElementById('mot_results').style.display = 'none';
-        recalcularEfetivo();
+async function verificarConflitos(pessoa, callback) {
+    const data = getDataMissao();
+    if (!data) { callback(pessoa); return; }
+    try {
+        const url = `${CONFLITOS_URL}?militar_id=${pessoa.id}&data=${data}&missao_id=${MISSAO_ID_ATUAL}`;
+        const res = await fetch(url);
+        const json = await res.json();
+        if (json.conflitos && json.conflitos.length > 0) {
+            mostrarModalConflito(json.militar, json.conflitos, () => callback(pessoa));
+        } else {
+            callback(pessoa);
+        }
+    } catch(e) {
+        callback(pessoa);
     }
-});
-function limparMot() {
-    document.getElementById('mot_id').value = '';
-    document.getElementById('mot_chip').innerHTML = '';
-    recalcularEfetivo();
 }
 
-/* — EQUIPE — */
-const equipeIds = new Set(
-    [...document.querySelectorAll('#equipe_chips [data-id]')].map(el => parseInt(el.dataset.id))
-);
+function mostrarModalConflito(nomeMilitar, conflitos, onConfirmar) {
+    const lista = conflitos.map(c => {
+        const cor = c.tipo === 'situacao' ? '#ef4444' : c.tipo === 'escala' ? '#f59e0b' : '#3b82f6';
+        const icone = c.tipo === 'situacao' ? '⚠' : c.tipo === 'escala' ? '📅' : '🎯';
+        return `<div style="display:flex;align-items:flex-start;gap:8px;padding:8px 0;border-bottom:1px solid var(--border);">
+            <span style="font-size:16px;">${icone}</span>
+            <span style="font-size:13px;color:var(--text-primary);">${c.descricao}</span>
+        </div>`;
+    }).join('');
 
-setupPicker('equipe_search', 'equipe_results', {
-    onSelect(pessoa) {
-        if (equipeIds.has(pessoa.id)) return;
-        equipeIds.add(pessoa.id);
-        const chip = document.createElement('span');
-        chip.className = 'pessoa-chip';
-        chip.dataset.id = pessoa.id;
-        chip.innerHTML = `${pessoa.label} <button type="button" onclick="removerEquipe(this, ${pessoa.id})">×</button>`;
-
-        // hidden input para o POST
-        const inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = 'equipe_ids[]'; inp.value = pessoa.id; inp.id = `eq_hid_${pessoa.id}`;
-        chip.appendChild(inp);
-
-        document.getElementById('equipe_chips').appendChild(chip);
-        document.getElementById('equipe_search').value = '';
-        document.getElementById('equipe_results').style.display = 'none';
-        recalcularEfetivo();
-    }
-});
-
-function removerEquipe(btn, id) {
-    equipeIds.delete(id);
-    btn.closest('[data-id]').remove();
-    recalcularEfetivo();
+    document.getElementById('conflito-nome').textContent = nomeMilitar;
+    document.getElementById('conflito-lista').innerHTML = lista;
+    document.getElementById('conflito-confirmar').onclick = () => {
+        fecharModalConflito();
+        onConfirmar();
+    };
+    document.getElementById('modal-conflito').style.display = 'flex';
 }
 
-// Injeta os hidden inputs dos membros já carregados (edição)
-document.querySelectorAll('#equipe_chips [data-id]').forEach(chip => {
-    if (!chip.querySelector('input[type=hidden]')) {
-        const inp = document.createElement('input');
-        inp.type = 'hidden'; inp.name = 'equipe_ids[]'; inp.value = chip.dataset.id;
-        chip.appendChild(inp);
-    }
-});
+function fecharModalConflito() {
+    document.getElementById('modal-conflito').style.display = 'none';
+}
 
 function setupPicker(searchId, resultsId, { onSelect }) {
-    const searchEl = document.getElementById(searchId);
+    const searchEl  = document.getElementById(searchId);
     const resultsEl = document.getElementById(resultsId);
+    if (!searchEl || !resultsEl) return;
+
     let timer;
     searchEl.addEventListener('input', () => {
         clearTimeout(timer);
@@ -1116,27 +1087,109 @@ function setupPicker(searchId, resultsId, { onSelect }) {
             const lista = buscarEfetivo(q);
             if (!lista.length) { resultsEl.style.display = 'none'; return; }
             resultsEl.innerHTML = lista.map(p =>
-                `<div class="picker-item" data-id="${p.id}">
-                    <span>${p.label}</span>
-                </div>`
+                `<div class="picker-item" data-id="${p.id}"><span>${p.label}</span></div>`
             ).join('');
             resultsEl.querySelectorAll('.picker-item').forEach(el => {
-                el.addEventListener('click', () => {
+                el.addEventListener('mousedown', e => {
+                    e.preventDefault();
                     const id = parseInt(el.dataset.id);
-                    onSelect(TODOS_EFETIVO.find(e => e.id === id));
+                    onSelect(TODOS_EFETIVO.find(e2 => e2.id === id));
+                    resultsEl.style.display = 'none';
                 });
             });
             resultsEl.style.display = 'block';
         }, 150);
     });
-    document.addEventListener('click', e => {
-        if (!e.target.closest(`#${searchId}`) && !e.target.closest(`#${resultsId}`))
-            resultsEl.style.display = 'none';
+
+    searchEl.addEventListener('blur', () => {
+        setTimeout(() => { resultsEl.style.display = 'none'; }, 200);
     });
 }
 
-// Também atualiza o preencherMissao para incluir radio_nome
-const _origPreencherMissao = preencherMissao;
+function limparCmt() {
+    document.getElementById('cmt_id').value = '';
+    document.getElementById('cmt_chip').innerHTML = '';
+    recalcularEfetivo();
+}
+function limparMot() {
+    document.getElementById('mot_id').value = '';
+    document.getElementById('mot_chip').innerHTML = '';
+    recalcularEfetivo();
+}
+
+const equipeIds = new Set();
+
+function removerEquipe(btn, id) {
+    equipeIds.delete(id);
+    btn.closest('[data-id]').remove();
+    recalcularEfetivo();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    // Inicializa equipeIds com membros já carregados (edição)
+    document.querySelectorAll('#equipe_chips [data-id]').forEach(chip => {
+        equipeIds.add(parseInt(chip.dataset.id));
+        if (!chip.querySelector('input[type=hidden]')) {
+            const inp = document.createElement('input');
+            inp.type = 'hidden'; inp.name = 'equipe_ids[]'; inp.value = chip.dataset.id;
+            chip.appendChild(inp);
+        }
+    });
+
+    /* — CMT — */
+    setupPicker('cmt_search', 'cmt_results', {
+        onSelect(pessoa) {
+            verificarConflitos(pessoa, p => {
+                document.getElementById('cmt_id').value = p.id;
+                document.getElementById('cmt_chip').innerHTML = `
+                    <div class="pessoa-selecionada">
+                        <span>${p.label}</span>
+                        <button type="button" onclick="limparCmt()">×</button>
+                    </div>`;
+                document.getElementById('cmt_search').value = '';
+                recalcularEfetivo();
+            });
+        }
+    });
+
+    /* — MOT — */
+    setupPicker('mot_search', 'mot_results', {
+        onSelect(pessoa) {
+            verificarConflitos(pessoa, p => {
+                document.getElementById('mot_id').value = p.id;
+                document.getElementById('mot_chip').innerHTML = `
+                    <div class="pessoa-selecionada">
+                        <span>${p.label}</span>
+                        <button type="button" onclick="limparMot()">×</button>
+                    </div>`;
+                document.getElementById('mot_search').value = '';
+                recalcularEfetivo();
+            });
+        }
+    });
+
+    /* — EQUIPE — */
+    setupPicker('equipe_search', 'equipe_results', {
+        onSelect(pessoa) {
+            if (equipeIds.has(pessoa.id)) return;
+            verificarConflitos(pessoa, p => {
+                equipeIds.add(p.id);
+                const chip = document.createElement('span');
+                chip.className = 'pessoa-chip';
+                chip.dataset.id = p.id;
+                chip.innerHTML = `${p.label} <button type="button" onclick="removerEquipe(this, ${p.id})">×</button>`;
+                const inp = document.createElement('input');
+                inp.type = 'hidden'; inp.name = 'equipe_ids[]'; inp.value = p.id; inp.id = `eq_hid_${p.id}`;
+                chip.appendChild(inp);
+                document.getElementById('equipe_chips').appendChild(chip);
+                document.getElementById('equipe_search').value = '';
+                recalcularEfetivo();
+            });
+        }
+    });
+});
+
+
 
 /* ── Catálogo armamento ── */
 function abrirCatalogoArmamento() {
@@ -1158,4 +1211,229 @@ function abrirCatalogoArmamento() {
     });
 }
 </script>
+
+<!-- Modal de Conflito de Escala/Missão -->
+<div id="modal-conflito" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);">
+    <div style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.3);padding:28px 32px;max-width:480px;width:calc(100% - 32px);">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <span style="font-size:22px;">⚠️</span>
+            <div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1.1rem;font-weight:700;color:var(--text-primary);">Conflito detectado</div>
+                <div style="font-size:13px;color:var(--text-secondary);margin-top:2px;"><strong id="conflito-nome"></strong> possui o(s) seguinte(s) conflito(s) nesta data:</div>
+            </div>
+        </div>
+
+        <div id="conflito-lista" style="max-height:220px;overflow-y:auto;margin-bottom:20px;"></div>
+
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:18px;">Deseja escalar este militar mesmo assim?</p>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="fecharModalConflito()" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-page);color:var(--text-secondary);font-size:13px;font-weight:500;cursor:pointer;">
+                Cancelar
+            </button>
+            <button id="conflito-confirmar" style="display:inline-flex;align-items:center;gap:6px;padding:9px 18px;border-radius:8px;border:none;background:#ef4444;color:#fff;font-size:13px;font-weight:600;cursor:pointer;">
+                Escalar mesmo assim
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal de Revisão de Militares ao Mudar Data -->
+<div id="modal-revisao-data" style="display:none;position:fixed;inset:0;z-index:10000;align-items:flex-start;justify-content:center;background:rgba(0,0,0,0.6);overflow-y:auto;padding:24px 16px;">
+    <div style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.3);padding:28px 32px;max-width:560px;width:100%;margin:auto;">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:6px;">
+            <span style="font-size:22px;">📅</span>
+            <div>
+                <div style="font-family:'Rajdhani',sans-serif;font-size:1.15rem;font-weight:700;color:var(--text-primary);">Data da missão alterada</div>
+                <div id="revisao-subtitulo" style="font-size:13px;color:var(--text-secondary);margin-top:2px;"></div>
+            </div>
+        </div>
+
+        <div style="display:flex;gap:8px;margin-bottom:16px;flex-wrap:wrap;">
+            <button onclick="revisaoRemoverTodos()" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#ef4444;font-size:12px;font-weight:600;cursor:pointer;">
+                <i class="fas fa-times-circle"></i> Remover todos com conflito
+            </button>
+            <button onclick="revisaoManterTodos()" style="display:inline-flex;align-items:center;gap:5px;padding:6px 12px;border-radius:7px;border:1px solid var(--border-strong);background:var(--bg-page);color:var(--text-secondary);font-size:12px;font-weight:600;cursor:pointer;">
+                <i class="fas fa-check-circle"></i> Manter todos
+            </button>
+        </div>
+
+        <div id="revisao-lista" style="display:flex;flex-direction:column;gap:10px;max-height:380px;overflow-y:auto;margin-bottom:20px;"></div>
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;border-top:1px solid var(--border);padding-top:16px;">
+            <button onclick="fecharRevisaoData()" style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-page);color:var(--text-secondary);font-size:13px;font-weight:500;cursor:pointer;">
+                Fechar
+            </button>
+            <button onclick="aplicarRevisao()" style="display:inline-flex;align-items:center;gap:6px;padding:9px 20px;border-radius:8px;border:none;background:var(--accent);color:#fff;font-size:13px;font-weight:600;cursor:pointer;">
+                <i class="fas fa-check"></i> Aplicar
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+/* ── Revisão ao mudar data ── */
+let _revisaoDecisoes = {};
+let _revisaoItens    = [];
+
+function _getMilitaresAtivos() {
+    const lista = [];
+    const cmtId = document.getElementById('cmt_id')?.value;
+    if (cmtId) {
+        const p = TODOS_EFETIVO.find(e => e.id == cmtId);
+        if (p) lista.push({ tipo: 'cmt', pessoa: p });
+    }
+    const motId = document.getElementById('mot_id')?.value;
+    if (motId) {
+        const p = TODOS_EFETIVO.find(e => e.id == motId);
+        if (p) lista.push({ tipo: 'mot', pessoa: p });
+    }
+    document.querySelectorAll('#equipe_chips [data-id]').forEach(el => {
+        const p = TODOS_EFETIVO.find(e => e.id == el.dataset.id);
+        if (p) lista.push({ tipo: 'equipe', pessoa: p });
+    });
+    return lista;
+}
+
+async function verificarMudancaData(novaData) {
+    const militares = _getMilitaresAtivos();
+    if (!militares.length) return;
+
+    const checks = await Promise.all(militares.map(async ({ tipo, pessoa }) => {
+        try {
+            const url = `${CONFLITOS_URL}?militar_id=${pessoa.id}&data=${novaData}&missao_id=${MISSAO_ID_ATUAL}`;
+            const res = await fetch(url);
+            const json = await res.json();
+            return { tipo, pessoa, conflitos: json.conflitos || [] };
+        } catch { return { tipo, pessoa, conflitos: [] }; }
+    }));
+
+    const comConflito = checks.filter(c => c.conflitos.length > 0);
+    if (!comConflito.length) return;
+
+    _revisaoItens = comConflito;
+    _revisaoDecisoes = {};
+    comConflito.forEach(c => { _revisaoDecisoes[`${c.tipo}:${c.pessoa.id}`] = 'manter'; });
+
+    renderizarRevisao(novaData, comConflito);
+    document.getElementById('modal-revisao-data').style.display = 'flex';
+}
+
+function renderizarRevisao(data, itens) {
+    const d = data.split('-');
+    document.getElementById('revisao-subtitulo').textContent =
+        `${itens.length} militar(es) com conflito em ${d[2]}/${d[1]}/${d[0]}. Escolha o que fazer com cada um:`;
+
+    const papelLabel = { cmt: 'CMT', mot: 'MOT', equipe: 'Equipe' };
+    document.getElementById('revisao-lista').innerHTML = itens.map(({ tipo, pessoa, conflitos }) => {
+        const key = `${tipo}:${pessoa.id}`;
+        const conflitosHtml = conflitos.map(c => {
+            const icone = c.tipo === 'situacao' ? '⚠' : c.tipo === 'escala' ? '📅' : '🎯';
+            return `<div style="font-size:12px;color:var(--text-secondary);padding:2px 0;">${icone} ${c.descricao}</div>`;
+        }).join('');
+
+        return `<div id="revisao-card-${key.replace(':','-')}" style="border:1px solid var(--border-strong);border-radius:10px;padding:12px 14px;background:var(--bg-page);">
+            <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;">
+                <div style="flex:1;min-width:0;">
+                    <div style="font-size:13.5px;font-weight:600;color:var(--text-primary);">${pessoa.label}
+                        <span style="font-size:11px;font-weight:500;color:var(--accent);margin-left:6px;">${papelLabel[tipo]}</span>
+                    </div>
+                    <div style="margin-top:4px;">${conflitosHtml}</div>
+                </div>
+                <div style="display:flex;gap:6px;flex-shrink:0;">
+                    <button onclick="setDecisao('${key}','manter',this)" class="btn-decisao-rev btn-manter-rev" data-key="${key}" data-acao="manter"
+                        style="padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;background:var(--accent);color:#fff;border:1px solid var(--accent);">
+                        Manter
+                    </button>
+                    <button onclick="setDecisao('${key}','remover',this)" class="btn-decisao-rev btn-remover-rev" data-key="${key}" data-acao="remover"
+                        style="padding:5px 12px;border-radius:7px;font-size:12px;font-weight:600;cursor:pointer;border:1px solid rgba(239,68,68,.3);background:rgba(239,68,68,.08);color:#ef4444;">
+                        Remover
+                    </button>
+                </div>
+            </div>
+        </div>`;
+    }).join('');
+}
+
+function setDecisao(key, acao, btn) {
+    _revisaoDecisoes[key] = acao;
+    const cardId = 'revisao-card-' + key.replace(':','-');
+    const card = document.getElementById(cardId);
+    if (!card) return;
+    card.querySelectorAll('.btn-decisao-rev').forEach(b => {
+        const isAtivo = b.dataset.acao === acao;
+        if (b.dataset.acao === 'manter') {
+            b.style.background    = isAtivo ? 'var(--accent)' : 'var(--bg-card)';
+            b.style.color         = isAtivo ? '#fff' : 'var(--text-secondary)';
+            b.style.borderColor   = isAtivo ? 'var(--accent)' : 'var(--border-strong)';
+        } else {
+            b.style.background    = isAtivo ? '#ef4444' : 'rgba(239,68,68,.08)';
+            b.style.color         = isAtivo ? '#fff' : '#ef4444';
+            b.style.borderColor   = isAtivo ? '#ef4444' : 'rgba(239,68,68,.3)';
+        }
+    });
+}
+
+function revisaoRemoverTodos() {
+    Object.keys(_revisaoDecisoes).forEach(key => {
+        _revisaoDecisoes[key] = 'remover';
+        const card = document.getElementById('revisao-card-' + key.replace(':','-'));
+        if (!card) return;
+        card.querySelectorAll('.btn-decisao-rev').forEach(b => {
+            if (b.dataset.acao === 'manter') {
+                b.style.background = 'var(--bg-card)'; b.style.color = 'var(--text-secondary)'; b.style.borderColor = 'var(--border-strong)';
+            } else {
+                b.style.background = '#ef4444'; b.style.color = '#fff'; b.style.borderColor = '#ef4444';
+            }
+        });
+    });
+}
+
+function revisaoManterTodos() {
+    Object.keys(_revisaoDecisoes).forEach(key => {
+        _revisaoDecisoes[key] = 'manter';
+        const card = document.getElementById('revisao-card-' + key.replace(':','-'));
+        if (!card) return;
+        card.querySelectorAll('.btn-decisao-rev').forEach(b => {
+            if (b.dataset.acao === 'manter') {
+                b.style.background = 'var(--accent)'; b.style.color = '#fff'; b.style.borderColor = 'var(--accent)';
+            } else {
+                b.style.background = 'rgba(239,68,68,.08)'; b.style.color = '#ef4444'; b.style.borderColor = 'rgba(239,68,68,.3)';
+            }
+        });
+    });
+}
+
+function aplicarRevisao() {
+    Object.entries(_revisaoDecisoes).forEach(([key, acao]) => {
+        if (acao !== 'remover') return;
+        const [tipo, idStr] = key.split(':');
+        const id = parseInt(idStr);
+        if (tipo === 'cmt') {
+            limparCmt();
+        } else if (tipo === 'mot') {
+            limparMot();
+        } else if (tipo === 'equipe') {
+            const btn = document.querySelector(`#equipe_chips [data-id="${id}"] button`);
+            if (btn) removerEquipe(btn, id);
+        }
+    });
+    fecharRevisaoData();
+}
+
+function fecharRevisaoData() {
+    document.getElementById('modal-revisao-data').style.display = 'none';
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+    const dateEl = document.getElementById('id_data_missao');
+    if (dateEl) {
+        dateEl.addEventListener('change', () => {
+            const novaData = dateEl.value;
+            if (novaData) verificarMudancaData(novaData);
+        });
+    }
+});
+</script>
+
 {% endblock %}
