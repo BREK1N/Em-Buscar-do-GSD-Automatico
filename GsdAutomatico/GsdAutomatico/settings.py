@@ -242,3 +242,7 @@ LOGGING = {
         },
     },
 }
+
+# Upload size limits — tutorials can contain executables and other large files
+DATA_UPLOAD_MAX_MEMORY_SIZE = 5368709120  # 5 GB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 5368709120  # 5 GB

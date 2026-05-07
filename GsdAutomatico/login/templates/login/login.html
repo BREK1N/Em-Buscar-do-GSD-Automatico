@@ -83,7 +83,9 @@
 
         {% if messages %}
             {% for message in messages %}
-                <div class="alert-error">{{ message }}</div>
+                {% if message.tags == 'error' or message.level >= 40 %}
+                    <div class="alert-error">{{ message }}</div>
+                {% endif %}
             {% endfor %}
         {% endif %}
 

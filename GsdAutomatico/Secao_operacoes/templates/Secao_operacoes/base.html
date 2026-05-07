@@ -414,7 +414,8 @@
                 </a>
             </li>
 
-            <!-- ESCALA -->
+            <!-- ── ESCALA ── -->
+            {% if user|can_see_escalas %}
             <li style="padding: 10px 10px 2px;">
                 <span class="sidebar-section-label" style="padding:0">Escala</span>
             </li>
@@ -426,8 +427,9 @@
                     <span>Escalas</span>
                 </a>
             </li>
+            {% endif %}
 
-            <!-- OPERAÇÕES -->
+            <!-- ── OPERAÇÕES ── -->
             {% if user|is_sop_operacoes %}
             <li style="padding: 10px 10px 2px;">
                 <span class="sidebar-section-label" style="padding:0">Operações</span>

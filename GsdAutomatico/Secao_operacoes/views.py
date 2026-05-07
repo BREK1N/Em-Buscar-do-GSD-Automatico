@@ -143,12 +143,51 @@ def _is_sop_operacoes(user):
     return user.groups.filter(name='SOP - Operações').exists()
 
 
+def _is_sop_escalas(user):
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or user.is_staff:
+        return True
+    return user.groups.filter(name='SOP- Escalas').exists()
+
+
+def _can_see_missoes(user):
+    """Pode ver Missões: superuser, staff, SOP - Operações (mas NÃO apenas SOP- Escalas)."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or user.is_staff:
+        return True
+    return user.groups.filter(name='SOP - Operações').exists()
+
+
+def _can_see_escalas(user):
+    """Pode ver Escalas: superuser, staff, SOP- Escalas (mas NÃO apenas SOP - Operações)."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser or user.is_staff:
+        return True
+    return user.groups.filter(name__in=['SOP- Escalas']).exists()
+
+
 def sop_required(view_func):
+    """Decorator para views de Missões — exige grupo SOP - Operações."""
     from functools import wraps
     @wraps(view_func)
     def wrapper(request, *args, **kwargs):
-        if not _is_sop_operacoes(request.user):
+        if not _can_see_missoes(request.user):
             messages.error(request, 'Acesso restrito ao grupo SOP - Operações.')
+            return redirect('Secao_operacoes:index')
+        return view_func(request, *args, **kwargs)
+    return login_required(wrapper)
+
+
+def escalas_required(view_func):
+    """Decorator para views de Escalas — exige grupo SOP- Escalas."""
+    from functools import wraps
+    @wraps(view_func)
+    def wrapper(request, *args, **kwargs):
+        if not _can_see_escalas(request.user):
+            messages.error(request, 'Acesso restrito ao grupo SOP- Escalas.')
             return redirect('Secao_operacoes:index')
         return view_func(request, *args, **kwargs)
     return login_required(wrapper)
@@ -183,7 +222,7 @@ def index(request):
     return render(request, 'Secao_operacoes/base.html')
 
 
-@login_required
+@escalas_required
 def escala_list(request):
     from django.db.models import Q
     search_query = request.GET.get('q', '')
@@ -215,7 +254,7 @@ def escala_list(request):
     })
 
 
-@login_required
+@escalas_required
 def escala_create(request):
     if request.method == 'POST':
         form = EscalaForm(request.POST)
@@ -241,7 +280,7 @@ def escala_create(request):
     return render(request, 'Secao_operacoes/escala_form.html', {'form': form, 'title': 'Nova Escala'})
 
 
-@login_required
+@escalas_required
 def escala_edit(request, pk):
     escala = get_object_or_404(Escala, pk=pk)
     if request.method == 'POST':
@@ -305,7 +344,7 @@ def escala_edit(request, pk):
     })
 
 
-@login_required
+@escalas_required
 def escala_delete(request, pk):
     escala = get_object_or_404(Escala, pk=pk)
     if request.method == 'POST':
@@ -316,7 +355,7 @@ def escala_delete(request, pk):
     return redirect('Secao_operacoes:escala_list')
 
 
-@login_required
+@escalas_required
 def escala_toggle_ativo(request, pk):
     escala = get_object_or_404(Escala, pk=pk)
     if request.method == 'POST':
@@ -327,7 +366,7 @@ def escala_toggle_ativo(request, pk):
     return redirect('Secao_operacoes:escala_list')
 
 
-@login_required
+@escalas_required
 def escala_detail(request, pk):
     escala = get_object_or_404(Escala, pk=pk)
     hoje = date.today()
@@ -382,7 +421,7 @@ def escala_detail(request, pk):
     })
 
 
-@login_required
+@escalas_required
 def turno_delete(request, pk):
     turno = get_object_or_404(TurnoEscala, pk=pk)
     escala_pk = turno.escala.pk
@@ -414,7 +453,7 @@ def turno_delete(request, pk):
     return redirect('Secao_operacoes:escala_detail', pk=escala_pk)
 
 
-@login_required
+@escalas_required
 def turno_delete_all(request, pk):
     escala = get_object_or_404(Escala, pk=pk)
     if request.method == 'POST':
@@ -443,7 +482,7 @@ def turno_delete_all(request, pk):
     return redirect('Secao_operacoes:escala_detail', pk=escala.pk)
 
 
-@login_required
+@escalas_required
 def posto_create(request, escala_pk):
     escala = get_object_or_404(Escala, pk=escala_pk)
     if request.method == 'POST':
@@ -458,7 +497,7 @@ def posto_create(request, escala_pk):
     return redirect('Secao_operacoes:escala_edit', pk=escala_pk)
 
 
-@login_required
+@escalas_required
 def posto_delete(request, pk):
     posto = get_object_or_404(PostoEscala, pk=pk)
     escala_pk = posto.escala.pk
@@ -469,7 +508,7 @@ def posto_delete(request, pk):
     return redirect('Secao_operacoes:escala_edit', pk=escala_pk)
 
 
-@login_required
+@escalas_required
 def api_escala_eventos(request, pk):
     from datetime import timedelta
     escala = get_object_or_404(Escala, pk=pk)
@@ -528,16 +567,19 @@ def api_escala_eventos(request, pk):
 @sop_required
 def missao_list(request):
     from django.db.models import Q
+    import datetime as dt
     hoje = date.today()
     data_filtro = request.GET.get('data', '')
     filtro_hoje = request.GET.get('hoje', '')
+    filtro_semana = request.GET.get('semana', '')
     busca = request.GET.get('q', '').strip()
     ordem = request.GET.get('ordem', 'desc')
 
     missoes = Missao.objects.all().select_related('cmt_missao')
 
+    semana_inicio = semana_fim = None
+
     if busca:
-        # tenta busca por número exato; se não for número busca pelo nome
         try:
             num = int(busca)
             missoes = missoes.filter(Q(numero=num) | Q(nome_missao__icontains=busca))
@@ -546,10 +588,21 @@ def missao_list(request):
     elif filtro_hoje:
         missoes = missoes.filter(data_missao=hoje)
         data_filtro = hoje.strftime('%Y-%m-%d')
+    elif filtro_semana:
+        # filtro_semana pode ser 'atual' ou uma data no formato 'YYYY-WNN' (semana ISO)
+        try:
+            if filtro_semana == 'atual':
+                ref = hoje
+            else:
+                ref = dt.datetime.strptime(filtro_semana + '-1', '%Y-W%W-%w').date()
+            semana_inicio = ref - dt.timedelta(days=ref.weekday())
+            semana_fim = semana_inicio + dt.timedelta(days=6)
+            missoes = missoes.filter(data_missao__range=(semana_inicio, semana_fim))
+        except (ValueError, TypeError):
+            filtro_semana = ''
     elif data_filtro:
         try:
-            from datetime import datetime
-            d = datetime.strptime(data_filtro, '%Y-%m-%d').date()
+            d = dt.datetime.strptime(data_filtro, '%Y-%m-%d').date()
             missoes = missoes.filter(data_missao=d)
         except ValueError:
             data_filtro = ''
@@ -559,13 +612,20 @@ def missao_list(request):
     else:
         missoes = missoes.order_by('-numero')
 
+    # semana atual para pré-preencher o input week
+    semana_atual_value = hoje.strftime('%Y-W%W')
+
     return render(request, 'Secao_operacoes/missao_list.html', {
         'missoes': missoes,
         'data_filtro': data_filtro,
         'filtro_hoje': bool(filtro_hoje),
+        'filtro_semana': filtro_semana,
+        'semana_inicio': semana_inicio,
+        'semana_fim': semana_fim,
         'hoje': hoje.strftime('%Y-%m-%d'),
         'busca': busca,
         'ordem': ordem,
+        'semana_atual_value': semana_atual_value,
     })
 
 
@@ -599,10 +659,8 @@ def missao_create(request):
     return render(request, 'Secao_operacoes/missao_form.html', {
         'form': form, 'title': 'Nova Missão (OMIS)',
         'efetivo_json': _efetivo_json_ctx(),
-        'diretrizes_iniciais': json.dumps(
-            [{'texto': t, 'is_padrao': True} for t in diretrizes_padrao], ensure_ascii=False
-        ),
-        'diretrizes_padrao_json': json.dumps(diretrizes_padrao, ensure_ascii=False),
+        'diretrizes_iniciais': [{'texto': t, 'is_padrao': True} for t in diretrizes_padrao],
+        'diretrizes_padrao_json': diretrizes_padrao,
         'obs_armamento_padrao': cfg.observacoes_armamento_padrao,
         'horarios_form': _horarios_form_ctx(None),
         'std_horarios_disponiveis': STD_HORARIOS,
@@ -636,8 +694,8 @@ def missao_edit(request, pk):
     return render(request, 'Secao_operacoes/missao_form.html', {
         'form': form, 'title': 'Editar Missão', 'missao': missao,
         'efetivo_json': _efetivo_json_ctx(),
-        'diretrizes_iniciais': json.dumps(_get_diretrizes_missao(missao), ensure_ascii=False),
-        'diretrizes_padrao_json': json.dumps(diretrizes_padrao, ensure_ascii=False),
+        'diretrizes_iniciais': _get_diretrizes_missao(missao),
+        'diretrizes_padrao_json': diretrizes_padrao,
         'obs_armamento_padrao': cfg.observacoes_armamento_padrao,
         'horarios_form': _horarios_form_ctx(missao),
         'std_horarios_disponiveis': STD_HORARIOS,
@@ -717,6 +775,99 @@ def missao_pdf(request, pk):
     response = HttpResponse(pdf, content_type='application/pdf')
     response['Content-Disposition'] = f'filename="OMIS_{missao.numero}.pdf"'
     return response
+
+
+@login_required
+def extrato_missao_pdf(request):
+    from django.template.loader import render_to_string
+    from weasyprint import HTML
+    from datetime import date as date_type
+    import datetime
+
+    data_str = request.GET.get('data', '')
+    try:
+        data = datetime.datetime.strptime(data_str, '%Y-%m-%d').date()
+    except (ValueError, TypeError):
+        data = date_type.today()
+
+    missoes = Missao.objects.filter(data_missao=data).order_by('horario_chamada', 'numero')
+
+    data_exibicao = data.strftime('%d/%m/%Y')
+
+    html_string = render_to_string('Secao_operacoes/extrato_missao_pdf.html', {
+        'missoes': missoes,
+        'data_exibicao': data_exibicao,
+    }, request=request)
+    pdf = HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf()
+    response = HttpResponse(pdf, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="Extrato_Missoes_{data_str}.pdf"'
+    return response
+
+
+@sop_required
+def militar_conflitos_json(request):
+    """Retorna conflitos de escala/missão para um militar em uma data."""
+    import datetime as dt
+    militar_id = request.GET.get('militar_id')
+    data_str   = request.GET.get('data', '')
+    missao_id  = request.GET.get('missao_id')  # missão sendo editada (excluir da checagem)
+
+    if not militar_id or not data_str:
+        return JsonResponse({'conflitos': []})
+
+    try:
+        militar = Efetivo.objects.get(pk=militar_id, deleted=False)
+        data    = dt.datetime.strptime(data_str, '%Y-%m-%d').date()
+    except (Efetivo.DoesNotExist, ValueError):
+        return JsonResponse({'conflitos': []})
+
+    conflitos = []
+
+    # 1. Situação do militar
+    if militar.situacao and militar.situacao.strip():
+        sit = militar.situacao.strip().upper()
+        situacoes_indisp = {'BAIXADO', 'AFASTADO', 'LICENÇA', 'DISPENSA', 'HOSPITALIZADO', 'INATIVO'}
+        for s in situacoes_indisp:
+            if s in sit:
+                conflitos.append({
+                    'tipo': 'situacao',
+                    'descricao': f'Situação atual: {militar.situacao}',
+                })
+                break
+
+    # 2. Turnos de escala no mesmo dia
+    turnos = TurnoEscala.objects.filter(militar=militar, data=data).select_related('escala', 'posto')
+    for t in turnos:
+        posto_str = f' — {t.posto.nome}' if t.posto else ''
+        conflitos.append({
+            'tipo': 'escala',
+            'descricao': f'Escalado: {t.escala.nome}{posto_str} ({data.strftime("%d/%m/%Y")})',
+        })
+
+    # 3. Outras missões no mesmo dia
+    missoes_qs = Missao.objects.filter(data_missao=data)
+    if missao_id:
+        try:
+            missoes_qs = missoes_qs.exclude(pk=int(missao_id))
+        except (ValueError, TypeError):
+            pass
+
+    from django.db.models import Q as Qm
+    missoes_conf = missoes_qs.filter(
+        Qm(equipe=militar) | Qm(cmt_missao=militar) | Qm(motorista=militar)
+    ).distinct()
+    for m in missoes_conf:
+        papel = 'equipe'
+        if m.cmt_missao == militar:
+            papel = 'CMT'
+        elif m.motorista == militar:
+            papel = 'MOT'
+        conflitos.append({
+            'tipo': 'missao',
+            'descricao': f'Já na OMIS Nº {m.numero} — {m.nome_missao} ({data.strftime("%d/%m/%Y")}) como {papel}',
+        })
+
+    return JsonResponse({'conflitos': conflitos, 'militar': f'{militar.posto} {militar.nome_guerra}'.strip()})
 
 
 @sop_required

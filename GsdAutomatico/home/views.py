@@ -23,6 +23,8 @@ APP_GROUPS = {
     'Informatica':       ('informatica:dashboard', 'Informática'),
     'S1':                ('Secao_pessoal:index',   'Seção de Pessoal'),
     'seção de operação': ('Secao_operacoes:index', 'Seção de Operações'),
+    'SOP - Operações':   ('Secao_operacoes:index', 'Seção de Operações'),
+    'SOP- Escalas':      ('Secao_operacoes:index', 'Seção de Operações'),
 }
 
 APP_ICONS = {
@@ -30,19 +32,24 @@ APP_ICONS = {
     'Informatica': '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 17.25v1.007a3 3 0 01-.879 2.122L7.5 21h9l-.621-.621A3 3 0 0115 18.257V17.25m6-12V15a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 15V5.25m18 0A2.25 2.25 0 0018.75 3H5.25A2.25 2.25 0 003 5.25m18 0V12a2.25 2.25 0 01-2.25 2.25H5.25A2.25 2.25 0 013 12V5.25" /></svg>',
     'S1': '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z" /></svg>',
     'seção de operação': '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>',
+    'SOP - Operações':   '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>',
+    'SOP- Escalas':      '<svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 12h16.5m-16.5 3.75h16.5M3.75 19.5h16.5M5.625 4.5h12.75a1.875 1.875 0 010 3.75H5.625a1.875 1.875 0 010-3.75z" /></svg>',
 }
 
 
 def _get_available_apps(user):
     user_group_names = set(user.groups.values_list('name', flat=True))
     apps = []
+    seen_urls = set()
     for group_name, (url_name, display_name) in APP_GROUPS.items():
         if user.is_superuser or group_name in user_group_names:
-            apps.append({
-                'url_name': url_name,
-                'display_name': display_name,
-                'icon': APP_ICONS.get(group_name, ''),
-            })
+            if url_name not in seen_urls:
+                seen_urls.add(url_name)
+                apps.append({
+                    'url_name': url_name,
+                    'display_name': display_name,
+                    'icon': APP_ICONS.get(group_name, ''),
+                })
     return apps
 
 

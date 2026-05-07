@@ -1,8 +1,5 @@
-INFORMATICA_GROUP = 'Informatica'
-
-
 def can_manage_home_content(user):
-    """Apenas Informática e superuser podem criar/editar carrossel e tutoriais."""
+    """Apenas administradores (staff/superuser) podem criar/editar tutoriais e carrossel."""
     if not user.is_authenticated:
         return False
-    return user.is_superuser or user.groups.filter(name=INFORMATICA_GROUP).exists()
+    return user.is_superuser or user.is_staff
