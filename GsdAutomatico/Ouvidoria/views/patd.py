@@ -39,7 +39,7 @@ from .helpers import (
 from .commander import _check_and_finalize_patd, _check_and_advance_reconsideracao_status
 from ..analise_transgressao import (
     AnaliseTransgressao, MilitarAcusado, analisar_documento_pdf,
-    verifica_similaridade,
+    verifica_similaridade, personalizar_ocorrencia,
 )
 
 logger = logging.getLogger(__name__)
@@ -165,8 +165,8 @@ def index(request):
             # =================================================================
             # NOVA LOGICA: VERIFICAÇÃO DE DUPLICIDADE
             # =================================================================
-            # 1. Busca PATDs desse militar na mesma data
-            existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia)
+            # 1. Busca PATDs desse militar na mesma data (excluindo arquivadas e deletadas)
+            existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia, arquivado=False)
             
             # 2. Compara o texto da transgressão
             is_duplicate = False
@@ -252,8 +252,8 @@ def index(request):
             except (ValueError, TypeError):
                 return JsonResponse({'status': 'error', 'message': 'Formato de data da ocorrência inválido.'}, status=400)
             
-            # Check for duplicates
-            existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia)
+            # Check for duplicates (excluding archived and deleted)
+            existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia, arquivado=False)
             is_duplicate = False
             duplicated_patd_num = None
             for patd_existente in existing_patds:
@@ -362,14 +362,25 @@ def index(request):
 
                 for acusado in resultado_analise.acusados:
                     militar = buscar_militar_inteligente(acusado)
-                    
+
                     if militar:
                         logger.info(f"Militar encontrado no BD: {militar}")
-                        existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia)
-                        
+                        existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia, arquivado=False)
+
+                        # Sempre personaliza a ocorrência para mencionar apenas este militar
+                        try:
+                            transgressao_acusado = personalizar_ocorrencia(
+                                transgressao_comum,
+                                acusado.posto_graduacao or militar.posto or '',
+                                acusado.nome_guerra or militar.nome_guerra or '',
+                            )
+                        except Exception as _e:
+                            logger.warning(f"Falha ao personalizar ocorrência para {militar}: {_e}")
+                            transgressao_acusado = (acusado.transgressao_individual or '').strip() or transgressao_comum
+
                         duplicata = False
                         for patd_existente in existing_patds:
-                            if verifica_similaridade(transgressao_comum.strip().lower(), patd_existente.transgressao.strip().lower()):
+                            if verifica_similaridade(transgressao_acusado.strip().lower(), patd_existente.transgressao.strip().lower()):
                                 patd_url = reverse('Ouvidoria:patd_detail', kwargs={'pk': patd_existente.pk})
                                 duplicatas_encontradas.append({
                                     'nome_militar': str(militar),
@@ -381,8 +392,6 @@ def index(request):
                                 break
 
                         if not duplicata:
-                            # Usa a transgressão individual do acusado se disponível, senão usa a comum
-                            transgressao_acusado = (acusado.transgressao_individual or '').strip() or transgressao_comum
                             militares_para_confirmacao.append({
                                 'id': militar.id,
                                 'nome_guerra': militar.nome_guerra,
@@ -394,7 +403,15 @@ def index(request):
                     else:
                         logger.warning(f"Militar '{acusado.nome_completo or acusado.nome_guerra}' não encontrado no banco de dados.")
                         nome_para_cadastro = f"{acusado.posto_graduacao or ''} {acusado.nome_completo or acusado.nome_guerra}".strip()
-                        transgressao_acusado = (acusado.transgressao_individual or '').strip() or transgressao_comum
+                        try:
+                            transgressao_acusado = personalizar_ocorrencia(
+                                transgressao_comum,
+                                acusado.posto_graduacao or '',
+                                acusado.nome_guerra or acusado.nome_completo or '',
+                            )
+                        except Exception as _e:
+                            logger.warning(f"Falha ao personalizar ocorrência para não encontrado '{nome_para_cadastro}': {_e}")
+                            transgressao_acusado = (acusado.transgressao_individual or '').strip() or transgressao_comum
                         militares_nao_encontrados.append({
                             'nome_completo_sugerido': nome_para_cadastro,
                             'transgressao': transgressao_acusado,

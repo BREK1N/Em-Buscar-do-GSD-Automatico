@@ -366,7 +366,17 @@ document.addEventListener('DOMContentLoaded', function() {
             const query = e.target.value;
             const index = e.target.dataset.index;
             const resultsBox = document.getElementById(`search-results-${index}`);
-            
+
+            // Recupera a transgressão já personalizada armazenada no data-meta do input
+            const searchInput = document.getElementById(`search-militar-${index}`);
+            let transgressaoIndividualNaoEncontrado = '';
+            if (searchInput && searchInput.dataset.meta) {
+                try {
+                    const meta = JSON.parse(searchInput.dataset.meta.replace(/&apos;/g, "'"));
+                    transgressaoIndividualNaoEncontrado = meta.transgressao || '';
+                } catch (_) {}
+            }
+
             const transgressaoData = window.currentAnalysisData ? window.currentAnalysisData.transgressao_data : null;
 
             if (query.length < 2) {
@@ -403,6 +413,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                     nome_guerra: militar.nome_guerra,
                                     nome_completo: militar.nome_completo,
                                     posto: militar.posto || '',
+                                    // Usa a transgressão já personalizada do militar não encontrado
+                                    transgressao_individual: transgressaoIndividualNaoEncontrado,
                                 };
                                 container.outerHTML = handleMilitarFound(militarDataFromSearch, index);
                             } else {

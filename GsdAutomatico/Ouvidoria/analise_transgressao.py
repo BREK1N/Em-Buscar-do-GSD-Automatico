@@ -504,6 +504,28 @@ def texto_relatorio(transgressao, justificativa):
 #         item: list = Field(description="Defina uma lista de dicionários python com a chave 'numero' e o valor sendo o número do item escolhido e a chave 'descricao' e o valor sendo a descrição do item. Cada item da lista deve ser um dicionário com um item que foi enquadrado.")
 
 #     parser = PydanticOutputParser(pydantic_object=Item)
+def personalizar_ocorrencia(transgressao_comum: str, posto: str, nome_guerra: str) -> str:
+    """
+    Reescreve a ocorrência de forma que mencione apenas o militar especificado,
+    removendo referências a outros militares citados no texto original.
+    """
+    sys_prompt = f"""Você é um escrivão militar. A partir do documento abaixo, produza UMA ÚNICA frase ou parágrafo curto (máximo 3 linhas) descrevendo APENAS o ato transgressor cometido pelo militar {posto} {nome_guerra}.
+
+REGRAS OBRIGATÓRIAS:
+1. REMOVA completamente qualquer cabeçalho formal ("Trata o presente expediente...", "Informo ao Senhor que...", etc.).
+2. REMOVA qualquer referência a artigos, itens ou regulamentos (ex: "conforme Parágrafo 11...").
+3. SUBSTITUA toda listagem de militares acusados (ex: "S2 FULANO, S2 CICLANO e S2 BELTRANO") pelo nome "{posto} {nome_guerra}" no singular.
+4. Coloque os verbos no singular (ex: "não permaneceram" → "não permaneceu", "se ausentaram" → "se ausentou").
+5. MANTENHA: data, local, nome da missão, nomes das testemunhas (apenas como observadores), e a natureza da infração.
+6. Retorne SOMENTE o texto reescrito, sem prefácio, sem aspas, sem explicações.
+
+Documento original:
+{transgressao_comum}
+"""
+    chain = ChatPromptTemplate.from_messages([("system", sys_prompt)]) | model | StrOutputParser()
+    return chain.invoke({})
+
+
 def verifica_similaridade(transgressao_nova, transgressao_antiga):
 
     sys_prompt = f"""Você é um especialista em análise de textos.
