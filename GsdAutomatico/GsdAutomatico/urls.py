@@ -16,6 +16,7 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path, include
+from django.views.generic import RedirectView
 from django.conf import settings
 from django.conf.urls.static import static
 from Secao_pessoal import views as secao_pessoal_views
@@ -23,6 +24,7 @@ from caixa_entrada import views as caixa_entrada_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('', RedirectView.as_view(pattern_name='home:index', permanent=False)),
     path('Ouvidoria/', include('Ouvidoria.urls')),
     path('', include('login.urls')),
     path('informatica/', include('informatica.urls')),

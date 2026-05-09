@@ -4,103 +4,346 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Login - GSD Automatico</title>
-    <link rel="stylesheet" href="{% static 'css/style.css' %}">
+    <title>Entrar — Portal GSD</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
     <style>
-        body {
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            height: 100vh;
-            background-color: var(--bg-main);
+        :root {
+            --accent:        #3b82f6;
+            --accent-hover:  #1d4ed8;
+            --accent-dim:    rgba(59,130,246,0.10);
+            --danger:        #ef4444;
+            --bg-page:       #f0f4f8;
+            --bg-card:       #ffffff;
+            --bg-sidebar:    #0f172a;
+            --border:        rgba(0,0,0,0.08);
+            --border-strong: rgba(0,0,0,0.14);
+            --text-primary:  #0f172a;
+            --text-secondary:#64748b;
+            --text-muted:    #94a3b8;
+            --shadow-card:   0 4px 24px rgba(0,0,0,0.08), 0 1px 3px rgba(0,0,0,0.06);
+            --font-display:  'Rajdhani', system-ui, sans-serif;
+            --font-body:     'Inter', system-ui, sans-serif;
         }
-        .login-container {
+        body.dark-theme {
+            --bg-page:       #0d1117;
+            --bg-card:       #161b22;
+            --bg-sidebar:    #010409;
+            --border:        rgba(255,255,255,0.06);
+            --border-strong: rgba(255,255,255,0.12);
+            --text-primary:  #e6edf3;
+            --text-secondary:#8b949e;
+            --text-muted:    #6e7681;
+            --shadow-card:   0 4px 24px rgba(0,0,0,0.4), 0 1px 3px rgba(0,0,0,0.3);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: var(--font-body);
+            background: var(--bg-page);
+            color: var(--text-primary);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* ── Header ── */
+        .ph-header {
+            background: var(--bg-sidebar);
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            height: 60px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 32px;
+        }
+        .ph-brand {
+            display: flex; align-items: center; gap: 12px;
+            text-decoration: none; flex-shrink: 0;
+        }
+        .ph-mark {
+            width: 32px; height: 32px; border-radius: 8px;
+            background: var(--accent);
+            display: flex; align-items: center; justify-content: center;
+            color: #fff;
+        }
+        .ph-mark svg { width: 18px; height: 18px; }
+        .ph-word {
+            font-family: var(--font-display); font-weight: 700;
+            text-transform: uppercase; letter-spacing: 0.06em;
+            color: #fff; font-size: 17px;
+        }
+        .ph-header-right { display: flex; align-items: center; gap: 8px; }
+        .ph-icon-btn {
+            width: 36px; height: 36px; border-radius: 8px; border: 0;
+            background: rgba(255,255,255,0.06); color: #fff; cursor: pointer;
+            display: flex; align-items: center; justify-content: center;
+            transition: background 0.15s;
+        }
+        .ph-icon-btn svg { width: 18px; height: 18px; }
+        .ph-icon-btn:hover { background: rgba(255,255,255,0.12); }
+        .ph-back-link {
+            display: flex; align-items: center; gap: 6px;
+            color: rgba(255,255,255,0.65); font-size: 13.5px;
+            text-decoration: none; transition: color 0.15s;
+        }
+        .ph-back-link svg { width: 15px; height: 15px; }
+        .ph-back-link:hover { color: #fff; }
+
+        /* ── Page ── */
+        .ph-page {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 40px 24px;
+        }
+
+        /* ── Card ── */
+        .login-card {
             width: 100%;
-            max-width: 400px;
-            padding: 40px;
-            background-color: var(--bg-content);
-            border-radius: 12px;
-            box-shadow: var(--box-shadow);
+            max-width: 420px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-strong);
+            border-radius: 18px;
+            box-shadow: var(--shadow-card);
+            padding: 40px 36px;
+        }
+
+        .login-logo {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            gap: 14px;
+            margin-bottom: 28px;
+        }
+        .login-logo img {
+            width: 72px; height: auto;
+            filter: drop-shadow(0 2px 8px rgba(0,0,0,0.15));
+        }
+        .login-logo-title {
+            font-family: var(--font-display);
+            font-size: 26px; font-weight: 700;
+            letter-spacing: 0.04em;
+            color: var(--text-primary);
             text-align: center;
         }
-        .login-container h1 {
-            margin-bottom: 10px;
-            color: var(--text-primary);
-            border-bottom: none;
-        }
-        .login-container p {
-            margin-bottom: 30px;
+        .login-logo-sub {
+            font-size: 13px;
             color: var(--text-secondary);
+            text-align: center;
+            margin-top: -8px;
         }
-        .login-form .form-group {
-            margin-bottom: 20px;
-            text-align: left;
+
+        /* ── Divider ── */
+        .login-divider {
+            height: 1px;
+            background: var(--border);
+            margin-bottom: 28px;
         }
-        .login-form label {
+
+        /* ── Form ── */
+        .login-field { margin-bottom: 18px; }
+        .login-label {
             display: block;
-            margin-bottom: 8px;
-            font-weight: 500;
+            font-size: 12.5px; font-weight: 600;
+            letter-spacing: 0.03em;
+            color: var(--text-secondary);
+            text-transform: uppercase;
+            margin-bottom: 7px;
         }
-        .login-form input {
+        .login-input-wrap {
+            position: relative;
+            display: flex; align-items: center;
+        }
+        .login-input-wrap svg {
+            position: absolute; left: 12px;
+            width: 16px; height: 16px;
+            color: var(--text-muted); pointer-events: none;
+        }
+        .login-input {
             width: 100%;
-            padding: 12px;
-            border: 1px solid var(--border-color);
-            border-radius: 8px;
-            box-sizing: border-box;
-            background-color: var(--bg-main);
+            padding: 10px 12px 10px 38px;
+            border: 1px solid var(--border-strong);
+            border-radius: 9px;
+            background: var(--bg-page);
             color: var(--text-primary);
+            font-family: var(--font-body);
+            font-size: 14px;
+            outline: none;
+            transition: border-color 0.15s, box-shadow 0.15s;
         }
-        .login-form button {
+        .login-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 3px var(--accent-dim);
+        }
+
+        /* ── Error ── */
+        .login-error {
+            display: flex; align-items: flex-start; gap: 10px;
+            background: rgba(239,68,68,0.08);
+            border: 1px solid rgba(239,68,68,0.25);
+            border-radius: 9px;
+            padding: 11px 14px;
+            margin-bottom: 20px;
+            font-size: 13.5px;
+            color: #b91c1c;
+        }
+        body.dark-theme .login-error { color: #fca5a5; }
+        .login-error svg { width: 16px; height: 16px; flex-shrink: 0; margin-top: 1px; }
+
+        /* ── Button ── */
+        .login-btn {
             width: 100%;
-            padding: 15px;
-            background-color: var(--accent-color);
+            margin-top: 8px;
+            padding: 11px;
+            background: var(--accent);
             color: #fff;
             border: none;
-            border-radius: 8px;
+            border-radius: 9px;
+            font-family: var(--font-body);
+            font-size: 14.5px; font-weight: 600;
             cursor: pointer;
-            font-size: 16px;
-            font-weight: bold;
-            transition: background-color 0.3s;
+            transition: background 0.15s, transform 0.1s;
+            display: flex; align-items: center; justify-content: center; gap: 8px;
         }
-        .login-form button:hover {
-            background-color: var(--accent-hover);
+        .login-btn svg { width: 16px; height: 16px; }
+        .login-btn:hover { background: var(--accent-hover); }
+        .login-btn:active { transform: scale(0.99); }
+
+        /* ── Footer link ── */
+        .login-footer {
+            margin-top: 22px;
+            text-align: center;
+            font-size: 13px;
+            color: var(--text-secondary);
         }
-        .alert-error {
-            background-color: #f8d7da;
-            color: #721c24;
-            border: 1px solid #f5c6cb;
-            padding: 15px;
-            margin-bottom: 20px;
-            border-radius: 8px;
+        .login-footer a {
+            color: var(--accent);
+            text-decoration: none;
+            font-weight: 500;
         }
+        .login-footer a:hover { text-decoration: underline; }
     </style>
 </head>
 <body>
-    <div class="login-container">
-        <img src="{% static 'img/brasaoGsd.png' %}" alt="Brasão da República" style="width: 80px; height: auto; margin-bottom: 20px;">
-        <h1>Bem-vindo</h1>
-        <p>Sistema do GSD-GL</p>
+    <script>
+        (function(){
+            var t = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme');
+            document.body.classList.add(t);
+        })();
+    </script>
 
-        {% if messages %}
-            {% for message in messages %}
-                {% if message.tags == 'error' or message.level >= 40 %}
-                    <div class="alert-error">{{ message }}</div>
-                {% endif %}
-            {% endfor %}
-        {% endif %}
+    <header class="ph-header">
+        <a href="{% url 'home:index' %}" class="ph-brand">
+            <div class="ph-mark">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" />
+                </svg>
+            </div>
+            <span class="ph-word">Portal GSD</span>
+        </a>
+        <div class="ph-header-right">
+            <a href="{% url 'home:index' %}" class="ph-back-link">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/></svg>
+                Voltar ao início
+            </a>
+            <button class="ph-icon-btn" id="theme-toggle" title="Alternar tema">
+                <svg id="icon-sun" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 3v2.25m6.364.386l-1.591 1.591M21 12h-2.25m-.386 6.364l-1.591-1.591M12 18.75V21m-4.773-4.227l-1.591 1.591M5.25 12H3m4.227-4.773L5.636 5.636M15.75 12a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0z" />
+                </svg>
+                <svg id="icon-moon" style="display:none" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M21.752 15.002A9.718 9.718 0 0118 15.75c-5.385 0-9.75-4.365-9.75-9.75 0-1.33.266-2.597.748-3.752A9.753 9.753 0 003 11.25C3 16.635 7.365 21 12.75 21a9.753 9.753 0 009.002-5.998z" />
+                </svg>
+            </button>
+        </div>
+    </header>
 
-        <form method="post" class="login-form">
-            {% csrf_token %}
-            <div class="form-group">
-                <label for="id_username">Utilizador</label>
-                {{ form.username }}
+    <div class="ph-page">
+        <div class="login-card">
+
+            <div class="login-logo">
+                <img src="{% static 'img/brasaoGsd.png' %}" alt="Brasão GSD">
+                <div class="login-logo-title">Portal GSD</div>
+                <div class="login-logo-sub">Sistema do GSD-GL — acesse com suas credenciais</div>
             </div>
-            <div class="form-group">
-                <label for="id_password">Palavra-passe</label>
-                {{ form.password }}
+
+            <div class="login-divider"></div>
+
+            {% if messages %}
+                {% for message in messages %}
+                    {% if message.tags == 'error' or message.level >= 40 %}
+                    <div class="login-error">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/></svg>
+                        {{ message }}
+                    </div>
+                    {% endif %}
+                {% endfor %}
+            {% endif %}
+
+            <form method="post">
+                {% csrf_token %}
+
+                <div class="login-field">
+                    <label class="login-label" for="id_username">Usuário</label>
+                    <div class="login-input-wrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/></svg>
+                        <input class="login-input" type="text" name="username" id="id_username" autocomplete="username" autofocus placeholder="Digite seu usuário">
+                    </div>
+                </div>
+
+                <div class="login-field">
+                    <label class="login-label" for="id_password">Senha</label>
+                    <div class="login-input-wrap">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/></svg>
+                        <input class="login-input" type="password" name="password" id="id_password" autocomplete="current-password" placeholder="Digite sua senha">
+                    </div>
+                </div>
+
+                <button type="submit" class="login-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+                    Entrar
+                </button>
+            </form>
+
+            <div class="login-footer">
+                <a href="{% url 'home:index' %}">Voltar ao Portal sem fazer login</a>
             </div>
-            <button type="submit">Entrar</button>
-        </form>
+
+        </div>
     </div>
+
+    <script>
+        (function () {
+            var btn = document.getElementById('theme-toggle');
+            var sun = document.getElementById('icon-sun');
+            var moon = document.getElementById('icon-moon');
+
+            function applyTheme(t) {
+                document.body.classList.remove('light-theme', 'dark-theme');
+                document.body.classList.add(t);
+                if (t === 'dark-theme') {
+                    sun.style.display = 'none';
+                    moon.style.display = '';
+                } else {
+                    sun.style.display = '';
+                    moon.style.display = 'none';
+                }
+            }
+
+            var current = localStorage.getItem('theme') ||
+                (window.matchMedia('(prefers-color-scheme:dark)').matches ? 'dark-theme' : 'light-theme');
+            applyTheme(current);
+
+            btn.addEventListener('click', function () {
+                var next = document.body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme';
+                localStorage.setItem('theme', next);
+                applyTheme(next);
+            });
+        })();
+    </script>
 </body>
 </html>

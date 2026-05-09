@@ -116,7 +116,7 @@ def force_password_change_view(request):
 
 def logout_view(request):
     logout(request)
-    return redirect('login:login')
+    return redirect('home:index')
 
 def custom_404_view(request, exception):
     """

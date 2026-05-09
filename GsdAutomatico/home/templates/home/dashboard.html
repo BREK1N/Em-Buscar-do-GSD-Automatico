@@ -61,11 +61,10 @@
         }
         .ph-brand { display: flex; align-items: center; gap: 12px; text-decoration: none; flex-shrink: 0; }
         .ph-mark {
-            width: 32px; height: 32px; border-radius: 8px; background: var(--accent);
-            display: flex; align-items: center; justify-content: center; color: #fff;
-            box-shadow: 0 4px 12px rgba(59,130,246,0.30); flex-shrink: 0;
+            width: 36px; height: 36px; flex-shrink: 0;
+            display: flex; align-items: center; justify-content: center;
         }
-        .ph-mark svg { width: 18px; height: 18px; }
+        .ph-mark img { width: 36px; height: 36px; object-fit: contain; filter: drop-shadow(0 2px 4px rgba(0,0,0,0.4)); }
         .ph-word {
             font-family: var(--font-display); font-weight: 700; text-transform: uppercase;
             letter-spacing: 0.06em; color: #fff; font-size: 17px; line-height: 1;
@@ -396,9 +395,7 @@
     <header class="ph-header">
         <a href="{% url 'home:index' %}" class="ph-brand">
             <div class="ph-mark">
-                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25" />
-                </svg>
+                <img src="{% static 'img/brasaoGsd.png' %}" alt="Brasão GSD">
             </div>
             <span class="ph-word">Portal GSD</span>
         </a>
@@ -409,11 +406,13 @@
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955c.44-.439 1.152-.439 1.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75" /></svg>
                 Início
             </a>
+            {% if user.is_authenticated %}
             <a href="{% url 'home:inbox' %}">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75" /></svg>
                 Caixa de Entrada
                 <span class="ph-badge-count" id="email-badge" style="position:static;background:var(--danger);color:#fff;font-size:10px;font-weight:700;min-width:17px;height:17px;border-radius:9px;display:none;align-items:center;justify-content:center;padding:0 4px;"></span>
             </a>
+            {% endif %}
             <a href="{% url 'home:tutorial_list' %}">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 6.042A8.967 8.967 0 006 3.75c-1.052 0-2.062.18-3 .512v14.25A8.987 8.987 0 016 18c2.305 0 4.408.867 6 2.292m0-14.25a8.966 8.966 0 016-2.292c1.052 0 2.062.18 3 .512v14.25A8.987 8.987 0 0018 18a8.967 8.967 0 00-6 2.292m0-14.25v14.25" /></svg>
                 Tutoriais
@@ -422,7 +421,7 @@
 
         <div class="ph-header-right">
             <!-- Notificações -->
-            {% include 'notificacoes/panel_include.html' %}
+            {% if user.is_authenticated %}{% include 'notificacoes/panel_include.html' %}{% endif %}
 
             <!-- Tema -->
             <button class="ph-icon-btn" id="theme-toggle" title="Alternar tema">
@@ -434,7 +433,8 @@
                 </svg>
             </button>
 
-            <!-- Perfil (com dropdown) -->
+            <!-- Perfil (com dropdown) ou botão de login -->
+            {% if user.is_authenticated %}
             <div class="ph-profile-wrap" id="profile-wrap">
                 <div class="ph-user-chip" id="profile-chip">
                     <div class="ph-avatar">
@@ -464,6 +464,12 @@
                     </a>
                 </div>
             </div>
+            {% else %}
+            <a href="{% url 'login:login' %}" style="display:inline-flex;align-items:center;gap:8px;padding:8px 16px;border-radius:8px;background:var(--accent);color:#fff;font-size:13.5px;font-weight:500;text-decoration:none;transition:background 0.15s;" onmouseover="this.style.background='var(--accent-hover)'" onmouseout="this.style.background='var(--accent)'">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/></svg>
+                Entrar
+            </a>
+            {% endif %}
         </div>
     </header>
 
@@ -472,8 +478,13 @@
 
         <!-- Saudação -->
         <div class="ph-greet">
+            {% if user.is_authenticated %}
             <h1>Olá, {% if request.user.profile.militar %}{{ request.user.profile.militar.posto }} {{ request.user.profile.militar.nome_guerra }}{% else %}{{ request.user.first_name|default:request.user.username }}{% endif %} 👋</h1>
             <p>Bem-vindo ao Portal GSD. Selecione uma seção ou acesse seus recursos abaixo.</p>
+            {% else %}
+            <h1>Bem-vindo ao Portal GSD</h1>
+            <p>Acesse os tutoriais abaixo ou <a href="{% url 'login:login' %}" style="color:var(--accent);text-decoration:underline;">faça login</a> para acessar todos os recursos do portal.</p>
+            {% endif %}
         </div>
 
         <!-- Área de administração: acesso rápido à seção de Informática (só admin) -->
@@ -542,6 +553,7 @@
         {% endif %}
 
         <!-- ──────── GRADE PRINCIPAL ──────── -->
+        {% if user.is_authenticated %}
         <div class="ph-grid-main">
 
             <!-- Esquerda: inbox -->
@@ -606,6 +618,7 @@
             </div>
 
         </div>
+        {% endif %}
 
         <!-- ──────── TUTORIAIS ──────── -->
         <div class="ph-tutorials-head" id="sec-tutoriais">

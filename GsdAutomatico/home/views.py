@@ -61,7 +61,7 @@ class HomeInboxView(LoginRequiredMixin, View):
         return redirect(reverse('caixa_entrada:inbox'))
 
 
-class TutorialListView(LoginRequiredMixin, View):
+class TutorialListView(View):
     def get(self, request):
         q = request.GET.get('q', '').strip()
         tutorials = Tutorial.objects.filter(published=True).select_related('author').prefetch_related('attachments')
@@ -71,43 +71,44 @@ class TutorialListView(LoginRequiredMixin, View):
         return render(request, 'home/tutorial_list.html', {
             'tutorials': tutorials,
             'q': q,
-            'can_manage': can_manage_home_content(request.user),
+            'can_manage': request.user.is_authenticated and can_manage_home_content(request.user),
         })
 
 
-class HomeDashboardView(LoginRequiredMixin, View):
+class HomeDashboardView(View):
     def get(self, request):
         # Descarta mensagens flash de outras seções para não poluir a home
         list(get_messages(request))
 
-        user = request.user
-        available_apps = _get_available_apps(user)
-
-        unread_msgs = (
-            Mensagem.objects
-            .filter(destinatarios=user, eh_rascunho=False)
-            .exclude(excluida_por=user)
-            .exclude(lida_por=user)
-            .select_related('remetente')
-            .order_by('-data_envio')[:5]
-        )
-
         slides = CarouselSlide.objects.filter(active=True).order_by('order')
         tutorials = Tutorial.objects.filter(published=True).select_related('author').prefetch_related('attachments')[:9]
 
-        try:
-            profile = user.profile
-        except UserProfile.DoesNotExist:
-            profile = UserProfile.objects.create(user=user)
-
         context = {
-            'available_apps': available_apps,
-            'unread_msgs': unread_msgs,
             'slides': slides,
             'tutorials': tutorials,
-            'profile': profile,
-            'can_manage': can_manage_home_content(user),
+            'available_apps': [],
+            'unread_msgs': [],
+            'profile': None,
+            'can_manage': False,
         }
+
+        if request.user.is_authenticated:
+            user = request.user
+            context['available_apps'] = _get_available_apps(user)
+            context['unread_msgs'] = (
+                Mensagem.objects
+                .filter(destinatarios=user, eh_rascunho=False)
+                .exclude(excluida_por=user)
+                .exclude(lida_por=user)
+                .select_related('remetente')
+                .order_by('-data_envio')[:5]
+            )
+            try:
+                context['profile'] = user.profile
+            except UserProfile.DoesNotExist:
+                context['profile'] = UserProfile.objects.create(user=user)
+            context['can_manage'] = can_manage_home_content(user)
+
         return render(request, 'home/dashboard.html', context)
 
 
@@ -142,7 +143,7 @@ class _ManageRequiredMixin(LoginRequiredMixin):
         return super().dispatch(request, *args, **kwargs)
 
 
-class TutorialDetailView(LoginRequiredMixin, DetailView):
+class TutorialDetailView(DetailView):
     model = Tutorial
     template_name = 'home/tutorial_detail.html'
     context_object_name = 'tutorial'
@@ -155,7 +156,7 @@ class TutorialDetailView(LoginRequiredMixin, DetailView):
 
     def get_context_data(self, **kwargs):
         ctx = super().get_context_data(**kwargs)
-        ctx['can_manage'] = can_manage_home_content(self.request.user)
+        ctx['can_manage'] = self.request.user.is_authenticated and can_manage_home_content(self.request.user)
         return ctx
 
 

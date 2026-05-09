@@ -235,9 +235,11 @@
 
     <div class="ph-back-bar">
         <a href="{% url 'home:index' %}" class="ph-back">
-            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18" /></svg>
+            <img src="{% static 'img/brasaoGsd.png' %}" alt="Brasão GSD" style="width:28px;height:28px;object-fit:contain;filter:drop-shadow(0 1px 3px rgba(0,0,0,0.4));margin-right:4px;">
             Portal GSD
         </a>
+        <span class="ph-back-sep">/</span>
+        <a href="{% url 'home:tutorial_list' %}" class="ph-back">Tutoriais</a>
         <span class="ph-back-sep">/</span>
         <span class="ph-back-title">{{ tutorial.title }}</span>
     </div>
