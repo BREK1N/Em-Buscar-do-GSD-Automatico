@@ -79,6 +79,8 @@ class Material(models.Model):
     # Nova Relação com Prateleira (Opcional)
     prateleira = models.ForeignKey(Prateleira, on_delete=models.SET_NULL, null=True, blank=True, related_name='materiais', verbose_name="Localização na Prateleira")
 
+    localizacao_texto = models.CharField(max_length=200, blank=True, null=True, verbose_name="Localização / Seção (texto)")
+
     # Quantidades
     quantidade = models.IntegerField(default=1, verbose_name="Quantidade Total")
     quantidade_disponivel = models.IntegerField(default=1, verbose_name="Quantidade Disponível")

@@ -1288,6 +1288,26 @@ body.dark-theme .btn-close {
 body.dark-theme .text-muted {
     color: var(--text-secondary) !important;
 }
+body.dark-theme .form-select option,
+body.dark-theme .form-control option,
+body.dark-theme select option {
+    background-color: var(--bg-card);
+    color: var(--text-primary);
+}
+body.dark-theme .modal-content h3,
+body.dark-theme .modal-content h4,
+body.dark-theme .modal-content label,
+body.dark-theme .modal-content p {
+    color: var(--text-primary);
+}
+body.dark-theme .form-item label {
+    color: var(--text-secondary);
+}
+body.dark-theme .input-group-text {
+    background-color: var(--bg-main);
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
 
 /* No seu arquivo style.css principal */
 
@@ -1347,6 +1367,231 @@ input:focus, select:focus, textarea:focus {
     outline: none;
     border-color: var(--accent-color) !important;
     box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2) !important;
+}
+
+/* ===================================================
+   DARK MODE — COBERTURA ABRANGENTE
+   =================================================== */
+
+/* Texto geral: todo elemento que herda cor do body */
+body.dark-theme {
+    color: var(--text-primary);
+    background-color: var(--bg-main);
+}
+
+/* Labels, parágrafos, spans e small sem classe específica */
+body.dark-theme label,
+body.dark-theme p,
+body.dark-theme small,
+body.dark-theme dt,
+body.dark-theme dd {
+    color: var(--text-primary);
+}
+
+/* Elementos de formulário (inputs, textareas, selects não cobertos acima) */
+body.dark-theme input[type="text"],
+body.dark-theme input[type="email"],
+body.dark-theme input[type="password"],
+body.dark-theme input[type="number"],
+body.dark-theme input[type="search"],
+body.dark-theme input[type="tel"],
+body.dark-theme input[type="url"],
+body.dark-theme input[type="date"],
+body.dark-theme textarea,
+body.dark-theme select {
+    background-color: var(--bg-main) !important;
+    color: var(--text-primary) !important;
+    border-color: var(--border-color) !important;
+}
+
+body.dark-theme input::placeholder,
+body.dark-theme textarea::placeholder {
+    color: var(--text-secondary) !important;
+    opacity: 0.7;
+}
+
+/* Form-check (checkbox label) */
+body.dark-theme .form-check-label {
+    color: var(--text-secondary);
+}
+
+/* List groups */
+body.dark-theme .list-group-item {
+    background-color: var(--bg-content);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+
+/* Badges Bootstrap */
+body.dark-theme .badge.bg-secondary {
+    background-color: var(--border-color) !important;
+    color: var(--text-primary) !important;
+}
+body.dark-theme .badge.bg-light {
+    background-color: var(--bg-main) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Alert boxes */
+body.dark-theme .alert {
+    background-color: var(--bg-content);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+/* Botões outline no dark mode */
+body.dark-theme .btn-outline-secondary {
+    color: var(--text-secondary);
+    border-color: var(--border-color);
+}
+body.dark-theme .btn-outline-secondary:hover {
+    background-color: var(--border-color);
+    color: var(--text-primary);
+}
+body.dark-theme .btn-light {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+    border-color: var(--border-color);
+}
+body.dark-theme .btn-light:hover {
+    background-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+/* Bordas e separadores */
+body.dark-theme hr {
+    border-color: var(--border-color);
+    opacity: 1;
+}
+body.dark-theme .border,
+body.dark-theme .border-top,
+body.dark-theme .border-bottom,
+body.dark-theme .border-start,
+body.dark-theme .border-end {
+    border-color: var(--border-color) !important;
+}
+
+/* Fundo de elementos utilitários */
+body.dark-theme .bg-light,
+body.dark-theme .bg-white {
+    background-color: var(--bg-content) !important;
+}
+body.dark-theme .bg-body,
+body.dark-theme .bg-secondary-subtle {
+    background-color: var(--bg-main) !important;
+    color: var(--text-primary) !important;
+}
+
+/* Texto utilitário Bootstrap que fica escuro */
+body.dark-theme .text-body,
+body.dark-theme .text-black,
+body.dark-theme .text-dark {
+    color: var(--text-primary) !important;
+}
+body.dark-theme .text-secondary {
+    color: var(--text-secondary) !important;
+}
+
+/* Modais: overlay e conteúdo */
+body.dark-theme .modal-overlay .modal-content,
+body.dark-theme .modal-content {
+    background-color: var(--bg-content);
+    color: var(--text-primary);
+}
+body.dark-theme .modal-header,
+body.dark-theme .modal-footer {
+    background-color: var(--bg-main);
+    border-color: var(--border-color);
+}
+body.dark-theme .modal-header .modal-title {
+    color: var(--text-primary);
+}
+
+/* Navbar/Header customizado */
+body.dark-theme .navbar,
+body.dark-theme .header-bar {
+    background-color: var(--bg-content) !important;
+    border-color: var(--border-color) !important;
+}
+
+/* Tabs (Bootstrap nav) */
+body.dark-theme .nav-tabs {
+    border-color: var(--border-color);
+}
+body.dark-theme .nav-tabs .nav-link {
+    color: var(--text-secondary);
+}
+body.dark-theme .nav-tabs .nav-link.active {
+    background-color: var(--bg-content);
+    border-color: var(--border-color);
+    color: var(--text-primary);
+}
+
+/* Pagination */
+body.dark-theme .page-link {
+    background-color: var(--bg-content);
+    border-color: var(--border-color);
+    color: var(--text-secondary);
+}
+body.dark-theme .page-link:hover {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+}
+body.dark-theme .page-item.active .page-link {
+    background-color: var(--accent-color);
+    border-color: var(--accent-color);
+    color: #fff;
+}
+body.dark-theme .page-item.disabled .page-link {
+    background-color: var(--bg-content);
+    color: var(--text-secondary);
+    opacity: 0.5;
+}
+
+/* Dropdowns Bootstrap */
+body.dark-theme .dropdown-item {
+    color: var(--text-primary);
+}
+body.dark-theme .dropdown-item:hover,
+body.dark-theme .dropdown-item:focus {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+}
+body.dark-theme .dropdown-divider {
+    border-color: var(--border-color);
+}
+
+/* Accordion */
+body.dark-theme .accordion-item {
+    background-color: var(--bg-content);
+    border-color: var(--border-color);
+}
+body.dark-theme .accordion-button {
+    background-color: var(--bg-main);
+    color: var(--text-primary);
+}
+body.dark-theme .accordion-button:not(.collapsed) {
+    background-color: var(--bg-content);
+    color: var(--accent-color);
+}
+body.dark-theme .accordion-body {
+    background-color: var(--bg-content);
+    color: var(--text-primary);
+}
+
+/* Progress bar */
+body.dark-theme .progress {
+    background-color: var(--bg-main);
+}
+
+/* Tabelas com classes Bootstrap */
+body.dark-theme .table-striped > tbody > tr:nth-of-type(odd) > * {
+    background-color: rgba(255,255,255,0.03);
+    color: var(--text-primary);
+}
+body.dark-theme .table-hover > tbody > tr:hover > * {
+    background-color: rgba(255,255,255,0.05);
+    color: var(--text-primary);
 }
 
 /* Global Custom Scrollbar */

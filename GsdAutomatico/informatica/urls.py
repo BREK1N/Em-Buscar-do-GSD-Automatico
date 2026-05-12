@@ -37,6 +37,8 @@ urlpatterns = [
     path('api/materiais/edit-material/<int:pk>/', views.api_edit_material, name='api_edit_material'),
     path('api/materiais/delete-material/<int:pk>/', views.api_delete_material, name='api_delete_material'),
     
+    path('api/materiais/edit-grupo/<int:pk>/', views.api_edit_grupo, name='api_edit_grupo'),
+    path('api/materiais/edit-subgrupo/<int:pk>/', views.api_edit_subgrupo, name='api_edit_subgrupo'),
     path('api/materiais/delete-grupo/<int:pk>/', views.api_delete_grupo, name='api_delete_grupo'),
     path('api/materiais/delete-subgrupo/<int:pk>/', views.api_delete_subgrupo, name='api_delete_subgrupo'),
     

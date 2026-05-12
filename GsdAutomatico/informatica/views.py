@@ -478,6 +478,7 @@ def gestao_materiais_view(request):
         'armario_nome': mat.prateleira.armario.nome if mat.prateleira else None,
         'secao_id': mat.secao.id if mat.secao else '',
         'secao_nome': mat.secao.nome if mat.secao else 'Geral/Estoque',
+        'localizacao_texto': mat.localizacao_texto or '',
     } for mat in materiais]
 
     militares_dados_json = []
@@ -625,6 +626,7 @@ def api_add_material(request):
             codigo=data.get('codigo'),
             serial=serial,
             prateleira=prateleira,
+            localizacao_texto=data.get('localizacao_texto', ''),
             quantidade=qtd,
             quantidade_disponivel=qtd,
             funcionando=data.get('funcionando', True),
@@ -665,6 +667,7 @@ def api_edit_material(request, pk):
         material.codigo = data.get('codigo')
         material.serial = serial
         material.prateleira = prateleira
+        material.localizacao_texto = data.get('localizacao_texto', '')
         material.quantidade = qtd
         material.quantidade_disponivel = nova_disp
         material.funcionando = data.get('funcionando', True)
@@ -722,6 +725,36 @@ def api_delete_subgrupo(request, pk):
         return JsonResponse({'status': 'success'})
     except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
 
+
+@staff_member_required
+@require_POST
+def api_edit_grupo(request, pk):
+    data = json.loads(request.body)
+    try:
+        grupo = GrupoMaterial.objects.get(pk=pk)
+        nome = data.get('nome', '').strip()
+        if not nome:
+            return JsonResponse({'status': 'error', 'message': 'Nome não pode ser vazio.'})
+        grupo.nome = nome
+        grupo.save()
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
+
+@staff_member_required
+@require_POST
+def api_edit_subgrupo(request, pk):
+    data = json.loads(request.body)
+    try:
+        subgrupo = SubgrupoMaterial.objects.get(pk=pk)
+        nome = data.get('nome', '').strip()
+        if not nome:
+            return JsonResponse({'status': 'error', 'message': 'Nome não pode ser vazio.'})
+        subgrupo.nome = nome
+        subgrupo.save()
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 @staff_member_required
 @require_POST

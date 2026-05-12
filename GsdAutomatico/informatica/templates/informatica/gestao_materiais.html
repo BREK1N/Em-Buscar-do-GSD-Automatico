@@ -136,6 +136,15 @@
 
     .armario-card { background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 12px; padding: 15px; margin-bottom: 15px; }
     .prateleira-item { padding: 10px; border-bottom: 1px dashed var(--border-color); margin-left: 20px; }
+
+    /* Steps de Nova Cautela */
+    .step-pill { display: flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 30px; border: 2px solid var(--border-color); background: var(--bg-content); color: var(--text-secondary); font-weight: 600; font-size: 0.9rem; transition: all 0.3s; }
+    .step-pill.active { border-color: var(--accent-color); background: var(--accent-color); color: #fff; }
+    .step-pill.done { border-color: var(--success-color); background: rgba(34,197,94,0.1); color: var(--success-color); }
+    .step-num { background: rgba(255,255,255,0.25); border-radius: 50%; width: 22px; height: 22px; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 700; }
+    .step-pill:not(.active) .step-num { background: var(--border-color); color: var(--text-secondary); }
+    .step-connector { flex: 1; height: 2px; background: var(--border-color); max-width: 60px; }
+    #material-details-preview > div { font-size: 0.9rem; color: var(--text-primary); }
 </style>
 {% endblock %}
 
@@ -164,17 +173,24 @@
 
 <!-- ABA: NOVA CAUTELA -->
 <div id="tab-nova-cautela" class="tab-panel active">
-    <div class="form-card">
+
+    <!-- INDICADOR DE PROGRESSO -->
+    <div class="d-flex align-items-center gap-2 mb-4" id="cautela-steps-indicator">
+        <div class="step-pill active" id="step-pill-1"><span class="step-num">1</span> <span class="step-label">Militares</span></div>
+        <div class="step-connector"></div>
+        <div class="step-pill" id="step-pill-2"><span class="step-num">2</span> <span class="step-label">Materiais</span></div>
+        <div class="step-connector"></div>
+        <div class="step-pill" id="step-pill-3"><span class="step-num">3</span> <span class="step-label">Revisão</span></div>
+    </div>
+
+    <!-- ETAPA 1: MILITARES -->
+    <div class="form-card" id="cautela-step-1">
         <div class="form-card-header">
-            <h2><i class="fas fa-shopping-cart text-primary"></i> Seleção de Material e Militares</h2>
-            <button type="button" class="btn btn-primary px-4 py-2" id="btn-pre-finalizar" style="border-radius: 8px; font-weight: 600;">
-                Seguir para Assinaturas <i class="fas fa-arrow-right ms-2"></i>
-            </button>
+            <h2><i class="fas fa-users text-primary"></i> Quem está envolvido?</h2>
         </div>
-        
         <div class="row g-3">
             <div class="col-md-6 form-item">
-                <label>Militar de Sobreaviso (Emitente) <span class="text-danger">*</span></label>
+                <label><i class="fas fa-shield-alt me-1 text-primary" style="font-size:0.8rem;"></i> Sobreaviso da TI (Emitente) <span class="text-danger">*</span></label>
                 <select id="cautela-sobreaviso" class="select2-search">
                     <option value="">-- Apenas Militares de TI --</option>
                     {% for mil in militares_info %}
@@ -183,7 +199,7 @@
                 </select>
             </div>
             <div class="col-md-6 form-item">
-                <label>Militar Recebedor <span class="text-danger">*</span></label>
+                <label><i class="fas fa-user me-1 text-success" style="font-size:0.8rem;"></i> Recebedor do Material <span class="text-danger">*</span></label>
                 <select id="cautela-recebedor" class="select2-search">
                     <option value="">-- Buscar em todo efetivo --</option>
                     {% for mil in militares %}
@@ -191,19 +207,30 @@
                     {% endfor %}
                 </select>
             </div>
-
-            <!-- Campos Extras -->
-            <div class="col-md-6 form-item mt-3">
-                <label>Telefone de Contato do Recebedor</label>
+            <div class="col-md-6 form-item">
+                <label><i class="fas fa-phone me-1" style="font-size:0.8rem; color: var(--text-secondary);"></i> Telefone de Contato</label>
                 <input type="text" id="cautela-telefone" placeholder="(00) 90000-0000">
             </div>
-            <div class="col-md-6 form-item mt-3">
-                <label>Missão / Motivo Opcional (Ex: Formatura)</label>
-                <input type="text" id="cautela-missao" placeholder="Nome da Missão / Motivo">
+            <div class="col-md-6 form-item">
+                <label><i class="fas fa-tag me-1" style="font-size:0.8rem; color: var(--text-secondary);"></i> Missão / Motivo (Opcional)</label>
+                <input type="text" id="cautela-missao" placeholder="Ex: Formatura, Missão ABC...">
             </div>
+            <div class="col-12 mt-2 d-flex justify-content-end">
+                <button type="button" class="btn btn-primary px-4" id="btn-step1-avancar" style="border-radius: 8px; font-weight: 600;">
+                    Próximo: Selecionar Materiais <i class="fas fa-arrow-right ms-2"></i>
+                </button>
+            </div>
+        </div>
+    </div>
 
-            <div class="col-12 form-item mt-4 pt-3" style="border-top: 1px dashed var(--border-color);">
-                <label>1. Selecione a Categoria (Grupo)</label>
+    <!-- ETAPA 2: MATERIAIS -->
+    <div class="form-card" id="cautela-step-2" style="display:none;">
+        <div class="form-card-header">
+            <h2><i class="fas fa-boxes text-primary"></i> Quais materiais serão cautelados?</h2>
+        </div>
+        <div class="row g-3">
+            <div class="col-md-4 form-item">
+                <label><i class="fas fa-layer-group me-1" style="font-size:0.8rem; color: var(--text-secondary);"></i> 1. Categoria (Grupo)</label>
                 <select id="cautela-grupo-select" class="form-select" style="height: 46px;">
                     <option value="">-- Selecione o Grupo --</option>
                     {% for g in grupos %}
@@ -211,42 +238,78 @@
                     {% endfor %}
                 </select>
             </div>
-
-            <div class="col-12 form-item mt-1">
-                <label>2. Selecione a Subcategoria</label>
+            <div class="col-md-4 form-item">
+                <label><i class="fas fa-folder-open me-1" style="font-size:0.8rem; color: var(--text-secondary);"></i> 2. Subcategoria</label>
                 <select id="cautela-subgrupo-select" class="form-select" style="height: 46px;" disabled>
                     <option value="">-- Selecione o Grupo Primeiro --</option>
                 </select>
-                <!-- Resumo do Subgrupo -->
-                <div id="subgrupo-summary-preview" class="mt-2 p-3" style="background: var(--bg-main); border-radius: 8px; display: none; border: 1px solid var(--border-color); font-size: 0.85rem; justify-content: space-around; text-align: center;">
-                    <div><strong class="text-primary d-block" id="sum-total" style="font-size: 1.1rem;">0</strong> Total Acervo</div>
-                    <div><strong class="text-success d-block" id="sum-disp" style="font-size: 1.1rem;">0</strong> Livres</div>
-                    <div><strong class="text-warning d-block" id="sum-caut" style="font-size: 1.1rem;">0</strong> Em Cautela</div>
-                    <div><strong class="text-danger d-block" id="sum-def" style="font-size: 1.1rem;">0</strong> Defeito</div>
-                </div>
             </div>
-
-            <div class="col-12 form-item mt-2">
-                <label>3. Escolha o Material Disponível</label>
+            <div class="col-md-4 form-item">
+                <label><i class="fas fa-cube me-1" style="font-size:0.8rem; color: var(--text-secondary);"></i> 3. Material Disponível</label>
                 <div class="d-flex gap-2">
                     <div style="flex-grow: 1;">
                         <select id="cautela-material-select" class="select2-search" disabled>
                             <option value="">-- Selecione a Subcategoria Primeiro --</option>
                         </select>
                     </div>
-                    <button type="button" class="btn btn-secondary px-3" id="btn-add-material" title="Adicionar à Cautela"><i class="fas fa-plus"></i></button>
-                </div>
-                <!-- Preview do material selecionado -->
-                <div id="material-details-preview" class="mt-2 p-3" style="background: var(--bg-main); border-radius: 8px; display: none; border: 1px solid var(--border-color); font-size: 0.9rem;">
+                    <button type="button" class="btn btn-primary px-3" id="btn-add-material" title="Adicionar à Cautela" style="height: 46px; border-radius: 8px; white-space: nowrap;"><i class="fas fa-plus me-1"></i> Add</button>
                 </div>
             </div>
-            
+
+            <!-- Resumo do Subgrupo -->
+            <div id="subgrupo-summary-preview" class="col-12 mt-1" style="display: none;">
+                <div class="d-flex gap-3 p-3" style="background: var(--bg-main); border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.85rem; flex-wrap: wrap;">
+                    <div class="text-center px-3"><strong class="text-primary d-block" id="sum-total" style="font-size: 1.2rem;">0</strong><span style="color: var(--text-secondary);">Total</span></div>
+                    <div class="text-center px-3" style="border-left: 1px solid var(--border-color);"><strong class="text-success d-block" id="sum-disp" style="font-size: 1.2rem;">0</strong><span style="color: var(--text-secondary);">Livres</span></div>
+                    <div class="text-center px-3" style="border-left: 1px solid var(--border-color);"><strong class="text-warning d-block" id="sum-caut" style="font-size: 1.2rem;">0</strong><span style="color: var(--text-secondary);">Em Cautela</span></div>
+                    <div class="text-center px-3" style="border-left: 1px solid var(--border-color);"><strong class="text-danger d-block" id="sum-def" style="font-size: 1.2rem;">0</strong><span style="color: var(--text-secondary);">Com Defeito</span></div>
+                </div>
+            </div>
+
+            <!-- Preview do material selecionado -->
+            <div id="material-details-preview" class="col-12 mt-1" style="display: none;">
+                <div class="p-3" style="background: var(--bg-main); border-radius: 8px; border: 1px solid var(--border-color); font-size: 0.9rem;"></div>
+            </div>
+
+            <!-- Carrinho -->
             <div class="col-12 mt-3">
-                <h6 style="color: var(--text-secondary); font-weight: 600; text-transform: uppercase; font-size: 0.8rem; margin-bottom: 10px;">Itens no Carrinho</h6>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <h6 style="color: var(--text-secondary); font-weight: 600; text-transform: uppercase; font-size: 0.8rem; margin: 0;">
+                        <i class="fas fa-shopping-cart me-1"></i> Itens no Carrinho
+                    </h6>
+                    <span id="cart-count-badge" class="badge bg-primary" style="display:none;"></span>
+                </div>
                 <ul class="cautela-items-list" id="cautela-cart">
-                    <li class="text-muted" id="cart-empty-msg" style="justify-content: center; height: 60px;">Nenhum material selecionado.</li>
+                    <li class="text-muted" id="cart-empty-msg" style="justify-content: center; height: 60px; font-size: 0.9rem;"><i class="fas fa-info-circle me-2"></i>Nenhum material adicionado ainda.</li>
                 </ul>
             </div>
+
+            <div class="col-12 mt-3 d-flex justify-content-between">
+                <button type="button" class="btn btn-outline-secondary px-4" id="btn-step2-voltar" style="border-radius: 8px;">
+                    <i class="fas fa-arrow-left me-2"></i> Voltar
+                </button>
+                <button type="button" class="btn btn-primary px-4" id="btn-pre-finalizar" style="border-radius: 8px; font-weight: 600;">
+                    Revisar e Assinar <i class="fas fa-arrow-right ms-2"></i>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ETAPA 3: RESUMO ANTES DE ASSINAR -->
+    <div class="form-card" id="cautela-step-3" style="display:none;">
+        <div class="form-card-header">
+            <h2><i class="fas fa-clipboard-check text-success"></i> Resumo da Cautela</h2>
+        </div>
+        <div id="cautela-resumo-content" class="row g-3">
+            <!-- Preenchido por JS -->
+        </div>
+        <div class="d-flex justify-content-between mt-4">
+            <button type="button" class="btn btn-outline-secondary px-4" id="btn-step3-voltar" style="border-radius: 8px;">
+                <i class="fas fa-arrow-left me-2"></i> Corrigir
+            </button>
+            <button type="button" class="btn btn-success px-5" id="btn-step3-assinar" style="border-radius: 8px; font-weight: 700; font-size: 1rem;">
+                <i class="fas fa-pen-nib me-2"></i> Prosseguir para Assinatura
+            </button>
         </div>
     </div>
 </div>
@@ -740,7 +803,7 @@
                 </select>
             </div>
             
-            <div class="col-md-12 form-item mt-2">
+            <div class="col-md-6 form-item mt-2">
                 <label>Seção / Setor Alocado</label>
                 <select id="novo_mat_secao" class="form-select">
                     <option value="">-- Geral / Estoque da Informática --</option>
@@ -748,6 +811,10 @@
                         <option value="{{ sec.id }}">{{ sec.nome }}</option>
                     {% endfor %}
                 </select>
+            </div>
+            <div class="col-md-6 form-item mt-2">
+                <label>Localização / Seção <small class="text-muted">(texto livre)</small></label>
+                <input type="text" id="novo_mat_localizacao" placeholder="Ex: Sala 3, Gaveta B, S1...">
             </div>
 
             <div class="col-12 mt-2 pt-2" style="border-top: 1px dashed var(--border-color);"></div>
@@ -860,14 +927,20 @@
                 {% for g in grupos %}
                     <li style="background: var(--bg-main); border: 1px solid var(--border-color); border-radius: 8px; margin-bottom: 10px; padding: 15px;">
                         <div class="d-flex justify-content-between align-items-center">
-                            <strong style="font-size: 1.1rem; color: var(--text-primary);">{{ g.nome }}</strong>
-                            <button class="btn btn-sm btn-danger py-1 px-2" onclick="deletarGrupo({{ g.id }})" title="Excluir Grupo"><i class="fas fa-trash"></i></button>
+                            <strong style="font-size: 1.1rem; color: var(--text-primary);" id="grupo-nome-{{ g.id }}">{{ g.nome }}</strong>
+                            <div class="d-flex gap-1">
+                                <button class="btn btn-sm btn-outline-primary py-1 px-2" onclick="editarGrupo({{ g.id }}, '{{ g.nome|escapejs }}')" title="Renomear Grupo"><i class="fas fa-edit"></i></button>
+                                <button class="btn btn-sm btn-danger py-1 px-2" onclick="deletarGrupo({{ g.id }})" title="Excluir Grupo"><i class="fas fa-trash"></i></button>
+                            </div>
                         </div>
                         <ul style="list-style: none; padding-left: 15px; margin-top: 15px; border-left: 2px solid var(--border-color);">
                             {% for sg in g.subgrupos.all %}
                                 <li class="d-flex justify-content-between align-items-center mb-2">
-                                    <span style="font-size: 0.95rem; color: var(--text-secondary);">{{ sg.nome }}</span>
-                                    <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deletarSubgrupo({{ sg.id }})" title="Excluir Subgrupo"><i class="fas fa-times"></i></button>
+                                    <span style="font-size: 0.95rem; color: var(--text-secondary);" id="subgrupo-nome-{{ sg.id }}">{{ sg.nome }}</span>
+                                    <div class="d-flex gap-1">
+                                        <button class="btn btn-sm btn-outline-primary py-0 px-2" onclick="editarSubgrupo({{ sg.id }}, '{{ sg.nome|escapejs }}')" title="Renomear Subgrupo"><i class="fas fa-edit"></i></button>
+                                        <button class="btn btn-sm btn-outline-danger py-0 px-2" onclick="deletarSubgrupo({{ sg.id }})" title="Excluir Subgrupo"><i class="fas fa-times"></i></button>
+                                    </div>
                                 </li>
                             {% endfor %}
                         </ul>
@@ -1328,7 +1401,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('sum-disp').innerText = tDisp;
         document.getElementById('sum-caut').innerText = tCaut;
         document.getElementById('sum-def').innerText = tDef;
-        document.getElementById('subgrupo-summary-preview').style.display = 'flex';
+        document.getElementById('subgrupo-summary-preview').style.display = 'block';
 
         materialSelect.disabled = false;
         materialSelect.innerHTML = '<option value="">-- Selecione o Material --</option>';
@@ -1359,7 +1432,8 @@ document.addEventListener('DOMContentLoaded', function() {
                 attrHtml += '</div>';
             }
             const snText = mat.serial ? `<span style="color: var(--accent-color); font-weight: 600;">[S/N: ${mat.serial}]</span>` : '';
-            previewDiv.innerHTML = `<strong style="color: var(--text-primary); font-size: 1.05rem;">${mat.nome}</strong> ${snText}${attrHtml}`;
+            const inner = previewDiv.querySelector('div') || previewDiv;
+            inner.innerHTML = `<strong style="color: var(--text-primary); font-size: 1.05rem;">${mat.nome}</strong> ${snText}${attrHtml}`;
             previewDiv.style.display = 'block';
         }
     };
@@ -1385,7 +1459,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         }
 
-        cart.push({ id: val, qtd: qtd });
+        cart.push({ id: val, qtd: qtd, nome: mat.nome, serial: mat.serial || '' });
         if(emptyMsg) emptyMsg.style.display = 'none';
 
         let attrHtmlText = '';
@@ -1410,7 +1484,7 @@ document.addEventListener('DOMContentLoaded', function() {
             <i class="fas fa-trash remove-item" onclick="removeFromCart('${val}')" title="Remover" style="cursor:pointer;"></i>
         `;
         cartList.appendChild(li);
-        
+        atualizarBadgeCart();
         if(hasJQuery) $(subgrupoSelect).trigger('change'); else subgrupoSelect.dispatchEvent(new Event('change'));
     });
 
@@ -1419,9 +1493,45 @@ document.addEventListener('DOMContentLoaded', function() {
         const itemEl = document.getElementById(`cart-item-${id}`);
         if(itemEl) itemEl.remove();
         if(cart.length === 0 && emptyMsg) emptyMsg.style.display = 'flex';
-        
+        atualizarBadgeCart();
         if(hasJQuery) $(subgrupoSelect).trigger('change'); else subgrupoSelect.dispatchEvent(new Event('change'));
     };
+
+    function atualizarBadgeCart() {
+        const badge = document.getElementById('cart-count-badge');
+        if (!badge) return;
+        if (cart.length > 0) { badge.textContent = cart.length + ' item' + (cart.length !== 1 ? 's' : ''); badge.style.display = ''; }
+        else { badge.style.display = 'none'; }
+    }
+
+    // --- NAVEGAÇÃO DE STEPS DA NOVA CAUTELA ---
+    function setStep(n) {
+        [1,2,3].forEach(i => {
+            const el = document.getElementById(`cautela-step-${i}`);
+            const pill = document.getElementById(`step-pill-${i}`);
+            if (el) el.style.display = (i === n) ? '' : 'none';
+            if (pill) {
+                pill.classList.toggle('active', i === n);
+                pill.classList.toggle('done', i < n);
+            }
+        });
+    }
+
+    document.getElementById('btn-step1-avancar').addEventListener('click', () => {
+        const sobreaviso_id = document.getElementById('cautela-sobreaviso').value;
+        const recebedor_id = document.getElementById('cautela-recebedor').value;
+        if (!sobreaviso_id || !recebedor_id) { alert("Selecione o Sobreaviso e o Recebedor para continuar."); return; }
+        setStep(2);
+    });
+
+    document.getElementById('btn-step2-voltar').addEventListener('click', () => setStep(1));
+
+    document.getElementById('btn-step3-voltar').addEventListener('click', () => setStep(2));
+
+    document.getElementById('btn-step3-assinar').addEventListener('click', () => {
+        document.getElementById('modal-assinatura-recebedor').classList.add('active');
+        setTimeout(() => resizeCanvas(document.getElementById('pad-recebedor'), window.padRecebedor), 250);
+    });
 
     // --- EMISSÃO CAUTELA ---
     document.getElementById('btn-pre-finalizar').addEventListener('click', () => {
@@ -1429,9 +1539,28 @@ document.addEventListener('DOMContentLoaded', function() {
         const recebedor_id = document.getElementById('cautela-recebedor').value;
         if(!sobreaviso_id || !recebedor_id) { alert("Selecione o Sobreaviso e o Recebedor primeiro."); return; }
         if(cart.length === 0) { alert("Adicione pelo menos um material ao carrinho."); return; }
-        
-        document.getElementById('modal-assinatura-recebedor').classList.add('active');
-        setTimeout(() => resizeCanvas(document.getElementById('pad-recebedor'), window.padRecebedor), 250);
+
+        // Monta resumo visual
+        const milares = militaresTelefones.concat(militaresInfoDados);
+        const sob = militaresInfoDados.find(m => m.id == sobreaviso_id);
+        const rec = militaresTelefones.find(m => m.id == recebedor_id);
+        const missao = document.getElementById('cautela-missao').value;
+        const tel = document.getElementById('cautela-telefone').value;
+        let itensHtml = cart.map(item => `<li class="py-1" style="border-bottom: 1px solid var(--border-color); color: var(--text-primary);"><i class="fas fa-check-circle text-success me-2"></i>${item.nome}${item.serial ? ` <span style="color:var(--text-secondary); font-size:0.8rem;">(S/N: ${item.serial})</span>` : ''}${item.qtd > 1 ? ` <strong>x${item.qtd}</strong>` : ''}</li>`).join('');
+        document.getElementById('cautela-resumo-content').innerHTML = `
+            <div class="col-md-6"><div class="p-3" style="background:var(--bg-main);border-radius:10px;border:1px solid var(--border-color);">
+                <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px;">Pessoas</div>
+                <div style="color:var(--text-primary);"><strong>Sobreaviso:</strong> ${sob ? sob.posto + ' ' + sob.nome_guerra : '-'}</div>
+                <div style="color:var(--text-primary);margin-top:4px;"><strong>Recebedor:</strong> ${rec ? rec.posto + ' ' + rec.nome_guerra : '-'}</div>
+                ${tel ? `<div style="color:var(--text-secondary);font-size:0.85rem;margin-top:4px;"><i class="fas fa-phone me-1"></i>${tel}</div>` : ''}
+                ${missao ? `<div style="margin-top:6px;"><span class="badge-status bg-cautela"><i class="fas fa-tag me-1"></i>${missao}</span></div>` : ''}
+            </div></div>
+            <div class="col-md-6"><div class="p-3" style="background:var(--bg-main);border-radius:10px;border:1px solid var(--border-color);">
+                <div style="font-size:0.75rem;font-weight:700;text-transform:uppercase;color:var(--text-secondary);margin-bottom:8px;">Materiais (${cart.length} item${cart.length !== 1 ? 's' : ''})</div>
+                <ul style="list-style:none;padding:0;margin:0;">${itensHtml}</ul>
+            </div></div>`;
+
+        setStep(3);
     });
 
     window.avancarParaSobreaviso = function() {
@@ -1852,7 +1981,8 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('motivo-container').style.display = 'none';
         
         document.getElementById('novo_mat_armario').value = '';
-        document.getElementById('novo_mat_secao').value = ''; 
+        document.getElementById('novo_mat_secao').value = '';
+        document.getElementById('novo_mat_localizacao').value = '';
         
         prateleiraSelectMat.innerHTML = '<option value="">-- Selecione o Armário Primeiro --</option>';
         prateleiraSelectMat.disabled = true;
@@ -1879,6 +2009,7 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('novo_mat_motivo').value = mat.motivo_defeito;
         document.getElementById('motivo-container').style.display = mat.funcionando === 0 ? 'block' : 'none';
         document.getElementById('novo_mat_secao').value = mat.secao_id || '';
+        document.getElementById('novo_mat_localizacao').value = mat.localizacao_texto || '';
 
         if(hasJQuery) $('#novo_mat_subgrupo').val(mat.subgrupo_id).trigger('change.select2'); 
         else document.getElementById('novo_mat_subgrupo').value = mat.subgrupo_id;
@@ -1942,10 +2073,11 @@ document.addEventListener('DOMContentLoaded', function() {
             nome: document.getElementById('novo_mat_nome').value,
             serial: document.getElementById('novo_mat_serial').value,
             codigo: document.getElementById('novo_mat_codigo').value,
+            localizacao_texto: document.getElementById('novo_mat_localizacao').value || '',
             quantidade: document.getElementById('novo_mat_quantidade').value,
             funcionando: document.getElementById('novo_mat_status').value === '1',
             motivo_defeito: document.getElementById('novo_mat_motivo').value,
-            atributos_extras: atributos 
+            atributos_extras: atributos
         });
     });
 
@@ -2015,6 +2147,63 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     // Exclusão Grupos/Materiais
+    // Salvar Grupo e Subgrupo
+    document.getElementById('btn-save-grupo').addEventListener('click', function() {
+        const nome = document.getElementById('novo_grupo_nome').value.trim();
+        if (!nome) { alert('Digite o nome do grupo!'); return; }
+        const btn = this; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+        fetch("{% url 'informatica:api_add_grupo' %}", {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: nome })
+        }).then(r => r.json()).then(res => {
+            if (res.status === 'success') { window.location.reload(); }
+            else { alert('Erro: ' + res.message); btn.disabled = false; btn.innerHTML = 'Salvar'; }
+        }).catch(() => { alert('Erro de conexão.'); btn.disabled = false; btn.innerHTML = 'Salvar'; });
+    });
+
+    document.getElementById('btn-save-subgrupo').addEventListener('click', function() {
+        const nome = document.getElementById('novo_subgrupo_nome').value.trim();
+        const grupoId = document.getElementById('novo_subgrupo_grupo_id').value;
+        if (!nome) { alert('Digite o nome do subgrupo!'); return; }
+        if (!grupoId) { alert('Selecione o grupo base!'); return; }
+        const btn = this; btn.disabled = true; btn.innerHTML = '<i class="fas fa-spinner fa-spin"></i> Salvando...';
+        fetch("{% url 'informatica:api_add_subgrupo' %}", {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: nome, grupo_id: grupoId })
+        }).then(r => r.json()).then(res => {
+            if (res.status === 'success') { window.location.reload(); }
+            else { alert('Erro: ' + res.message); btn.disabled = false; btn.innerHTML = 'Salvar'; }
+        }).catch(() => { alert('Erro de conexão.'); btn.disabled = false; btn.innerHTML = 'Salvar'; });
+    });
+
+    window.editarGrupo = function(id, nomeAtual) {
+        const novoNome = prompt('Novo nome para o grupo:', nomeAtual);
+        if (!novoNome || novoNome.trim() === nomeAtual) return;
+        fetch(`/informatica/api/materiais/edit-grupo/${id}/`, {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: novoNome.trim() })
+        }).then(r => r.json()).then(res => {
+            if (res.status === 'success') {
+                const el = document.getElementById(`grupo-nome-${id}`);
+                if (el) el.textContent = novoNome.trim();
+            } else { alert('Erro: ' + res.message); }
+        });
+    };
+
+    window.editarSubgrupo = function(id, nomeAtual) {
+        const novoNome = prompt('Novo nome para o subgrupo:', nomeAtual);
+        if (!novoNome || novoNome.trim() === nomeAtual) return;
+        fetch(`/informatica/api/materiais/edit-subgrupo/${id}/`, {
+            method: 'POST', headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+            body: JSON.stringify({ nome: novoNome.trim() })
+        }).then(r => r.json()).then(res => {
+            if (res.status === 'success') {
+                const el = document.getElementById(`subgrupo-nome-${id}`);
+                if (el) el.textContent = novoNome.trim();
+            } else { alert('Erro: ' + res.message); }
+        });
+    };
+
     window.deletarGrupo = function(id) {
         if(!confirm("Apagar Grupo e TODOS os Subgrupos associados?")) return;
         fetch(`/informatica/api/materiais/delete-grupo/${id}/`, { method: 'POST', headers: { 'X-CSRFToken': csrfToken }})
