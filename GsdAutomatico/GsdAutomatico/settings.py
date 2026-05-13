@@ -59,6 +59,7 @@ INSTALLED_APPS = [
     'chamados',
     'notificacoes',
     'chamada.apps.ChamadaConfig',
+    'ESI.apps.EsiConfig',
 ]
 
 # ── Django Channels ───────────────────────────────────────────────────────────

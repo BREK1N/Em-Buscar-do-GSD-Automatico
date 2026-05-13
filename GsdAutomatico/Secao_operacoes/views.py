@@ -5,7 +5,9 @@ from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from datetime import date
 import json
-from .models import Escala, TurnoEscala, PostoEscala, Missao, ItemArmamento, ItemEquipamento, ItemHorario, ConfiguracaoOperacoes, EquipamentoCatalogo, RadioCatalogo, UniformeCatalogo, ArmamentoCatalogo
+import os
+from django.conf import settings
+from .models import Escala, TurnoEscala, PostoEscala, Missao, ItemArmamento, ItemEquipamento, ItemHorario, ConfiguracaoOperacoes, EquipamentoCatalogo, RadioCatalogo, UniformeCatalogo, ArmamentoCatalogo, ACargaOpcao
 from .forms import EscalaForm, TurnoEscalaForm, PostoEscalaForm, MissaoForm
 from Secao_pessoal.models import Efetivo
 from django.contrib.auth import get_user_model
@@ -86,6 +88,24 @@ def _horarios_pdf_ctx(missao):
         result.append({'label': e.label, 'horario': e.horario})
         extra_idx += 1
     return result
+
+
+def _efetivo_ref_from_post(request):
+    """Lê os campos hidden _ref_* do POST e retorna dict de referência, ou None."""
+    of = request.POST.get('_ref_of', '').strip()
+    if not of:
+        return None
+    def _int(v):
+        try: return int(v)
+        except: return 0
+    return {
+        'of':     _int(request.POST.get('_ref_of')),
+        'so_sgt': _int(request.POST.get('_ref_so_sgt')),
+        'cb':     _int(request.POST.get('_ref_cb')),
+        's1':     _int(request.POST.get('_ref_s1')),
+        's2':     _int(request.POST.get('_ref_s2')),
+        'rec':    _int(request.POST.get('_ref_rec')),
+    }
 
 
 def _get_diretrizes_padrao(config):
@@ -575,7 +595,7 @@ def missao_list(request):
     busca = request.GET.get('q', '').strip()
     ordem = request.GET.get('ordem', 'desc')
 
-    missoes = Missao.objects.all().select_related('cmt_missao')
+    missoes = Missao.objects.all().select_related('cmt_missao').prefetch_related('escala_esi__militares')
 
     semana_inicio = semana_fim = None
 
@@ -631,8 +651,11 @@ def missao_list(request):
 
 @sop_required
 def missao_create(request):
+    origem = None
+    efetivo_ref = None
     if request.method == 'POST':
         form = MissaoForm(request.POST)
+        efetivo_ref = _efetivo_ref_from_post(request)
         if form.is_valid():
             from django.utils import timezone
             missao = form.save(commit=False)
@@ -650,27 +673,66 @@ def missao_create(request):
     else:
         proximo = (Missao.objects.aggregate(m=models.Max('numero'))['m'] or 0) + 1
         cfg = ConfiguracaoOperacoes.get_instance()
-        form = MissaoForm(initial={
-            'numero': proximo,
-            'observacoes_armamento': cfg.observacoes_armamento_padrao,
-        })
+        origem = None
+        efetivo_ref = None
+        copiar_de = request.GET.get('copiar_de')
+        if copiar_de:
+            try:
+                origem = Missao.objects.get(pk=copiar_de)
+                efetivo_ref = {
+                    'of': origem.efetivo_of,
+                    'so_sgt': origem.efetivo_so_sgt,
+                    'cb': origem.efetivo_cb,
+                    's1': origem.efetivo_s1,
+                    's2': origem.efetivo_s2,
+                    'rec': origem.efetivo_rec,
+                }
+                form = MissaoForm(initial={
+                    'numero': proximo,
+                    'nome_missao': origem.nome_missao,
+                    'local': origem.local,
+                    'transporte': origem.transporte,
+                    'uniforme': origem.uniforme,
+                    'acionador': origem.acionador,
+                    'objetivo': origem.objetivo,
+                    'endereco': origem.endereco,
+                    'observacoes_armamento': origem.observacoes_armamento,
+                    'radio_nome': origem.radio_nome,
+                    'radio_qtd': origem.radio_qtd,
+                    'radio_canal': origem.radio_canal,
+                })
+            except Missao.DoesNotExist:
+                origem = None
+        if not origem:
+            form = MissaoForm(initial={
+                'numero': proximo,
+                'observacoes_armamento': cfg.observacoes_armamento_padrao,
+            })
     cfg = ConfiguracaoOperacoes.get_instance()
     diretrizes_padrao = _get_diretrizes_padrao(cfg)
+    diretrizes_iniciais = [{'texto': t, 'is_padrao': True} for t in diretrizes_padrao]
+    if origem:
+        diretrizes_iniciais = _get_diretrizes_missao(origem)
     return render(request, 'Secao_operacoes/missao_form.html', {
-        'form': form, 'title': 'Nova Missão (OMIS)',
+        'form': form,
+        'title': f'Copiar OMIS Nº {origem.numero}' if origem else 'Nova Missão (OMIS)',
         'efetivo_json': _efetivo_json_ctx(),
-        'diretrizes_iniciais': [{'texto': t, 'is_padrao': True} for t in diretrizes_padrao],
+        'diretrizes_iniciais': diretrizes_iniciais,
         'diretrizes_padrao_json': diretrizes_padrao,
         'obs_armamento_padrao': cfg.observacoes_armamento_padrao,
         'horarios_form': _horarios_form_ctx(None),
         'std_horarios_disponiveis': STD_HORARIOS,
+        'efetivo_ref': efetivo_ref,
+        'acarga_opcoes_json': json.dumps(list(ACargaOpcao.objects.values('id', 'nome')), ensure_ascii=False),
     })
 
 
 @sop_required
 def missao_edit(request, pk):
     missao = get_object_or_404(Missao, pk=pk)
+    efetivo_ref = None
     if request.method == 'POST':
+        efetivo_ref = _efetivo_ref_from_post(request)
         form = MissaoForm(request.POST, instance=missao)
         if form.is_valid():
             from django.utils import timezone
@@ -699,6 +761,8 @@ def missao_edit(request, pk):
         'obs_armamento_padrao': cfg.observacoes_armamento_padrao,
         'horarios_form': _horarios_form_ctx(missao),
         'std_horarios_disponiveis': STD_HORARIOS,
+        'efetivo_ref': efetivo_ref,
+        'acarga_opcoes_json': json.dumps(list(ACargaOpcao.objects.values('id', 'nome')), ensure_ascii=False),
     })
 
 
@@ -706,9 +770,12 @@ def missao_edit(request, pk):
 def missao_detail(request, pk):
     missao = get_object_or_404(Missao, pk=pk)
     config = ConfiguracaoOperacoes.get_instance()
+    from informatica.models import ConfiguracaoComandantes
+    config_cmds = ConfiguracaoComandantes.get_instance()
     return render(request, 'Secao_operacoes/missao_detail.html', {
         'missao': missao,
         'config': config,
+        'config_cmds': config_cmds,
     })
 
 
@@ -723,28 +790,19 @@ def missao_delete(request, pk):
     return redirect('Secao_operacoes:missao_list')
 
 
-@sop_required
-def missao_pdf(request, pk):
-    from django.template.loader import render_to_string
-    from weasyprint import HTML
-    missao = get_object_or_404(Missao, pk=pk)
-    config = ConfiguracaoOperacoes.get_instance()
-
+def _missao_pdf_context(missao, request):
+    """Retorna o contexto necessário para renderizar o PDF de uma missão."""
+    from collections import defaultdict
     armas = list(missao.armamentos.all())
     equips = list(missao.equipamentos.all())
-
-    # Monta linhas da tabela: cada linha tem 1 arma + 2 equipamentos (lado a lado)
     max_linhas = max(len(armas), (len(equips) + 1) // 2, 4)
     linhas_arma_equip = []
     for i in range(max_linhas):
         linhas_arma_equip.append({
-            'arma':  armas[i] if i < len(armas) else None,
-            'eq1':   equips[i * 2]     if i * 2 < len(equips) else None,
-            'eq2':   equips[i * 2 + 1] if i * 2 + 1 < len(equips) else None,
+            'arma': armas[i] if i < len(armas) else None,
+            'eq1':  equips[i * 2]     if i * 2 < len(equips) else None,
+            'eq2':  equips[i * 2 + 1] if i * 2 + 1 < len(equips) else None,
         })
-
-    # Agrupa toda a equipe (cmt + equipe + motorista) por posto, omitindo postos vazios
-    from collections import defaultdict
     todos = []
     if missao.cmt_missao:
         todos.append(('CMT', missao.cmt_missao))
@@ -752,8 +810,6 @@ def missao_pdf(request, pk):
         todos.append(('equipe', p))
     if missao.motorista:
         todos.append(('MOT', missao.motorista))
-
-    # Agrupa equipe por posto (mantendo ordem de aparição)
     grupos_equipe = defaultdict(list)
     ordem_postos = []
     for _, p in [(r, p) for r, p in todos if r == 'equipe']:
@@ -761,19 +817,79 @@ def missao_pdf(request, pk):
             ordem_postos.append(p.posto)
         grupos_equipe[p.posto].append(p.nome_guerra)
     equipe_por_posto = [(posto, grupos_equipe[posto]) for posto in ordem_postos]
-
-    html_string = render_to_string('Secao_operacoes/missao_pdf.html', {
+    try:
+        from ESI.models import EscalaMissaoESI  # noqa
+        from ESI.views import _build_paginas
+        escala_esi = missao.escala_esi
+        militares_esi = list(escala_esi.militares.order_by('posto', 'nome_guerra'))
+    except Exception:
+        escala_esi = None
+        militares_esi = []
+        _build_paginas = None
+    esi_paginas, esi_num_paginas = _build_paginas(militares_esi) if _build_paginas else ([], 0)
+    config = ConfiguracaoOperacoes.get_instance()
+    from informatica.models import ConfiguracaoComandantes
+    config_cmds = ConfiguracaoComandantes.get_instance()
+    return {
         'missao': missao,
         'config': config,
+        'config_cmds': config_cmds,
         'linhas_arma_equip': linhas_arma_equip,
         'equipe_por_posto': equipe_por_posto,
         'horarios_ordenados': _horarios_pdf_ctx(missao),
         'diretrizes': _get_diretrizes_missao(missao),
         'tem_armamento': missao.armamentos.exists(),
-    }, request=request)
+        'escala_esi': escala_esi,
+        'militares_esi': militares_esi,
+        'esi_paginas': esi_paginas,
+        'esi_num_paginas': esi_num_paginas,
+        'esi_brasao_url': 'file://' + os.path.join(settings.STATIC_ROOT, 'img', 'brasao.png'),
+    }
+
+
+@sop_required
+def missao_pdf(request, pk):
+    from django.template.loader import render_to_string
+    from weasyprint import HTML
+    missao = get_object_or_404(Missao, pk=pk)
+    ctx = _missao_pdf_context(missao, request)
+    html_string = render_to_string('Secao_operacoes/missao_pdf.html', ctx, request=request)
     pdf = HTML(string=html_string, base_url=request.build_absolute_uri('/')).write_pdf()
     response = HttpResponse(pdf, content_type='application/pdf')
     response['Content-Disposition'] = f'filename="OMIS_{missao.numero}.pdf"'
+    return response
+
+
+@login_required
+def compilado_missoes_pdf(request):
+    from django.template.loader import render_to_string
+    from weasyprint import HTML
+    import datetime
+
+    data_str = request.GET.get('data', '')
+    try:
+        data = datetime.date.fromisoformat(data_str)
+    except ValueError:
+        return HttpResponse('Data inválida. Use ?data=AAAA-MM-DD', status=400)
+
+    missoes = Missao.objects.filter(data_missao=data).order_by('numero')
+    if not missoes.exists():
+        return HttpResponse('Nenhuma missão encontrada nesta data.', status=404)
+
+    base_url = request.build_absolute_uri('/')
+    documents = []
+    for missao in missoes:
+        ctx = _missao_pdf_context(missao, request)
+        html_string = render_to_string('Secao_operacoes/missao_pdf.html', ctx, request=request)
+        doc = HTML(string=html_string, base_url=base_url).render()
+        documents.append(doc)
+
+    all_pages = [page for doc in documents for page in doc.pages]
+    pdf = documents[0].copy(all_pages).write_pdf()
+
+    response = HttpResponse(pdf, content_type='application/pdf')
+    data_fmt = data.strftime('%d-%m-%Y')
+    response['Content-Disposition'] = f'filename="Compilado_Missoes_{data_fmt}.pdf"'
     return response
 
 
@@ -1154,10 +1270,6 @@ def config_operacoes(request):
     config = ConfiguracaoOperacoes.get_instance()
     efetivos = Efetivo.objects.filter(deleted=False).order_by('nome_guerra')
     if request.method == 'POST':
-        chefe_id = request.POST.get('chefe_sop')
-        cmt_id = request.POST.get('comandante_gsd')
-        config.chefe_sop = Efetivo.objects.filter(pk=chefe_id).first() if chefe_id else None
-        config.comandante_gsd = Efetivo.objects.filter(pk=cmt_id).first() if cmt_id else None
         config.observacoes_armamento_padrao = request.POST.get('observacoes_armamento_padrao', '').strip()
         # salvar diretrizes padrão como JSON
         textos_padrao = [t.strip() for t in request.POST.getlist('diretriz_padrao_texto[]') if t.strip()]
@@ -1172,4 +1284,32 @@ def config_operacoes(request):
         'is_admin': request.user.is_superuser,
         'diretrizes_padrao': diretrizes_padrao,
         'diretrizes_padrao_json': json.dumps(diretrizes_padrao, ensure_ascii=False),
+        'acarga_opcoes': ACargaOpcao.objects.all(),
+        'acarga_opcoes_json': json.dumps(list(ACargaOpcao.objects.values('id', 'nome')), ensure_ascii=False),
     })
+
+
+# ── A Cargo — opções pré-cadastradas ──────────────────────────────────────────
+
+@login_required
+def api_acarga_opcoes(request):
+    from .models import ACargaOpcao
+    if request.method == 'POST':
+        import json as _json
+        data = _json.loads(request.body)
+        nome = data.get('nome', '').strip()
+        if not nome:
+            return JsonResponse({'status': 'error', 'message': 'Nome não pode ser vazio.'}, status=400)
+        obj, created = ACargaOpcao.objects.get_or_create(nome=nome)
+        return JsonResponse({'status': 'ok', 'id': obj.pk, 'nome': obj.nome, 'created': created})
+    opcoes = list(ACargaOpcao.objects.values('id', 'nome'))
+    return JsonResponse(opcoes, safe=False)
+
+
+@login_required
+def api_acarga_opcao_delete(request, pk):
+    from .models import ACargaOpcao
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error'}, status=405)
+    ACargaOpcao.objects.filter(pk=pk).delete()
+    return JsonResponse({'status': 'ok'})

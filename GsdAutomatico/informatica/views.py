@@ -14,7 +14,7 @@ from .forms import (
     InformaticaUserCreationForm, InformaticaUserChangeForm,
     GroupForm, ConfiguracaoForm
 )
-from .models import GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem, Armario, Prateleira, GroupProfile, SECAO_CHOICES
+from .models import GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem, Armario, Prateleira, GroupProfile, SECAO_CHOICES, ConfiguracaoComandantes
 from django.db.models import Q, ProtectedError
 import logging
 from django.http import JsonResponse
@@ -359,6 +359,31 @@ class ConfiguracaoUpdateView(StaffRequiredMixin, UpdateView):
         ctx['lixeira_total'] = len(lixeira_list)
         ctx['dias_retencao_lixeira'] = config.dias_retencao_lixeira
         return ctx
+
+
+# ==========================================
+# COMANDANTES
+# ==========================================
+@staff_member_required
+def configuracao_comandantes(request):
+    config = ConfiguracaoComandantes.get_instance()
+    oficiais = Efetivo.objects.filter(oficial=True, deleted=False).order_by('posto', 'nome_guerra')
+    if request.method == 'POST':
+        def _get(field):
+            pk = request.POST.get(field)
+            return Efetivo.objects.filter(pk=pk).first() if pk else None
+        config.comandante_gsd = _get('comandante_gsd')
+        config.comandante_bagl = _get('comandante_bagl')
+        config.chefe_sop = _get('chefe_sop')
+        config.comandante_esi = _get('comandante_esi')
+        config.save()
+        from django.contrib import messages
+        messages.success(request, 'Comandantes salvos com sucesso.')
+        return redirect('informatica:configuracao_comandantes')
+    return render(request, 'informatica/configuracao_comandantes.html', {
+        'config': config,
+        'oficiais': oficiais,
+    })
 
 
 # ==========================================
@@ -1118,6 +1143,7 @@ def configuracao_secoes(request):
                 {'label': 'Gestão de Materiais', 'url': 'informatica:gestao_materiais', 'icon': 'fa-boxes-stacked'},
                 {'label': 'Utilizadores', 'url': 'informatica:user_list', 'icon': 'fa-users'},
                 {'label': 'Grupos', 'url': 'informatica:group_list', 'icon': 'fa-user-tag'},
+                {'label': 'Comandantes', 'url': 'informatica:configuracao_comandantes', 'icon': 'fa-star'},
             ],
         },
     ]

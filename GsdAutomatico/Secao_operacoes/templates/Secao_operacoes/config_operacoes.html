@@ -36,33 +36,6 @@ label { font-size:12px; font-weight:600; color:var(--text-secondary); display:bl
 <div class="card">
     <form method="post">
         {% csrf_token %}
-        {% if is_admin %}
-        <div class="card-title"><i class="fas fa-signature"></i> Assinaturas Padrão</div>
-        <div class="form-group">
-            <label>Chefe da Seção de Operações</label>
-            <select name="chefe_sop" class="form-select">
-                <option value="">— Nenhum —</option>
-                {% for e in efetivos %}
-                <option value="{{ e.pk }}" {% if config.chefe_sop and config.chefe_sop.pk == e.pk %}selected{% endif %}>
-                    {{ e.posto }} {{ e.nome_guerra }} ({{ e.nome_completo }})
-                </option>
-                {% endfor %}
-            </select>
-            <div class="help-text">Aparecerá como "Chefe da Seção de Operações" nas OMIS geradas.</div>
-        </div>
-        <div class="form-group">
-            <label>Comandante do GSD GL</label>
-            <select name="comandante_gsd" class="form-select">
-                <option value="">— Nenhum —</option>
-                {% for e in efetivos %}
-                <option value="{{ e.pk }}" {% if config.comandante_gsd and config.comandante_gsd.pk == e.pk %}selected{% endif %}>
-                    {{ e.posto }} {{ e.nome_guerra }} ({{ e.nome_completo }})
-                </option>
-                {% endfor %}
-            </select>
-            <div class="help-text">Aparecerá como "Comandante do GSD GL" nas OMIS geradas.</div>
-        </div>
-        {% endif %}
         <div style="margin-top:1.5rem; border-top:1px solid var(--border); padding-top:1.5rem;">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
                 <label style="font-size:12px;font-weight:600;color:var(--text-muted);margin-bottom:0;">Diretrizes Padrão</label>
@@ -82,6 +55,72 @@ label { font-size:12px; font-weight:600; color:var(--text-secondary); display:bl
         </button>
     </form>
 </div>
+
+<!-- Seção: A Cargo — opções -->
+<div class="card" style="margin-top:1.5rem; max-width:640px;">
+    <div class="card-title"><i class="fas fa-list-ul"></i> Opções "A Cargo de"</div>
+    <p style="font-size:12px;color:var(--text-muted);margin-bottom:1rem;">Gerencie as opções pré-cadastradas que aparecem no formulário de missão ao marcar "A Cargo de".</p>
+
+    <div id="acarga-lista" style="display:flex;flex-direction:column;gap:6px;margin-bottom:12px;">
+        {% for op in acarga_opcoes %}
+        <div class="acarga-config-item" data-id="{{ op.id }}" style="display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-page);border:1px solid var(--border-strong);border-radius:8px;">
+            <span style="flex:1;font-size:13px;color:var(--text-primary);">{{ op.nome }}</span>
+            <button type="button" onclick="cfgDeleteACargo({{ op.id }}, this)" style="background:none;border:none;color:rgba(239,68,68,.7);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:5px;" title="Remover"><i class="fas fa-trash"></i></button>
+        </div>
+        {% empty %}
+        <p id="acarga-vazio" style="font-size:12px;color:var(--text-muted);margin:0;">Nenhuma opção cadastrada ainda.</p>
+        {% endfor %}
+    </div>
+
+    <div style="display:flex;gap:8px;">
+        <input type="text" id="acarga-nova-input" placeholder="Nova opção de 'A Cargo de'..." style="flex:1;padding:8px 12px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-input);color:var(--text-primary);font-size:13px;">
+        <button type="button" onclick="cfgAddACargo()" class="btn-submit" style="padding:8px 16px;">
+            <i class="fas fa-plus"></i> Adicionar
+        </button>
+    </div>
+</div>
+
+<script>
+const _ACARGA_URL  = "{% url 'Secao_operacoes:api_acarga_opcoes' %}";
+const _ACARGA_DEL  = "{% url 'Secao_operacoes:api_acarga_opcao_delete' pk=0 %}".replace('/0/', '/');
+const _CSRF_CFG    = '{{ csrf_token }}';
+
+function cfgAddACargo() {
+    const inp = document.getElementById('acarga-nova-input');
+    const nome = inp.value.trim();
+    if (!nome) return;
+    fetch(_ACARGA_URL, {
+        method: 'POST',
+        headers: {'X-CSRFToken': _CSRF_CFG, 'Content-Type': 'application/json'},
+        body: JSON.stringify({nome}),
+    }).then(r => r.json()).then(data => {
+        if (data.status !== 'ok') return;
+        inp.value = '';
+        const vazio = document.getElementById('acarga-vazio');
+        if (vazio) vazio.remove();
+        const lista = document.getElementById('acarga-lista');
+        const div = document.createElement('div');
+        div.className = 'acarga-config-item';
+        div.dataset.id = data.id;
+        div.style.cssText = 'display:flex;align-items:center;gap:10px;padding:8px 12px;background:var(--bg-page);border:1px solid var(--border-strong);border-radius:8px;';
+        div.innerHTML = `<span style="flex:1;font-size:13px;color:var(--text-primary);">${data.nome}</span>
+            <button type="button" onclick="cfgDeleteACargo(${data.id}, this)" style="background:none;border:none;color:rgba(239,68,68,.7);cursor:pointer;font-size:13px;padding:2px 6px;border-radius:5px;" title="Remover"><i class="fas fa-trash"></i></button>`;
+        lista.appendChild(div);
+    });
+}
+
+function cfgDeleteACargo(id, btn) {
+    fetch(_ACARGA_DEL + id + '/delete/', {
+        method: 'POST', headers: {'X-CSRFToken': _CSRF_CFG},
+    }).then(r => r.json()).then(() => {
+        btn.closest('.acarga-config-item').remove();
+        const lista = document.getElementById('acarga-lista');
+        if (!lista.querySelector('.acarga-config-item')) {
+            lista.innerHTML = '<p id="acarga-vazio" style="font-size:12px;color:var(--text-muted);margin:0;">Nenhuma opção cadastrada ainda.</p>';
+        }
+    });
+}
+</script>
 
 <script>
 const DIRETRIZES_PADRAO_INIT = {{ diretrizes_padrao_json|default:"[]"|safe }};

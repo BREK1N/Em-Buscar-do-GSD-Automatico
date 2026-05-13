@@ -104,12 +104,4 @@ class ConfiguracaoForm(forms.ModelForm):
     """ Formulário para gerenciar as Configurações Gerais """
     class Meta:
         model = Configuracao
-        fields = ('comandante_gsd', 'comandante_bagl', 'prazo_defesa_dias', 'prazo_defesa_minutos')
-
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # Filtra os selects para mostrar apenas oficiais
-        self.fields['comandante_gsd'].queryset = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
-        self.fields['comandante_gsd'].empty_label = "--- Selecione ---"
-        self.fields['comandante_bagl'].queryset = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
-        self.fields['comandante_bagl'].empty_label = "--- Selecione ---"
+        fields = ('prazo_defesa_dias', 'prazo_defesa_minutos')

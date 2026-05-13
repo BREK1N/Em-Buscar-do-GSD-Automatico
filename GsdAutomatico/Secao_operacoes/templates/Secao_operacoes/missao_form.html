@@ -106,6 +106,14 @@ textarea.form-control { resize:vertical; }
 
 <form method="post" id="missao-form">
 {% csrf_token %}
+{% if efetivo_ref %}
+<input type="hidden" name="_ref_of"     value="{{ efetivo_ref.of }}">
+<input type="hidden" name="_ref_so_sgt" value="{{ efetivo_ref.so_sgt }}">
+<input type="hidden" name="_ref_cb"     value="{{ efetivo_ref.cb }}">
+<input type="hidden" name="_ref_s1"     value="{{ efetivo_ref.s1 }}">
+<input type="hidden" name="_ref_s2"     value="{{ efetivo_ref.s2 }}">
+<input type="hidden" name="_ref_rec"    value="{{ efetivo_ref.rec }}">
+{% endif %}
 
 <!-- 1. Identificação -->
 <div class="form-card">
@@ -350,6 +358,17 @@ textarea.form-control { resize:vertical; }
 .picker-wrap { position:relative; overflow:visible; }
 .picker-search { width:100%; padding:7px 12px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:13px; margin-bottom:0; box-sizing:border-box; }
 .picker-results { position:absolute; top:100%; left:0; right:0; z-index:9998; max-height:200px; overflow-y:auto; border:1px solid var(--border-strong); border-radius:8px; background:var(--bg-card); box-shadow:0 6px 20px rgba(0,0,0,.18); display:none; }
+.btn-acargo-sugestoes { padding:7px 11px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-secondary); cursor:pointer; font-size:13px; flex-shrink:0; }
+.btn-acargo-sugestoes:hover { background:var(--accent-dim); color:var(--accent); border-color:var(--accent); }
+.acargo-dropdown { position:absolute; top:calc(100% + 4px); left:0; right:0; z-index:9999; background:var(--bg-card); border:1px solid var(--border-strong); border-radius:10px; box-shadow:0 8px 24px rgba(0,0,0,.18); padding:6px; min-width:220px; }
+.acargo-item { display:flex; align-items:center; justify-content:space-between; padding:7px 10px; border-radius:7px; font-size:13px; cursor:pointer; color:var(--text-primary); gap:8px; }
+.acargo-item:hover { background:var(--accent-dim); }
+.acargo-item span { flex:1; }
+.acargo-item-del { background:none; border:none; color:rgba(239,68,68,.6); cursor:pointer; font-size:12px; padding:2px 4px; border-radius:4px; }
+.acargo-item-del:hover { color:#ef4444; background:rgba(239,68,68,.1); }
+.acargo-add-row { display:flex; gap:6px; padding:6px 4px 2px; border-top:1px solid var(--border-strong); margin-top:4px; }
+.acargo-add-input { flex:1; padding:5px 9px; border-radius:7px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:12px; }
+.acargo-add-btn { padding:5px 10px; border-radius:7px; border:none; background:var(--accent); color:#fff; font-size:12px; cursor:pointer; font-weight:600; }
 .picker-item { padding:7px 12px; cursor:pointer; font-size:13px; border-bottom:1px solid var(--border); display:flex; justify-content:space-between; }
 .picker-item:last-child { border-bottom:none; }
 .picker-item:hover { background:var(--accent-dim); color:var(--accent); }
@@ -359,6 +378,7 @@ textarea.form-control { resize:vertical; }
 .ef-field { display:flex; flex-direction:column; }
 .ef-field label { font-size:11px; font-weight:700; color:var(--text-muted); margin-bottom:4px; }
 .ef-field input { padding:6px 10px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:14px; text-align:center; }
+.ef-ref { font-size:11px; color:var(--accent); text-align:center; margin-top:3px; opacity:0.75; font-weight:600; }
 .pessoa-selecionada { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:8px; background:var(--accent-dim); color:var(--accent); font-size:13px; font-weight:600; margin-top:6px; }
 .pessoa-selecionada button { background:none; border:none; color:inherit; cursor:pointer; font-size:16px; }
 </style>
@@ -367,13 +387,40 @@ textarea.form-control { resize:vertical; }
 
     <!-- Contadores -->
     <div class="efetivo-grid" style="grid-template-columns:repeat(6,1fr);">
-        <div class="ef-field"><label>OF</label><input type="number" name="efetivo_of" id="ef_of" value="{{ missao.efetivo_of|default:0 }}" min="0" readonly></div>
-        <div class="ef-field"><label>SO/SGT</label><input type="number" name="efetivo_so_sgt" id="ef_so_sgt" value="{{ missao.efetivo_so_sgt|default:0 }}" min="0" readonly></div>
-        <div class="ef-field"><label>CB</label><input type="number" name="efetivo_cb" id="ef_cb" value="{{ missao.efetivo_cb|default:0 }}" min="0" readonly></div>
-        <div class="ef-field"><label>S1</label><input type="number" name="efetivo_s1" id="ef_s1" value="{{ missao.efetivo_s1|default:0 }}" min="0" readonly></div>
-        <div class="ef-field"><label>S2</label><input type="number" name="efetivo_s2" id="ef_s2" value="{{ missao.efetivo_s2|default:0 }}" min="0" readonly></div>
-        <div class="ef-field"><label>REC</label><input type="number" name="efetivo_rec" id="ef_rec" value="{{ missao.efetivo_rec|default:0 }}" min="0" readonly></div>
+        <div class="ef-field">
+            <label>OF</label>
+            <input type="number" name="efetivo_of" id="ef_of" value="{{ missao.efetivo_of|default:0 }}" min="0" readonly>
+            {% if efetivo_ref %}<div class="ef-ref" title="Referência da missão copiada"><i class="fas fa-ghost"></i> {{ efetivo_ref.of }}</div>{% endif %}
+        </div>
+        <div class="ef-field">
+            <label>SO/SGT</label>
+            <input type="number" name="efetivo_so_sgt" id="ef_so_sgt" value="{{ missao.efetivo_so_sgt|default:0 }}" min="0" readonly>
+            {% if efetivo_ref %}<div class="ef-ref" title="Referência da missão copiada"><i class="fas fa-ghost"></i> {{ efetivo_ref.so_sgt }}</div>{% endif %}
+        </div>
+        <div class="ef-field">
+            <label>CB</label>
+            <input type="number" name="efetivo_cb" id="ef_cb" value="{{ missao.efetivo_cb|default:0 }}" min="0" readonly>
+            {% if efetivo_ref %}<div class="ef-ref" title="Referência da missão copiada"><i class="fas fa-ghost"></i> {{ efetivo_ref.cb }}</div>{% endif %}
+        </div>
+        <div class="ef-field">
+            <label>S1</label>
+            <input type="number" name="efetivo_s1" id="ef_s1" value="{{ missao.efetivo_s1|default:0 }}" min="0" readonly>
+            {% if efetivo_ref %}<div class="ef-ref" title="Referência da missão copiada"><i class="fas fa-ghost"></i> {{ efetivo_ref.s1 }}</div>{% endif %}
+        </div>
+        <div class="ef-field">
+            <label>S2</label>
+            <input type="number" name="efetivo_s2" id="ef_s2" value="{{ missao.efetivo_s2|default:0 }}" min="0" readonly>
+            {% if efetivo_ref %}<div class="ef-ref" title="Referência da missão copiada"><i class="fas fa-ghost"></i> {{ efetivo_ref.s2 }}</div>{% endif %}
+        </div>
+        <div class="ef-field">
+            <label>REC</label>
+            <input type="number" name="efetivo_rec" id="ef_rec" value="{{ missao.efetivo_rec|default:0 }}" min="0" readonly>
+            {% if efetivo_ref %}<div class="ef-ref" title="Referência da missão copiada"><i class="fas fa-ghost"></i> {{ efetivo_ref.rec }}</div>{% endif %}
+        </div>
     </div>
+    {% if efetivo_ref %}
+    <p style="font-size:11px;color:var(--accent);margin-bottom:0.5rem;"><i class="fas fa-ghost" style="margin-right:4px;"></i>Números fantasma = efetivo da missão original (referência). O efetivo real será contado pela seleção abaixo.</p>
+    {% endif %}
     <p id="ef_auto_msg" style="font-size:11px;color:var(--text-muted);margin-bottom:1rem;">Contadores preenchidos automaticamente pela seleção abaixo.</p>
 
     <!-- CMT -->
@@ -400,7 +447,13 @@ textarea.form-control { resize:vertical; }
             </div>
         </div>
         <div id="cmt_cargo_area" {% if not missao.cmt_a_cargo %}style="display:none;"{% endif %}>
-            <input type="text" name="cmt_a_cargo" id="cmt_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.cmt_a_cargo|default:'' }}" style="margin-top:4px;">
+            <div class="acargo-wrap" style="position:relative;margin-top:4px;">
+                <div style="display:flex;gap:6px;">
+                    <input type="text" name="cmt_a_cargo" id="cmt_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.cmt_a_cargo|default:'' }}" style="flex:1;" autocomplete="off">
+                    <button type="button" class="btn-acargo-sugestoes" onclick="toggleACargoSugestoes('cmt')" title="Sugestões"><i class="fas fa-list"></i></button>
+                </div>
+                <div id="cmt_acargo_sugestoes" class="acargo-dropdown" style="display:none;"></div>
+            </div>
         </div>
     </div>
 
@@ -428,7 +481,13 @@ textarea.form-control { resize:vertical; }
             </div>
         </div>
         <div id="mot_cargo_area" {% if not missao.mot_a_cargo %}style="display:none;"{% endif %}>
-            <input type="text" name="mot_a_cargo" id="mot_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.mot_a_cargo|default:'' }}" style="margin-top:4px;">
+            <div class="acargo-wrap" style="position:relative;margin-top:4px;">
+                <div style="display:flex;gap:6px;">
+                    <input type="text" name="mot_a_cargo" id="mot_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.mot_a_cargo|default:'' }}" style="flex:1;" autocomplete="off">
+                    <button type="button" class="btn-acargo-sugestoes" onclick="toggleACargoSugestoes('mot')" title="Sugestões"><i class="fas fa-list"></i></button>
+                </div>
+                <div id="mot_acargo_sugestoes" class="acargo-dropdown" style="display:none;"></div>
+            </div>
         </div>
     </div>
 
@@ -455,7 +514,13 @@ textarea.form-control { resize:vertical; }
             </div>
         </div>
         <div id="equipe_cargo_area" {% if not missao.equipe_a_cargo %}style="display:none;"{% endif %}>
-            <input type="text" name="equipe_a_cargo" id="equipe_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.equipe_a_cargo|default:'' }}" style="margin-top:4px;">
+            <div class="acargo-wrap" style="position:relative;margin-top:4px;">
+                <div style="display:flex;gap:6px;">
+                    <input type="text" name="equipe_a_cargo" id="equipe_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.equipe_a_cargo|default:'' }}" style="flex:1;" autocomplete="off">
+                    <button type="button" class="btn-acargo-sugestoes" onclick="toggleACargoSugestoes('equipe')" title="Sugestões"><i class="fas fa-list"></i></button>
+                </div>
+                <div id="equipe_acargo_sugestoes" class="acargo-dropdown" style="display:none;"></div>
+            </div>
         </div>
     </div>
 </div>
@@ -580,6 +645,12 @@ function preencherMissao(m) {
         setVal('ef_rec',    m.efetivo_rec);
     }
 
+    // Atualizar fantasmas de efetivo com valores da missão herdada
+    _atualizarEfetivoRef({
+        of: m.efetivo_of, so_sgt: m.efetivo_so_sgt, cb: m.efetivo_cb,
+        s1: m.efetivo_s1, s2: m.efetivo_s2, rec: m.efetivo_rec,
+    });
+
     // Armamentos
     const abody = document.getElementById('armamentos-body');
     abody.innerHTML = '';
@@ -596,6 +667,123 @@ function preencherMissao(m) {
     (m.equipamentos.length ? m.equipamentos : [{}]).forEach(e => {
         adicionarLinhaEquip(e.equipamento||'', e.quantidade||0);
     });
+}
+
+/* ── A Cargo — sugestões ── */
+const ACARGA_OPCOES_URL  = "{% url 'Secao_operacoes:api_acarga_opcoes' %}";
+const ACARGA_DELETE_TPL  = "{% url 'Secao_operacoes:api_acarga_opcao_delete' pk=0 %}";
+let _acargaOpcoes = {{ acarga_opcoes_json|default:'[]'|safe }};
+
+const _inputMap = { cmt: 'cmt_cargo_input', mot: 'mot_cargo_input', equipe: 'equipe_cargo_input' };
+
+function _renderACargoDropdown(role) {
+    const dd = document.getElementById(`${role}_acargo_sugestoes`);
+    if (!dd) return;
+    const items = _acargaOpcoes.map(o => `
+        <div class="acargo-item" onclick="_selecionarACargo('${role}','${o.nome.replace(/'/g,"\\'")}')">
+            <span>${o.nome}</span>
+            <button type="button" class="acargo-item-del" onclick="event.stopPropagation();_deletarACargo(${o.id},'${role}')" title="Remover"><i class="fas fa-times"></i></button>
+        </div>`).join('');
+    dd.innerHTML = `
+        ${items || '<div style="padding:8px 10px;font-size:12px;color:var(--text-muted);">Nenhuma opção cadastrada.</div>'}
+        <div class="acargo-add-row">
+            <input type="text" class="acargo-add-input" id="${role}_acargo_new" placeholder="Nova opção...">
+            <button type="button" class="acargo-add-btn" onclick="_adicionarACargo('${role}')"><i class="fas fa-plus"></i></button>
+        </div>`;
+}
+
+function toggleACargoSugestoes(role) {
+    const dd = document.getElementById(`${role}_acargo_sugestoes`);
+    if (!dd) return;
+    const visible = dd.style.display !== 'none';
+    // Fecha todos
+    ['cmt','mot','equipe'].forEach(r => {
+        const d = document.getElementById(`${r}_acargo_sugestoes`);
+        if (d) d.style.display = 'none';
+    });
+    if (!visible) { _renderACargoDropdown(role); dd.style.display = 'block'; }
+}
+
+function _selecionarACargo(role, nome) {
+    const inp = document.getElementById(_inputMap[role]);
+    if (inp) inp.value = nome;
+    const dd = document.getElementById(`${role}_acargo_sugestoes`);
+    if (dd) dd.style.display = 'none';
+}
+
+function _adicionarACargo(role) {
+    const inp = document.getElementById(`${role}_acargo_new`);
+    const nome = inp ? inp.value.trim() : '';
+    if (!nome) return;
+    fetch(ACARGA_OPCOES_URL, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+        body: JSON.stringify({nome}),
+    }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+            if (data.created) _acargaOpcoes.push({id: data.id, nome: data.nome});
+            _renderACargoDropdown(role);
+        }
+    });
+}
+
+function _deletarACargo(id, role) {
+    fetch(ACARGA_DELETE_TPL.replace('/0/', `/${id}/`), {
+        method: 'POST', headers: {'X-CSRFToken': CSRF},
+    }).then(r => r.json()).then(() => {
+        _acargaOpcoes = _acargaOpcoes.filter(o => o.id !== id);
+        _renderACargoDropdown(role);
+    });
+}
+
+// Fechar dropdown ao clicar fora
+document.addEventListener('click', e => {
+    if (!e.target.closest('.acargo-wrap') && !e.target.closest('.btn-acargo-sugestoes')) {
+        ['cmt','mot','equipe'].forEach(r => {
+            const d = document.getElementById(`${r}_acargo_sugestoes`);
+            if (d) d.style.display = 'none';
+        });
+    }
+});
+
+function _atualizarEfetivoRef(ref) {
+    const campos = {of:'ef_of', so_sgt:'ef_so_sgt', cb:'ef_cb', s1:'ef_s1', s2:'ef_s2', rec:'ef_rec'};
+    // Garante que os campos hidden existam no form
+    const form = document.getElementById('missao-form');
+    for (const [key, inputId] of Object.entries(campos)) {
+        const val = ref[key] || 0;
+        // Atualiza ou cria o campo hidden
+        let hidden = form.querySelector(`input[name="_ref_${key === 'so_sgt' ? 'so_sgt' : key}"]`);
+        if (!hidden) {
+            hidden = document.createElement('input');
+            hidden.type = 'hidden';
+            hidden.name = `_ref_${key}`;
+            form.appendChild(hidden);
+        }
+        hidden.value = val;
+        // Atualiza o div .ef-ref correspondente (cria se não existir)
+        const inputEl = document.getElementById(inputId);
+        if (!inputEl) continue;
+        let refDiv = inputEl.parentElement.querySelector('.ef-ref');
+        if (!refDiv) {
+            refDiv = document.createElement('div');
+            refDiv.className = 'ef-ref';
+            refDiv.title = 'Referência da missão herdada';
+            inputEl.parentElement.appendChild(refDiv);
+        }
+        refDiv.innerHTML = `<i class="fas fa-ghost"></i> ${val}`;
+        refDiv.style.display = val > 0 ? '' : 'none';
+    }
+    // Mostra/esconde a nota explicativa
+    let nota = document.getElementById('ef-ref-nota');
+    if (!nota) {
+        nota = document.createElement('p');
+        nota.id = 'ef-ref-nota';
+        nota.style.cssText = 'font-size:11px;color:var(--accent);margin-bottom:0.5rem;';
+        nota.innerHTML = '<i class="fas fa-ghost" style="margin-right:4px;"></i>Números fantasma = efetivo da missão herdada (referência). O efetivo real será contado pela seleção abaixo.';
+        document.getElementById('ef_auto_msg').before(nota);
+    }
+    nota.style.display = '';
 }
 
 function setVal(id, val) {

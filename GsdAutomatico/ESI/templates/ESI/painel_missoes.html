@@ -1,0 +1,235 @@
+{% extends 'ESI/base.html' %}
+{% block title %}Painel de Missões — ESI{% endblock %}
+{% block header_eyebrow %}ESI{% endblock %}
+{% block header_title %}Painel de Missões{% endblock %}
+
+{% block extra_head %}
+<style>
+.filter-bar {
+    display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
+    background: var(--bg-content); border: 1px solid var(--border-color);
+    border-radius: 16px; padding: 16px 20px; margin-bottom: 20px;
+}
+.filter-pills { display: flex; gap: 8px; flex-wrap: wrap; }
+.filter-pill {
+    padding: 6px 16px; border-radius: 20px; font-size: .82rem; font-weight: 600;
+    cursor: pointer; text-decoration: none; border: 1px solid var(--border-color);
+    color: var(--text-secondary); background: transparent; transition: all .15s;
+    white-space: nowrap;
+}
+.filter-pill:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.filter-pill.active-proximas { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+.filter-pill.active-passadas { background: #64748b; color: #fff; border-color: #64748b; }
+.filter-pill.active-todas    { background: #6366f1; color: #fff; border-color: #6366f1; }
+.filter-pill.active-sem_escala { background: #d97706; color: #fff; border-color: #d97706; }
+
+.search-wrap {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-main); border: 1px solid var(--border-color);
+    border-radius: 10px; padding: 7px 12px; flex: 1; min-width: 200px; max-width: 360px;
+    transition: border .15s;
+}
+.search-wrap:focus-within { border-color: var(--accent-color); }
+.search-wrap i { color: var(--text-muted); font-size: .8rem; }
+.search-wrap input { flex: 1; border: 0; outline: 0; background: transparent; font-size: .875rem; color: var(--text-primary); }
+.search-wrap input::placeholder { color: var(--text-muted); }
+
+.mission-card {
+    background: var(--bg-content); border: 1px solid var(--border-color);
+    border-radius: 14px; padding: 18px 20px;
+    display: flex; align-items: center; gap: 16px;
+    transition: box-shadow .2s, transform .15s;
+    margin-bottom: 10px;
+}
+.mission-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.08); transform: translateY(-1px); }
+
+.date-col {
+    background: var(--accent-color); color: #fff; border-radius: 12px;
+    width: 52px; height: 52px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; flex-shrink: 0;
+    line-height: 1.15; font-weight: 700;
+}
+.date-col .day { font-size: 1.2rem; font-weight: 800; }
+.date-col .mon { font-size: .6rem; text-transform: uppercase; }
+
+.badge-ok   { background: rgba(34,197,94,.1); color: #16a34a; border: 1px solid rgba(34,197,94,.25); padding: 4px 12px; border-radius: 20px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.badge-warn { background: rgba(245,158,11,.1); color: #d97706; border: 1px solid rgba(245,158,11,.25); padding: 4px 12px; border-radius: 20px; font-size: .75rem; font-weight: 600; white-space: nowrap; }
+.badge-hoje { background: rgba(99,102,241,.12); color: #6366f1; border: 1px solid rgba(99,102,241,.3); padding: 3px 9px; border-radius: 10px; font-size: .7rem; font-weight: 700; }
+
+.btn-escalar {
+    background: var(--accent-color); color: #fff; border: none;
+    padding: 7px 16px; border-radius: 9px; font-size: .82rem; font-weight: 600;
+    text-decoration: none; white-space: nowrap; display: inline-flex; align-items: center; gap: 5px;
+    transition: opacity .15s;
+}
+.btn-escalar:hover { opacity: .87; color: #fff; }
+.btn-pdf {
+    background: transparent; color: var(--text-secondary);
+    border: 1px solid var(--border-color); padding: 7px 11px;
+    border-radius: 9px; font-size: .82rem; text-decoration: none; transition: all .15s;
+    display: inline-flex; align-items: center;
+}
+.btn-pdf:hover { border-color: var(--accent-color); color: var(--accent-color); }
+
+.empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+.empty-state i { font-size: 2.5rem; opacity: .3; display: block; margin-bottom: 12px; }
+
+/* Modal */
+.modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,.55); backdrop-filter: blur(3px);
+}
+.modal-box {
+    background: var(--bg-content); border: 1px solid var(--border-color);
+    border-radius: 16px; box-shadow: 0 16px 48px rgba(0,0,0,.28);
+    padding: 28px 32px; min-width: 320px; max-width: 420px; width: 100%;
+}
+
+@media (max-width: 600px) {
+    .mission-card { flex-wrap: wrap; }
+    .mission-actions { width: 100%; justify-content: flex-end; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Cabeçalho -->
+<div style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:22px;">
+    <div>
+        <p style="color:var(--text-secondary);margin:0;font-size:.9rem;">Missões atribuídas à ESI — escale e gerencie o efetivo.</p>
+    </div>
+    <button onclick="document.getElementById('modal-compilado').style.display='flex'"
+            style="display:inline-flex;align-items:center;gap:8px;background:var(--accent-color);color:#fff;border:none;padding:9px 18px;border-radius:10px;font-weight:600;font-size:.87rem;cursor:pointer;">
+        <i class="fas fa-layer-group"></i> Compilado ESI
+    </button>
+</div>
+
+<!-- Modal Compilado ESI -->
+<div id="modal-compilado" class="modal-overlay">
+    <div class="modal-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h2 style="font-size:1.1rem;font-weight:700;margin:0;color:var(--text-primary);">
+                <i class="fas fa-layer-group" style="color:var(--accent-color);margin-right:8px;"></i>Compilado ESI
+            </h2>
+            <button onclick="document.getElementById('modal-compilado').style.display='none'"
+                    style="background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:18px;line-height:1;padding:2px;">×</button>
+        </div>
+        <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:18px;">
+            Selecione o dia para gerar um PDF com todos os Anexos ESI das missões daquele dia.
+        </p>
+        <label style="display:block;font-size:.78rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Data</label>
+        <input type="date" id="compilado-data" class="form-control" style="margin-bottom:20px;">
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button onclick="document.getElementById('modal-compilado').style.display='none'" class="btn btn-outline-secondary btn-sm">Cancelar</button>
+            <button onclick="gerarCompilado()" style="background:var(--accent-color);color:#fff;border:none;padding:8px 20px;border-radius:8px;font-weight:600;cursor:pointer;font-size:.87rem;">
+                <i class="fas fa-file-pdf me-1"></i> Gerar PDF
+            </button>
+        </div>
+    </div>
+</div>
+
+<!-- Filtros + Busca -->
+<div class="filter-bar">
+    <div class="filter-pills">
+        <a href="?filtro=proximas{% if busca %}&q={{ busca }}{% endif %}" class="filter-pill {% if filtro == 'proximas' %}active-proximas{% endif %}">
+            <i class="fas fa-clock me-1"></i>Próximas
+        </a>
+        <a href="?filtro=passadas{% if busca %}&q={{ busca }}{% endif %}" class="filter-pill {% if filtro == 'passadas' %}active-passadas{% endif %}">
+            <i class="fas fa-history me-1"></i>Passadas
+        </a>
+        <a href="?filtro=todas{% if busca %}&q={{ busca }}{% endif %}" class="filter-pill {% if filtro == 'todas' %}active-todas{% endif %}">
+            <i class="fas fa-list me-1"></i>Todas
+        </a>
+        <a href="?filtro=sem_escala{% if busca %}&q={{ busca }}{% endif %}" class="filter-pill {% if filtro == 'sem_escala' %}active-sem_escala{% endif %}">
+            <i class="fas fa-exclamation-circle me-1"></i>Sem Escala
+        </a>
+    </div>
+    <form method="get" style="display:flex;align-items:center;gap:8px;flex:1;min-width:200px;max-width:360px;">
+        <input type="hidden" name="filtro" value="{{ filtro }}">
+        <div class="search-wrap" style="flex:1;">
+            <i class="fas fa-search"></i>
+            <input type="text" name="q" placeholder="Buscar por nome, número, local..." value="{{ busca }}">
+        </div>
+        <button type="submit" class="btn-escalar" style="padding:7px 14px;border-radius:9px;">Buscar</button>
+    </form>
+</div>
+
+<!-- Lista de Missões -->
+{% if missoes %}
+    {% for m in missoes %}
+    <div class="mission-card">
+        <!-- Data Badge -->
+        <div class="date-col">
+            <span class="day">{{ m.data_missao|date:"d" }}</span>
+            <span class="mon">{{ m.data_missao|date:"M" }}</span>
+        </div>
+
+        <!-- Info principal -->
+        <div style="flex:1;min-width:0;">
+            <div style="font-weight:700;color:var(--text-primary);font-size:.95rem;display:flex;align-items:center;flex-wrap:wrap;gap:6px;">
+                OMIS Nº {{ m.numero }} — {{ m.nome_missao }}
+                {% if m.data_missao == hoje %}<span class="badge-hoje">Hoje</span>{% endif %}
+            </div>
+            <div style="font-size:.82rem;color:var(--text-secondary);margin-top:4px;display:flex;flex-wrap:wrap;gap:12px;">
+                <span><i class="fas fa-calendar-alt me-1"></i>{{ m.data_missao|date:"d/m/Y" }}</span>
+                <span><i class="fas fa-map-marker-alt me-1"></i>{{ m.local }}</span>
+                {% if m.cmt_missao %}<span><i class="fas fa-user-tie me-1"></i>{{ m.cmt_missao.posto }} {{ m.cmt_missao.nome_guerra }}</span>{% endif %}
+            </div>
+        </div>
+
+        <!-- Status -->
+        <div>
+            {% if m.escala_esi and m.escala_esi.militares.count > 0 %}
+                <span class="badge-ok">
+                    <i class="fas fa-check-circle me-1"></i>{{ m.escala_esi.militares.count }} militar{% if m.escala_esi.militares.count != 1 %}es{% endif %}
+                </span>
+            {% else %}
+                <span class="badge-warn">
+                    <i class="fas fa-exclamation-circle me-1"></i>Sem escala
+                </span>
+            {% endif %}
+        </div>
+
+        <!-- Ações -->
+        <div class="mission-actions" style="display:flex;align-items:center;gap:8px;flex-shrink:0;">
+            {% if m.escala_esi and m.escala_esi.militares.count > 0 %}
+                <a href="{% url 'ESI:escala_pdf' m.id %}" target="_blank" class="btn-pdf" title="Gerar Anexo ESI PDF">
+                    <i class="fas fa-file-pdf"></i>
+                </a>
+            {% endif %}
+            <a href="{% url 'ESI:missao_escala' m.id %}" class="btn-escalar">
+                <i class="fas fa-user-plus"></i> Escalar
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <div class="empty-state" style="background:var(--bg-content);border:1px solid var(--border-color);border-radius:16px;">
+        <i class="fas fa-search"></i>
+        Nenhuma missão encontrada com os filtros aplicados.
+        {% if busca %}<br><small style="font-size:.8rem;">Tente remover o termo de busca ou mudar o filtro.</small>{% endif %}
+    </div>
+{% endif %}
+
+<script>
+(function(){
+    const hoje = new Date();
+    const v = `${hoje.getFullYear()}-${String(hoje.getMonth()+1).padStart(2,'0')}-${String(hoje.getDate()).padStart(2,'0')}`;
+    const el = document.getElementById('compilado-data');
+    if (el) el.value = v;
+
+    document.getElementById('modal-compilado').addEventListener('click', function(e){
+        if (e.target === this) this.style.display = 'none';
+    });
+})();
+
+function gerarCompilado() {
+    const data = document.getElementById('compilado-data').value;
+    if (!data) { alert('Selecione uma data.'); return; }
+    window.open("{% url 'ESI:compilado_esi_pdf' %}?data=" + data, '_blank');
+    document.getElementById('modal-compilado').style.display = 'none';
+}
+</script>
+{% endblock %}

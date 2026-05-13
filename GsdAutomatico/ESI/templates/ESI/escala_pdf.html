@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+<meta charset="UTF-8">
+<style>
+    @page { size: A4; margin: 1.5cm 2cm; }
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: Arial, Helvetica, sans-serif; font-size: 10pt; color: #000; background: #fff; }
+
+    .cabecalho {
+        text-align: center;
+        border: 2.5px solid #000;
+        border-bottom: none;
+        padding: 8px 10px 6px;
+    }
+    .cabecalho img { height: 52px; display: block; margin: 0 auto 4px; }
+    .cabecalho .linha1 { font-size: 11pt; font-weight: bold; text-transform: uppercase; }
+    .cabecalho .linha2 { font-size: 11pt; font-weight: bold; text-transform: uppercase; }
+    .cabecalho .linha3 { font-size: 10pt; text-transform: uppercase; margin-top: 2px; }
+
+    table.omis {
+        width: 100%;
+        border-collapse: collapse;
+        border: 2.5px solid #000;
+        table-layout: fixed;
+    }
+    table.omis td {
+        border: 2px solid #000;
+        padding: 4px 8px;
+        font-size: 9.5pt;
+        vertical-align: middle;
+    }
+    .lbl { font-weight: bold; white-space: nowrap; }
+
+    .cel-efetivo {
+        text-align: center;
+        vertical-align: middle;
+        padding: 8px 4px;
+        font-weight: bold;
+        font-size: 10.5pt;
+        text-transform: uppercase;
+    }
+    .cel-efetivo .pelotao { font-size: 9pt; font-weight: normal; margin-top: 6px; }
+
+    table.nomes {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    table.nomes td {
+        border: 2px solid #000;
+        padding: 3px 8px;
+        font-size: 9.5pt;
+        text-align: center;
+    }
+
+    table.rodape-inner {
+        width: 100%;
+        border-collapse: collapse;
+    }
+    table.rodape-inner td {
+        width: 33.33%;
+        padding: 6px 8px;
+        font-size: 10pt;
+        font-weight: bold;
+        border-right: 2px solid #000;
+    }
+    table.rodape-inner td:last-child { border-right: none; }
+
+    .assinatura .nome  { font-size: 10pt; text-transform: uppercase; }
+    .assinatura .cargo { font-size: 9pt; margin-top: 2px; }
+    .pagina { page-break-after: always; }
+    .pagina:last-child { page-break-after: avoid; }
+</style>
+</head>
+<body>
+
+{% for pagina in paginas %}
+<div class="pagina">
+
+<div class="cabecalho">
+    <img src="{{ brasao_url }}" alt="Brasão">
+    <div class="linha1">Comando da Aeronáutica</div>
+    <div class="linha2">Grupo de Segurança e Defesa do Galeão</div>
+    <div class="linha3">Esquadrão de Segurança das Instalações</div>
+</div>
+
+<table class="omis">
+    <colgroup>
+        <col style="width:16%">
+        <col style="width:40%">
+        <col style="width:12%">
+        <col style="width:32%">
+    </colgroup>
+    <tbody>
+        <tr>
+            <td class="lbl" colspan="2">ORDEM DE MISSÃO N°&nbsp;<strong style="font-size:11pt;">{{ missao.numero }}</strong></td>
+            <td style="text-align:center;">S/N°</td>
+            <td>RIO DE JANEIRO, {{ missao.data_missao|date:"l"|upper }}, {{ missao.data_missao|date:"d" }} de {{ missao.data_missao|date:"F"|upper }} de {{ missao.data_missao|date:"Y" }}</td>
+        </tr>
+        <tr>
+            <td class="lbl">MISSÃO</td>
+            <td colspan="2"><strong>{{ missao.nome_missao|upper }}{% if num_paginas > 1 %} ({{ pagina.numero }}/{{ num_paginas }}){% endif %}</strong></td>
+            <td><strong>DATA:</strong> {{ missao.data_missao|date:"d/m/Y" }}</td>
+        </tr>
+        <tr style="font-size:8.5pt;">
+            <td class="lbl" style="font-size:7pt;">REFERÊNCIA</td>
+            <td style="text-align:center;">PARTE S/N° S-3</td>
+            <td class="lbl">LOCAL</td>
+            <td>{{ missao.local }}</td>
+        </tr>
+        <tr>
+            <td class="cel-efetivo">
+                EFETIVO
+                {% if escala.identificacao_pelotao %}
+                <div class="pelotao">{{ escala.identificacao_pelotao }}</div>
+                {% endif %}
+            </td>
+            <td colspan="3" style="padding:20px 10px; vertical-align:middle; height:480px;">
+                <table class="nomes">
+                    {% for linha in pagina.linhas %}
+                    <tr>
+                        {% for militar in linha %}
+                        <td>{% if militar %}{{ militar.posto }} {{ militar.nome_guerra|upper }}{% endif %}</td>
+                        {% endfor %}
+                    </tr>
+                    {% empty %}
+                    <tr><td style="text-align:center;color:#666;">Nenhum militar escalado.</td></tr>
+                    {% endfor %}
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" style="padding:0;">
+                <table class="rodape-inner">
+                    <tr>
+                        <td>UNIFORME: {{ missao.uniforme|default:"—" }}</td>
+                        <td>CHAMADA: {% if missao.horario_chamada %}{{ missao.horario_chamada|time:"H:i" }}{% else %}—{% endif %}</td>
+                        <td>QUANTIDADE: {{ total }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" style="text-align:center; padding-top: 40px; padding-bottom: 8px;" class="assinatura">
+                {% if config.comandante_esi %}
+                <div class="nome">{{ config.comandante_esi.nome_completo|upper }}{% if config.comandante_esi.especializacao %} {{ config.comandante_esi.especializacao|upper }}{% endif %} {{ config.comandante_esi.posto }}</div>
+                {% else %}
+                <div class="nome">&nbsp;</div>
+                {% endif %}
+                <div class="cargo">Comandante do Esquadrão de Segurança das Instalações</div>
+            </td>
+        </tr>
+    </tbody>
+</table>
+
+</div>{% comment %}fim .pagina{% endcomment %}
+{% endfor %}
+
+</body>
+</html>

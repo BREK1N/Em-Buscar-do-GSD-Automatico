@@ -35,6 +35,7 @@ urlpatterns = [
     path('chamados/', include('chamados.urls', namespace='chamados')),
     path('notificacoes/', include('notificacoes.urls', namespace='notificacoes')),
     path('chamada/', include('chamada.urls')),
+    path('esi/', include('ESI.urls', namespace='ESI')),
     path('comunicacoes/responder/<int:solicitacao_id>/<str:acao>/', secao_pessoal_views.responder_troca_setor, name='responder_troca_setor_global'),
 ]
 

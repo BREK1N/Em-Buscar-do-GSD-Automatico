@@ -1,0 +1,158 @@
+{% extends 'informatica/base.html' %}
+{% load static %}
+
+{% block title %}Comandantes — Informática{% endblock %}
+{% block header_eyebrow %}Seção de Informática{% endblock %}
+{% block header_title %}Comandantes{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet">
+<style>
+    .form-card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px 30px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .form-card-header { border-bottom: 1px solid var(--bg-main); padding-bottom: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px; }
+    .form-card-header h2 { margin: 0; font-size: 1.25rem; color: var(--text-primary); }
+    .form-item { margin-bottom: 20px; }
+    .form-item label { font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block; font-size: 0.9rem; }
+    .form-item .help-text { font-size: 0.78rem; color: var(--text-muted); margin-top: 4px; }
+    .btn-save { background: var(--accent-color); color: white; border: none; padding: 12px 28px; border-radius: 8px; font-size: 0.95rem; font-weight: 600; cursor: pointer; transition: background 0.2s; }
+    .btn-save:hover { background: var(--accent-hover, #2563eb); }
+
+    /* Select2 theme override */
+    .select2-container--default .select2-selection--single {
+        background-color: var(--bg-main);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+        height: 46px;
+        display: flex;
+        align-items: center;
+        padding: 0 15px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        color: var(--text-primary);
+        padding-left: 0;
+        line-height: normal;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 44px;
+        right: 8px;
+    }
+    .select2-container--default.select2-container--focus .select2-selection--single {
+        border-color: var(--accent-color);
+        box-shadow: 0 0 0 3px rgba(59,130,246,0.1);
+        outline: none;
+    }
+    .select2-dropdown {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 8px;
+    }
+    .select2-search--dropdown .select2-search__field {
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+        border-radius: 6px;
+        padding: 6px 10px;
+    }
+    .select2-results__option {
+        color: var(--text-primary);
+        padding: 8px 12px;
+    }
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: var(--accent-color);
+        color: #fff;
+    }
+    .select2-container--default .select2-results__option[aria-selected=true] {
+        background-color: var(--bg-main);
+    }
+    .select2-container { width: 100% !important; }
+</style>
+{% endblock %}
+
+{% block content %}
+{% if messages %}
+<div style="margin-bottom:16px;">
+{% for msg in messages %}
+<div class="alert alert-{{ msg.tags }}" style="padding:12px 16px;border-radius:8px;background:var(--bg-content);border:1px solid var(--border-color);margin-bottom:8px;">{{ msg }}</div>
+{% endfor %}
+</div>
+{% endif %}
+
+<form method="post">
+    {% csrf_token %}
+    <div class="form-card">
+        <div class="form-card-header">
+            <i class="fas fa-star" style="color:var(--accent-color);font-size:1.2rem;"></i>
+            <h2>Comandantes</h2>
+        </div>
+        <p style="color:var(--text-secondary);font-size:0.9rem;margin-bottom:20px;">
+            Defina os comandantes utilizados nos documentos gerados por cada seção. Apenas oficiais são listados.
+        </p>
+
+        <div class="form-item">
+            <label>Comandante do GSD</label>
+            <select name="comandante_gsd" class="select2-field">
+                <option value="">— Nenhum —</option>
+                {% for e in oficiais %}
+                <option value="{{ e.pk }}" {% if config.comandante_gsd and config.comandante_gsd.pk == e.pk %}selected{% endif %}>
+                    {{ e.posto }} {{ e.nome_guerra }} ({{ e.nome_completo }})
+                </option>
+                {% endfor %}
+            </select>
+            <div class="help-text">Usado pela Seção de Operações (OMIS) e pela Ouvidoria (PATD).</div>
+        </div>
+
+        <div class="form-item">
+            <label>Comandante da Base (BAGL)</label>
+            <select name="comandante_bagl" class="select2-field">
+                <option value="">— Nenhum —</option>
+                {% for e in oficiais %}
+                <option value="{{ e.pk }}" {% if config.comandante_bagl and config.comandante_bagl.pk == e.pk %}selected{% endif %}>
+                    {{ e.posto }} {{ e.nome_guerra }} ({{ e.nome_completo }})
+                </option>
+                {% endfor %}
+            </select>
+            <div class="help-text">Usado pela Ouvidoria (PATD).</div>
+        </div>
+
+        <div class="form-item">
+            <label>Chefe da Seção de Operações</label>
+            <select name="chefe_sop" class="select2-field">
+                <option value="">— Nenhum —</option>
+                {% for e in oficiais %}
+                <option value="{{ e.pk }}" {% if config.chefe_sop and config.chefe_sop.pk == e.pk %}selected{% endif %}>
+                    {{ e.posto }} {{ e.nome_guerra }} ({{ e.nome_completo }})
+                </option>
+                {% endfor %}
+            </select>
+            <div class="help-text">Aparece como assinante das OMIS geradas pela Seção de Operações.</div>
+        </div>
+
+        <div class="form-item">
+            <label>Comandante do Esquadrão de Segurança das Instalações (ESI)</label>
+            <select name="comandante_esi" class="select2-field">
+                <option value="">— Nenhum —</option>
+                {% for e in oficiais %}
+                <option value="{{ e.pk }}" {% if config.comandante_esi and config.comandante_esi.pk == e.pk %}selected{% endif %}>
+                    {{ e.posto }} {{ e.nome_guerra }} ({{ e.nome_completo }})
+                </option>
+                {% endfor %}
+            </select>
+            <div class="help-text">Aparece como assinante nos documentos da ESI.</div>
+        </div>
+
+        <button type="submit" class="btn-save"><i class="fas fa-save" style="margin-right:6px;"></i>Salvar</button>
+    </div>
+</form>
+
+<script src="https://cdn.jsdelivr.net/npm/jquery@3.7.1/dist/jquery.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+$(document).ready(function () {
+    $('.select2-field').select2({
+        placeholder: '— Pesquisar oficial —',
+        allowClear: true,
+        language: { noResults: function () { return 'Nenhum oficial encontrado'; } }
+    });
+});
+</script>
+{% endblock %}

@@ -223,8 +223,8 @@
         <td style="width:50%; text-align:center; padding:50px 40px 10px 40px; vertical-align:bottom; border-right:1px solid #000;">
             <div style="border-top:1.5px solid #000; padding-top:5px;">
                 <strong style="font-size:8.5pt; display:block;">
-                    {% if config.chefe_sop %}
-                        {{ config.chefe_sop.nome_completo|upper }} {{ config.chefe_sop.posto }}
+                    {% if config_cmds.chefe_sop %}
+                        {{ config_cmds.chefe_sop.nome_completo|upper }}{% if config_cmds.chefe_sop.especializacao %} {{ config_cmds.chefe_sop.especializacao|upper }}{% endif %} {{ config_cmds.chefe_sop.posto }}
                     {% else %}
                         &nbsp;
                     {% endif %}
@@ -235,8 +235,8 @@
         <td style="width:50%; text-align:center; padding:50px 40px 10px 40px; vertical-align:bottom;">
             <div style="border-top:1.5px solid #000; padding-top:5px;">
                 <strong style="font-size:8.5pt; display:block;">
-                    {% if config.comandante_gsd %}
-                        {{ config.comandante_gsd.nome_completo|upper }} {{ config.comandante_gsd.posto }}
+                    {% if config_cmds.comandante_gsd %}
+                        {{ config_cmds.comandante_gsd.nome_completo|upper }}{% if config_cmds.comandante_gsd.especializacao %} {{ config_cmds.comandante_gsd.especializacao|upper }}{% endif %} {{ config_cmds.comandante_gsd.posto }}
                     {% else %}
                         &nbsp;
                     {% endif %}
@@ -246,6 +246,115 @@
         </td>
     </tr>
 </table>
+
+
+{% if escala_esi %}
+<div style="page-break-before: always;">
+
+<style>
+    .esi-cab { text-align:center; border:2.5px solid #000; border-bottom:none; padding:8px 10px 6px; }
+    .esi-cab img { height:52px; display:block; margin:0 auto 4px; }
+    .esi-cab .linha1 { font-size:11pt; font-weight:bold; text-transform:uppercase; }
+    .esi-cab .linha2 { font-size:11pt; font-weight:bold; text-transform:uppercase; }
+    .esi-cab .linha3 { font-size:10pt; text-transform:uppercase; margin-top:2px; }
+    table.esi-omis { width:100%; border-collapse:collapse; border:2.5px solid #000; table-layout:fixed; }
+    table.esi-omis td { border:2px solid #000; padding:4px 8px; font-size:9.5pt; vertical-align:middle; }
+    .esi-lbl { font-weight:bold; white-space:nowrap; }
+    .esi-cel-ef { text-align:center; vertical-align:middle; padding:8px 4px; font-weight:bold; font-size:10.5pt; text-transform:uppercase; }
+    .esi-cel-ef .pelotao { font-size:9pt; font-weight:normal; margin-top:6px; }
+    table.esi-nomes { width:100%; border-collapse:collapse; }
+    table.esi-nomes td { border:2px solid #000; padding:3px 8px; font-size:9.5pt; text-align:center; }
+    table.esi-rodape-inner { width:100%; border-collapse:collapse; }
+    table.esi-rodape-inner td { width:33.33%; padding:6px 8px; font-size:10pt; font-weight:bold; border-right:2px solid #000; }
+    table.esi-rodape-inner td:last-child { border-right:none; }
+    .esi-assinatura .nome  { font-size:10pt; text-transform:uppercase; }
+    .esi-assinatura .cargo { font-size:9pt; margin-top:2px; }
+    .esi-pagina { page-break-after: always; }
+    .esi-pagina:last-child { page-break-after: avoid; }
+</style>
+
+{% for esi_pagina in esi_paginas %}
+<div class="esi-pagina">
+<div class="esi-cab">
+    <img src="{{ esi_brasao_url }}" alt="Brasão">
+    <div class="linha1">Comando da Aeronáutica</div>
+    <div class="linha2">Grupo de Segurança e Defesa do Galeão</div>
+    <div class="linha3">Esquadrão de Segurança das Instalações</div>
+</div>
+
+<table class="esi-omis">
+    <colgroup>
+        <col style="width:16%">
+        <col style="width:40%">
+        <col style="width:12%">
+        <col style="width:32%">
+    </colgroup>
+    <tbody>
+        <tr>
+            <td class="esi-lbl" colspan="2">ORDEM DE MISSÃO N°&nbsp;<strong style="font-size:11pt;">{{ missao.numero }}</strong></td>
+            <td style="text-align:center;">S/N°</td>
+            <td>RIO DE JANEIRO, {{ missao.data_missao|date:"l"|upper }}, {{ missao.data_missao|date:"d" }} de {{ missao.data_missao|date:"F"|upper }} de {{ missao.data_missao|date:"Y" }}</td>
+        </tr>
+        <tr>
+            <td class="esi-lbl">MISSÃO</td>
+            <td colspan="2"><strong>{{ missao.nome_missao|upper }}{% if esi_num_paginas > 1 %} ({{ esi_pagina.numero }}/{{ esi_num_paginas }}){% endif %}</strong></td>
+            <td><strong>DATA:</strong> {{ missao.data_missao|date:"d/m/Y" }}</td>
+        </tr>
+        <tr style="font-size:8.5pt;">
+            <td class="esi-lbl" style="font-size:7pt;">REFERÊNCIA</td>
+            <td style="text-align:center;">PARTE S/N° S-3</td>
+            <td class="esi-lbl">LOCAL</td>
+            <td>{{ missao.local }}</td>
+        </tr>
+        <tr>
+            <td class="esi-cel-ef">
+                EFETIVO
+                {% if escala_esi.identificacao_pelotao %}
+                <div class="pelotao">{{ escala_esi.identificacao_pelotao }}</div>
+                {% endif %}
+            </td>
+            <td colspan="3" style="padding:20px 10px; vertical-align:middle; height:480px;">
+                <table class="esi-nomes">
+                    {% for linha in esi_pagina.linhas %}
+                    <tr>
+                        {% for militar in linha %}
+                        <td>{% if militar %}{{ militar.posto }} {{ militar.nome_guerra|upper }}{% endif %}</td>
+                        {% endfor %}
+                    </tr>
+                    {% empty %}
+                    <tr><td style="text-align:center;color:#666;">Nenhum militar escalado.</td></tr>
+                    {% endfor %}
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" style="padding:0;">
+                <table class="esi-rodape-inner">
+                    <tr>
+                        <td>UNIFORME: {{ missao.uniforme|default:"—" }}</td>
+                        <td>CHAMADA: {% if missao.horario_chamada %}{{ missao.horario_chamada|time:"H:i" }}{% else %}—{% endif %}</td>
+                        <td>QUANTIDADE: {{ militares_esi|length }}</td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="4" style="text-align:center; padding-top:40px; padding-bottom:8px;" class="esi-assinatura">
+                {% if config_cmds.comandante_esi %}
+                <div class="nome">{{ config_cmds.comandante_esi.nome_completo|upper }}{% if config_cmds.comandante_esi.especializacao %} {{ config_cmds.comandante_esi.especializacao|upper }}{% endif %} {{ config_cmds.comandante_esi.posto }}</div>
+                {% else %}
+                <div class="nome">&nbsp;</div>
+                {% endif %}
+                <div class="cargo">Comandante do Esquadrão de Segurança das Instalações</div>
+            </td>
+        </tr>
+    </tbody>
+</table>
+</div>
+{% endfor %}
+
+</div>
+{% endif %}
 
 </body>
 </html>

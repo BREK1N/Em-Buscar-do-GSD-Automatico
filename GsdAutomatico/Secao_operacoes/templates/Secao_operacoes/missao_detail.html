@@ -52,6 +52,11 @@ table.data-table { width:100%; border-collapse:collapse; }
     <div>
         <h1 class="detail-title">OMIS Nº {{ missao.numero }} — {{ missao.nome_missao }}</h1>
         <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">Emitida em {{ missao.data_emissao|date:"d/m/Y" }} · Missão em {{ missao.data_missao|date:"d/m/Y" }}</div>
+        {% if missao.escala_esi.militares.count > 0 %}
+        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(30,58,95,0.1);color:#1e3a5f;border:1px solid rgba(30,58,95,0.3);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-top:8px;">
+            <i class="fas fa-shield-alt"></i> ESI escalada — {{ missao.escala_esi.militares.count }} militar{% if missao.escala_esi.militares.count != 1 %}es{% endif %}
+        </div>
+        {% endif %}
     </div>
     <div class="detail-actions">
         <a href="{% url 'Secao_operacoes:missao_pdf' missao.pk %}" class="btn btn-accent" target="_blank">
@@ -178,8 +183,8 @@ table.data-table { width:100%; border-collapse:collapse; }
     <div style="display:grid; grid-template-columns:1fr 1fr; gap:2rem; margin-top:8px;">
         <div style="text-align:center; padding:12px;">
             <div style="font-size:13px; font-weight:600; color:var(--text-primary);">
-                {% if config.chefe_sop %}
-                    {{ config.chefe_sop.posto }} {{ config.chefe_sop.nome_completo|upper }}
+                {% if config_cmds.chefe_sop %}
+                    {{ config_cmds.chefe_sop.posto }} {{ config_cmds.chefe_sop.nome_completo|upper }}
                 {% else %}
                     <em style="color:var(--text-muted);">Chefe SOP não configurado</em>
                 {% endif %}
@@ -188,8 +193,8 @@ table.data-table { width:100%; border-collapse:collapse; }
         </div>
         <div style="text-align:center; padding:12px;">
             <div style="font-size:13px; font-weight:600; color:var(--text-primary);">
-                {% if config.comandante_gsd %}
-                    {{ config.comandante_gsd.posto }} {{ config.comandante_gsd.nome_completo|upper }}
+                {% if config_cmds.comandante_gsd %}
+                    {{ config_cmds.comandante_gsd.posto }} {{ config_cmds.comandante_gsd.nome_completo|upper }}
                 {% else %}
                     <em style="color:var(--text-muted);">Comandante GSD não configurado</em>
                 {% endif %}

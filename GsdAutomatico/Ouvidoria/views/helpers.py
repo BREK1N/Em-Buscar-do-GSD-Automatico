@@ -254,8 +254,10 @@ def _get_document_context(patd, for_docx=False):
     necessários para qualquer documento.
     """
     config = Configuracao.load()
-    comandante_gsd = config.comandante_gsd
-    comandante_bagl = config.comandante_bagl
+    from informatica.models import ConfiguracaoComandantes
+    _cmds = ConfiguracaoComandantes.get_instance()
+    comandante_gsd = _cmds.comandante_gsd
+    comandante_bagl = _cmds.comandante_bagl
     now = timezone.now()
 
     # Formatações de Data

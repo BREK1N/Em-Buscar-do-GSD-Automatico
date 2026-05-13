@@ -81,19 +81,6 @@ class TurnoEscala(models.Model):
 # ── Configuração da Seção de Operações ──────────────────────────────────────
 
 class ConfiguracaoOperacoes(models.Model):
-    chefe_sop = models.ForeignKey(
-        Efetivo, null=True, blank=True,
-        on_delete=models.SET_NULL,
-        related_name='chefe_sop_config',
-        verbose_name="Chefe da Seção de Operações"
-    )
-    comandante_gsd = models.ForeignKey(
-        Efetivo, null=True, blank=True,
-        on_delete=models.SET_NULL,
-        related_name='comandante_gsd_config',
-        verbose_name="Comandante do GSD GL"
-    )
-
     diretriz_padrao_1 = models.TextField(
         blank=True,
         default="Manter o Oficial de serviço do GSD GL / Sargento de Dia informado do início e do término da missão.",
@@ -286,6 +273,18 @@ class ArmamentoCatalogo(models.Model):
     class Meta:
         verbose_name = "Armamento (Catálogo)"
         verbose_name_plural = "Armamentos (Catálogo)"
+        ordering = ['nome']
+
+    def __str__(self):
+        return self.nome
+
+
+class ACargaOpcao(models.Model):
+    nome = models.CharField(max_length=200, unique=True, verbose_name="Opção 'A Cargo de'")
+
+    class Meta:
+        verbose_name = "Opção 'A Cargo de'"
+        verbose_name_plural = "Opções 'A Cargo de'"
         ordering = ['nome']
 
     def __str__(self):

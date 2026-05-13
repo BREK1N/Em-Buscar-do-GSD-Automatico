@@ -3,6 +3,47 @@ from django.contrib.auth.models import Group
 from Secao_pessoal.models import Efetivo
 
 
+class ConfiguracaoComandantes(models.Model):
+    """Singleton centralizado com todos os comandantes do GSD."""
+
+    comandante_gsd = models.ForeignKey(
+        Efetivo, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='+', limit_choices_to={'oficial': True},
+        verbose_name="Comandante do GSD"
+    )
+    comandante_bagl = models.ForeignKey(
+        Efetivo, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='+', limit_choices_to={'oficial': True},
+        verbose_name="Comandante da Base (BAGL)"
+    )
+    chefe_sop = models.ForeignKey(
+        Efetivo, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='+',
+        verbose_name="Chefe da Seção de Operações"
+    )
+    comandante_esi = models.ForeignKey(
+        Efetivo, null=True, blank=True, on_delete=models.SET_NULL,
+        related_name='+',
+        verbose_name="Comandante do Esquadrão de Segurança das Instalações"
+    )
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_instance(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def __str__(self):
+        return "Configuração de Comandantes"
+
+    class Meta:
+        verbose_name = "Configuração de Comandantes"
+        verbose_name_plural = "Configurações de Comandantes"
+
+
 SECAO_CHOICES = [
     ('geral',       'Geral'),
     ('ouvidoria',   'Ouvidoria'),

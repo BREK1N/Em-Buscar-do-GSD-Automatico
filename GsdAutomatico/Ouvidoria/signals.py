@@ -5,6 +5,7 @@ from django.dispatch import receiver
 from django.contrib.auth.models import Group
 from .models import Configuracao
 from .permissions import OUVIDORIA_GROUPS, COMANDANTE
+from informatica.models import ConfiguracaoComandantes
 
 @receiver(post_migrate)
 def create_default_groups(sender, **kwargs):
@@ -26,24 +27,20 @@ def create_default_groups(sender, **kwargs):
         if created:
             print(f"--- [SISTEMA] Grupo criado automaticamente: {COMANDANTE}")
 
-@receiver(post_save, sender=Configuracao)
+@receiver(post_save, sender=ConfiguracaoComandantes)
 def on_commander_change(sender, instance, **kwargs):
     """
-    Quando a configuração é salva (ex: comandante é definido),
-    esta função garante que apenas o usuário do comandante atual
-    tenha a permissão 'Comandante'.
+    Quando a configuração de comandantes é salva, garante que apenas
+    o usuário do comandante atual tenha a permissão 'Comandante'.
     """
-    # Importa localmente para evitar problemas de dependência circular
-    # Tenta importar de login.models ou onde quer que UserProfile esteja
     try:
-        from login.models import UserProfile 
+        from login.models import UserProfile
     except ImportError:
-        # Fallback caso a estrutura de pastas seja diferente
         pass
 
     try:
         comandante_group, created = Group.objects.get_or_create(name=COMANDANTE)
-        
+
         new_commander_militar = instance.comandante_gsd
         new_commander_user = None
 

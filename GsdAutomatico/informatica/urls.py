@@ -24,6 +24,7 @@ urlpatterns = [
     # URL para Configuração
     path('configuracao/', views.ConfiguracaoUpdateView.as_view(), name='configuracao_edit'),
     path('configuracao-secoes/', views.configuracao_secoes, name='configuracao_secoes'),
+    path('comandantes/', views.configuracao_comandantes, name='configuracao_comandantes'),
 
     # ===============================================
     # URLS GESTÃO DE MATERIAIS E CAUTELAS

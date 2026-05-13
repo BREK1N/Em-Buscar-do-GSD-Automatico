@@ -455,8 +455,10 @@ def _get_document_context(patd, for_docx=False):
     necessários para qualquer documento.
     """
     config = Configuracao.load()
-    comandante_gsd = config.comandante_gsd
-    comandante_bagl = config.comandante_bagl
+    from informatica.models import ConfiguracaoComandantes
+    _cmds = ConfiguracaoComandantes.get_instance()
+    comandante_gsd = _cmds.comandante_gsd
+    comandante_bagl = _cmds.comandante_bagl
     now = timezone.now()
 
     # Formatações de Data
@@ -2269,7 +2271,9 @@ def salvar_assinatura_padrao(request, pk):
 @login_required
 @user_passes_test(lambda u: u.is_superuser)
 def gerenciar_configuracoes_padrao(request):
+    from informatica.models import ConfiguracaoComandantes
     config = Configuracao.load()
+    cmds = ConfiguracaoComandantes.get_instance()
     if request.method == 'POST':
         if not request.user.is_superuser:
             return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem alterar as configurações.'}, status=403)
@@ -2283,17 +2287,9 @@ def gerenciar_configuracoes_padrao(request):
             prazo_dias = data.get('prazo_defesa_dias')
             prazo_minutos = data.get('prazo_defesa_minutos')
 
-            if comandante_gsd_id:
-                comandante = get_object_or_404(Efetivo, pk=comandante_gsd_id, oficial=True)
-                config.comandante_gsd = comandante
-            else:
-                config.comandante_gsd = None
-
-            if comandante_bagl_id:
-                comandante_bagl = get_object_or_404(Efetivo, pk=comandante_bagl_id, oficial=True)
-                config.comandante_bagl = comandante_bagl
-            else:
-                config.comandante_bagl = None
+            cmds.comandante_gsd = get_object_or_404(Efetivo, pk=comandante_gsd_id, oficial=True) if comandante_gsd_id else None
+            cmds.comandante_bagl = get_object_or_404(Efetivo, pk=comandante_bagl_id, oficial=True) if comandante_bagl_id else None
+            cmds.save()
 
             if prazo_dias is not None:
                 config.prazo_defesa_dias = int(prazo_dias)
@@ -2310,8 +2306,8 @@ def gerenciar_configuracoes_padrao(request):
     oficiais = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
     oficiais_data = [{'id': o.id, 'texto': f"{o.posto} {o.nome_guerra}"} for o in oficiais]
     data = {
-        'comandante_gsd_id': config.comandante_gsd.id if config.comandante_gsd else None,
-        'comandante_bagl_id': config.comandante_bagl.id if config.comandante_bagl else None,
+        'comandante_gsd_id': cmds.comandante_gsd.id if cmds.comandante_gsd else None,
+        'comandante_bagl_id': cmds.comandante_bagl.id if cmds.comandante_bagl else None,
         'oficiais': oficiais_data,
         'prazo_defesa_dias': config.prazo_defesa_dias,
         'prazo_defesa_minutos': config.prazo_defesa_minutos
@@ -3353,9 +3349,8 @@ def exportar_patd_docx(request, pk):
 
 
     config = Configuracao.load()
-
-
-    comandante_gsd = config.comandante_gsd
+    from informatica.models import ConfiguracaoComandantes
+    comandante_gsd = ConfiguracaoComandantes.get_instance().comandante_gsd
 
 
 

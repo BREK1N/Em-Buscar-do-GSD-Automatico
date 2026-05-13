@@ -1,0 +1,500 @@
+{% extends 'ESI/base.html' %}
+{% block title %}Escala ESI — OMIS Nº {{ missao.numero }}{% endblock %}
+{% block header_eyebrow %}ESI · OMIS Nº {{ missao.numero }}{% endblock %}
+{% block header_title %}Escalar Militares{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── Layout ─────────────────────────────── */
+.escala-layout {
+    display: grid;
+    grid-template-columns: 1fr 360px;
+    gap: 20px;
+    align-items: start;
+}
+@media (max-width: 900px) {
+    .escala-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Mission Info Bar ────────────────────── */
+.mission-bar {
+    background: var(--bg-content);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 16px 20px;
+    display: flex; align-items: center; gap: 20px; flex-wrap: wrap;
+    margin-bottom: 18px;
+}
+.mission-bar-info { display: flex; flex-direction: column; flex: 1; min-width: 0; }
+.mission-bar-meta { display: flex; gap: 16px; flex-wrap: wrap; margin-top: 4px; }
+.mission-bar-meta span { font-size: .8rem; color: var(--text-secondary); display: flex; align-items: center; gap: 4px; }
+
+/* ── Panel Cards ────────────────────────── */
+.panel {
+    background: var(--bg-content);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    overflow: hidden;
+    display: flex; flex-direction: column;
+}
+.panel-header {
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 16px 20px;
+    border-bottom: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+.panel-header h2 {
+    margin: 0; font-size: .95rem; font-weight: 700; color: var(--text-primary);
+    display: flex; align-items: center; gap: 8px;
+}
+.panel-body { padding: 14px 16px; flex: 1; overflow: hidden; }
+.panel-footer {
+    padding: 12px 16px;
+    border-top: 1px solid var(--border-color);
+    flex-shrink: 0;
+}
+
+/* ── Search Bar ─────────────────────────── */
+.search-bar {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-main);
+    border: 1.5px solid var(--border-color);
+    border-radius: 10px;
+    padding: 9px 14px;
+    transition: border .15s;
+    margin-bottom: 12px;
+}
+.search-bar:focus-within { border-color: var(--accent-color); }
+.search-bar i { color: var(--text-muted); font-size: .85rem; flex-shrink: 0; }
+.search-bar input {
+    flex: 1; border: 0; outline: 0; background: transparent;
+    font-size: .9rem; color: var(--text-primary);
+}
+.search-bar input::placeholder { color: var(--text-muted); }
+
+.search-mode-toggle {
+    display: flex; gap: 4px; background: var(--bg-main); border-radius: 8px; padding: 2px; flex-shrink: 0;
+}
+.search-mode-btn {
+    padding: 4px 10px; border-radius: 6px; font-size: .72rem; font-weight: 700;
+    cursor: pointer; border: none; background: transparent; color: var(--text-secondary);
+    text-transform: uppercase; letter-spacing: .04em; transition: all .15s;
+}
+.search-mode-btn.active { background: var(--accent-color); color: #fff; }
+
+/* ── Military Row ───────────────────────── */
+.mil-row {
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 12px; border-radius: 10px; border: 1.5px solid var(--border-color);
+    background: var(--bg-main); cursor: pointer; transition: all .15s;
+    margin-bottom: 6px; position: relative; user-select: none;
+}
+.mil-row:hover { border-color: var(--accent-color); background: var(--bg-content); }
+.mil-row.selected { border-color: var(--accent-color); background: rgba(59,130,246,.06); }
+.mil-row input[type=checkbox] {
+    width: 17px; height: 17px; accent-color: var(--accent-color);
+    cursor: pointer; flex-shrink: 0; pointer-events: none;
+}
+.mil-info { flex: 1; min-width: 0; }
+.mil-name { font-weight: 600; font-size: .88rem; color: var(--text-primary); }
+.mil-sub  { font-size: .75rem; color: var(--text-secondary); margin-top: 1px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* Conflict indicator on mil-row */
+.conflict-icon {
+    flex-shrink: 0; font-size: .85rem; color: #d97706;
+    cursor: pointer; padding: 2px 4px;
+}
+.conflict-icon.ok { color: #16a34a; }
+
+/* ── Escalados List ──────────────────────── */
+.escalado-row {
+    display: flex; align-items: center; gap: 8px;
+    padding: 7px 10px; border-radius: 9px;
+    background: rgba(34,197,94,.06); border: 1px solid rgba(34,197,94,.2);
+    margin-bottom: 5px;
+}
+.escalado-row .name { flex: 1; min-width: 0; font-size: .84rem; font-weight: 600; color: var(--text-primary); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.btn-remove {
+    background: none; border: none; color: var(--text-muted); cursor: pointer;
+    padding: 2px 5px; border-radius: 5px; font-size: .8rem; line-height: 1;
+    transition: all .15s; flex-shrink: 0;
+}
+.btn-remove:hover { background: rgba(239,68,68,.12); color: #ef4444; }
+
+/* ── Sticky Save ────────────────────────── */
+.save-sticky {
+    position: sticky; top: calc(var(--header-h) + 12px); z-index: 100;
+}
+
+/* ── Badges ─────────────────────────────── */
+.cnt-badge {
+    background: var(--accent-color); color: #fff;
+    border-radius: 12px; padding: 2px 9px;
+    font-size: .75rem; font-weight: 700; min-width: 28px; text-align: center;
+}
+
+/* ── Conflict Tooltip ───────────────────── */
+.conflict-tip {
+    position: absolute; right: 40px; top: 50%; transform: translateY(-50%);
+    background: #1e293b; color: #fff; border-radius: 8px; padding: 6px 10px;
+    font-size: .75rem; font-weight: 500; white-space: nowrap;
+    z-index: 200; box-shadow: 0 4px 16px rgba(0,0,0,.3);
+    pointer-events: none; opacity: 0; transition: opacity .15s;
+    max-width: 260px; white-space: normal; text-align: left; line-height: 1.4;
+}
+.conflict-icon:hover + .conflict-tip,
+.conflict-icon:focus + .conflict-tip { opacity: 1; }
+
+/* ── Empty states ───────────────────────── */
+.empty-msg { text-align: center; padding: 28px 16px; color: var(--text-muted); font-size: .85rem; }
+.empty-msg i { display: block; font-size: 1.6rem; margin-bottom: 8px; opacity: .4; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<!-- Navegação -->
+<div style="display:flex;align-items:center;gap:10px;margin-bottom:16px;">
+    <a href="{% url 'ESI:painel_missoes' %}"
+       style="display:inline-flex;align-items:center;gap:6px;color:var(--text-secondary);text-decoration:none;font-size:.85rem;font-weight:600;padding:6px 12px;border:1px solid var(--border-color);border-radius:8px;transition:all .15s;"
+       onmouseover="this.style.borderColor='var(--accent-color)';this.style.color='var(--accent-color)'"
+       onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)'">
+        <i class="fas fa-arrow-left"></i> Painel de Missões
+    </a>
+    {% if escala.militares.count > 0 %}
+    <a href="{% url 'ESI:escala_pdf' missao.id %}" target="_blank"
+       style="display:inline-flex;align-items:center;gap:6px;color:var(--text-secondary);text-decoration:none;font-size:.85rem;font-weight:600;padding:6px 12px;border:1px solid var(--border-color);border-radius:8px;transition:all .15s;"
+       onmouseover="this.style.borderColor='var(--accent-color)';this.style.color='var(--accent-color)'"
+       onmouseout="this.style.borderColor='var(--border-color)';this.style.color='var(--text-secondary)'">
+        <i class="fas fa-file-pdf"></i> Visualizar Anexo ESI
+    </a>
+    {% endif %}
+</div>
+
+<!-- Info da Missão -->
+<div class="mission-bar">
+    <div class="mission-bar-info">
+        <div style="font-weight:700;font-size:1rem;color:var(--text-primary);">
+            OMIS Nº {{ missao.numero }} — {{ missao.nome_missao }}
+        </div>
+        <div class="mission-bar-meta">
+            <span><i class="fas fa-calendar-alt"></i> {{ missao.data_missao|date:"d/m/Y" }}</span>
+            <span><i class="fas fa-map-marker-alt"></i> {{ missao.local }}</span>
+            {% if missao.cmt_missao %}<span><i class="fas fa-user-tie"></i> {{ missao.cmt_missao.posto }} {{ missao.cmt_missao.nome_guerra }}</span>{% endif %}
+            {% if missao.horario_chamada %}<span><i class="fas fa-clock"></i> Chamada: {{ missao.horario_chamada|time:"H:i" }}</span>{% endif %}
+            {% if missao.uniforme %}<span><i class="fas fa-tshirt"></i> {{ missao.uniforme }}</span>{% endif %}
+        </div>
+    </div>
+</div>
+
+<form method="post" action="{% url 'ESI:salvar_escala' missao.id %}" id="form-escala">
+{% csrf_token %}
+
+<div class="escala-layout">
+
+    <!-- ── Painel Esquerdo: Efetivo Disponível ── -->
+    <div class="panel">
+        <div class="panel-header">
+            <h2><i class="fas fa-users" style="color:var(--accent-color);"></i> Efetivo ESI Disponível</h2>
+            <span class="cnt-badge" id="badge-total">{{ efetivo_esi|length }}</span>
+        </div>
+        <div class="panel-body">
+
+            <!-- Barra de busca com toggle Nome/SARAM -->
+            <div class="search-bar">
+                <i class="fas fa-search"></i>
+                <input type="text" id="busca-input" placeholder="Buscar por nome ou SARAM..." autocomplete="off">
+                <div class="search-mode-toggle">
+                    <button type="button" class="search-mode-btn active" data-mode="nome">Nome</button>
+                    <button type="button" class="search-mode-btn" data-mode="saram">SARAM</button>
+                </div>
+            </div>
+
+            <!-- Controles rápidos -->
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <button type="button" onclick="selecionarTodos(true)" style="font-size:.78rem;font-weight:600;color:var(--accent-color);background:none;border:none;cursor:pointer;padding:0;">
+                    <i class="fas fa-check-double me-1"></i>Selecionar visíveis
+                </button>
+                <span style="font-size:.8rem;color:var(--text-secondary);" id="label-visivel"></span>
+                <button type="button" onclick="selecionarTodos(false)" style="font-size:.78rem;font-weight:600;color:var(--text-secondary);background:none;border:none;cursor:pointer;padding:0;">
+                    <i class="fas fa-times me-1"></i>Desmarcar visíveis
+                </button>
+            </div>
+
+            <!-- Lista -->
+            <div id="lista-militares" style="max-height:520px;overflow-y:auto;padding-right:2px;">
+            {% for mil in efetivo_esi %}
+                <div class="mil-row {% if mil.id in militares_escalados_ids %}selected{% endif %}"
+                     data-id="{{ mil.id }}"
+                     data-nome="{{ mil.posto }} {{ mil.nome_guerra }}"
+                     data-saram="{{ mil.saram|default:'' }}"
+                     onclick="toggleMilitar(this)">
+                    <input type="checkbox" name="militares" value="{{ mil.id }}"
+                           {% if mil.id in militares_escalados_ids %}checked{% endif %}>
+                    <div class="mil-info">
+                        <div class="mil-name">{{ mil.posto }} {{ mil.nome_guerra }}</div>
+                        <div class="mil-sub">{{ mil.nome_completo }}{% if mil.saram %} · SARAM: {{ mil.saram }}{% endif %}{% if mil.setor %} · {{ mil.setor }}{% endif %}</div>
+                    </div>
+                    <span class="conflict-icon" data-mil-id="{{ mil.id }}" style="display:none;" title="Ver conflitos" onclick="event.stopPropagation(); mostrarConflitos({{ mil.id }}, '{{ mil.posto }} {{ mil.nome_guerra }}')">
+                        <i class="fas fa-exclamation-triangle"></i>
+                    </span>
+                    <span class="conflict-tip" id="tip-{{ mil.id }}"></span>
+                </div>
+            {% empty %}
+                <div class="empty-msg">
+                    <i class="fas fa-users-slash"></i>
+                    Nenhum militar encontrado no setor ESI.<br>
+                    <small>Verifique se os militares estão cadastrados com setor "ESI".</small>
+                </div>
+            {% endfor %}
+            </div>
+        </div>
+        <div class="panel-footer" style="display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-size:.82rem;color:var(--text-secondary);" id="label-selecionados">0 selecionados</span>
+        </div>
+    </div>
+
+    <!-- ── Painel Direito: Sidebar sticky ── -->
+    <div class="save-sticky">
+
+        <!-- Militares Escalados -->
+        <div class="panel" style="margin-bottom:16px;">
+            <div class="panel-header">
+                <h2><i class="fas fa-user-check" style="color:#16a34a;"></i> Escalados</h2>
+                <span class="cnt-badge" id="badge-escalados" style="background:#16a34a;">0</span>
+            </div>
+            <div class="panel-body" style="padding:10px 12px;">
+                <!-- Busca nos escalados -->
+                <div class="search-bar" style="margin-bottom:8px;padding:6px 12px;">
+                    <i class="fas fa-search"></i>
+                    <input type="text" id="busca-escalados" placeholder="Filtrar escalados...">
+                </div>
+                <div id="lista-escalados" style="max-height:280px;overflow-y:auto;">
+                    <div class="empty-msg" id="msg-vazio-escalados">
+                        <i class="fas fa-user-plus"></i>
+                        Selecione militares ao lado.
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Obs + Identificação + Salvar -->
+        <div class="panel">
+            <div class="panel-header">
+                <h2><i class="fas fa-clipboard" style="color:var(--accent-color);"></i> Configurações</h2>
+            </div>
+            <div class="panel-body" style="display:flex;flex-direction:column;gap:12px;">
+                <div>
+                    <label style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);margin-bottom:5px;display:block;">
+                        Identificação do Pelotão / Seção
+                    </label>
+                    <input type="text" name="identificacao_pelotao" class="form-control form-control-sm"
+                           placeholder="Ex: 3º/5º ESI" value="{{ escala.identificacao_pelotao }}">
+                </div>
+                <div>
+                    <label style="font-size:.78rem;font-weight:700;text-transform:uppercase;letter-spacing:.05em;color:var(--text-secondary);margin-bottom:5px;display:block;">
+                        Observações
+                    </label>
+                    <textarea name="observacoes" rows="3" class="form-control form-control-sm"
+                              placeholder="Observações sobre esta escala..." style="resize:vertical;">{{ escala.observacoes }}</textarea>
+                </div>
+            </div>
+            <div class="panel-footer">
+                <button type="submit" id="btn-salvar"
+                        style="width:100%;background:var(--accent-color);color:#fff;border:none;padding:12px;border-radius:10px;font-weight:700;font-size:.95rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:8px;transition:opacity .15s;">
+                    <i class="fas fa-save"></i> Salvar Escala
+                </button>
+            </div>
+        </div>
+    </div>
+
+</div><!-- /.escala-layout -->
+</form>
+
+<!-- Modal de Conflitos -->
+<div id="modal-conflitos" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,.55);backdrop-filter:blur(3px);">
+    <div style="background:var(--bg-content);border:1px solid var(--border-color);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,.3);padding:24px 28px;max-width:440px;width:90%;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <h2 style="margin:0;font-size:1rem;font-weight:700;color:#d97706;display:flex;align-items:center;gap:8px;">
+                <i class="fas fa-exclamation-triangle"></i> <span id="conflitos-titulo">Conflitos</span>
+            </h2>
+            <button onclick="document.getElementById('modal-conflitos').style.display='none'"
+                    style="background:none;border:none;cursor:pointer;color:var(--text-secondary);font-size:18px;">×</button>
+        </div>
+        <div id="conflitos-lista" style="font-size:.88rem;color:var(--text-primary);line-height:1.6;"></div>
+        <button onclick="document.getElementById('modal-conflitos').style.display='none'"
+                class="btn btn-sm btn-outline-secondary mt-3" style="width:100%;">Fechar</button>
+    </div>
+</div>
+
+<script>
+const MISSAO_ID = {{ missao.id }};
+const conflitosCache = {};
+let searchMode = 'nome';
+
+/* ── Estado: mapa id → {posto, nome_guerra} ── */
+const todosMap = {};
+document.querySelectorAll('.mil-row').forEach(row => {
+    todosMap[row.dataset.id] = row.dataset.nome;
+});
+
+/* ── Toggle de modo de busca ── */
+document.querySelectorAll('.search-mode-btn').forEach(btn => {
+    btn.addEventListener('click', () => {
+        document.querySelectorAll('.search-mode-btn').forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        searchMode = btn.dataset.mode;
+        filtrarLista();
+    });
+});
+
+/* ── Busca principal ── */
+document.getElementById('busca-input').addEventListener('input', filtrarLista);
+
+function filtrarLista() {
+    const q = document.getElementById('busca-input').value.toLowerCase().trim();
+    let visivel = 0;
+    document.querySelectorAll('.mil-row').forEach(row => {
+        const campo = searchMode === 'saram' ? (row.dataset.saram || '') : row.dataset.nome;
+        const show = !q || campo.toLowerCase().includes(q);
+        row.style.display = show ? '' : 'none';
+        if (show) visivel++;
+    });
+    document.getElementById('label-visivel').textContent = visivel + ' visíveis';
+}
+
+/* ── Toggle de seleção ── */
+function toggleMilitar(row) {
+    if (event && event.target.classList.contains('conflict-icon')) return;
+    if (event && event.target.closest('.conflict-icon')) return;
+    const cb = row.querySelector('input[type=checkbox]');
+    cb.checked = !cb.checked;
+    row.classList.toggle('selected', cb.checked);
+    atualizarPainelEscalados();
+    if (cb.checked) verificarConflito(row.dataset.id);
+}
+
+/* ── Selecionar / desmarcar visíveis ── */
+function selecionarTodos(val) {
+    document.querySelectorAll('.mil-row').forEach(row => {
+        if (row.style.display === 'none') return;
+        const cb = row.querySelector('input[type=checkbox]');
+        cb.checked = val;
+        row.classList.toggle('selected', val);
+        if (val) verificarConflito(row.dataset.id);
+    });
+    atualizarPainelEscalados();
+}
+
+/* ── Painel de escalados ── */
+function atualizarPainelEscalados() {
+    const checks = [...document.querySelectorAll('.mil-row input[type=checkbox]:checked')];
+    const lista = document.getElementById('lista-escalados');
+    const vazio = document.getElementById('msg-vazio-escalados');
+    document.getElementById('badge-escalados').textContent = checks.length;
+    document.getElementById('label-selecionados').textContent = checks.length + ' selecionado' + (checks.length !== 1 ? 's' : '');
+
+    // Remover itens desmarcados
+    lista.querySelectorAll('.escalado-row').forEach(r => {
+        const id = r.dataset.id;
+        if (!checks.find(c => c.value == id)) r.remove();
+    });
+
+    // Adicionar novos selecionados
+    checks.forEach(cb => {
+        const id = cb.value;
+        if (!lista.querySelector(`.escalado-row[data-id="${id}"]`)) {
+            const nome = cb.closest('.mil-row').dataset.nome;
+            const div = document.createElement('div');
+            div.className = 'escalado-row';
+            div.dataset.id = id;
+            div.innerHTML = `
+                <span class="name" title="${nome}">${nome}</span>
+                <button type="button" class="btn-remove" onclick="removerEscalado('${id}')" title="Remover">
+                    <i class="fas fa-times"></i>
+                </button>`;
+            lista.appendChild(div);
+        }
+    });
+
+    vazio.style.display = checks.length === 0 ? '' : 'none';
+    filtrarEscalados();
+}
+
+/* ── Remover escalado ── */
+function removerEscalado(id) {
+    const row = document.querySelector(`.mil-row[data-id="${id}"]`);
+    if (row) {
+        row.querySelector('input[type=checkbox]').checked = false;
+        row.classList.remove('selected');
+    }
+    atualizarPainelEscalados();
+}
+
+/* ── Busca nos escalados ── */
+document.getElementById('busca-escalados').addEventListener('input', filtrarEscalados);
+function filtrarEscalados() {
+    const q = document.getElementById('busca-escalados').value.toLowerCase();
+    document.querySelectorAll('.escalado-row').forEach(r => {
+        r.style.display = r.querySelector('.name').textContent.toLowerCase().includes(q) ? '' : 'none';
+    });
+}
+
+/* ── Verificar conflito via API ── */
+async function verificarConflito(id) {
+    if (conflitosCache[id] !== undefined) {
+        if (conflitosCache[id].length > 0) mostrarIconeConflito(id, conflitosCache[id]);
+        return;
+    }
+    try {
+        const r = await fetch(`/esi/api/missoes/${MISSAO_ID}/conflitos/${id}/`);
+        const data = await r.json();
+        conflitosCache[id] = data.conflitos;
+        if (data.conflitos.length > 0) mostrarIconeConflito(id, data.conflitos);
+    } catch(e) {}
+}
+
+function mostrarIconeConflito(id, conflitos) {
+    const row = document.querySelector(`.mil-row[data-id="${id}"]`);
+    if (!row) return;
+    const icon = row.querySelector('.conflict-icon');
+    if (icon) icon.style.display = 'flex';
+    const tip = document.getElementById('tip-' + id);
+    if (tip) tip.textContent = conflitos.map(c => c.descricao).join(' | ');
+}
+
+function mostrarConflitos(id, nome) {
+    const conflitos = conflitosCache[id] || [];
+    document.getElementById('conflitos-titulo').textContent = nome;
+    const lista = document.getElementById('conflitos-lista');
+    if (conflitos.length === 0) {
+        lista.innerHTML = '<span style="color:#16a34a;"><i class="fas fa-check-circle me-1"></i>Sem conflitos identificados.</span>';
+    } else {
+        lista.innerHTML = conflitos.map(c => {
+            const cor = c.tipo === 'situacao' ? '#ef4444' : '#d97706';
+            const ico = c.tipo === 'situacao' ? 'fa-ban' : 'fa-exclamation-triangle';
+            return `<div style="margin-bottom:8px;padding:8px 10px;background:rgba(245,158,11,.08);border-radius:8px;border-left:3px solid ${cor};">
+                <i class="fas ${ico} me-1" style="color:${cor};"></i>${c.descricao}
+            </div>`;
+        }).join('');
+    }
+    document.getElementById('modal-conflitos').style.display = 'flex';
+}
+
+/* ── Inicialização ── */
+document.addEventListener('DOMContentLoaded', () => {
+    atualizarPainelEscalados();
+    filtrarLista();
+
+    // Verificar conflitos dos já escalados
+    document.querySelectorAll('.mil-row.selected').forEach(row => {
+        verificarConflito(row.dataset.id);
+    });
+
+    // Fechar modal ao clicar fora
+    document.getElementById('modal-conflitos').addEventListener('click', function(e) {
+        if (e.target === this) this.style.display = 'none';
+    });
+});
+</script>
+{% endblock %}

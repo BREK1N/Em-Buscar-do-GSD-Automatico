@@ -21,24 +21,6 @@ def patd_signature_path(instance, filename):
     return os.path.join(upload_dir, unique_filename)
 
 class Configuracao(models.Model):
-    comandante_gsd = models.ForeignKey(
-        'Secao_pessoal.Efetivo',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='+',
-        limit_choices_to={'oficial': True},
-        verbose_name="Comandante do GSD Padrão"
-    )
-    comandante_bagl = models.ForeignKey(
-        'Secao_pessoal.Efetivo',
-        on_delete=models.SET_NULL,
-        null=True,
-        blank=True,
-        related_name='+',
-        limit_choices_to={'oficial': True},
-        verbose_name="Comandante da Base (BAGL)"
-    )
     prazo_defesa_dias = models.IntegerField(
         default=5,
         verbose_name="Prazo para Defesa (dias úteis)"

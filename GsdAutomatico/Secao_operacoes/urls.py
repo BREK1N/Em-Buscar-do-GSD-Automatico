@@ -27,6 +27,7 @@ urlpatterns = [
     path('missoes/<int:pk>/excluir/', views.missao_delete, name='missao_delete'),
     path('missoes/<int:pk>/pdf/', views.missao_pdf, name='missao_pdf'),
     path('missoes/extrato/pdf/', views.extrato_missao_pdf, name='extrato_missao_pdf'),
+    path('missoes/compilado/pdf/', views.compilado_missoes_pdf, name='compilado_missoes_pdf'),
 
     # API missão busca
     path('missoes/api/busca/', views.missao_busca_json, name='missao_busca_json'),
@@ -59,4 +60,8 @@ urlpatterns = [
 
     # Configuração (admin)
     path('configuracao/', views.config_operacoes, name='config_operacoes'),
+
+    # A Cargo — opções
+    path('api/acarga-opcoes/', views.api_acarga_opcoes, name='api_acarga_opcoes'),
+    path('api/acarga-opcoes/<int:pk>/delete/', views.api_acarga_opcao_delete, name='api_acarga_opcao_delete'),
 ]
