@@ -214,11 +214,13 @@ class MilitarListView(ListView):
         )
         qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
         if query:
-            qs = qs.filter(
-                Q(nome_completo__icontains=query) |
-                Q(nome_guerra__icontains=query) |
-                Q(saram__icontains=query)
-            )
+            q_objects = Q(nome_completo__icontains=query) | \
+                        Q(nome_guerra__icontains=query)
+            
+            if query.isdigit():
+                q_objects |= Q(saram__icontains=query)
+                
+            qs = qs.filter(q_objects)
         return qs
 
 

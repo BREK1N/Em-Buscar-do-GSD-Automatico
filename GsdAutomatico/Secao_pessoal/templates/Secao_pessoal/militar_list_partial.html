@@ -5,6 +5,7 @@
                 <th>Posto</th>
                 <th>Nome de Guerra</th>
                 <th>Nome Completo</th>
+                <th>SARAM</th>
                 <th>Especialização</th>
                 <th>Situação</th>
                 <th>Observação</th>
@@ -18,6 +19,7 @@
                 <td>{{ militar.posto }}</td>
                 <td>{{ militar.nome_guerra }}</td>
                 <td>{{ militar.nome_completo }}</td>
+                <td>{{ militar.saram|default:"-" }}</td>
                 <td>{{ militar.especializacao }}</td>
                 <td>
                     {% if militar.situacao|lower == 'de junta' %}
@@ -55,7 +57,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="8" style="text-align: center; padding: 20px;">Nenhum militar encontrado.</td>
+                <td colspan="9" style="text-align: center; padding: 20px;">Nenhum militar encontrado.</td>
             </tr>
             {% endfor %}
         </tbody>

@@ -5,6 +5,7 @@ app_name = 'Secao_pessoal'
 
 urlpatterns = [
     path('', views.index, name='index'),
+    path('painel-chefe/', views.painel_chefe, name='painel_chefe'),
     path('efetivo/', views.MilitarListView.as_view(), name='militar_list'),
     path('efetivo/adicionar/', views.MilitarCreateView.as_view(), name='militar_create'),
     path('efetivo/<int:pk>/editar/', views.MilitarUpdateView.as_view(), name='militar_update'),
@@ -19,6 +20,8 @@ urlpatterns = [
     path('controle/ata/', views.ata, name='ata'),
     path('controle/baixa/', views.baixa, name='baixa'),
     path('controle/indisponiveis/', views.indisponiveis, name='indisponiveis'),
+    path('controle/prestacao-servico/', views.PrestacaoServicoListView.as_view(), name='prestacao_servico'),
+    path('controle/importar-fq/', views.importar_fq, name='importar_fq'),
     path('gerenciar-opcoes/', views.gerenciar_opcoes, name='gerenciar_opcoes'),
     # Caixa de entrada movida para o app caixa_entrada — /comunicacoes/
     path('ferramentas/comunicacoes/', views.comunicacoes, name='comunicacoes'),  # redireciona

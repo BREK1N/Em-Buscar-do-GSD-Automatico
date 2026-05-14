@@ -29,7 +29,9 @@ class MilitarForm(forms.ModelForm):
         fields = [
             'posto', 'quad', 'especializacao', 'saram', 'nome_completo', 'nome_guerra',
             'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial', 'observacao',
-            'assinatura'
+            'assinatura', 'unidade_prestacao_servico', 'data_inicio_prestacao',
+            'data_vencimento_prestacao', 'portaria_prestacao', 'data_portaria_prestacao',
+            'boletim_prestacao', 'data_boletim_prestacao'
         ]
         
         # Usando Select para os campos que agora são listas
@@ -49,6 +51,13 @@ class MilitarForm(forms.ModelForm):
             'situacao': forms.TextInput(attrs={'placeholder': 'Ex: Ativo'}),
             'observacao': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Observações sobre a situação do militar (ex: motivo da baixa, período de férias).'}),
             'assinatura': forms.HiddenInput(),
+            'unidade_prestacao_servico': forms.TextInput(attrs={'placeholder': 'Ex: BAGL'}),
+            'portaria_prestacao': forms.TextInput(attrs={'placeholder': 'Ex: Portaria Nº 123'}),
+            'boletim_prestacao': forms.TextInput(attrs={'placeholder': 'Ex: BCA Nº 45'}),
+            'data_inicio_prestacao': forms.DateInput(attrs={'type': 'date'}),
+            'data_vencimento_prestacao': forms.DateInput(attrs={'type': 'date'}),
+            'data_portaria_prestacao': forms.DateInput(attrs={'type': 'date'}),
+            'data_boletim_prestacao': forms.DateInput(attrs={'type': 'date'}),
         }
 
     # Definindo os campos como ChoiceField para forçar o uso de <select>
@@ -58,4 +67,3 @@ class MilitarForm(forms.ModelForm):
     om = forms.ChoiceField(required=False)
     setor = forms.ChoiceField(required=False)
     subsetor = forms.ChoiceField(required=False)
-

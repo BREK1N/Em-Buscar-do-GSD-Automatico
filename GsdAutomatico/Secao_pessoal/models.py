@@ -27,6 +27,15 @@ class Efetivo(models.Model):
     deleted = models.BooleanField(default=False, verbose_name="Excluído")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
 
+    # Campos de Prestação de Serviço
+    unidade_prestacao_servico = models.CharField(max_length=100, blank=True, null=True, verbose_name="Unidade de Prestação de Serviço")
+    data_inicio_prestacao = models.DateField(null=True, blank=True, verbose_name="Data de Início da Apresentação")
+    data_vencimento_prestacao = models.DateField(null=True, blank=True, verbose_name="Data de Vencimento da Prestação")
+    portaria_prestacao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Portaria da Prestação de Serviço")
+    data_portaria_prestacao = models.DateField(null=True, blank=True, verbose_name="Data da Portaria")
+    boletim_prestacao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Boletim de Prestação de Serviço")
+    data_boletim_prestacao = models.DateField(null=True, blank=True, verbose_name="Data do Boletim")
+
     objects = EfetivoManager()
     all_objects = models.Manager()
 

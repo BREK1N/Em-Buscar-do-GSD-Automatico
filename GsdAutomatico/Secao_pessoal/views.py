@@ -47,9 +47,12 @@ except ImportError:
 from PIL import Image
 import fitz 
 import io
+import re
 # Se estiver no Windows e der erro, descomente e ajuste o caminho do seu tesseract:
 # pytesseract.pytesseract.tesseract_cmd = r'C:\Program Files\Tesseract-OCR\tesseract.exe'
 from .analise_inspsau import analisar_inspsau_pdf
+from .analise_fq import analisar_fq_documento
+from chamada.models import RegistroChamada as ChamadaRegistro
 
 def is_s1_member(user):
     """Check if the user is a member of the 'S1' group."""
@@ -99,7 +102,82 @@ def obter_situacao_inspsau(letra):
 
 @s1_required
 def index(request):
-    return render(request, 'Secao_pessoal/index.html')
+    # Efetivo total ativo/não baixado
+    efetivo = Efetivo.objects.exclude(situacao__iexact='Baixado')
+    
+    total_efetivo = efetivo.count()
+    total_oficiais = efetivo.filter(oficial=True).count()
+    total_pracas = efetivo.filter(oficial=False).count()
+    total_junta = efetivo.filter(situacao__iexact='De Junta').count()
+
+    # Efetivo por posto (Garantindo que a hierarquia completa apareça no gráfico)
+    hierarquia = ['CL', 'TC', 'MJ', 'CP', '1T', '2T', 'ASP', 'SO', '1S', '2S', '3S', 'CB', 'S1', 'S2', 'REC']
+    
+    postos_count = efetivo.values('posto').annotate(count=Count('id'))
+    contagem_dict = {item['posto']: item['count'] for item in postos_count if item['posto']}
+    
+    postos_labels = []
+    postos_data = []
+    
+    # Preenche a lista com todos os postos base, colocando 0 nos que não tiverem militares
+    for posto in hierarquia:
+        postos_labels.append(posto)
+        postos_data.append(contagem_dict.get(posto, 0))
+        
+    # Adiciona outros postos que não estejam na lista base (ex: Civis ou outras especialidades)
+    outros_postos = set(contagem_dict.keys()) - set(hierarquia)
+    for posto in sorted(list(outros_postos)):
+        postos_labels.append(posto)
+        postos_data.append(contagem_dict[posto])
+
+    # Efetivo por setor
+    setores_count = efetivo.values('setor').annotate(count=Count('id')).order_by('-count')
+    setores_labels = [item['setor'] if item['setor'] else 'Não definido' for item in setores_count]
+    setores_data = [item['count'] for item in setores_count]
+
+    context = {
+        'total_efetivo': total_efetivo,
+        'total_oficiais': total_oficiais,
+        'total_pracas': total_pracas,
+        'total_junta': total_junta,
+        'postos_labels': json.dumps(postos_labels),
+        'postos_data': json.dumps(postos_data),
+        'setores_labels': json.dumps(setores_labels),
+        'setores_data': json.dumps(setores_data),
+    }
+
+    return render(request, 'Secao_pessoal/index.html', context)
+
+@s1_required
+def painel_chefe(request):
+    efetivo = Efetivo.objects.exclude(situacao__iexact='Baixado')
+    
+    # EFETIVO GERAL
+    total_efetivo = efetivo.count()
+    total_indisponiveis = efetivo.exclude(Q(situacao__iexact='Ativo') | Q(situacao__exact='') | Q(situacao__isnull=True)).count()
+    
+    # SAÚDE (INSPSAU)
+    hoje = timezone.now().date()
+    daqui_30_dias = hoje + timedelta(days=30)
+    inspsau_vencidas = efetivo.filter(inspsau_validade__lt=hoje).count()
+    inspsau_a_vencer = efetivo.filter(inspsau_validade__gte=hoje, inspsau_validade__lte=daqui_30_dias).count()
+    total_junta = efetivo.filter(situacao__iexact='De Junta').count()
+
+    # CONTROLE
+    trocas_pendentes = SolicitacaoTrocaSetor.objects.filter(status__in=['pendente_atual', 'pendente_destino']).count()
+    total_baixados = Efetivo.objects.filter(situacao__iexact='Baixado').count()
+
+    context = {
+        'total_efetivo': total_efetivo,
+        'total_indisponiveis': total_indisponiveis,
+        'inspsau_vencidas': inspsau_vencidas,
+        'inspsau_a_vencer': inspsau_a_vencer,
+        'total_junta': total_junta,
+        'trocas_pendentes': trocas_pendentes,
+        'total_baixados': total_baixados,
+    }
+
+    return render(request, 'Secao_pessoal/painel_chefe.html', context)
 
 @s1_required
 def inspsau(request):
@@ -331,12 +409,14 @@ class MilitarListView(ListView):
         )
         qs = super().get_queryset().annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
         if query:
-            qs = qs.filter(
-                Q(nome_completo__icontains=query) |
-                Q(nome_guerra__icontains=query) |
-                Q(saram__icontains=query) |
-                Q(posto__icontains=query)
-            )
+            q_objects = Q(nome_completo__icontains=query) | \
+                        Q(nome_guerra__icontains=query) | \
+                        Q(posto__icontains=query)
+            
+            if query.isdigit():
+                q_objects |= Q(saram__icontains=query)
+                
+            qs = qs.filter(q_objects)
         return qs
     
 @method_decorator(s1_required, name='dispatch')
@@ -410,12 +490,14 @@ class MilitarBaixadoListView(ListView):
         ) 
         qs = super().get_queryset().filter(situacao__iexact='De Junta').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
         if query:
-            qs = qs.filter(
-                Q(nome_completo__icontains=query) |
-                Q(nome_guerra__icontains=query) |
-                Q(saram__icontains=query) |
-                Q(posto__icontains=query)
-            )
+            q_objects = Q(nome_completo__icontains=query) | \
+                        Q(nome_guerra__icontains=query) | \
+                        Q(posto__icontains=query)
+            
+            if query.isdigit():
+                q_objects |= Q(saram__icontains=query)
+                
+            qs = qs.filter(q_objects)
         return qs
 
 #EFETIVO IMPORT EXCEL
@@ -1075,6 +1157,31 @@ class HistoricoInspsauListView(ListView):
             )
         return qs
 
+@method_decorator(s1_required, name='dispatch')
+class PrestacaoServicoListView(ListView):
+    model = Efetivo
+    template_name = 'Secao_pessoal/prestacao_servico_list.html'
+    context_object_name = 'militares'
+    paginate_by = 20
+
+    def get_queryset(self):
+        query = self.request.GET.get('q')
+        rank_order = Case(
+            When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+            When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+            default=Value(99), output_field=IntegerField(),
+        ) 
+        qs = super().get_queryset().filter(unidade_prestacao_servico__isnull=False).exclude(unidade_prestacao_servico='').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        if query:
+            q_objects = Q(nome_completo__icontains=query) | \
+                        Q(nome_guerra__icontains=query) | \
+                        Q(unidade_prestacao_servico__icontains=query) | \
+                        Q(portaria_prestacao__icontains=query)
+            qs = qs.filter(q_objects)
+        return qs
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['current_query'] = self.request.GET.get('q', '')
@@ -1115,3 +1222,106 @@ def api_search_militares(request):
     data = [{'id': m.id, 'posto': m.posto, 'nome_guerra': m.nome_guerra, 'nome_completo': m.nome_completo} for m in militares]
     
     return JsonResponse(data, safe=False)
+
+@s1_required
+def importar_fq(request):
+    if request.method == 'POST':
+        data_str = request.POST.get('data')
+        arquivo = request.FILES.get('documento_fq')
+
+        if not data_str or not arquivo:
+            messages.error(request, "Por favor, forneça a data e o documento da FQ.")
+            return redirect('Secao_pessoal:importar_fq')
+            
+        try:
+            data_chamada = datetime.strptime(data_str, '%Y-%m-%d').date()
+        except ValueError:
+            data_chamada = date.today()
+
+        try:
+            # Salva o arquivo num ficheiro temporário para processar
+            with tempfile.NamedTemporaryFile(delete=False, suffix=os.path.splitext(arquivo.name)[1]) as temp_file:
+                for chunk in arquivo.chunks():
+                    temp_file.write(chunk)
+                temp_file_path = temp_file.name
+
+            content = ""
+            if temp_file_path.lower().endswith('.pdf'):
+                doc = fitz.open(temp_file_path)
+                for page in doc:
+                    page_text = page.get_text()
+                    if len(page_text.strip()) > 50:
+                        content += page_text + "\n\n"
+                    else:
+                        try:
+                            pix = page.get_pixmap(dpi=300)
+                            img = Image.open(io.BytesIO(pix.tobytes("png")))
+                            if pytesseract:
+                                content += pytesseract.image_to_string(img, lang='por') + "\n\n"
+                        except Exception:
+                            pass
+                doc.close()
+            else:
+                # Se for imagem
+                try:
+                    img = Image.open(temp_file_path)
+                    if pytesseract:
+                        content = pytesseract.image_to_string(img, lang='por')
+                except Exception:
+                    pass
+
+            os.remove(temp_file_path)
+
+            if not content.strip():
+                messages.error(request, "Não foi possível extrair texto legível do documento.")
+                return redirect('Secao_pessoal:importar_fq')
+
+            resultado_ia = analisar_fq_documento(content)
+            faltosos_marcados = 0
+            nao_encontrados = []
+
+            for militar_ia in resultado_ia.faltosos:
+                militar = None
+                if militar_ia.saram:
+                    saram_limpo = re.sub(r'\D', '', str(militar_ia.saram))
+                    if saram_limpo:
+                        militar = Efetivo.objects.filter(saram=int(saram_limpo)).first()
+                
+                if not militar and militar_ia.nome_guerra:
+                    candidatos = Efetivo.objects.filter(nome_guerra__icontains=militar_ia.nome_guerra)
+                    if candidatos.count() == 1:
+                        militar = candidatos.first()
+                    elif candidatos.count() > 1 and militar_ia.posto:
+                        candidatos_posto = candidatos.filter(posto__icontains=militar_ia.posto)
+                        if candidatos_posto.count() == 1:
+                            militar = candidatos_posto.first()
+                        else:
+                            militar = candidatos.first()
+
+                if militar:
+                    ChamadaRegistro.objects.update_or_create(
+                        data=data_chamada,
+                        militar=militar,
+                        defaults={'status': 'F'}
+                    )
+                    faltosos_marcados += 1
+                else:
+                    nao_encontrados.append(f"{militar_ia.posto} {militar_ia.nome_guerra}")
+
+            if faltosos_marcados > 0:
+                msg = f"Sucesso! {faltosos_marcados} falta(s) registrada(s) na chamada do dia {data_chamada.strftime('%d/%m/%Y')}."
+                if nao_encontrados:
+                    msg += f" (Militares não encontrados: {', '.join(nao_encontrados)})"
+                messages.success(request, msg)
+            else:
+                if nao_encontrados:
+                    messages.warning(request, f"Faltas identificadas pela IA, mas nenhum militar correspondente foi encontrado no sistema: {', '.join(nao_encontrados)}")
+                else:
+                    messages.info(request, "A Inteligência Artificial analisou o documento e não encontrou nenhum militar com falta.")
+                    
+        except Exception as e:
+            messages.error(request, f"Erro ao analisar o documento FQ: {e}")
+
+        return redirect('Secao_pessoal:importar_fq')
+
+    return render(request, 'Secao_pessoal/importar_fq.html')

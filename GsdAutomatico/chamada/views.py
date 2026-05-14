@@ -3,7 +3,7 @@ from datetime import datetime, date, timedelta
 from django.shortcuts import render, get_object_or_404, redirect
 from django.contrib import messages
 from django.contrib.auth.decorators import login_required
-from django.views.decorators.http import require_POST
+from django.views.decorators.http import require_POST, require_GET
 from django.http import JsonResponse
 from django.db.models import Q, Case, When, Value, IntegerField
 from django.contrib.auth.models import Group

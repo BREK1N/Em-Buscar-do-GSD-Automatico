@@ -1,0 +1,209 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Prestação de Serviço{% endblock %}
+
+{% block extra_head %}
+<style>
+    .modal-content {
+        background-color: var(--bg-content);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+    .modal-header, .modal-footer {
+        border-color: var(--border-color);
+    }
+    body.dark-theme .btn-close {
+        filter: invert(1) grayscale(100%) brightness(200%);
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-column">
+    <div class="table-header">
+        <div>
+            <h1 style="border: none; margin-bottom: 5px;">Prestação de Serviço</h1>
+            <p style="margin-top: 0; color: var(--text-secondary);">Militares do efetivo prestando serviço em outras unidades.</p>
+        </div>
+    </div>
+
+    <div class="filter-bar" style="margin-bottom: 20px; justify-content: space-between;">
+        <div class="search-group">
+            <form method="get" action="">
+                <input type="text" name="q" id="search-input" placeholder="Pesquisar por nome, unidade ou portaria..." value="{{ request.GET.q }}">
+                <button type="submit" class="search-btn">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"></path></svg>
+                </button>
+            </form>
+        </div>
+        <div class="actions">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addMilitarModal">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; margin-right: 4px; vertical-align: text-bottom;"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
+                Adicionar Militar
+            </button>
+        </div>
+    </div>
+
+    <div class="card" style="background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; padding: 25px; box-shadow: var(--box-shadow); margin-top: 20px;">
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Posto / Grad.</th>
+                        <th>Militar</th>
+                        <th>Unidade de Prestação</th>
+                        <th>Portaria</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for militar in militares %}
+                    <tr>
+                        <td style="font-weight: 500;">{{ militar.posto }}</td>
+                        <td style="font-weight: 500;">{{ militar.nome_guerra }} ({{ militar.nome_completo }})</td>
+                        <td style="color: var(--text-secondary);">{{ militar.unidade_prestacao_servico }}</td>
+                        <td style="color: var(--text-secondary);">{{ militar.portaria_prestacao|default:"-" }}</td>
+                        <td style="white-space: nowrap;">
+                            <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#infoModal{{ militar.pk }}">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; margin-right: 4px; vertical-align: text-bottom;"><path stroke-linecap="round" stroke-linejoin="round" d="M11.25 11.25l.041-.02a.75.75 0 011.063.852l-.708 2.836a.75.75 0 001.063.853l.041-.021M21 12a9 9 0 11-18 0 9 9 0 0118 0zm-9-3.75h.008v.008H12V8.25z" /></svg>
+                                Informações
+                            </button>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum militar em prestação de serviço.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {% if is_paginated %}
+    <div class="pagination" style="margin-top: 20px;">
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&laquo; primeira</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">anterior</a>
+            {% endif %}
+            <span class="current" style="margin: 0 10px; font-weight: 500;">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">próxima</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">última &raquo;</a>
+            {% endif %}
+        </span>
+    </div>
+    {% endif %}
+</div>
+
+<!-- Modais de Informação (Renderizados fora da tabela) -->
+{% for militar in militares %}
+<div class="modal fade" id="infoModal{{ militar.pk }}" tabindex="-1" aria-labelledby="infoModalLabel{{ militar.pk }}" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered modal-lg">
+        <div class="modal-content" style="background-color: var(--bg-content); color: var(--text-primary); border: 1px solid var(--border-color);">
+            <div class="modal-header" style="border-color: var(--border-color);">
+                <h5 class="modal-title" id="infoModalLabel{{ militar.pk }}">Detalhes da Prestação de Serviço</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; font-size: 0.95rem;">
+                    <div><strong style="color: var(--text-secondary);">SARAM:</strong><br> {{ militar.saram|default:"-" }}</div>
+                    <div><strong style="color: var(--text-secondary);">Posto/Graduação:</strong><br> {{ militar.posto|default:"-" }}</div>
+                    <div><strong style="color: var(--text-secondary);">Especialidade:</strong><br> {{ militar.especializacao|default:"-" }}</div>
+                    <div><strong style="color: var(--text-secondary);">Turma:</strong><br> {{ militar.turma|default:"-" }}</div>
+                    <div style="grid-column: 1 / -1;"><strong style="color: var(--text-secondary);">Nome de Guerra:</strong><br> {{ militar.nome_guerra|default:"-" }}</div>
+                    <div style="grid-column: 1 / -1;"><strong style="color: var(--text-secondary);">Nome Completo:</strong><br> {{ militar.nome_completo|default:"-" }}</div>
+                    <div style="grid-column: 1 / -1; margin: 10px 0; border-top: 1px dashed var(--border-color);"></div>
+                    <div style="grid-column: 1 / -1;"><strong style="color: var(--accent-color);">Unidade de Prestação de Serviço:</strong><br> {{ militar.unidade_prestacao_servico|default:"-" }}</div>
+                    <div><strong style="color: var(--text-secondary);">Data Início (Apresentação):</strong><br> {{ militar.data_inicio_prestacao|date:"d/m/Y"|default:"-" }}</div>
+                    <div><strong style="color: var(--text-secondary);">Data de Vencimento:</strong><br> {{ militar.data_vencimento_prestacao|date:"d/m/Y"|default:"-" }}</div>
+                    <div><strong style="color: var(--text-secondary);">Portaria:</strong><br> {{ militar.portaria_prestacao|default:"-" }}</div>
+                    <div><strong style="color: var(--text-secondary);">Data da Portaria:</strong><br> {{ militar.data_portaria_prestacao|date:"d/m/Y"|default:"-" }}</div>
+                    <div><strong style="color: var(--text-secondary);">Boletim:</strong><br> {{ militar.boletim_prestacao|default:"-" }}</div>
+                    <div><strong style="color: var(--text-secondary);">Data do Boletim:</strong><br> {{ militar.data_boletim_prestacao|date:"d/m/Y"|default:"-" }}</div>
+                </div>
+            </div>
+            <div class="modal-footer" style="border-color: var(--border-color);">
+                <a href="{% url 'Secao_pessoal:militar_update' militar.pk %}" class="btn btn-primary">Editar Informações</a>
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Fechar</button>
+            </div>
+        </div>
+    </div>
+</div>
+{% endfor %}
+
+<!-- Modal Adicionar Militar -->
+<div class="modal fade" id="addMilitarModal" tabindex="-1" aria-labelledby="addMilitarModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: var(--bg-content); color: var(--text-primary); border: 1px solid var(--border-color);">
+            <div class="modal-header" style="border-color: var(--border-color);">
+                <h5 class="modal-title" id="addMilitarModalLabel">Adicionar à Prestação de Serviço</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p style="color: var(--text-secondary); margin-bottom: 15px;">Pesquise o militar que deseja adicionar. Você será redirecionado para a página de edição dele para preencher os dados da prestação de serviço.</p>
+                <div style="position: relative;">
+                    <input type="text" id="search-add-militar" class="form-control" placeholder="Buscar por nome, posto ou SARAM..." autocomplete="off" style="background-color: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border-color);">
+                    <div id="search-add-results" class="list-group" style="position: absolute; top: 100%; left: 0; right: 0; z-index: 1000; max-height: 200px; overflow-y: auto; display: none; box-shadow: 0 4px 6px rgba(0,0,0,0.1); margin-top: 5px;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-add-militar');
+    const searchResults = document.getElementById('search-add-results');
+    let searchTimeout;
+
+    if (searchInput) {
+        searchInput.addEventListener('input', function() {
+            clearTimeout(searchTimeout);
+            const query = this.value;
+            
+            if (query.length < 2) {
+                searchResults.style.display = 'none';
+                return;
+            }
+
+            searchTimeout = setTimeout(() => {
+                fetch(`{% url 'Secao_pessoal:api_search_militares' %}?q=${encodeURIComponent(query)}`)
+                    .then(response => response.json())
+                    .then(data => {
+                        searchResults.innerHTML = '';
+                        if (data.length > 0) {
+                            data.forEach(militar => {
+                                const a = document.createElement('a');
+                                a.href = `/secao_pessoal/efetivo/${militar.id}/editar/`;
+                                a.className = 'list-group-item list-group-item-action';
+                                a.innerHTML = `<strong>${militar.posto} ${militar.nome_guerra}</strong><br><small class="text-muted">${militar.nome_completo}</small>`;
+                                a.style.backgroundColor = 'var(--bg-content)';
+                                a.style.color = 'var(--text-primary)';
+                                a.style.borderColor = 'var(--border-color)';
+                                a.addEventListener('mouseenter', function() { this.style.backgroundColor = 'var(--bg-main)'; });
+                                a.addEventListener('mouseleave', function() { this.style.backgroundColor = 'var(--bg-content)'; });
+                                searchResults.appendChild(a);
+                            });
+                            searchResults.style.display = 'block';
+                        } else {
+                            searchResults.innerHTML = '<div class="list-group-item" style="background-color: var(--bg-content); color: var(--text-secondary); border-color: var(--border-color);">Nenhum militar encontrado.</div>';
+                            searchResults.style.display = 'block';
+                        }
+                    })
+                    .catch(error => console.error('Erro na busca:', error));
+            }, 300);
+        });
+
+        document.addEventListener('click', function(e) {
+            if (!searchInput.contains(e.target) && !searchResults.contains(e.target)) {
+                searchResults.style.display = 'none';
+            }
+        });
+    }
+});
+</script>
+{% endblock %}
