@@ -1324,4 +1324,76 @@ def importar_fq(request):
 
         return redirect('Secao_pessoal:importar_fq')
 
-    return render(request, 'Secao_pessoal/importar_fq.html')
+    # Busca as últimas 50 faltas registradas no sistema para exibir no histórico
+    historico_faltas = ChamadaRegistro.objects.filter(status='F').select_related('militar').order_by('-data', 'militar__nome_guerra')[:50]
+    return render(request, 'Secao_pessoal/importar_fq.html', {'historico_faltas': historico_faltas})
+
+
+@s1_required
+def desercao(request):
+    if request.method == 'POST':
+        militar_id = request.POST.get('militar_id')
+        data_inicio_str = request.POST.get('data_inicio')
+        
+        if militar_id and data_inicio_str:
+            try:
+                militar = Efetivo.objects.get(id=militar_id)
+                data_inicio = datetime.strptime(data_inicio_str, '%Y-%m-%d').date()
+                
+                # Criar 8 faltas consecutivas para tornar o militar um desertor
+                for i in range(8):
+                    data_falta = data_inicio + timedelta(days=i)
+                    ChamadaRegistro.objects.update_or_create(
+                        data=data_falta,
+                        militar=militar,
+                        defaults={'status': 'F'}
+                    )
+                messages.success(request, f"O militar {militar.posto} {militar.nome_guerra} foi marcado como desertor manualmente (8 faltas lançadas a partir de {data_inicio.strftime('%d/%m/%Y')}).")
+            except Exception as e:
+                messages.error(request, f"Erro ao adicionar desertor: {e}")
+        return redirect('Secao_pessoal:desercao')
+
+    militares = Efetivo.objects.exclude(situacao__iexact='Baixado')
+    
+    desertores = []
+    alertas = []
+
+    for militar in militares:
+        # Busca as últimas 30 chamadas para otimização
+        chamadas = ChamadaRegistro.objects.filter(militar=militar).order_by('-data')[:30]
+        
+        faltas_consecutivas = 0
+        ultima_data_falta = None
+        
+        for chamada in chamadas:
+            if chamada.status == 'F':
+                faltas_consecutivas += 1
+                if faltas_consecutivas == 1:
+                    ultima_data_falta = chamada.data
+            else:
+                # Quebra a sequência se tiver presença (P), Missão (M), etc.
+                break
+                
+        if faltas_consecutivas >= 8:
+            desertores.append({
+                'militar': militar,
+                'faltas': faltas_consecutivas,
+                'data': ultima_data_falta
+            })
+        elif faltas_consecutivas >= 4:
+            alertas.append({
+                'militar': militar,
+                'faltas': faltas_consecutivas,
+                'data': ultima_data_falta
+            })
+
+    # Ordenar por mais faltas
+    alertas.sort(key=lambda x: x['faltas'], reverse=True)
+    desertores.sort(key=lambda x: x['faltas'], reverse=True)
+
+    context = {
+        'desertores': desertores,
+        'alertas': alertas,
+        'militares': militares,
+    }
+    return render(request, 'Secao_pessoal/desercao.html', context)

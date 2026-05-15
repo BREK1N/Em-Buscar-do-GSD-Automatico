@@ -1,0 +1,184 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Controle de Deserção{% endblock %}
+
+{% block extra_head %}
+<link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
+<style>
+    /* Compatibilidade do Select2 com o Tema Escuro/Moderno */
+    .select2-container .select2-selection--single {
+        height: 38px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        border-radius: 6px;
+    }
+    .select2-container--default .select2-selection--single .select2-selection__rendered {
+        line-height: 38px;
+        color: var(--text-primary);
+    }
+    .select2-container--default .select2-selection--single .select2-selection__arrow {
+        height: 36px;
+    }
+    .select2-dropdown {
+        background-color: var(--bg-main);
+        border: 1px solid var(--border-color);
+        color: var(--text-primary);
+    }
+    .select2-search input {
+        background-color: var(--bg-content);
+        color: var(--text-primary);
+        border: 1px solid var(--border-color);
+    }
+    .select2-container--default .select2-results__option--highlighted[aria-selected] {
+        background-color: var(--accent-color);
+        color: #fff;
+    }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="content-column">
+    <div class="table-header" style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 15px;">
+        <div>
+            <h1 style="border: none; margin-bottom: 5px;">Controle de Deserção</h1>
+            <p style="margin-top: 0; color: var(--text-secondary);">Acompanhamento de militares com faltas consecutivas na chamada. A partir de 8 faltas o militar é considerado desertor.</p>
+        </div>
+        <div class="actions">
+            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addDesertorModal">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width: 16px; height: 16px; margin-right: 4px; vertical-align: text-bottom;">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" />
+                </svg>
+                Adicionar Manualmente
+            </button>
+        </div>
+    </div>
+
+    <!-- Desertores -->
+    <div class="card" style="border-left: 4px solid var(--danger-color); margin-bottom: 25px;">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--danger-color);"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <h2 style="color: var(--danger-color);">Desertores Identificados (8+ Faltas)</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Militar</th>
+                        <th>Setor</th>
+                        <th>Faltas Consecutivas</th>
+                        <th>Última Falta Registrada</th>
+                        <th>Ações</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in desertores %}
+                    <tr>
+                        <td style="font-weight: 500;">{{ item.militar.posto }} {{ item.militar.nome_guerra }}</td>
+                        <td>{{ item.militar.setor|default:"Não definido" }}</td>
+                        <td>
+                            <span style="background-color: var(--danger-color); color: white; padding: 4px 10px; border-radius: 20px; font-weight: bold; font-size: 0.85em;">
+                                {{ item.faltas }} faltas
+                            </span>
+                        </td>
+                        <td>{{ item.data|date:"d/m/Y" }}</td>
+                        <td>
+                            <div class="actions-cell">
+                                <a href="{% url 'Secao_pessoal:militar_update' item.militar.pk %}" class="btn btn-sm btn-primary">Ver Perfil</a>
+                            </div>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="5" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum desertor identificado no momento.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    <!-- Alertas (4 a 7 faltas) -->
+    <div class="card" style="border-left: 4px solid var(--warning-color);">
+        <div class="card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="color: var(--warning-color);"><path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+            <h2>Alerta de Risco de Deserção (4 a 7 Faltas)</h2>
+        </div>
+        <div class="table-responsive">
+            <table class="data-table">
+                <thead>
+                    <tr>
+                        <th>Militar</th>
+                        <th>Setor</th>
+                        <th>Faltas Consecutivas</th>
+                        <th>Última Falta Registrada</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in alertas %}
+                    <tr>
+                        <td style="font-weight: 500;">{{ item.militar.posto }} {{ item.militar.nome_guerra }}</td>
+                        <td>{{ item.militar.setor|default:"Não definido" }}</td>
+                        <td><strong style="color: var(--warning-color);">{{ item.faltas }} faltas</strong></td>
+                        <td>{{ item.data|date:"d/m/Y" }}</td>
+                    </tr>
+                    {% empty %}
+                    <tr>
+                        <td colspan="4" style="text-align: center; padding: 20px; color: var(--text-secondary);">Nenhum militar em risco de deserção.</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Adicionar Desertor -->
+<div class="modal fade" id="addDesertorModal" tabindex="-1" aria-labelledby="addDesertorModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content" style="background-color: var(--bg-content); color: var(--text-primary); border: 1px solid var(--border-color);">
+            <form method="post" action="{% url 'Secao_pessoal:desercao' %}">
+                {% csrf_token %}
+                <div class="modal-header" style="border-color: var(--border-color);">
+                    <h5 class="modal-title" id="addDesertorModalLabel">Adicionar Desertor Manualmente</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <div class="modal-body">
+                    <p style="color: var(--text-secondary); margin-bottom: 15px; font-size: 0.9rem;">Selecione o militar e a data da primeira falta. O sistema registrará automaticamente 8 faltas consecutivas a partir dessa data para classificá-lo imediatamente como desertor.</p>
+                    
+                    <div class="mb-3">
+                        <label for="militar_id" style="font-weight: 500; margin-bottom: 8px; display: block;">Militar:</label>
+                        <select name="militar_id" id="militar_id" class="form-select select2" required style="width: 100%;">
+                            <option value="">--- Selecione o militar ---</option>
+                            {% for militar in militares %}
+                                <option value="{{ militar.id }}">{{ militar.posto }} {{ militar.nome_guerra }} ({{ militar.nome_completo }})</option>
+                            {% endfor %}
+                        </select>
+                    </div>
+
+                    <div class="mb-3">
+                        <label for="data_inicio" style="font-weight: 500; margin-bottom: 8px; display: block;">Data da 1ª Falta:</label>
+                        <input type="date" name="data_inicio" id="data_inicio" class="form-control" required style="background-color: var(--bg-main); color: var(--text-primary); border: 1px solid var(--border-color);">
+                    </div>
+                </div>
+                <div class="modal-footer" style="border-color: var(--border-color);">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancelar</button>
+                    <button type="submit" class="btn btn-primary">Registrar Deserção</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/js/select2.min.js"></script>
+<script>
+    $(document).ready(function() {
+        $('.select2').select2({
+            dropdownParent: $('#addDesertorModal'),
+            width: '100%'
+        });
+    });
+</script>
+{% endblock %}

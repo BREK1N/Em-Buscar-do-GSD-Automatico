@@ -29,38 +29,5 @@ urlpatterns = [
     path('inspsau/historico/', views.HistoricoInspsauListView.as_view(), name='historico_inspsau_list'),
     path('api/search-militares/', views.api_search_militares, name='api_search_militares'),
     path('inspsau/historico/delete/<int:pk>/', views.historico_inspsau_delete, name='historico_inspsau_delete'),
+    path('controle/desercao/', views.desercao, name='desercao'),
 ]
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-print

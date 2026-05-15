@@ -707,7 +707,7 @@
                 <span class="sidebar-section-label" style="padding:0">Controle</span>
             </li>
             <li>
-                <a href="javascript:void(0);" class="submenu-toggle {% if 'controle' in request.path or 'baixados' in request.path or 'lixeira' in request.path or 'importar_fq' in request.path %}active{% endif %}">
+                <a href="javascript:void(0);" class="submenu-toggle {% if 'controle' in request.path or 'baixados' in request.path or 'lixeira' in request.path or 'importar-fq' in request.path or 'desercao' in request.path %}active{% endif %}">
                     <div class="menu-item-content">
                         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                             <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 6h9.75M10.5 6a1.5 1.5 0 11-3 0m3 0a1.5 1.5 0 10-3 0M3.75 6H7.5m3 12h9.75m-9.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-3.75 0H7.5m9-6h3.75m-3.75 0a1.5 1.5 0 01-3 0m3 0a1.5 1.5 0 00-3 0m-9.75 0h9.75" />
@@ -718,7 +718,7 @@
                         <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5" />
                     </svg>
                 </a>
-                <ul class="submenu {% if 'controle' in request.path or 'baixados' in request.path or 'lixeira' in request.path or 'importar_fq' in request.path %}open{% endif %}">
+                <ul class="submenu {% if 'controle' in request.path or 'baixados' in request.path or 'lixeira' in request.path or 'importar-fq' in request.path or 'desercao' in request.path %}open{% endif %}">
                     <li>
                         <a href="{% url 'Secao_pessoal:troca_de_setor' %}" class="{% if request.resolver_match.url_name == 'troca_de_setor' %}active{% endif %}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
@@ -760,11 +760,19 @@
                         </a>
                     </li>
                     <li>
-                        <a href="{% url 'Secao_pessoal:importar_fq' %}" class="{% if 'importar_fq' in request.path %}active{% endif %}">
+                        <a href="{% url 'Secao_pessoal:importar_fq' %}" class="{% if request.resolver_match.url_name == 'importar_fq' %}active{% endif %}">
                             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5" />
                             </svg>
                             <span>Analisar FQ</span>
+                        </a>
+                    </li>
+                    <li>
+                        <a href="/secao_pessoal/controle/desercao/" class="{% if 'desercao' in request.path %}active{% endif %}">
+                            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                            </svg>
+                            <span>Controle de Deserção</span>
                         </a>
                     </li>
                 </ul>
