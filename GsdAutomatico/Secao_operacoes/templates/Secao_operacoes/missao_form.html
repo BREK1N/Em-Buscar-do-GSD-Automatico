@@ -575,6 +575,7 @@ const STD_HORARIOS = [
 
 /* ── Autocomplete de missão ── */
 const nomeMissaoInput = document.getElementById('id_nome_missao');
+nomeMissaoInput.setAttribute('autocomplete', 'off');
 const suggestions = document.getElementById('missao-suggestions');
 let debounceTimer;
 
@@ -583,7 +584,7 @@ nomeMissaoInput.addEventListener('input', () => {
     const q = nomeMissaoInput.value.trim();
     if (q.length < 2) { suggestions.style.display = 'none'; return; }
     debounceTimer = setTimeout(async () => {
-        const res = await fetch(`${BUSCA_URL}?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`${BUSCA_URL}?q=${encodeURIComponent(q)}&todos_anos=1`);
         const data = await res.json();
         if (!data.length) { suggestions.style.display = 'none'; return; }
         suggestions.innerHTML = data.map(m =>

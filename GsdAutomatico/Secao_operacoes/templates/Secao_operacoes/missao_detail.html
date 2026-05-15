@@ -1,6 +1,7 @@
 {% extends 'Secao_operacoes/base.html' %}
-{% block title %}OMIS Nº {{ missao.numero }}{% endblock %}
-{% block page_title %}OMIS Nº {{ missao.numero }}{% endblock %}
+{% load operacoes_extras %}
+{% block title %}{{ missao.numero|omis_numero }}{% endblock %}
+{% block page_title %}{{ missao.numero|omis_numero }}{% endblock %}
 
 {% block content %}
 <style>
@@ -50,10 +51,15 @@ table.data-table { width:100%; border-collapse:collapse; }
 
 <div class="detail-header">
     <div>
-        <h1 class="detail-title">OMIS Nº {{ missao.numero }} — {{ missao.nome_missao }}</h1>
+        <h1 class="detail-title">{{ missao.numero|omis_numero }} — {{ missao.nome_missao }}</h1>
         <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">Emitida em {{ missao.data_emissao|date:"d/m/Y" }} · Missão em {{ missao.data_missao|date:"d/m/Y" }}</div>
         {% if missao.escala_esi.militares.count > 0 %}
-        <div style="display:inline-flex;align-items:center;gap:6px;background:rgba(30,58,95,0.1);color:#1e3a5f;border:1px solid rgba(30,58,95,0.3);padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-top:8px;">
+        <div title="{{ missao.escala_esi.militares.count }} militar(es) da ESI escalado(s)"
+             data-bs-toggle="tooltip"
+             style="display:inline-flex;align-items:center;gap:6px;
+                    background:var(--accent-dim);color:var(--accent);
+                    border:1px solid var(--border-strong);
+                    padding:5px 12px;border-radius:20px;font-size:12px;font-weight:700;margin-top:8px;">
             <i class="fas fa-shield-alt"></i> ESI escalada — {{ missao.escala_esi.militares.count }} militar{% if missao.escala_esi.militares.count != 1 %}es{% endif %}
         </div>
         {% endif %}

@@ -21,8 +21,11 @@ urlpatterns = [
 
     # Missões (OMIS)
     path('missoes/', views.missao_list, name='missao_list'),
+    path('missoes/painel/', views.painel_missoes, name='painel_missoes'),
     path('missoes/nova/', views.missao_create, name='missao_create'),
     path('missoes/<int:pk>/', views.missao_detail, name='missao_detail'),
+    path('missoes/<int:pk>/horarios/add/', views.horario_add, name='horario_add'),
+    path('missoes/<int:pk>/horarios/<int:h_id>/delete/', views.horario_delete, name='horario_delete'),
     path('missoes/<int:pk>/editar/', views.missao_edit, name='missao_edit'),
     path('missoes/<int:pk>/excluir/', views.missao_delete, name='missao_delete'),
     path('missoes/<int:pk>/pdf/', views.missao_pdf, name='missao_pdf'),

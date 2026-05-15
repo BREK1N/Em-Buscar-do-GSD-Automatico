@@ -13,3 +13,4 @@ class EsiConfig(AppConfig):
 def _criar_grupo_esi(sender, **kwargs):
     from django.contrib.auth.models import Group
     Group.objects.get_or_create(name='ESI')
+    Group.objects.get_or_create(name='ESI-Missões')

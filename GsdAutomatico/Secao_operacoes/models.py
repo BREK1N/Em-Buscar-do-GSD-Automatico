@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.functions import ExtractYear
 from django.contrib.auth import get_user_model
 from Secao_pessoal.models import Efetivo
 
@@ -181,6 +182,12 @@ class Missao(models.Model):
         verbose_name = "Missão (OMIS)"
         verbose_name_plural = "Missões (OMIS)"
         ordering = ['-data_missao', '-numero']
+        constraints = [
+            models.UniqueConstraint(
+                ExtractYear('data_emissao'), 'numero',
+                name='unique_omis_numero_por_ano',
+            )
+        ]
 
     def __str__(self):
         return f"OMIS Nº {self.numero} — {self.nome_missao}"
@@ -191,6 +198,7 @@ class ItemHorario(models.Model):
     label  = models.CharField(max_length=100, verbose_name="Descrição")
     horario = models.TimeField(null=True, blank=True, verbose_name="Horário")
     ordem  = models.PositiveSmallIntegerField(default=0)
+    slot_key = models.CharField(max_length=30, blank=True, default='', verbose_name="Slot padrão vinculado")
 
     class Meta:
         ordering = ['ordem']

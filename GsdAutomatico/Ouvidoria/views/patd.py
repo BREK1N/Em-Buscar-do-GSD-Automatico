@@ -469,8 +469,10 @@ class PATDListView(ListView):
     paginate_by = 15
 
     def get_queryset(self):
+        from django.utils import timezone as _tz
         query = self.request.GET.get('q')
         status_filter = self.request.GET.get('status')
+        ano = self.request.GET.get('ano', str(_tz.now().year))
 
         # --- Sorting Logic ---
         sort_by = self.request.GET.get('sort', '-numero_patd') # Default sort by PATD number descending
@@ -479,6 +481,12 @@ class PATDListView(ListView):
             sort_by = '-numero_patd' # Fallback to default if invalid sort is provided
 
         qs = super().get_queryset().exclude(status='finalizado').exclude(arquivado=True).select_related('militar', 'oficial_responsavel').order_by(sort_by)
+
+        # Filtro de ano
+        try:
+            qs = qs.filter(data_inicio__year=int(ano))
+        except (ValueError, TypeError):
+            pass
 
         # --- Rank-based security ---
         user = self.request.user
@@ -524,6 +532,14 @@ class PATDListView(ListView):
                 status='finalizado'
             ).count()
         context['current_status'] = self.request.GET.get('status', '')
+
+        # Ano selecionado
+        from django.utils import timezone as _tz
+        context['ano'] = self.request.GET.get('ano', str(_tz.now().year))
+        from Ouvidoria.models import PATD as _PATD
+        context['anos_disponiveis'] = sorted(set(
+            _PATD.objects.dates('data_inicio', 'year').values_list('data_inicio__year', flat=True)
+        ), reverse=True)
 
         # --- Sorting Context ---
         sort = self.request.GET.get('sort', '-numero_patd')

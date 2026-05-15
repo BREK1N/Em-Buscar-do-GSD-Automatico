@@ -352,6 +352,159 @@
         ::-webkit-scrollbar-track { background: transparent; }
         ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
 
+        /* ── Dark Mode — Correções Bootstrap ───────────────────────── */
+        body.dark-theme .text-muted,
+        body.dark-theme .text-secondary {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme .text-dark,
+        body.dark-theme .text-black,
+        body.dark-theme .text-body {
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme label,
+        body.dark-theme p,
+        body.dark-theme small,
+        body.dark-theme dt,
+        body.dark-theme dd,
+        body.dark-theme td,
+        body.dark-theme th,
+        body.dark-theme li {
+            color: inherit;
+        }
+        body.dark-theme .table,
+        body.dark-theme .table td,
+        body.dark-theme .table th {
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+        body.dark-theme .table > :not(caption) > * > * {
+            background-color: transparent;
+            color: var(--text-primary);
+        }
+        body.dark-theme .form-control,
+        body.dark-theme .form-select,
+        body.dark-theme input[type="text"],
+        body.dark-theme input[type="email"],
+        body.dark-theme input[type="password"],
+        body.dark-theme input[type="number"],
+        body.dark-theme input[type="search"],
+        body.dark-theme input[type="date"],
+        body.dark-theme input[type="time"],
+        body.dark-theme input[type="week"],
+        body.dark-theme textarea,
+        body.dark-theme select {
+            background-color: var(--bg-input) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-strong) !important;
+        }
+        body.dark-theme input::placeholder,
+        body.dark-theme textarea::placeholder {
+            color: var(--text-secondary) !important;
+        }
+        body.dark-theme .form-check-label {
+            color: var(--text-secondary);
+        }
+        body.dark-theme .form-select option,
+        body.dark-theme select option {
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+        }
+        body.dark-theme .input-group-text {
+            background-color: var(--bg-input);
+            border-color: var(--border-strong);
+            color: var(--text-secondary);
+        }
+        body.dark-theme h1, body.dark-theme h2, body.dark-theme h3,
+        body.dark-theme h4, body.dark-theme h5, body.dark-theme h6,
+        body.dark-theme strong, body.dark-theme b {
+            color: var(--text-primary);
+        }
+        body.dark-theme .card,
+        body.dark-theme .modal-content {
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+        body.dark-theme .bg-light,
+        body.dark-theme .bg-white {
+            background-color: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme .border,
+        body.dark-theme .border-top,
+        body.dark-theme .border-bottom,
+        body.dark-theme .border-start,
+        body.dark-theme .border-end {
+            border-color: var(--border-strong) !important;
+        }
+        body.dark-theme hr {
+            border-color: var(--border-strong);
+            opacity: 1;
+        }
+        body.dark-theme .btn-light {
+            background-color: var(--bg-page);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+        body.dark-theme .btn-outline-secondary {
+            color: var(--text-secondary);
+            border-color: var(--border-strong);
+        }
+        body.dark-theme .dropdown-menu {
+            background-color: var(--bg-card);
+            border-color: var(--border-strong);
+        }
+        body.dark-theme .dropdown-item {
+            color: var(--text-primary);
+        }
+        body.dark-theme .dropdown-item:hover {
+            background-color: var(--bg-page);
+        }
+        body.dark-theme .list-group-item {
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+        body.dark-theme .page-link {
+            background-color: var(--bg-card);
+            border-color: var(--border-strong);
+            color: var(--text-secondary);
+        }
+        body.dark-theme .page-item.active .page-link {
+            background-color: var(--accent);
+            border-color: var(--accent);
+            color: #fff;
+        }
+        body.dark-theme .badge.bg-secondary {
+            background-color: var(--border-strong) !important;
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme .badge.bg-light {
+            background-color: var(--bg-page) !important;
+            color: var(--text-primary) !important;
+        }
+        body.dark-theme .nav-tabs .nav-link {
+            color: var(--text-secondary);
+        }
+        body.dark-theme .nav-tabs .nav-link.active {
+            background-color: var(--bg-card);
+            border-color: var(--border-strong);
+            color: var(--text-primary);
+        }
+        body.dark-theme .accordion-item {
+            background-color: var(--bg-card);
+            border-color: var(--border-strong);
+        }
+        body.dark-theme .accordion-button {
+            background-color: var(--bg-page);
+            color: var(--text-primary);
+        }
+        body.dark-theme .accordion-body {
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+        }
+
         /* ── Mobile ──────────────────────────────────────────────────── */
         @media (max-width: 768px) {
             .sidebar { transform: translateX(-100%); }
@@ -436,11 +589,19 @@
                 <span class="sidebar-section-label" style="padding:0">Operações</span>
             </li>
             <li>
-                <a href="{% url 'Secao_operacoes:missao_list' %}" class="{% if 'missao' in request.path %}active{% endif %}">
+                <a href="{% url 'Secao_operacoes:missao_list' %}" class="{% if 'missao' in request.path and 'painel' not in request.path %}active{% endif %}">
                     <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
                         <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z" />
                     </svg>
                     <span>Missões (OMIS)</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'Secao_operacoes:painel_missoes' %}" class="{% if 'painel' in request.path %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 13.125C3 12.504 3.504 12 4.125 12h2.25c.621 0 1.125.504 1.125 1.125v6.75C7.5 20.496 6.996 21 6.375 21h-2.25A1.125 1.125 0 013 19.875v-6.75zM9.75 8.625c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125v11.25c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V8.625zM16.5 4.125c0-.621.504-1.125 1.125-1.125h2.25C20.496 3 21 3.504 21 4.125v15.75c0 .621-.504 1.125-1.125 1.125h-2.25a1.125 1.125 0 01-1.125-1.125V4.125z" />
+                    </svg>
+                    <span>Painel de Missões</span>
                 </a>
             </li>
             {% endif %}

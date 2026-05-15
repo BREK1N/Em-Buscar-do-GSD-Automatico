@@ -290,6 +290,16 @@
         <h1>Painel do Comandante</h1>
         <p>Decisões pendentes, relatórios e estatísticas de processos PATD</p>
     </div>
+    {% if anos_disponiveis|length > 1 %}
+    <form method="get" style="display:flex;align-items:center;gap:8px;">
+        <label style="font-size:13px;font-weight:600;color:var(--text-muted);">Ano:</label>
+        <select name="ano" onchange="this.form.submit()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-primary);font-size:13px;">
+            {% for a in anos_disponiveis %}
+            <option value="{{ a }}" {% if a|stringformat:"s" == ano %}selected{% endif %}>{{ a }}</option>
+            {% endfor %}
+        </select>
+    </form>
+    {% endif %}
 </div>
 
 <!-- KPIs globais -->

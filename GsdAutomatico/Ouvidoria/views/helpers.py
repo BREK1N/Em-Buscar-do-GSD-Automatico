@@ -30,10 +30,13 @@ except locale.Error:
     logger.warning("Locale pt_BR.UTF-8 não encontrado. A data pode não ser formatada corretamente.")
 
 def get_next_patd_number():
-    """
-    Gera o próximo número para a PATD, procurando pelo menor número positivo vago.
-    """
-    numeros_usados = sorted(list(PATD.objects.filter(numero_patd__gt=0).values_list('numero_patd', flat=True)))
+    """Gera o próximo número de PATD do ano corrente (reseta em 1 a cada virada)."""
+    from django.utils import timezone
+    ano_atual = timezone.now().year
+    numeros_usados = sorted(list(
+        PATD.objects.filter(numero_patd__gt=0, data_inicio__year=ano_atual)
+        .values_list('numero_patd', flat=True)
+    ))
 
     if not numeros_usados:
         return 1
@@ -43,7 +46,7 @@ def get_next_patd_number():
         if numero > numero_esperado:
             return numero_esperado
         numero_esperado = numero + 1
-    
+
     return numeros_usados[-1] + 1
 
 

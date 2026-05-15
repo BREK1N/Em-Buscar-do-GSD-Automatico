@@ -39,3 +39,21 @@ def can_see_escalas(user):
     if user.is_superuser or user.is_staff:
         return True
     return user.groups.filter(name='SOP- Escalas').exists()
+
+
+@register.filter
+def omis_numero(value):
+    """Formata número de OMIS: OMIS N° 42/SOPGSDGL/GSD GL"""
+    return f"OMIS N° {value}/SOPGSDGL/GSD GL"
+
+
+@register.filter
+def filter_slot(qs, key):
+    """Filtra ItemHorario extras pelo slot_key."""
+    return qs.filter(slot_key=key).order_by('ordem')
+
+
+@register.filter
+def join_horarios(qs):
+    """Concatena horários de um queryset com '/'."""
+    return '/'.join(h.horario.strftime('%H:%M') for h in qs if h.horario)

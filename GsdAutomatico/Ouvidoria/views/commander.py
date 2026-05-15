@@ -131,37 +131,51 @@ class ComandanteDashboardView(ListView):
         start_of_week = today - timedelta(days=today.weekday())
         start_of_month = today.replace(day=1)
 
-        # Métricas de contagem simples
-        context['patd_em_andamento'] = PATD.objects.exclude(Q(status='finalizado') | Q(justificado=True)).count()
-        context['patd_finalizadas_total'] = PATD.objects.filter(status='finalizado').count()
-        context['patd_justificadas_total'] = PATD.objects.filter(justificado=True).count()
-        
+        ano = self.request.GET.get('ano', str(today.year))
+        try:
+            ano_int = int(ano)
+        except (ValueError, TypeError):
+            ano_int = today.year
+            ano = str(ano_int)
+
+        anos_disponiveis = sorted(set(
+            PATD.objects.dates('data_inicio', 'year').values_list('data_inicio__year', flat=True)
+        ), reverse=True)
+        context['ano'] = ano
+        context['anos_disponiveis'] = anos_disponiveis
+
+        patd_ano = PATD.objects.filter(data_inicio__year=ano_int)
+
+        # Métricas de contagem simples (escopo do ano)
+        context['patd_em_andamento'] = patd_ano.exclude(Q(status='finalizado') | Q(justificado=True)).count()
+        context['patd_finalizadas_total'] = patd_ano.filter(status='finalizado').count()
+        context['patd_justificadas_total'] = patd_ano.filter(justificado=True).count()
+
         # Criadas na semana/mês
-        context['patd_criadas_semana'] = PATD.objects.filter(data_inicio__date__gte=start_of_week).count()
-        context['patd_criadas_mes'] = PATD.objects.filter(data_inicio__date__gte=start_of_month).count()
+        context['patd_criadas_semana'] = patd_ano.filter(data_inicio__date__gte=start_of_week).count()
+        context['patd_criadas_mes'] = patd_ano.filter(data_inicio__date__gte=start_of_month).count()
 
         # Finalizadas na semana/mês
-        context['patd_finalizadas_semana'] = PATD.objects.filter(status='finalizado', data_termino__date__gte=start_of_week).count()
-        context['patd_finalizadas_mes'] = PATD.objects.filter(status='finalizado', data_termino__date__gte=start_of_month).count()
+        context['patd_finalizadas_semana'] = patd_ano.filter(status='finalizado', data_termino__date__gte=start_of_week).count()
+        context['patd_finalizadas_mes'] = patd_ano.filter(status='finalizado', data_termino__date__gte=start_of_month).count()
 
-        # Dados para gráficos
-        # Garante que todos os meses nos últimos 12 tenham um valor
+        # Dados para gráficos (meses do ano selecionado)
         labels = []
         criadas_counts = []
         finalizadas_counts = []
-        
+
         criadas_por_mes_dict = {
             item['month'].strftime('%Y-%m'): item['count']
-            for item in PATD.objects
+            for item in patd_ano
             .annotate(month=TruncMonth('data_inicio'))
             .values('month')
             .annotate(count=Count('id'))
             .order_by('month')
         }
-        
+
         finalizadas_por_mes_dict = {
             item['month'].strftime('%Y-%m'): item['count']
-            for item in PATD.objects
+            for item in patd_ano
             .filter(status='finalizado')
             .annotate(month=TruncMonth('data_termino'))
             .values('month')
@@ -169,11 +183,11 @@ class ComandanteDashboardView(ListView):
             .order_by('month')
         }
 
-        for i in range(11, -1, -1):
-            current_month = today - timedelta(days=i*30)
-            month_key = current_month.strftime('%Y-%m')
-            labels.append(current_month.strftime('%b/%y'))
-            
+        import datetime
+        for mes in range(1, 13):
+            d = datetime.date(ano_int, mes, 1)
+            month_key = d.strftime('%Y-%m')
+            labels.append(d.strftime('%b/%y'))
             criadas_counts.append(criadas_por_mes_dict.get(month_key, 0))
             finalizadas_counts.append(finalizadas_por_mes_dict.get(month_key, 0))
 

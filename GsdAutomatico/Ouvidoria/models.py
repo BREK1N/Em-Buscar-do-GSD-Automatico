@@ -1,4 +1,5 @@
 from django.db import models
+from django.db.models.functions import ExtractYear
 from django.utils import timezone
 import os
 from uuid import uuid4
@@ -122,7 +123,7 @@ class PATD(models.Model):
     militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='patds', verbose_name="Militar Acusado")
     transgressao = models.TextField(verbose_name="Transgressão")
     ocorrencia_reescrita = models.TextField(blank=True, null=True, verbose_name="Ocorrência Reescrita (Formal)")
-    numero_patd = models.IntegerField(unique=True, null=True, blank=True, verbose_name="N° PATD")
+    numero_patd = models.IntegerField(null=True, blank=True, verbose_name="N° PATD")
     numero_patd_anterior = models.IntegerField(null=True, blank=True, verbose_name="N° PATD Original (Lixeira)") # <-- ADICIONE ESTA LINHA
     oficial_responsavel = models.ForeignKey(
         Efetivo,
@@ -352,3 +353,10 @@ class PATD(models.Model):
     class Meta:
         verbose_name = "PATD"
         verbose_name_plural = "PATDs"
+        constraints = [
+            models.UniqueConstraint(
+                ExtractYear('data_inicio'), 'numero_patd',
+                name='unique_patd_numero_por_ano',
+                condition=models.Q(numero_patd__isnull=False),
+            )
+        ]

@@ -1,0 +1,485 @@
+{% extends 'Secao_operacoes/base.html' %}
+{% load operacoes_extras %}
+{% block title %}Painel de Missões — Operações{% endblock %}
+{% block header_eyebrow %}Seção de Operações{% endblock %}
+{% block header_title %}Painel de Missões{% endblock %}
+
+{% block extra_head %}
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.3/dist/chart.umd.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<style>
+/* KPI Bar */
+.kpi-bar {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 12px;
+    margin-bottom: 1.5rem;
+}
+.kpi-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow-card);
+    cursor: pointer;
+    transition: box-shadow .15s, transform .12s;
+    text-decoration: none;
+    display: block;
+}
+.kpi-card:hover { box-shadow: 0 4px 20px rgba(0,0,0,.12); transform: translateY(-2px); }
+.kpi-label {
+    font-size: 11px; font-weight: 700; letter-spacing: .12em;
+    text-transform: uppercase; color: var(--text-muted); margin-bottom: 6px;
+}
+.kpi-value {
+    font-family: 'Rajdhani', sans-serif; font-size: 2.2rem; font-weight: 800;
+    line-height: 1; color: var(--text-primary);
+}
+.kpi-card.accent .kpi-value { color: var(--accent); }
+.kpi-card.success .kpi-value { color: var(--success); }
+.kpi-card.muted .kpi-value { color: var(--text-secondary); }
+
+/* Gráficos */
+.charts-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 14px;
+    margin-bottom: 1.5rem;
+}
+.chart-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-strong);
+    border-radius: 14px;
+    padding: 18px 20px;
+    box-shadow: var(--shadow-card);
+}
+.chart-title {
+    font-family: 'Rajdhani', sans-serif; font-size: .8rem; font-weight: 700;
+    letter-spacing: .12em; text-transform: uppercase; color: var(--accent);
+    margin-bottom: 12px; padding-bottom: 8px; border-bottom: 1px solid var(--border);
+}
+.chart-wrap { position: relative; height: 200px; }
+
+/* Filtro */
+.filter-bar {
+    display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
+    background: var(--bg-card); border: 1px solid var(--border-strong);
+    border-radius: 14px; padding: 12px 16px; margin-bottom: 1.2rem;
+}
+.filter-pills { display: flex; gap: 6px; flex-wrap: wrap; }
+.filter-pill {
+    padding: 5px 14px; border-radius: 20px; font-size: .8rem; font-weight: 600;
+    cursor: pointer; text-decoration: none; border: 1px solid var(--border-strong);
+    color: var(--text-secondary); background: transparent; transition: all .15s;
+    white-space: nowrap;
+}
+.filter-pill:hover { border-color: var(--accent); color: var(--accent); }
+.filter-pill.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.filter-pill.p-active { background: #64748b; color: #fff; border-color: #64748b; }
+
+.search-wrap {
+    display: flex; align-items: center; gap: 8px;
+    background: var(--bg-page); border: 1px solid var(--border-strong);
+    border-radius: 10px; padding: 6px 12px; flex: 1; min-width: 180px; max-width: 300px;
+    transition: border .15s;
+}
+.search-wrap:focus-within { border-color: var(--accent); }
+.search-wrap i { color: var(--text-muted); font-size: .8rem; }
+.search-wrap input { flex: 1; border: 0; outline: 0; background: transparent; font-size: .875rem; color: var(--text-primary); }
+.search-wrap input::placeholder { color: var(--text-muted); }
+
+.date-filter-wrap { display: flex; gap: 6px; align-items: center; }
+.date-filter-wrap label { font-size: 11px; font-weight: 700; color: var(--text-muted); white-space: nowrap; }
+.date-input {
+    padding: 5px 10px; border-radius: 8px; border: 1px solid var(--border-strong);
+    background: var(--bg-input); color: var(--text-primary); font-size: 12px;
+    font-family: 'Inter', sans-serif;
+}
+.date-input:focus { outline: none; border-color: var(--accent); }
+
+/* Botões da barra */
+.btn-action {
+    display: inline-flex; align-items: center; gap: 5px;
+    padding: 6px 12px; border-radius: 8px; font-size: .8rem; font-weight: 600;
+    border: 1px solid var(--border-strong); background: var(--bg-page);
+    color: var(--text-secondary); text-decoration: none; transition: all .15s; cursor: pointer;
+    white-space: nowrap;
+}
+.btn-action:hover { background: var(--bg-sidebar-item); color: var(--text-primary); }
+.btn-action.accent { background: var(--accent); color: #fff; border-color: var(--accent); }
+.btn-action.accent:hover { opacity: .88; color:#fff; }
+.btn-action.blue { background: #1e3a5f; color: #fff; border-color: #1e3a5f; }
+.btn-action.blue:hover { opacity: .88; color:#fff; }
+.btn-action.green { background: var(--success); color: #fff; border-color: var(--success); }
+.btn-action.green:hover { opacity: .88; color:#fff; }
+
+/* Cards de missão */
+.mission-card {
+    background: var(--bg-card); border: 1px solid var(--border-strong);
+    border-radius: 14px; padding: 16px 18px;
+    display: flex; align-items: center; gap: 14px;
+    transition: box-shadow .2s, transform .15s;
+    margin-bottom: 8px;
+    color: inherit;
+}
+.mission-card:hover { box-shadow: 0 4px 18px rgba(0,0,0,.1); transform: translateY(-1px); }
+
+.date-col {
+    background: var(--accent); color: #fff; border-radius: 10px;
+    width: 48px; height: 48px; display: flex; flex-direction: column;
+    align-items: center; justify-content: center; flex-shrink: 0;
+    line-height: 1.15; font-weight: 700;
+}
+.date-col .day { font-size: 1.1rem; font-weight: 800; }
+.date-col .mon { font-size: .58rem; text-transform: uppercase; }
+
+.badge-esi { background: var(--accent-dim); color: var(--accent); border: 1px solid var(--border-strong); padding: 2px 8px; border-radius: 20px; font-size: .7rem; font-weight: 700; white-space: nowrap; }
+.badge-hoje { background: rgba(99,102,241,.12); color: #6366f1; border: 1px solid rgba(99,102,241,.3); padding: 2px 8px; border-radius: 10px; font-size: .68rem; font-weight: 700; }
+
+.mission-info { flex: 1; min-width: 0; }
+.mission-title { font-size: .9rem; font-weight: 700; color: var(--text-primary); margin: 0 0 3px; overflow: hidden; text-overflow: ellipsis; }
+.mission-meta { font-size: .78rem; color: var(--text-secondary); display: flex; gap: 10px; flex-wrap: wrap; }
+
+.mission-actions { display: flex; gap: 5px; flex-shrink: 0; }
+
+.empty-state { text-align: center; padding: 56px 24px; color: var(--text-muted); }
+.empty-state i { font-size: 2.5rem; margin-bottom: 12px; display: block; opacity: .5; }
+
+/* Modal data */
+.modal-overlay {
+    display: none; position: fixed; inset: 0; z-index: 9999;
+    align-items: center; justify-content: center;
+    background: rgba(0,0,0,0.55);
+}
+.modal-overlay.show { display: flex; }
+.modal-box {
+    background: var(--bg-card); border: 1px solid var(--border-strong);
+    border-radius: 14px; box-shadow: 0 16px 48px rgba(0,0,0,.28);
+    padding: 24px 28px; min-width: 300px; max-width: 380px; width: 100%;
+}
+.modal-title { font-family: 'Rajdhani', sans-serif; font-size: 1.1rem; font-weight: 700; color: var(--text-primary); margin: 0 0 14px; }
+
+@media (max-width: 768px) {
+    .kpi-bar { grid-template-columns: repeat(2, 1fr); }
+    .charts-row { grid-template-columns: 1fr; }
+    .mission-actions { display: none; }
+    .date-filter-wrap { display: none; }
+}
+
+@media print {
+    .sidebar, .main-header, .filter-bar, .mission-actions, .kpi-bar, .charts-row { display: none !important; }
+    .main-wrapper { margin: 0 !important; padding: 0 !important; }
+    .main-container { padding: 0 !important; }
+    .mission-card { break-inside: avoid; border: 1px solid #ccc !important; box-shadow: none !important; }
+    body { background: #fff !important; color: #000 !important; }
+}
+</style>
+{% endblock %}
+
+{% block content %}
+<!-- KPI Bar -->
+<div class="kpi-bar">
+    <a href="?filtro=todas" class="kpi-card">
+        <div class="kpi-label">Total de Missões</div>
+        <div class="kpi-value">{{ total }}</div>
+    </a>
+    <a href="?filtro=proximas" class="kpi-card accent">
+        <div class="kpi-label">Próximas</div>
+        <div class="kpi-value">{{ proximas_n }}</div>
+    </a>
+    <a href="?filtro=passadas" class="kpi-card muted">
+        <div class="kpi-label">Passadas</div>
+        <div class="kpi-value">{{ passadas_n }}</div>
+    </a>
+    <a href="?filtro=esi" class="kpi-card success">
+        <div class="kpi-label">Com ESI</div>
+        <div class="kpi-value">{{ com_esi_n }}</div>
+    </a>
+</div>
+
+<!-- Gráficos -->
+<div class="charts-row">
+    <div class="chart-card">
+        <div class="chart-title"><i class="fas fa-chart-donut"></i> Distribuição</div>
+        <div class="chart-wrap"><canvas id="chartDist"></canvas></div>
+    </div>
+    <div class="chart-card">
+        <div class="chart-title"><i class="fas fa-chart-bar"></i> Missões por Mês ({{ hoje.year }})</div>
+        <div class="chart-wrap"><canvas id="chartMes"></canvas></div>
+    </div>
+</div>
+
+<!-- Filtro + Ações -->
+<form method="get" id="filter-form" class="filter-bar">
+    <div class="filter-pills">
+        <a href="?filtro=proximas{% if busca %}&q={{ busca }}{% endif %}{% if data_de %}&data_de={{ data_de }}{% endif %}{% if data_ate %}&data_ate={{ data_ate }}{% endif %}"
+           class="filter-pill {% if filtro == 'proximas' %}active{% endif %}">
+            <i class="fas fa-calendar-alt"></i> Próximas
+        </a>
+        <a href="?filtro=passadas{% if busca %}&q={{ busca }}{% endif %}{% if data_de %}&data_de={{ data_de }}{% endif %}{% if data_ate %}&data_ate={{ data_ate }}{% endif %}"
+           class="filter-pill {% if filtro == 'passadas' %}p-active{% endif %}">
+            <i class="fas fa-history"></i> Passadas
+        </a>
+        <a href="?filtro=esi{% if busca %}&q={{ busca }}{% endif %}{% if data_de %}&data_de={{ data_de }}{% endif %}{% if data_ate %}&data_ate={{ data_ate }}{% endif %}"
+           class="filter-pill {% if filtro == 'esi' %}active{% endif %}">
+            <i class="fas fa-shield-alt"></i> Com ESI
+        </a>
+        <a href="?filtro=todas{% if busca %}&q={{ busca }}{% endif %}{% if data_de %}&data_de={{ data_de }}{% endif %}{% if data_ate %}&data_ate={{ data_ate }}{% endif %}"
+           class="filter-pill {% if filtro == 'todas' %}active{% endif %}">
+            <i class="fas fa-list"></i> Todas
+        </a>
+    </div>
+
+    <div class="search-wrap">
+        <i class="fas fa-search"></i>
+        <input type="text" name="q" value="{{ busca }}" placeholder="Buscar missão ou Nº OMIS..." autocomplete="off">
+        <input type="hidden" name="filtro" value="{{ filtro }}">
+    </div>
+
+    <div class="date-filter-wrap">
+        <label>De</label>
+        <input type="date" name="data_de" value="{{ data_de }}" class="date-input" onchange="this.form.submit()">
+        <label>Até</label>
+        <input type="date" name="data_ate" value="{{ data_ate }}" class="date-input" onchange="this.form.submit()">
+    </div>
+
+    <button type="submit" class="btn-action"><i class="fas fa-search"></i> Buscar</button>
+
+    {% if busca or data_de or data_ate %}
+    <a href="?filtro={{ filtro }}" class="btn-action"><i class="fas fa-times"></i> Limpar</a>
+    {% endif %}
+
+    <!-- Ações de exportação no canto direito -->
+    <div style="display:flex;gap:6px;margin-left:auto;flex-wrap:wrap;">
+        <button type="button" class="btn-action green" onclick="exportarExcel()">
+            <i class="fas fa-file-excel"></i> Excel
+        </button>
+        <button type="button" class="btn-action accent" onclick="abrirModalExtrato()">
+            <i class="fas fa-file-alt"></i> Extrato
+        </button>
+        <button type="button" class="btn-action blue" onclick="abrirModalCompilado()">
+            <i class="fas fa-layer-group"></i> Compilado
+        </button>
+    </div>
+</form>
+
+<!-- Lista de missões -->
+<div id="missoes-lista">
+{% if missoes %}
+    {% for m in missoes %}
+    <div class="mission-card">
+        <div class="date-col">
+            <span class="day">{{ m.data_missao|date:"d" }}</span>
+            <span class="mon">{{ m.data_missao|date:"M" }}</span>
+        </div>
+
+        <div class="mission-info">
+            <p class="mission-title">
+                {{ m.numero|omis_numero }} — {{ m.nome_missao }}
+                {% if m.data_missao == hoje %}
+                <span class="badge-hoje">HOJE</span>
+                {% endif %}
+                {% if m.escala_esi and m.escala_esi.militares.count > 0 %}
+                <span class="badge-esi"><i class="fas fa-shield-alt"></i> ESI ({{ m.escala_esi.militares.count }})</span>
+                {% endif %}
+            </p>
+            <div class="mission-meta">
+                <span><i class="fas fa-map-marker-alt"></i> {{ m.local|default:"—" }}</span>
+                <span><i class="fas fa-calendar"></i> {{ m.data_missao|date:"d/m/Y" }}</span>
+                {% if m.cmt_missao %}
+                <span><i class="fas fa-user"></i> {{ m.cmt_missao.posto }} {{ m.cmt_missao.nome_guerra }}</span>
+                {% elif m.cmt_a_cargo %}
+                <span><i class="fas fa-user"></i> {{ m.cmt_a_cargo }}</span>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mission-actions">
+            <a href="{% url 'Secao_operacoes:missao_detail' m.pk %}" class="btn-action accent">
+                <i class="fas fa-eye"></i> Ver
+            </a>
+            <a href="{% url 'Secao_operacoes:missao_pdf' m.pk %}" class="btn-action" target="_blank">
+                <i class="fas fa-file-pdf"></i> PDF
+            </a>
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+<div class="empty-state">
+    <i class="fas fa-clipboard-list"></i>
+    <p>Nenhuma missão encontrada para este filtro.</p>
+    {% if busca or data_de or data_ate %}
+    <a href="?filtro={{ filtro }}" class="btn-action" style="margin-top:12px;display:inline-flex;">
+        <i class="fas fa-times"></i> Limpar filtros
+    </a>
+    {% endif %}
+</div>
+{% endif %}
+</div>
+
+<!-- Modal Extrato -->
+<div class="modal-overlay" id="modal-extrato">
+    <div class="modal-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div class="modal-title"><i class="fas fa-file-alt" style="color:var(--accent);margin-right:8px;"></i>Extrato de Missões</div>
+            <button onclick="fecharModal('modal-extrato')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;line-height:1;">&#x2715;</button>
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">Selecione a data para gerar o extrato em PDF.</p>
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Data</label>
+        <input type="date" id="extrato-data" class="date-input" style="width:100%;margin-bottom:16px;">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="fecharModal('modal-extrato')" class="btn-action">Cancelar</button>
+            <button onclick="gerarExtrato()" class="btn-action accent"><i class="fas fa-file-pdf"></i> Gerar PDF</button>
+        </div>
+    </div>
+</div>
+
+<!-- Modal Compilado -->
+<div class="modal-overlay" id="modal-compilado">
+    <div class="modal-box">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:14px;">
+            <div class="modal-title"><i class="fas fa-layer-group" style="color:#1e3a5f;margin-right:8px;"></i>Compilado de Missões</div>
+            <button onclick="fecharModal('modal-compilado')" style="background:none;border:none;cursor:pointer;color:var(--text-muted);font-size:18px;line-height:1;">&#x2715;</button>
+        </div>
+        <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px;">Selecione a data para gerar o compilado em PDF com todas as OMIS do dia.</p>
+        <label style="display:block;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:6px;">Data</label>
+        <input type="date" id="compilado-data" class="date-input" style="width:100%;margin-bottom:16px;">
+        <div style="display:flex;gap:8px;justify-content:flex-end;">
+            <button onclick="fecharModal('modal-compilado')" class="btn-action">Cancelar</button>
+            <button onclick="gerarCompilado()" class="btn-action blue"><i class="fas fa-file-pdf"></i> Gerar PDF</button>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+// Dados para gráficos vindos do servidor
+const dadosDistribuicao = {
+    proximas: {{ proximas_n }},
+    passadas: {{ passadas_n }},
+    comEsi:   {{ com_esi_n }},
+    semEsi:   {{ total }} - {{ com_esi_n }},
+};
+const dadosMeses = {{ missoes_por_mes_json|safe }};
+
+// Detecta tema
+function isDark() {
+    return document.body.classList.contains('dark-theme');
+}
+function textColor() { return isDark() ? '#e6edf3' : '#0f172a'; }
+function mutedColor() { return isDark() ? '#6e7681' : '#94a3b8'; }
+function gridColor() { return isDark() ? 'rgba(255,255,255,0.06)' : 'rgba(0,0,0,0.06)'; }
+
+Chart.defaults.font.family = "'Inter', sans-serif";
+
+// Gráfico Donut — Distribuição
+const ctxDist = document.getElementById('chartDist').getContext('2d');
+new Chart(ctxDist, {
+    type: 'doughnut',
+    data: {
+        labels: ['Próximas', 'Passadas', 'Com ESI', 'Sem ESI'],
+        datasets: [{
+            data: [dadosDistribuicao.proximas, dadosDistribuicao.passadas, dadosDistribuicao.comEsi, dadosDistribuicao.semEsi],
+            backgroundColor: ['#f59e0b', '#64748b', '#22c55e', '#94a3b8'],
+            borderWidth: 0,
+        }],
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: {
+            legend: {
+                position: 'right',
+                labels: { color: textColor(), font: { size: 12 }, padding: 12 }
+            },
+            tooltip: { callbacks: { label: ctx => ` ${ctx.label}: ${ctx.parsed}` } }
+        },
+        cutout: '65%',
+    }
+});
+
+// Gráfico Barras — Missões por mês
+const ctxMes = document.getElementById('chartMes').getContext('2d');
+new Chart(ctxMes, {
+    type: 'bar',
+    data: {
+        labels: dadosMeses.labels,
+        datasets: [{
+            label: 'Missões',
+            data: dadosMeses.values,
+            backgroundColor: 'rgba(245,158,11,0.7)',
+            borderRadius: 6,
+            borderSkipped: false,
+        }]
+    },
+    options: {
+        responsive: true, maintainAspectRatio: false,
+        plugins: { legend: { display: false } },
+        scales: {
+            x: {
+                ticks: { color: mutedColor(), font: { size: 11 } },
+                grid: { color: gridColor() }
+            },
+            y: {
+                ticks: { color: mutedColor(), stepSize: 1, font: { size: 11 } },
+                grid: { color: gridColor() },
+                beginAtZero: true,
+            }
+        }
+    }
+});
+
+// Modais
+function abrirModalExtrato() {
+    const d = new Date();
+    document.getElementById('extrato-data').value = d.toISOString().split('T')[0];
+    document.getElementById('modal-extrato').classList.add('show');
+}
+function abrirModalCompilado() {
+    const d = new Date();
+    document.getElementById('compilado-data').value = d.toISOString().split('T')[0];
+    document.getElementById('modal-compilado').classList.add('show');
+}
+function fecharModal(id) {
+    document.getElementById(id).classList.remove('show');
+}
+function gerarExtrato() {
+    const data = document.getElementById('extrato-data').value;
+    if (!data) { alert('Selecione uma data.'); return; }
+    window.open("{% url 'Secao_operacoes:extrato_missao_pdf' %}?data=" + data, '_blank');
+    fecharModal('modal-extrato');
+}
+function gerarCompilado() {
+    const data = document.getElementById('compilado-data').value;
+    if (!data) { alert('Selecione uma data.'); return; }
+    window.open("{% url 'Secao_operacoes:compilado_missoes_pdf' %}?data=" + data, '_blank');
+    fecharModal('modal-compilado');
+}
+document.querySelectorAll('.modal-overlay').forEach(m => {
+    m.addEventListener('click', e => { if (e.target === m) m.classList.remove('show'); });
+});
+
+// Exportar Excel
+function exportarExcel() {
+    const rows = [['Nº OMIS', 'Missão', 'Local', 'Data', 'CMT', 'ESI']];
+    document.querySelectorAll('.mission-card').forEach(card => {
+        const titulo = card.querySelector('.mission-title')?.textContent?.trim() || '';
+        const meta   = card.querySelectorAll('.mission-meta span');
+        const local  = meta[0]?.textContent?.replace(/\s+/g, ' ').trim() || '';
+        const data   = meta[1]?.textContent?.replace(/\s+/g, ' ').trim() || '';
+        const cmt    = meta[2]?.textContent?.replace(/\s+/g, ' ').trim() || '';
+        const esi    = card.querySelector('.badge-esi') ? 'Sim' : 'Não';
+        // Separar OMIS N° e nome
+        const partes = titulo.split(' — ');
+        const omis   = partes[0]?.trim() || titulo;
+        const nome   = partes.slice(1).join(' — ').replace(/HOJE|ESI\s*\(\d+\)/g, '').trim();
+        rows.push([omis, nome, local, data, cmt, esi]);
+    });
+    const wb = XLSX.utils.book_new();
+    const ws = XLSX.utils.aoa_to_sheet(rows);
+    ws['!cols'] = [{wch:30},{wch:40},{wch:25},{wch:14},{wch:25},{wch:8}];
+    XLSX.utils.book_append_sheet(wb, ws, 'Missões');
+    XLSX.writeFile(wb, 'painel_missoes.xlsx');
+}
+</script>
+{% endblock %}

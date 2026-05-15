@@ -235,6 +235,50 @@ def _notificar(remetente, destinatario, titulo, mensagem):
         pass
 
 
+def _notificar_esi_sobre_missao(missao):
+    """Notifica grupo ESI-Missões (sino + caixa de entrada) quando uma missão os envolve."""
+    campos_esi = (missao.cmt_a_cargo or '') + (missao.mot_a_cargo or '') + (missao.equipe_a_cargo or '')
+    if 'ESI' not in campos_esi.upper():
+        return
+    try:
+        from notificacoes.utils import notificar
+        from django.urls import reverse
+        # Notifica o grupo ESI-Missões (e ESI completo por segurança)
+        usuarios_esi = User.objects.filter(
+            groups__name__in=['ESI-Missões', 'ESI']
+        ).distinct()
+        if not usuarios_esi.exists():
+            return
+        url_escala = reverse('ESI:missao_escala', args=[missao.pk])
+        titulo = f"Nova missão ESI: OMIS N° {missao.numero}/SOPGSDGL/GSD GL"
+        corpo = f"{missao.nome_missao} — {missao.data_missao.strftime('%d/%m/%Y')}"
+        # Sino de notificações
+        notificar(usuarios_esi, titulo=titulo, corpo=corpo, url=url_escala, tipo='sistema')
+        # Caixa de entrada — remetente é o usuário do sistema (criado_por)
+        try:
+            from caixa_entrada.models import Mensagem
+            remetente = missao.criado_por
+            if remetente:
+                msg = Mensagem.objects.create(
+                    remetente=remetente,
+                    assunto=titulo,
+                    corpo=(
+                        f"A missão {corpo} foi atribuída à ESI.\n\n"
+                        f"Campos:\n"
+                        f"  CMT a cargo: {missao.cmt_a_cargo or '—'}\n"
+                        f"  MOT a cargo: {missao.mot_a_cargo or '—'}\n"
+                        f"  Equipe a cargo: {missao.equipe_a_cargo or '—'}\n\n"
+                        f"Acesse o sistema para escalar os militares."
+                    ),
+                    tipo='mensagem',
+                )
+                msg.destinatarios.set(usuarios_esi)
+        except Exception:
+            pass
+    except Exception:
+        pass
+
+
 # ── Views ────────────────────────────────────────────────────────────────────
 
 @login_required
@@ -594,6 +638,7 @@ def missao_list(request):
     filtro_semana = request.GET.get('semana', '')
     busca = request.GET.get('q', '').strip()
     ordem = request.GET.get('ordem', 'desc')
+    ano = request.GET.get('ano', str(date.today().year))
 
     missoes = Missao.objects.all().select_related('cmt_missao').prefetch_related('escala_esi__militares')
 
@@ -627,6 +672,13 @@ def missao_list(request):
         except ValueError:
             data_filtro = ''
 
+    # Filtro de ano — ativo apenas quando nenhum filtro de data explícito está em uso
+    if not busca and not data_filtro and not filtro_hoje and not filtro_semana:
+        try:
+            missoes = missoes.filter(data_missao__year=int(ano))
+        except (ValueError, TypeError):
+            pass
+
     if ordem == 'asc':
         missoes = missoes.order_by('numero')
     else:
@@ -635,8 +687,19 @@ def missao_list(request):
     # semana atual para pré-preencher o input week
     semana_atual_value = hoje.strftime('%Y-W%W')
 
+    from django.core.paginator import Paginator
+    paginator = Paginator(missoes, 25)
+    page_number = request.GET.get('page', 1)
+    page_obj = paginator.get_page(page_number)
+
+    anos_disponiveis = sorted(set(
+        Missao.objects.dates('data_missao', 'year').values_list('data_missao__year', flat=True)
+    ), reverse=True)
+    ano_atual_str = str(date.today().year)
+
     return render(request, 'Secao_operacoes/missao_list.html', {
-        'missoes': missoes,
+        'missoes': page_obj.object_list,
+        'page_obj': page_obj,
         'data_filtro': data_filtro,
         'filtro_hoje': bool(filtro_hoje),
         'filtro_semana': filtro_semana,
@@ -646,6 +709,9 @@ def missao_list(request):
         'busca': busca,
         'ordem': ordem,
         'semana_atual_value': semana_atual_value,
+        'ano': ano,
+        'anos_disponiveis': anos_disponiveis,
+        'ano_atual_str': ano_atual_str,
     })
 
 
@@ -653,14 +719,14 @@ def missao_list(request):
 def missao_create(request):
     origem = None
     efetivo_ref = None
+    from django.utils import timezone as _tz_create
     if request.method == 'POST':
         form = MissaoForm(request.POST)
         efetivo_ref = _efetivo_ref_from_post(request)
         if form.is_valid():
-            from django.utils import timezone
             missao = form.save(commit=False)
             missao.criado_por = request.user
-            missao.data_emissao = timezone.localdate()
+            missao.data_emissao = _tz_create.localdate()
             missao.radio_nome = request.POST.get('radio_nome', '').strip()
             _salvar_efetivo_post(request, missao)
             missao.save()
@@ -669,9 +735,14 @@ def missao_create(request):
             _salvar_diretrizes(request, missao)
             _salvar_armamentos_equipamentos(request, missao)
             messages.success(request, f'OMIS Nº {missao.numero} criada com sucesso.')
+            _notificar_esi_sobre_missao(missao)
             return redirect('Secao_operacoes:missao_detail', pk=missao.pk)
     else:
-        proximo = (Missao.objects.aggregate(m=models.Max('numero'))['m'] or 0) + 1
+        _ano_atual = _tz_create.localdate().year
+        proximo = (
+            Missao.objects.filter(data_emissao__year=_ano_atual)
+            .aggregate(m=models.Max('numero'))['m'] or 0
+        ) + 1
         cfg = ConfiguracaoOperacoes.get_instance()
         origem = None
         efetivo_ref = None
@@ -748,6 +819,7 @@ def missao_edit(request, pk):
             missao.equipamentos.all().delete()
             _salvar_armamentos_equipamentos(request, missao)
             messages.success(request, 'Missão atualizada com sucesso.')
+            _notificar_esi_sobre_missao(missao)
             return redirect('Secao_operacoes:missao_detail', pk=missao.pk)
     else:
         form = MissaoForm(instance=missao)
@@ -788,6 +860,104 @@ def missao_delete(request, pk):
         messages.success(request, f'OMIS Nº {numero} excluída com sucesso.')
         return redirect('Secao_operacoes:missao_list')
     return redirect('Secao_operacoes:missao_list')
+
+
+@sop_required
+def horario_add(request, pk):
+    """AJAX: adiciona um horário extra (ou vinculado a slot) a uma missão."""
+    from django.views.decorators.http import require_POST as _rp
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'}, status=405)
+    missao = get_object_or_404(Missao, pk=pk)
+    label    = request.POST.get('label', '').strip()
+    horario  = request.POST.get('horario', '').strip() or None
+    slot_key = request.POST.get('slot_key', '').strip()
+    if not label:
+        return JsonResponse({'ok': False, 'error': 'label obrigatório'}, status=400)
+    ordem = ItemHorario.objects.filter(missao=missao).count()
+    h = ItemHorario.objects.create(
+        missao=missao, label=label, horario=horario, ordem=ordem, slot_key=slot_key
+    )
+    return JsonResponse({'ok': True, 'id': h.id})
+
+
+@sop_required
+def horario_delete(request, pk, h_id):
+    """AJAX: remove um horário extra de uma missão."""
+    if request.method != 'POST':
+        return JsonResponse({'ok': False, 'error': 'POST required'}, status=405)
+    h = get_object_or_404(ItemHorario, pk=h_id, missao__pk=pk)
+    h.delete()
+    return JsonResponse({'ok': True})
+
+
+@sop_required
+def painel_missoes(request):
+    """Painel de missões — resumo visual com gráficos, filtros e exportação."""
+    from django.db.models import Q, Count
+    from django.utils import timezone
+    import datetime as dt
+    hoje = timezone.localdate()
+    filtro  = request.GET.get('filtro', 'proximas')
+    busca   = request.GET.get('q', '').strip()
+    data_de = request.GET.get('data_de', '').strip()
+    data_ate = request.GET.get('data_ate', '').strip()
+
+    esi_q = Q(cmt_a_cargo__icontains='ESI') | Q(mot_a_cargo__icontains='ESI') | Q(equipe_a_cargo__icontains='ESI')
+
+    missoes = Missao.objects.select_related('cmt_missao').prefetch_related('escala_esi__militares')
+
+    if filtro == 'proximas':
+        missoes = missoes.filter(data_missao__gte=hoje)
+    elif filtro == 'passadas':
+        missoes = missoes.filter(data_missao__lt=hoje)
+    elif filtro == 'esi':
+        missoes = missoes.filter(esi_q)
+
+    if busca:
+        try:
+            num = int(busca)
+            missoes = missoes.filter(Q(numero=num) | Q(nome_missao__icontains=busca))
+        except ValueError:
+            missoes = missoes.filter(nome_missao__icontains=busca)
+
+    if data_de:
+        try:
+            missoes = missoes.filter(data_missao__gte=dt.datetime.strptime(data_de, '%Y-%m-%d').date())
+        except ValueError:
+            data_de = ''
+    if data_ate:
+        try:
+            missoes = missoes.filter(data_missao__lte=dt.datetime.strptime(data_ate, '%Y-%m-%d').date())
+        except ValueError:
+            data_ate = ''
+
+    total      = Missao.objects.count()
+    proximas_n = Missao.objects.filter(data_missao__gte=hoje).count()
+    passadas_n = Missao.objects.filter(data_missao__lt=hoje).count()
+    com_esi_n  = Missao.objects.filter(esi_q).count()
+
+    # Dados para gráfico de barras — missões por mês no ano corrente
+    MESES = ['Jan','Fev','Mar','Abr','Mai','Jun','Jul','Ago','Set','Out','Nov','Dez']
+    contagem_meses = [0] * 12
+    for m in Missao.objects.filter(data_missao__year=hoje.year).values('data_missao__month').annotate(n=Count('id')):
+        contagem_meses[m['data_missao__month'] - 1] = m['n']
+    missoes_por_mes_json = json.dumps({'labels': MESES, 'values': contagem_meses})
+
+    missoes = missoes.order_by('data_missao', 'numero')
+    return render(request, 'Secao_operacoes/painel_missoes.html', {
+        'missoes': missoes,
+        'filtro': filtro,
+        'busca': busca,
+        'data_de': data_de,
+        'data_ate': data_ate,
+        'hoje': hoje,
+        'total': total,
+        'proximas_n': proximas_n,
+        'passadas_n': passadas_n,
+        'com_esi_n': com_esi_n,
+        'missoes_por_mes_json': missoes_por_mes_json,
+    })
 
 
 def _missao_pdf_context(missao, request):
@@ -1003,11 +1173,20 @@ def missao_busca_json(request):
     q = request.GET.get('q', '').strip()
     if len(q) < 1:
         return JsonResponse([], safe=False)
+    todos_anos = request.GET.get('todos_anos', '0') == '1'
+    if todos_anos:
+        base_qs = Missao.objects.all()
+    else:
+        try:
+            _ano_busca = int(request.GET.get('ano', date.today().year))
+        except (ValueError, TypeError):
+            _ano_busca = date.today().year
+        base_qs = Missao.objects.filter(data_missao__year=_ano_busca)
     try:
         num = int(q)
-        missoes = Missao.objects.filter(Q(numero=num) | Q(nome_missao__icontains=q)).order_by('-data_missao')[:10]
+        missoes = base_qs.filter(Q(numero=num) | Q(nome_missao__icontains=q)).order_by('-data_missao')[:10]
     except ValueError:
-        missoes = Missao.objects.filter(nome_missao__icontains=q).order_by('-data_missao')[:10]
+        missoes = base_qs.filter(nome_missao__icontains=q).order_by('-data_missao')[:10]
     resultado = []
     for m in missoes:
         resultado.append({

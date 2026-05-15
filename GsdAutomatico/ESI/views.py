@@ -13,10 +13,25 @@ def is_esi(user):
     return user.is_superuser or user.groups.filter(name='ESI').exists()
 
 
+def is_esi_missoes(user):
+    """Acesso à parte de Missões da ESI — grupo ESI-Missões, ESI completo ou superuser."""
+    return user.is_superuser or user.groups.filter(name__in=['ESI', 'ESI-Missões']).exists()
+
+
 def esi_required(view_func):
     @login_required
     def _wrapped(request, *args, **kwargs):
         if not is_esi(request.user):
+            return render(request, 'ESI/acesso_negado.html', status=403)
+        return view_func(request, *args, **kwargs)
+    return _wrapped
+
+
+def esi_missoes_required(view_func):
+    """Decorator para views de Missões da ESI — exige grupo ESI-Missões ou ESI."""
+    @login_required
+    def _wrapped(request, *args, **kwargs):
+        if not is_esi_missoes(request.user):
             return render(request, 'ESI/acesso_negado.html', status=403)
         return view_func(request, *args, **kwargs)
     return _wrapped
@@ -49,7 +64,7 @@ def dashboard(request):
     })
 
 
-@esi_required
+@esi_missoes_required
 def painel_missoes(request):
     from django.db.models import Q
     hoje = timezone.localdate()
@@ -89,7 +104,7 @@ def painel_missoes(request):
     })
 
 
-@esi_required
+@esi_missoes_required
 def missao_escala(request, missao_id):
     missao = get_object_or_404(Missao, pk=missao_id)
     escala, _ = EscalaMissaoESI.objects.get_or_create(missao=missao)
@@ -110,7 +125,7 @@ def missao_escala(request, missao_id):
     })
 
 
-@esi_required
+@esi_missoes_required
 @require_POST
 def salvar_escala(request, missao_id):
     missao = get_object_or_404(Missao, pk=missao_id)
@@ -124,6 +139,29 @@ def salvar_escala(request, missao_id):
     escala.observacoes = observacoes
     escala.identificacao_pelotao = identificacao_pelotao
     escala.save()
+
+    # Notifica usuários de Operações sobre a escala ESI
+    try:
+        from notificacoes.utils import notificar
+        from django.urls import reverse
+        from django.contrib.auth import get_user_model
+        _User = get_user_model()
+        militares_nomes = ', '.join(
+            m.nome_guerra for m in escala.militares.all()[:5]
+        )
+        usuarios_ops = _User.objects.filter(groups__name='SOP - Operações')
+        if usuarios_ops.exists():
+            notificar(
+                usuarios_ops,
+                titulo=f"ESI escalou militares para OMIS N° {missao.numero}/SOPGSDGL/GSD GL",
+                corpo=f"{militares_nomes} | {missao.nome_missao} — {missao.data_missao.strftime('%d/%m/%Y')}",
+                url=reverse('Secao_operacoes:missao_detail', args=[missao.pk]),
+                tipo='sistema',
+                origem_id=escala.pk,
+                origem_tipo='EscalaMissaoESI',
+            )
+    except Exception:
+        pass
 
     return redirect('ESI:missao_escala', missao_id=missao_id)
 

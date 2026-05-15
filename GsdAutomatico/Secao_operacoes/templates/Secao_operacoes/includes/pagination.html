@@ -1,0 +1,47 @@
+{% if page_obj.paginator.num_pages > 1 %}
+<nav style="display:flex;justify-content:center;align-items:center;gap:4px;padding:14px 16px;border-top:1px solid var(--border-strong);">
+    {% if page_obj.has_previous %}
+    <a href="?page={{ page_obj.previous_page_number }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}"
+       style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);text-decoration:none;font-size:14px;transition:all 0.15s;"
+       onmouseover="this.style.background='var(--bg-page)';this.style.color='var(--accent)'"
+       onmouseout="this.style.background='var(--bg-card)';this.style.color='var(--text-secondary)'">
+        &lsaquo;
+    </a>
+    {% else %}
+    <span style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg-page);color:var(--text-muted);font-size:14px;cursor:default;opacity:0.5;">&lsaquo;</span>
+    {% endif %}
+
+    {% for num in page_obj.paginator.page_range %}
+        {% if page_obj.number == num %}
+        <span style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;border:1px solid var(--accent);background:var(--accent);color:#fff;font-size:13px;font-weight:700;">{{ num }}</span>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <a href="?page={{ num }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}"
+           style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);text-decoration:none;font-size:13px;transition:all 0.15s;"
+           onmouseover="this.style.background='var(--bg-page)';this.style.color='var(--accent)'"
+           onmouseout="this.style.background='var(--bg-card)';this.style.color='var(--text-secondary)'">{{ num }}</a>
+        {% elif num == 1 or num == page_obj.paginator.num_pages %}
+        <a href="?page={{ num }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}"
+           style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);text-decoration:none;font-size:13px;transition:all 0.15s;"
+           onmouseover="this.style.background='var(--bg-page)';this.style.color='var(--accent)'"
+           onmouseout="this.style.background='var(--bg-card)';this.style.color='var(--text-secondary)'">{{ num }}</a>
+        {% elif num == page_obj.number|add:'-3' or num == page_obj.number|add:'3' %}
+        <span style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;color:var(--text-muted);font-size:13px;">…</span>
+        {% endif %}
+    {% endfor %}
+
+    {% if page_obj.has_next %}
+    <a href="?page={{ page_obj.next_page_number }}{% for k,v in request.GET.items %}{% if k != 'page' %}&{{ k }}={{ v }}{% endif %}{% endfor %}"
+       style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);text-decoration:none;font-size:14px;transition:all 0.15s;"
+       onmouseover="this.style.background='var(--bg-page)';this.style.color='var(--accent)'"
+       onmouseout="this.style.background='var(--bg-card)';this.style.color='var(--text-secondary)'">
+        &rsaquo;
+    </a>
+    {% else %}
+    <span style="display:inline-flex;align-items:center;justify-content:center;min-width:32px;height:32px;border-radius:8px;border:1px solid var(--border);background:var(--bg-page);color:var(--text-muted);font-size:14px;cursor:default;opacity:0.5;">&rsaquo;</span>
+    {% endif %}
+
+    <span style="margin-left:12px;font-size:12px;color:var(--text-muted);">
+        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+    </span>
+</nav>
+{% endif %}

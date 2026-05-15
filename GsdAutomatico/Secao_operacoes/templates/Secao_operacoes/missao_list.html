@@ -137,6 +137,33 @@ tbody td { padding:12px 16px; font-size:0.875rem; color:var(--text-primary); ver
     </div>
 </div>
 
+<!-- Guias de ano -->
+{% if anos_disponiveis %}
+<div style="display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:14px;">
+    {% for a in anos_disponiveis %}
+        {% if forloop.counter <= 3 %}
+        <a href="?ano={{ a }}&ordem={{ ordem }}"
+           style="padding:6px 18px;border-radius:20px;font-size:13px;font-weight:600;text-decoration:none;border:1px solid var(--border-strong);transition:background .15s,color .15s;
+                  {% if a|stringformat:'s' == ano %}background:var(--accent);color:#fff;border-color:var(--accent);{% else %}background:var(--bg-card);color:var(--text-secondary);{% endif %}">
+            {{ a }}
+        </a>
+        {% endif %}
+    {% endfor %}
+    {% if anos_disponiveis|length > 3 %}
+    <select onchange="window.location.href=this.value"
+            style="padding:5px 12px;border-radius:20px;font-size:13px;font-weight:600;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);cursor:pointer;">
+        <option value="">Outro ano…</option>
+        {% for a in anos_disponiveis %}
+            {% if forloop.counter > 3 %}
+            <option value="?ano={{ a }}&ordem={{ ordem }}"
+                {% if a|stringformat:'s' == ano %}selected{% endif %}>{{ a }}</option>
+            {% endif %}
+        {% endfor %}
+    </select>
+    {% endif %}
+</div>
+{% endif %}
+
 <!-- Modal Extrato de Missão -->
 <div id="modal-extrato" style="display:none;position:fixed;inset:0;z-index:9999;align-items:center;justify-content:center;background:rgba(0,0,0,0.55);">
     <div style="background:var(--bg-card,#fff);border:1px solid var(--border-strong,#ccc);border-radius:14px;box-shadow:0 16px 48px rgba(0,0,0,0.28);padding:28px 32px;min-width:320px;max-width:400px;width:100%;">
@@ -255,10 +282,11 @@ document.addEventListener('click', e => {
 <!-- Barra de filtro -->
 <form method="get" class="filter-bar" id="filter-form">
     <input type="hidden" name="ordem" value="{{ ordem }}">
+    <input type="hidden" name="ano" value="{{ ano }}">
 
     <div style="position:relative;flex:1;min-width:200px;max-width:340px;">
         <i class="fas fa-search" style="position:absolute;left:11px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:13px;pointer-events:none;z-index:1;"></i>
-        <input id="search-q" type="text" name="q" value="{{ busca }}" placeholder="Buscar por nome ou Nº OMIS..."
+        <input id="search-q" type="text" name="q" value="{{ busca }}" placeholder="Buscar em {{ ano }}…"
                class="filter-date" style="padding-left:34px;width:100%;" autocomplete="off">
         <div id="search-suggestions" style="display:none;position:absolute;top:calc(100% + 4px);left:0;right:0;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.18);z-index:999;overflow:hidden;"></div>
     </div>
@@ -344,7 +372,7 @@ document.addEventListener('click', e => {
                     <td style="font-weight:600;">
                         {{ m.nome_missao }}
                         {% if m.escala_esi and m.escala_esi.militares.count > 0 %}
-                        <span style="display:inline-flex;align-items:center;gap:4px;background:rgba(30,58,95,0.12);color:#1e3a5f;border:1px solid rgba(30,58,95,0.25);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-left:6px;vertical-align:middle;">
+                        <span style="display:inline-flex;align-items:center;gap:4px;background:var(--accent-dim);color:var(--accent);border:1px solid var(--border-strong);padding:2px 8px;border-radius:20px;font-size:10px;font-weight:700;margin-left:6px;vertical-align:middle;">
                             <i class="fas fa-shield-alt"></i> ESI ({{ m.escala_esi.militares.count }})
                         </span>
                         {% endif %}
@@ -402,6 +430,7 @@ document.addEventListener('click', e => {
         </div>
         {% endif %}
     </div>
+    {% include 'Secao_operacoes/includes/pagination.html' %}
 </div>
 
 <style>
@@ -419,6 +448,7 @@ document.addEventListener('click', e => {
 
 <script>
 const BUSCA_URL = "{% url 'Secao_operacoes:missao_busca_json' %}";
+const ANO_ATUAL = "{{ ano }}";
 const searchInput = document.getElementById('search-q');
 const suggestions = document.getElementById('search-suggestions');
 let debounce, activeIdx = -1;
@@ -448,7 +478,7 @@ function setActive(idx, items) {
 
 async function fetchSuggestions(q) {
     try {
-        const res = await fetch(`${BUSCA_URL}?q=${encodeURIComponent(q)}`);
+        const res = await fetch(`${BUSCA_URL}?q=${encodeURIComponent(q)}&ano=${ANO_ATUAL}`);
         const data = await res.json();
         renderSuggestions(data);
     } catch {}
