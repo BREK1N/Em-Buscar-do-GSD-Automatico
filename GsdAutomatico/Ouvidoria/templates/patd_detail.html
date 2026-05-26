@@ -802,7 +802,10 @@
             <div class="detail-grid">
                 <div class="detail-item">
                     <strong>Militar Acusado:</strong>
-                    <p class="detail-value"><a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a></p>
+                    <p class="detail-value">
+                        <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
+                        {% if patd.militar.saram %}<span style="font-size:12px;color:var(--text-muted);margin-left:6px;">SARAM: {{ patd.militar.saram }}</span>{% endif %}
+                    </p>
                 </div>
                 <div class="detail-item">
                     <strong>Data da Ocorrência:</strong>

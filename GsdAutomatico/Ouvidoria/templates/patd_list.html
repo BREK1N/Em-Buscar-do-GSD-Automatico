@@ -301,6 +301,9 @@
                     <a href="{% url 'Ouvidoria:militar_patd_list' patd.militar.pk %}" class="militar-link">
                         {{ patd.militar }}
                     </a>
+                    {% if patd.militar.saram %}
+                    <div style="font-size:11px;color:var(--text-muted);margin-top:2px;">SARAM: {{ patd.militar.saram }}</div>
+                    {% endif %}
                 </td>
                 <td style="color:var(--text-secondary);">
                     {% if patd.data_ocorrencia %}{{ patd.data_ocorrencia|date:"d/m/Y" }}{% else %}—{% endif %}
