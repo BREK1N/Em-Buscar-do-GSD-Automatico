@@ -32,6 +32,34 @@
     border: 1px solid var(--border); background: transparent; color: var(--text-secondary); cursor: pointer;
 }
 
+/* ── Guias de Fase ── */
+.fase-tabs {
+    display: flex; gap: 6px; flex-wrap: wrap;
+    margin-bottom: 14px;
+}
+.fase-tab {
+    display: inline-flex; align-items: center; gap: 7px;
+    padding: 7px 16px; border-radius: 9px; font-size: 13px; font-weight: 600;
+    border: 1.5px solid var(--border-strong); background: var(--bg-card);
+    color: var(--text-secondary); text-decoration: none; cursor: pointer;
+    transition: background .15s, color .15s, border-color .15s, box-shadow .15s;
+    white-space: nowrap;
+}
+.fase-tab:hover { background: var(--bg-hover, rgba(0,0,0,.05)); color: var(--text-primary); }
+.fase-tab.active {
+    background: var(--accent, #2563eb); color: #fff;
+    border-color: var(--accent, #2563eb); box-shadow: 0 2px 8px rgba(37,99,235,.28);
+}
+.fase-tab .fase-count {
+    display: inline-flex; align-items: center; justify-content: center;
+    min-width: 20px; height: 20px; border-radius: 10px; font-size: 11px; font-weight: 700;
+    padding: 0 5px;
+    background: rgba(0,0,0,.1); color: inherit;
+}
+.fase-tab.active .fase-count { background: rgba(255,255,255,.25); color: #fff; }
+.fase-tab-all { border-style: dashed; }
+.fase-tab-all.active { border-style: solid; }
+
 /* ── Barra de filtros ── */
 .patd-filters {
     display: flex; align-items: center; gap: 10px; flex-wrap: wrap;
@@ -197,9 +225,25 @@
     </div>
 </div>
 
+<!-- Guias de Fase -->
+<div class="fase-tabs">
+    <a class="fase-tab fase-tab-all {% if not current_fase %}active{% endif %}"
+       href="?ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">
+        Todas
+    </a>
+    {% for phase in phase_groups %}
+    <a class="fase-tab {% if current_fase == phase.key %}active{% endif %}"
+       href="?ano={{ ano }}&fase={{ phase.key }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+        {{ phase.label }}
+        <span class="fase-count">{{ phase.count }}</span>
+    </a>
+    {% endfor %}
+</div>
+
 <!-- Barra de filtros -->
 <form method="get" class="patd-filters" id="filter-form-patd">
     <input type="hidden" name="ano" value="{{ ano }}">
+    {% if current_fase %}<input type="hidden" name="fase" value="{{ current_fase }}">{% endif %}
     <div class="search-wrap">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
         <input type="text" name="q" placeholder="Pesquisar em {{ ano }}…" value="{{ request.GET.q|default:'' }}" autocomplete="off">
@@ -220,7 +264,7 @@
         Buscar
     </button>
     {% if request.GET.q or current_status %}
-    <a href="?ano={{ ano }}" style="font-size:13px;color:var(--text-muted);text-decoration:none;padding:6px 4px;white-space:nowrap;">
+    <a href="?ano={{ ano }}{% if current_fase %}&fase={{ current_fase }}{% endif %}" style="font-size:13px;color:var(--text-muted);text-decoration:none;padding:6px 4px;white-space:nowrap;">
         ✕ Limpar filtros
     </a>
     {% endif %}
@@ -232,7 +276,7 @@
         <thead>
             <tr>
                 <th style="width:80px;">
-                    <a href="?sort={{ numero_patd_next_sort }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">
+                    <a href="?sort={{ numero_patd_next_sort }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">
                         N° PATD
                         {% if current_sort == 'numero_patd' %}
                         <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="18 11 12 5 6 11"/></svg>
@@ -321,8 +365,8 @@
     {% if is_paginated %}
     <div class="patd-pagination">
         {% if page_obj.has_previous %}
-        <a class="pg-btn" href="?page=1&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">«</a>
-        <a class="pg-btn" href="?page={{ page_obj.previous_page_number }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">‹</a>
+        <a class="pg-btn" href="?page=1&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">«</a>
+        <a class="pg-btn" href="?page={{ page_obj.previous_page_number }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">‹</a>
         {% else %}
         <span class="pg-btn disabled">«</span>
         <span class="pg-btn disabled">‹</span>
@@ -331,8 +375,8 @@
         <span class="pg-info">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
 
         {% if page_obj.has_next %}
-        <a class="pg-btn" href="?page={{ page_obj.next_page_number }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">›</a>
-        <a class="pg-btn" href="?page={{ page_obj.paginator.num_pages }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">»</a>
+        <a class="pg-btn" href="?page={{ page_obj.next_page_number }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">›</a>
+        <a class="pg-btn" href="?page={{ page_obj.paginator.num_pages }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">»</a>
         {% else %}
         <span class="pg-btn disabled">›</span>
         <span class="pg-btn disabled">»</span>

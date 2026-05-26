@@ -77,60 +77,49 @@ def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
     """
     structured_llm = model.with_structured_output(AnaliseTransgressao)
 
-    # Prompt ULTRA específico para diferenciar Acusado de Relator
     sys_prompt = """
-    Você é um oficial de justiça militar especialista em analisar Partes de Ocorrência e Ofícios de Transgressão.
-    
-    Sua tarefa CRÍTICA é identificar **QUEM É O TRANSGRESSOR (ACUSADO)** e separar das outras pessoas citadas.
+Você é um extrator de dados de documentos militares. Sua única função é COPIAR informações do documento. Você NÃO reescreve, NÃO interpreta, NÃO resume, NÃO acrescenta nada.
 
-    ### REGRAS DE IDENTIFICAÇÃO DE ACUSADOS (IMPORTANTE):
-    1.  **QUEM É O ACUSADO?** É o militar que cometeu o erro, a falta ou o crime militar. É contra quem o documento está sendo escrito.
-    2.  **QUEM NÃO É O ACUSADO?**
-        * **NÃO** extraia o nome do "Signatário" ou "Participante" (quem escreveu/assinou o documento reportando o fato).
-        * **NÃO** extraia nomes de testemunhas.
-        * **NÃO** extraia o nome da autoridade (Comandante) a quem o documento é dirigido.
-        * **NÃO** extraia o nome da vítima, a menos que seja uma rixa onde ambos são acusados.
-    3.  **MÚLTIPLOS ACUSADOS:** Se o texto descreve uma briga, rixa ou falta coletiva envolvendo vários militares, **LISTE TODOS ELES** na lista de `acusados`. Não pegue apenas o primeiro.
-    4.  **SARAM E NOMES:** Tente associar o SARAM correto ao nome correto. O SARAM geralmente aparece próximo ao nome do militar.
+═══════════════════════════════════════════
+REGRA MÁXIMA — TRANSCRIÇÃO LITERAL
+═══════════════════════════════════════════
+Os campos `transgressao` e `transgressao_individual` devem ser CÓPIAS EXATAS do texto do documento.
+- PROIBIDO corrigir ortografia, pontuação ou gramática do documento original.
+- PROIBIDO trocar, resumir, parafrasear ou interpretar qualquer palavra.
+- PROIBIDO acrescentar frases como "o que configura", "demonstrando que", "em desacordo com", "infringindo o Art.", ou qualquer coisa que não esteja literalmente escrita no documento.
+- Se houver erro de digitação no documento original, COPIE o erro. Não corrija.
+- A saída deve ser caractere por caractere igual ao texto fonte.
 
-    ### TAREFA DE EXTRAÇÃO:
-    Para cada acusado identificado, extraia:
-    * **SARAM:** (Prioridade máxima, números de 6 ou 7 dígitos).
-    * **Nome de Guerra:** (Geralmente em MAIÚSCULAS após a graduação).
-    * **Nome Completo:** (Se disponível).
-    * **Posto/Graduação:** (S1, S2, CB, 3S, etc).
+═══════════════════════════════════════════
+NOMES DOS ACUSADOS — REGRAS ABSOLUTAS
+═══════════════════════════════════════════
+1. Copie o nome EXATAMENTE como aparece no documento. Não corrija, não complete, não altere a grafia.
+2. QUEM É O ACUSADO: é o militar contra quem o documento foi escrito — quem cometeu a falta.
+3. NÃO extraia: signatário, quem assinou o documento, testemunhas, comandante destinatário, vítima (salvo em rixas).
+4. SARAM: associe o número ao nome correto. SARAM tem 6 ou 7 dígitos e geralmente aparece próximo ao nome.
+5. MÚLTIPLOS ACUSADOS: se o documento descreve falta coletiva (briga, rixa, falta em grupo), liste TODOS.
 
-    ### CAMPO TRANSGRESSÃO (campo global) — REGRA ABSOLUTA:
-    Copie o trecho completo do documento que narra o fato PALAVRA POR PALAVRA, exatamente como está escrito.
-    - PROIBIDO alterar qualquer palavra.
-    - PROIBIDO resumir ou expandir.
-    - PROIBIDO acrescentar interpretação, contexto, consequências ou análise.
-    - PROIBIDO usar frases como "O contexto indica", "pode configurar", "o que pode", "ainda que".
-    - Se o documento tiver múltiplos parágrafos descrevendo o fato, copie-os em sequência sem modificação.
-    - A saída deve ser idêntica ao texto do documento. Nada mais.
+═══════════════════════════════════════════
+DATA DA OCORRÊNCIA — REGRAS ABSOLUTAS
+═══════════════════════════════════════════
+1. Retorne SOMENTE a data do FATO ocorrido. NÃO use data de elaboração do documento, data de assinatura ou data de protocolo.
+2. Formato obrigatório: AAAA-MM-DD.
+3. Data por extenso → converta para AAAA-MM-DD.
+4. Intervalo de datas → use APENAS o primeiro dia do intervalo.
+5. Se o documento tiver duas datas (ex: data do fato e data do ofício), `data_ocorrencia` = data do FATO, `data_oficio` = data do documento.
+6. Se a data do fato não estiver no documento, retorne string vazia. NÃO invente datas.
 
-    ### CAMPO `transgressao_individual` (por acusado) — REGRA ABSOLUTA:
-    Para cada acusado identificado, copie LITERALMENTE apenas o trecho do documento que descreve especificamente o que AQUELE militar fez.
-    - Se o documento descreve atos diferentes para militares diferentes (ex: "o S2 FULANO fez X" e "o CB CICLANO fez Y"), coloque apenas o trecho de X na transgressão individual do FULANO, e apenas o trecho de Y na do CICLANO.
-    - Se todos os acusados cometeram o mesmo ato e o documento não os distingue individualmente, copie o mesmo trecho para todos.
-    - PROIBIDO elaborar, interpretar ou acrescentar qualquer palavra que não esteja no documento.
+═══════════════════════════════════════════
+CAMPO `transgressao_individual` (por acusado)
+═══════════════════════════════════════════
+- Copie LITERALMENTE o trecho que descreve o que AQUELE acusado específico fez.
+- Se todos cometeram o mesmo ato num mesmo trecho, copie o mesmo trecho para todos.
+- Se o documento separar os atos por pessoa, copie apenas o trecho de cada um.
+- PROIBIDO inventar ou elaborar texto que não esteja no documento.
+"""
 
-    ### OUTROS CAMPOS:
-    * **Data/Local/Ofício:** Extraia conforme disponível no texto.
-
-    ### REGRAS PARA EXTRAÇÃO DE DATA (MUITO IMPORTANTE):
-    1.  **Formato Final:** A `data_ocorrencia` e a `data_oficio` devem SEMPRE ser retornadas no formato **AAAA-MM-DD**.
-    2.  **Datas por Extenso:** Se a data estiver escrita por extenso (ex: "vinte e dois de abril de dois mil e vinte e cinco"), converta-a para o formato numérico AAAA-MM-DD (ex: "2025-04-22").
-    3.  **Intervalo de Datas:** Se a ocorrência aconteceu durante um período (ex: "do dia 22 para o dia 23 de abril", "entre 10 e 12 de maio"), extraia e retorne **APENAS O PRIMEIRO DIA** do intervalo. Para "do dia 22 para o dia 23", use o dia 22.
-    4.  **Data Incompleta:** Se o ano não for mencionado, assuma o ano corrente. Se o mês não for mencionado, tente inferir pelo contexto. Se impossível, deixe a data em branco.
-    5.  **Prioridade:** Dê prioridade para datas que estão claramente associadas ao fato ocorrido, em vez de datas de relatórios ou assinaturas.
-    """
-    
     human_prompt = (
-        "Analise este documento militar e extraia os dados estruturados.\n\n"
-        "ATENÇÃO: Para o campo 'transgressao', copie o texto do documento PALAVRA POR PALAVRA, "
-        "sem adicionar nenhuma palavra, sem interpretar, sem elaborar. "
-        "A saída deve ser idêntica ao que está escrito no documento.\n\n"
+        "Extraia os dados deste documento militar copiando o texto LITERALMENTE, sem alterar nenhuma palavra.\n\n"
         "Documento:\n{documento}"
     )
 
@@ -153,7 +142,15 @@ def enquadra_item(transgressao):
     parser = PydanticOutputParser(pydantic_object=Item)
 
     sys_prompt = """
-    Você é um especialista em enquadrar, de acordo com os itens, transgressões disciplinares.
+Você é um especialista em enquadramento disciplinar militar. Sua tarefa é identificar SOMENTE os itens do RDAER que se aplicam diretamente ao fato descrito na transgressão.
+
+REGRAS OBRIGATÓRIAS:
+1. Enquadre APENAS itens cujo texto descreve exatamente o que foi relatado. Se o item não tiver relação direta e clara com o fato, NÃO inclua.
+2. NÃO enquadre itens por semelhança vaga ou interpretação ampla. O enquadramento deve ser óbvio e direto.
+3. Prefira poucos itens certeiros a muitos itens duvidosos. É melhor enquadrar 1 item correto do que 5 com dúvida.
+4. O item 100 ("concorrer de qualquer modo para a prática de transgressão") só deve ser usado se houver participação indireta explícita no relato.
+5. PROIBIDO inventar ou deduzir fatos que não estão descritos no relato.
+
     São transgressões disciplinares:
     1 - aproveitar-se de missões de vôo para realizar vôos de caráter não militar ou pessoal;
     2 - utilizar-se sem ordem, de aeronave militar ou civil;
@@ -506,20 +503,23 @@ def texto_relatorio(transgressao, justificativa):
 #     parser = PydanticOutputParser(pydantic_object=Item)
 def personalizar_ocorrencia(transgressao_comum: str, posto: str, nome_guerra: str) -> str:
     """
-    Reescreve a ocorrência de forma que mencione apenas o militar especificado,
-    removendo referências a outros militares citados no texto original.
+    Adapta o texto da ocorrência para mencionar apenas o militar especificado,
+    fazendo o mínimo de alterações possível no texto original.
     """
-    sys_prompt = f"""Você é um escrivão militar. A partir do documento abaixo, produza UMA ÚNICA frase ou parágrafo curto (máximo 3 linhas) descrevendo APENAS o ato transgressor cometido pelo militar {posto} {nome_guerra}.
+    sys_prompt = f"""Você é um escrivão militar. Sua tarefa é adaptar o texto abaixo para que ele se refira APENAS ao militar {posto} {nome_guerra}, fazendo o MÍNIMO de alterações possível.
 
-REGRAS OBRIGATÓRIAS:
-1. REMOVA completamente qualquer cabeçalho formal ("Trata o presente expediente...", "Informo ao Senhor que...", etc.).
-2. REMOVA qualquer referência a artigos, itens ou regulamentos (ex: "conforme Parágrafo 11...").
-3. SUBSTITUA toda listagem de militares acusados (ex: "S2 FULANO, S2 CICLANO e S2 BELTRANO") pelo nome "{posto} {nome_guerra}" no singular.
-4. Coloque os verbos no singular (ex: "não permaneceram" → "não permaneceu", "se ausentaram" → "se ausentou").
-5. MANTENHA: data, local, nome da missão, nomes das testemunhas (apenas como observadores), e a natureza da infração.
-6. Retorne SOMENTE o texto reescrito, sem prefácio, sem aspas, sem explicações.
+REGRAS — LEIA COM ATENÇÃO:
 
-Documento original:
+1. CONSERVE ao máximo o texto original. Altere SOMENTE o que for estritamente necessário para remover referências a outros acusados.
+2. Se o texto já menciona apenas {posto} {nome_guerra}, DEVOLVA O TEXTO SEM ALTERAR NENHUMA PALAVRA.
+3. Se houver lista de acusados (ex: "S2 FULANO, CB CICLANO e S2 BELTRANO"), SUBSTITUA apenas essa lista pelo nome "{posto} {nome_guerra}" e ajuste o verbo para o singular. NÃO altere mais nada.
+4. PROIBIDO corrigir erros de ortografia, pontuação ou gramática do texto original — se houver erro no original, mantenha o erro.
+5. PROIBIDO remover cabeçalhos, datas, locais, referências a missões, nomes de testemunhas ou qualquer outro trecho do texto original.
+6. PROIBIDO acrescentar qualquer palavra, frase, interpretação ou contexto que não esteja no texto original.
+7. PROIBIDO mudar o nome "{posto} {nome_guerra}" — escreva exatamente como foi informado, sem abreviar, completar ou corrigir.
+8. Retorne APENAS o texto adaptado, sem explicações, sem aspas, sem prefácio.
+
+Texto original:
 {transgressao_comum}
 """
     chain = ChatPromptTemplate.from_messages([("system", sys_prompt)]) | model | StrOutputParser()

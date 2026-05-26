@@ -481,6 +481,18 @@
             </li>
             {% endif %}
 
+            {% if not is_comandante or request.user.is_superuser %}
+            <li>
+                <a href="{% url 'Ouvidoria:relatorio_ouvidoria' %}" class="{% if 'relatorio_ouvidoria' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M9 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2V5L9 0zm3 14H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h4.5L12 5.5V13a1 1 0 0 1-1 1z"/>
+                        <path d="M8.646 6.646a.5.5 0 0 1 .708 0l2 2a.5.5 0 0 1 0 .708l-2 2a.5.5 0 0 1-.708-.708L10.293 9 8.646 7.354a.5.5 0 0 1 0-.708zm-1.292 0a.5.5 0 0 0-.708 0l-2 2a.5.5 0 0 0 0 .708l2 2a.5.5 0 0 0 .708-.708L5.707 9l1.647-1.646a.5.5 0 0 0 0-.708z"/>
+                    </svg>
+                    <span>Relatório</span>
+                </a>
+            </li>
+            {% endif %}
+
             {% if is_comandante %}
             <li>
                 <a href="{% url 'Ouvidoria:comandante_dashboard' %}" class="{% if 'comandante' in request.resolver_match.url_name %}active{% endif %}">

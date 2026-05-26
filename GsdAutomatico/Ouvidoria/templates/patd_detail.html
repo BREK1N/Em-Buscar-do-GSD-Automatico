@@ -880,7 +880,13 @@
                       <div class="oficial-container">
                           <div class="detail-value">
                             {% if patd.status == 'definicao_oficial' %}
-                                <a href="{% url 'Ouvidoria:atribuir_oficial' patd.pk %}" class="btn btn-sm btn-primary">Atribuir Oficial</a>
+                                {% if patd.alegacao_defesa or patd.anexos.all %}
+                                    <span style="color:var(--text-secondary);font-size:.85rem;">Aguardando atribuição pós-defesa</span>
+                                    <a href="{% url 'Ouvidoria:atribuir_oficial' patd.pk %}" class="btn btn-sm btn-primary" style="margin-left:8px;">Atribuir Oficial</a>
+                                {% else %}
+                                    <span style="color:var(--text-secondary);font-size:.85rem;">Aguardando atribuição</span>
+                                    <a href="{% url 'Ouvidoria:atribuir_oficial' patd.pk %}" class="btn btn-sm btn-primary" style="margin-left:8px;">Atribuir Oficial</a>
+                                {% endif %}
                             {% elif patd.status == 'aguardando_aprovacao_atribuicao' %}
                                 Aguardando aceite de: <strong>{{ patd.oficial_responsavel }}</strong>
                                 {% if user.profile.militar == patd.oficial_responsavel %}
@@ -1977,8 +1983,8 @@ const PATD_CONFIG = {
     const inpDias    = document.getElementById('alterar-punicao-dias');
     const rowDias    = document.getElementById('alterar-punicao-dias-row');
 
-    function fechar() { modal.style.display = 'none'; }
-    btnAbrir.addEventListener('click', () => { modal.style.display = 'flex'; });
+    function fechar() { modal.classList.remove('active'); }
+    btnAbrir.addEventListener('click', () => { modal.classList.add('active'); });
     btnFechar.addEventListener('click', fechar);
     btnCancel.addEventListener('click', fechar);
 

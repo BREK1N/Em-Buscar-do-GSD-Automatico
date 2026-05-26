@@ -330,26 +330,138 @@ document.addEventListener('DOMContentLoaded', function() {
         `;
     }
     
+    function renderItensEnquadrados(itens, index) {
+        if (!itens || itens.length === 0) {
+            return `<p class="itens-vazio" style="color:var(--text-secondary);font-size:0.85em;">Nenhum item enquadrado.</p>`;
+        }
+        return itens.map((item, i) => `
+            <div class="item-enquadrado" style="display:flex;align-items:flex-start;gap:6px;margin-bottom:4px;">
+                <span class="item-badge" style="background:var(--primary-color);color:#fff;border-radius:4px;padding:1px 6px;font-size:0.8em;white-space:nowrap;">Item ${escapeHtml(String(item.numero))}</span>
+                <span style="font-size:0.85em;flex:1;">${escapeHtml(item.descricao)}</span>
+                <button type="button" class="btn-remove-item" data-index="${index}" data-item-index="${i}" title="Remover item"
+                    style="background:none;border:none;color:var(--danger-color);cursor:pointer;font-size:1em;padding:0 4px;">&times;</button>
+            </div>
+        `).join('');
+    }
+
     function handleMilitarFound(militarData, index) {
         const militarId = militarData.id;
         const containerId = `confirm-militar-${index}`;
+        const itens = militarData.itens_enquadrados || [];
+        const itensJson = JSON.stringify(itens).replace(/"/g, '&quot;');
 
         return `
-            <div id="${containerId}" class="resultado-item alert alert-info">
+            <div id="${containerId}" class="resultado-item alert alert-info" data-itens='${JSON.stringify(itens).replace(/'/g, "&#039;")}'>
                 <h4>Militar Encontrado</h4>
                 <p>
                     Deseja criar uma PATD para o militar
                     <strong>${escapeHtml(militarData.posto)} ${escapeHtml(militarData.nome_guerra)}</strong>
                     (${escapeHtml(militarData.nome_completo)})?
                 </p>
+
+                <div class="itens-enquadrados-section" style="margin:10px 0;padding:10px;background:rgba(0,0,0,0.05);border-radius:6px;">
+                    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px;">
+                        <strong style="font-size:0.9em;">Itens Enquadrados (Mini-Apuração):</strong>
+                        <button type="button" class="btn btn-sm btn-secondary reenquadrar-btn" data-index="${index}"
+                            style="font-size:0.75em;padding:2px 8px;" data-transgressao="${escapeHtml(militarData.transgressao_individual || '')}">
+                            &#x21bb; Re-analisar
+                        </button>
+                    </div>
+                    <div id="itens-list-${index}">
+                        ${renderItensEnquadrados(itens, index)}
+                    </div>
+                    <div id="itens-loading-${index}" style="display:none;font-size:0.85em;color:var(--text-secondary);">⌛ Analisando itens...</div>
+                    <div style="display:flex;gap:6px;margin-top:8px;">
+                        <input type="number" id="add-item-num-${index}" min="1" max="100" placeholder="Nº item" style="width:80px;padding:3px 6px;font-size:0.85em;border:1px solid var(--border-color);border-radius:4px;">
+                        <input type="text" id="add-item-desc-${index}" placeholder="Descrição do item" style="flex:1;padding:3px 6px;font-size:0.85em;border:1px solid var(--border-color);border-radius:4px;">
+                        <button type="button" class="btn btn-sm btn-secondary add-item-btn" data-index="${index}" style="font-size:0.8em;">+ Adicionar</button>
+                    </div>
+                </div>
+
                 <div class="prompt-actions">
-                    <button type="button" class="btn btn-primary btn-sm create-patd-btn" data-militar-id="${militarId}" data-index="${index}" data-transgressao-individual="${escapeHtml(militarData.transgressao_individual || '')}">Sim, Criar PATD</button>
+                    <button type="button" class="btn btn-primary btn-sm create-patd-btn"
+                        data-militar-id="${militarId}"
+                        data-index="${index}"
+                        data-transgressao-individual="${escapeHtml(militarData.transgressao_individual || '')}">Sim, Criar PATD</button>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="this.closest('.resultado-item').remove()">Não</button>
                 </div>
                 <div class="dynamic-form-feedback" style="margin-top: 10px;"></div>
             </div>
         `;
     }
+
+    function getItensFromContainer(index) {
+        const container = document.getElementById(`confirm-militar-${index}`);
+        if (!container) return [];
+        try {
+            return JSON.parse(container.dataset.itens.replace(/&#039;/g, "'") || '[]');
+        } catch (_) { return []; }
+    }
+
+    function setItensInContainer(index, itens) {
+        const container = document.getElementById(`confirm-militar-${index}`);
+        if (!container) return;
+        container.dataset.itens = JSON.stringify(itens).replace(/'/g, "&#039;");
+        document.getElementById(`itens-list-${index}`).innerHTML = renderItensEnquadrados(itens, index);
+    }
+
+    // Delegação de eventos para os botões dentro dos cards de confirmação
+    document.addEventListener('click', function(e) {
+        // Remover item
+        if (e.target.classList.contains('btn-remove-item')) {
+            const idx = parseInt(e.target.dataset.index);
+            const itemIdx = parseInt(e.target.dataset.itemIndex);
+            const itens = getItensFromContainer(idx);
+            itens.splice(itemIdx, 1);
+            setItensInContainer(idx, itens);
+        }
+
+        // Adicionar item manualmente
+        if (e.target.classList.contains('add-item-btn')) {
+            const idx = e.target.dataset.index;
+            const numInput = document.getElementById(`add-item-num-${idx}`);
+            const descInput = document.getElementById(`add-item-desc-${idx}`);
+            const num = numInput.value.trim();
+            const desc = descInput.value.trim();
+            if (!num || !desc) { alert('Informe o número e a descrição do item.'); return; }
+            const itens = getItensFromContainer(idx);
+            itens.push({ numero: parseInt(num), descricao: desc });
+            setItensInContainer(idx, itens);
+            numInput.value = '';
+            descInput.value = '';
+        }
+
+        // Re-analisar itens
+        if (e.target.classList.contains('reenquadrar-btn')) {
+            const idx = e.target.dataset.index;
+            const transgressao = e.target.dataset.transgressao;
+            const loadingEl = document.getElementById(`itens-loading-${idx}`);
+            const listEl = document.getElementById(`itens-list-${idx}`);
+            loadingEl.style.display = 'block';
+            listEl.style.display = 'none';
+            e.target.disabled = true;
+
+            fetch("{% url 'Ouvidoria:enquadrar_itens' %}", {
+                method: 'POST',
+                headers: { 'X-CSRFToken': csrfToken, 'Content-Type': 'application/json' },
+                body: JSON.stringify({ transgressao })
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    setItensInContainer(idx, data.itens);
+                } else {
+                    alert('Erro ao re-analisar: ' + data.message);
+                }
+            })
+            .catch(() => alert('Erro de conexão ao re-analisar itens.'))
+            .finally(() => {
+                loadingEl.style.display = 'none';
+                listEl.style.display = 'block';
+                e.target.disabled = false;
+            });
+        }
+    });
 
     // --- Lógica da Search Bar ---
 
@@ -463,7 +575,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const formData = new FormData();
         formData.append('action', 'associate_patd');
         formData.append('militar_id', militarId);
-        
+
+        // Inclui os itens enquadrados (editados pelo usuário) na criação
+        const itens = getItensFromContainer(index);
+        if (itens && itens.length > 0) {
+            formData.append('itens_enquadrados_json', JSON.stringify(itens));
+        }
+
         for (const key in transgressaoData) {
             const value = transgressaoData[key];
             if (value !== null && value !== undefined) {

@@ -65,7 +65,9 @@ def _sync_oficial_signature(patd):
     """
     try:
         oficial = patd.oficial_responsavel
-        is_past_acceptance = patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
+        STATUS_SEM_OFICIAL = {'definicao_oficial', 'aguardando_aprovacao_atribuicao',
+                              'ciencia_militar', 'aguardando_justificativa', 'prazo_expirado'}
+        is_past_acceptance = patd.status not in STATUS_SEM_OFICIAL
         
         if oficial and is_past_acceptance and oficial.assinatura and not patd.assinatura_oficial:
             if ';base64,' in oficial.assinatura:
@@ -349,7 +351,12 @@ def _get_document_context(patd, for_docx=False):
         deadline_str = deadline.strftime('%d/%m/%Y às %H:%M')
 
     # Lógica para Oficial Apurador
-    oficial_definido = patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
+    # Oficial "definido" só quando já aceitou a atribuição (passou de aguardando_aprovacao_atribuicao)
+    oficial_definido = (
+        patd.oficial_responsavel is not None
+        and patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
+        and patd.status not in ['ciencia_militar', 'aguardando_justificativa', 'prazo_expirado']
+    )
 
     localidade_value = patd.circunstancias.get('localidade', 'Rio de Janeiro') if patd.circunstancias else 'Rio de Janeiro'
 
@@ -1194,9 +1201,9 @@ def get_document_pages(patd, for_docx=False):
 
 def _try_advance_status_from_justificativa(patd):
     """
-    Verifica se a PATD no status 'aguardando_justificativa' pode avançar
-    para 'em_apuracao'. Isso só deve ocorrer se tanto a alegação de defesa
-    quanto todas as assinaturas necessárias estiverem presentes.
+    Verifica se a PATD no status 'aguardando_justificativa' pode avançar.
+    Após a alegação de defesa e assinaturas completas, avança para
+    'definicao_oficial' para que a ouvidoria atribua o oficial apurador.
     """
     if patd.status != 'aguardando_justificativa':
         return False
@@ -1214,6 +1221,6 @@ def _try_advance_status_from_justificativa(patd):
         logger.warning(f"PATD {patd.pk}: Tentativa de avançar de 'aguardando_justificativa', mas assinaturas de ciência incompletas ({provided_signatures}/{required_signatures}).")
         return False
 
-    patd.status = 'em_apuracao'
-    logger.info(f"PATD {patd.pk}: Avançando status de 'aguardando_justificativa' para 'em_apuracao'.")
+    patd.status = 'definicao_oficial'
+    logger.info(f"PATD {patd.pk}: Avançando status de 'aguardando_justificativa' para 'definicao_oficial' (aguardando atribuição de oficial pós-defesa).")
     return True

@@ -81,6 +81,12 @@ from .militar import (
     aceitar_atribuicao,
 )
 
+from .relatorio import (
+    relatorio_ouvidoria,
+    relatorio_ouvidoria_json,
+    relatorio_ouvidoria_excel,
+)
+
 from .patd import (
     index,
     PATDListView,
@@ -110,4 +116,5 @@ from .patd import (
     anexar_npd_base,
     avancar_cmd_base,
     confirmar_destino_apuracao,
+    enquadrar_itens_view,
 )

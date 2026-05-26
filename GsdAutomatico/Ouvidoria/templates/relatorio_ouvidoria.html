@@ -1,0 +1,402 @@
+{% extends 'base.html' %}
+{% load static %}
+
+{% block title %}Relatório da Ouvidoria{% endblock %}
+
+{% block extra_head %}
+<style>
+/* ── cabeçalho exclusivo desta página ───────────────────────────────── */
+.ro-header {
+    display: flex; align-items: center; gap: 14px;
+    margin-bottom: 24px; padding-bottom: 18px;
+    border-bottom: 1px solid var(--border-color);
+}
+.ro-header-icon {
+    width: 46px; height: 46px; border-radius: 12px;
+    background: var(--accent-color);
+    display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.ro-header-icon svg { width: 22px; height: 22px; color: #fff; }
+.ro-header h1 { font-size: 1.25rem; font-weight: 700; margin: 0 0 2px; border: none; padding: 0; }
+.ro-header p  { font-size: .83rem; color: var(--text-secondary); margin: 0; }
+
+/* pills de status exclusivos */
+.ro-pill { display: inline-block; font-size: .7rem; font-weight: 700; padding: 3px 9px; border-radius: 20px; white-space: nowrap; }
+.ro-pill-white  { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
+.ro-pill-yellow { background: #fef3c7; color: #78350f; border: 1px solid #fde68a; }
+.ro-pill-green  { background: #dcfce7; color: #14532d; border: 1px solid #bbf7d0; }
+
+.ro-patd-link { font-weight: 700; color: var(--accent-color); text-decoration: none; }
+.ro-patd-link:hover { text-decoration: underline; }
+
+.ro-legend-pills { display: flex; flex-direction: column; gap: 5px; }
+.ro-legend-pills .ro-pill { display: block; text-align: center; padding: 5px 10px; }
+
+/* loading desta página */
+#report-loading { display: none; text-align: center; padding: 28px; color: var(--text-secondary); font-size: .88rem; }
+
+/* detail-card header override (mais compacto que o padrão global) */
+.detail-card-header { padding: 13px 18px; display: flex; justify-content: space-between; align-items: center; }
+.detail-card-header h3 { font-size: .95rem; }
+</style>
+{% endblock extra_head %}
+
+{% block content %}
+
+<div class="ro-header">
+    <div class="ro-header-icon">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 17v-2m3 2v-4m3 4v-6M3 21h18M3 10.5L12 3l9 7.5"/>
+        </svg>
+    </div>
+    <div>
+        <h1>Relatório da Ouvidoria</h1>
+        <p>Visão geral de todos os processos PATD</p>
+    </div>
+</div>
+
+<div class="report-layout">
+
+    <!-- ── Filtros ─────────────────────────────────────────────────────── -->
+    <aside class="filter-panel">
+        <div class="filter-panel-hd">
+            <h4>Filtros</h4>
+            <button class="btn-clear-filter" id="btn-clear-all">Limpar</button>
+        </div>
+        <div class="filter-body">
+
+            <div class="f-divider">Período</div>
+
+            <div class="f-group">
+                <label>Atalhos rápidos</label>
+                <div class="quick-btns">
+                    <button class="quick-btn" data-range="week">Esta semana</button>
+                    <button class="quick-btn" data-range="month">Este mês</button>
+                    <button class="quick-btn" data-range="year">Este ano</button>
+                </div>
+            </div>
+            <div class="f-group">
+                <label>De</label>
+                <input type="date" id="f-data-inicio">
+            </div>
+            <div class="f-group">
+                <label>Até</label>
+                <input type="date" id="f-data-fim">
+            </div>
+
+            <div class="f-divider">Processo</div>
+
+            <div class="f-group">
+                <label>Status</label>
+                <div class="sd-wrap">
+                    <input class="sd-input" id="f-status-search" type="text" placeholder="Todos os status" autocomplete="off" readonly>
+                    <button class="sd-clear" id="sd-status-clear" title="Limpar">✕</button>
+                    <input type="hidden" id="f-status">
+                    <div class="sd-list" id="sd-status-list">
+                        <div class="sd-option" data-value="">Todos os status</div>
+                        {% for val, lbl in status_choices %}
+                        <div class="sd-option" data-value="{{ val }}">{{ lbl }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="f-group">
+                <label>Oficial Apurador</label>
+                <div class="sd-wrap">
+                    <input class="sd-input" id="f-oficial-search" type="text" placeholder="Pesquisar oficial..." autocomplete="off">
+                    <button class="sd-clear" id="sd-oficial-clear" title="Limpar">✕</button>
+                    <input type="hidden" id="f-oficial">
+                    <div class="sd-list" id="sd-oficial-list">
+                        <div class="sd-option" data-value="">Todos</div>
+                        {% for of in oficiais_list %}
+                        <div class="sd-option" data-value="{{ of.pk }}">{{ of.posto }} {{ of.nome_guerra }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="f-group">
+                <label>Militar Acusado</label>
+                <div class="sd-wrap">
+                    <input class="sd-input" id="f-militar-search" type="text" placeholder="Pesquisar militar..." autocomplete="off">
+                    <button class="sd-clear" id="sd-militar-clear" title="Limpar">✕</button>
+                    <input type="hidden" id="f-militar">
+                    <div class="sd-list" id="sd-militar-list">
+                        <div class="sd-option" data-value="">Todos</div>
+                        {% for m in militares_list %}
+                        <div class="sd-option" data-value="{{ m.pk }}">{{ m.posto }} {{ m.nome_guerra }}</div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <div class="f-group">
+                <label>Setor</label>
+                <input type="text" id="f-setor" placeholder="Ex: Manutenção">
+            </div>
+
+            <button class="btn-apply-filter" id="btn-apply">Aplicar Filtros</button>
+
+            <a id="btn-export" href="#" class="btn-export-excel">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+                </svg>
+                Exportar para Excel
+            </a>
+
+            <div>
+                <div class="f-divider" style="margin-bottom:8px;">Legenda</div>
+                <div class="ro-legend-pills">
+                    <span class="ro-pill ro-pill-white">Não Iniciado</span>
+                    <span class="ro-pill ro-pill-yellow">Em Andamento</span>
+                    <span class="ro-pill ro-pill-green">Finalizado</span>
+                </div>
+            </div>
+
+        </div>
+    </aside>
+
+    <!-- ── Resultados ──────────────────────────────────────────────────── -->
+    <div class="result-panel">
+
+        <!-- KPIs -->
+        <div class="report-kpis">
+            <div class="rkpi rk-a">
+                <div class="rk-num" id="kpi-total">—</div>
+                <div class="rk-lbl">Total de PATDs</div>
+            </div>
+            <div class="rkpi rk-n">
+                <div class="rk-num" id="kpi-nao-iniciado">—</div>
+                <div class="rk-lbl">Não Iniciado</div>
+            </div>
+            <div class="rkpi rk-w">
+                <div class="rk-num" id="kpi-andamento">—</div>
+                <div class="rk-lbl">Em Andamento</div>
+            </div>
+            <div class="rkpi rk-s">
+                <div class="rk-num" id="kpi-finalizado">—</div>
+                <div class="rk-lbl">Finalizado</div>
+            </div>
+        </div>
+
+        <!-- Loading -->
+        <div id="report-loading"><span class="spin-icon"></span>Carregando resultados...</div>
+
+        <!-- Tabela -->
+        <div class="detail-card">
+            <div class="detail-card-header">
+                <h3>Processos PATD</h3>
+                <span id="report-count-badge" style="font-size:.8rem;color:var(--text-secondary);">—</span>
+            </div>
+            <div class="report-table-wrap">
+                <table class="report-table">
+                    <thead>
+                        <tr>
+                            <th>N° PATD</th>
+                            <th>SARAM</th>
+                            <th>Nome de Guerra</th>
+                            <th>Nome Completo</th>
+                            <th>Posto</th>
+                            <th>Setor</th>
+                            <th>Oficial Apurador</th>
+                            <th>Data Ocorrência</th>
+                            <th>Status</th>
+                            <th>Natureza</th>
+                            <th>Punição</th>
+                            <th>Itens</th>
+                        </tr>
+                    </thead>
+                    <tbody id="report-tbody">
+                        <tr class="empty-row"><td colspan="12">Use os filtros ao lado para buscar processos.</td></tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+    </div>
+</div>
+{% endblock content %}
+
+{% block extra_js %}
+<script>
+(function() {
+    var JSON_URL  = "{% url 'Ouvidoria:relatorio_ouvidoria_json' %}";
+    var EXCEL_URL = "{% url 'Ouvidoria:relatorio_ouvidoria_excel' %}";
+    var PATD_BASE = "{% url 'Ouvidoria:patd_detail' pk=0 %}".replace('/0/', '/');
+
+    /* ── Atalhos de data ──────────────────────────────────────────────── */
+    var today = new Date();
+    function fmt(d) { return d.toISOString().slice(0, 10); }
+
+    document.querySelectorAll('.quick-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.quick-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var r = btn.dataset.range, start, end = fmt(today);
+            if (r === 'week') {
+                var d = new Date(today); d.setDate(today.getDate() - today.getDay()); start = fmt(d);
+            } else if (r === 'month') {
+                start = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
+            } else if (r === 'year') {
+                start = today.getFullYear() + '-01-01';
+            }
+            document.getElementById('f-data-inicio').value = start;
+            document.getElementById('f-data-fim').value = end;
+            updateExportLink();
+        });
+    });
+
+    /* ── Searchable dropdowns ─────────────────────────────────────────── */
+    function initSD(searchId, hiddenId, listId, clearId) {
+        var se = document.getElementById(searchId);
+        var hi = document.getElementById(hiddenId);
+        var li = document.getElementById(listId);
+        var cl = document.getElementById(clearId);
+        if (!se || !li) return;
+        var opts = Array.from(li.querySelectorAll('.sd-option'));
+
+        function open()  { li.classList.add('open'); }
+        function close() { li.classList.remove('open'); }
+
+        function filter(q) {
+            q = (q || '').toLowerCase();
+            var any = false;
+            opts.forEach(function(o) {
+                var m = !q || o.textContent.toLowerCase().includes(q);
+                o.style.display = m ? '' : 'none';
+                if (m) any = true;
+            });
+            var nr = li.querySelector('.sd-no-results');
+            if (!any) {
+                if (!nr) { nr = document.createElement('div'); nr.className = 'sd-no-results'; nr.textContent = 'Nenhum resultado.'; li.appendChild(nr); }
+            } else { if (nr) nr.remove(); }
+        }
+
+        function select(opt) {
+            hi.value = opt.dataset.value;
+            se.value = opt.dataset.value ? opt.textContent.trim() : '';
+            opts.forEach(function(o){ o.classList.remove('sd-selected'); });
+            if (opt.dataset.value) opt.classList.add('sd-selected');
+            if (cl) cl.style.display = opt.dataset.value ? 'block' : 'none';
+            close(); filter(''); updateExportLink();
+        }
+
+        se.addEventListener('click', function() { if (li.classList.contains('open')) close(); else { filter(se.value); open(); se.select(); } });
+        se.addEventListener('input', function() { filter(se.value); if (!li.classList.contains('open')) open(); if (!se.value) { hi.value = ''; if (cl) cl.style.display = 'none'; } });
+        opts.forEach(function(o) { o.addEventListener('mousedown', function(e){ e.preventDefault(); select(o); }); });
+        if (cl) cl.addEventListener('mousedown', function(e){
+            e.preventDefault(); hi.value = ''; se.value = ''; cl.style.display = 'none';
+            opts.forEach(function(o){ o.classList.remove('sd-selected'); o.style.display = ''; });
+            close(); updateExportLink();
+        });
+        document.addEventListener('click', function(e){ if (!se.closest('.sd-wrap').contains(e.target)) close(); });
+    }
+
+    initSD('f-status-search',  'f-status',  'sd-status-list',  'sd-status-clear');
+    initSD('f-oficial-search', 'f-oficial', 'sd-oficial-list', 'sd-oficial-clear');
+    initSD('f-militar-search', 'f-militar', 'sd-militar-list', 'sd-militar-clear');
+
+    /* ── Build params ─────────────────────────────────────────────────── */
+    function buildParams() {
+        var p = new URLSearchParams();
+        var di = document.getElementById('f-data-inicio').value;
+        var df = document.getElementById('f-data-fim').value;
+        var st = document.getElementById('f-status').value;
+        var of = document.getElementById('f-oficial').value;
+        var mi = document.getElementById('f-militar').value;
+        var se = document.getElementById('f-setor').value.trim();
+        if (di) p.set('data_inicio', di);
+        if (df) p.set('data_fim', df);
+        if (st) p.set('status', st);
+        if (of) p.set('oficial', of);
+        if (mi) p.set('militar', mi);
+        if (se) p.set('setor', se);
+        return p;
+    }
+
+    /* ── Export link ──────────────────────────────────────────────────── */
+    var exportBtn = document.getElementById('btn-export');
+    function updateExportLink() {
+        exportBtn.href = EXCEL_URL + '?' + buildParams().toString();
+    }
+    ['f-data-inicio', 'f-data-fim', 'f-setor'].forEach(function(id){
+        document.getElementById(id).addEventListener('change', updateExportLink);
+        document.getElementById(id).addEventListener('input',  updateExportLink);
+    });
+    updateExportLink();
+
+    /* ── Apply filters ────────────────────────────────────────────────── */
+    function pillClass(cor) {
+        if (cor === 'finalizado')   return 'ro-pill-green';
+        if (cor === 'nao_iniciado') return 'ro-pill-white';
+        return 'ro-pill-yellow';
+    }
+
+    function applyFilters() {
+        var params = buildParams();
+        document.getElementById('report-loading').style.display = 'block';
+        document.getElementById('report-tbody').innerHTML = '';
+        document.getElementById('report-count-badge').textContent = '—';
+        updateExportLink();
+
+        fetch(JSON_URL + '?' + params.toString(), { headers: { 'X-Requested-With': 'XMLHttpRequest' } })
+        .then(function(r){ return r.json(); })
+        .then(function(data){
+            document.getElementById('report-loading').style.display = 'none';
+
+            document.getElementById('kpi-total').textContent        = data.kpis.total;
+            document.getElementById('kpi-nao-iniciado').textContent = data.kpis.nao_iniciado;
+            document.getElementById('kpi-andamento').textContent    = data.kpis.em_andamento;
+            document.getElementById('kpi-finalizado').textContent   = data.kpis.finalizado;
+            document.getElementById('report-count-badge').textContent = data.patds.length + ' registro(s)';
+
+            var tbody = document.getElementById('report-tbody');
+            if (!data.patds.length) {
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="12">Nenhum resultado encontrado.</td></tr>';
+                return;
+            }
+            tbody.innerHTML = data.patds.map(function(p){
+                var punicao = (p.punicao !== '—') ? ((p.dias_punicao !== '—' ? p.dias_punicao + ' ' : '') + p.punicao) : '—';
+                return '<tr>' +
+                    '<td><a class="ro-patd-link" href="' + PATD_BASE + p.pk + '/">' + p.numero + '</a></td>' +
+                    '<td>' + p.saram + '</td>' +
+                    '<td><strong>' + p.militar + '</strong></td>' +
+                    '<td style="font-size:.76rem;color:var(--text-secondary);">' + p.nome_completo + '</td>' +
+                    '<td>' + p.posto + '</td>' +
+                    '<td>' + p.setor + '</td>' +
+                    '<td>' + p.oficial + '</td>' +
+                    '<td>' + p.data_ocorrencia + '</td>' +
+                    '<td><span class="ro-pill ' + pillClass(p.cor) + '">' + p.status_display + '</span></td>' +
+                    '<td>' + p.natureza + '</td>' +
+                    '<td>' + punicao + '</td>' +
+                    '<td style="font-size:.73rem;color:var(--text-secondary);">' + p.itens + '</td>' +
+                '</tr>';
+            }).join('');
+        })
+        .catch(function(){
+            document.getElementById('report-loading').style.display = 'none';
+            document.getElementById('report-tbody').innerHTML =
+                '<tr class="empty-row"><td colspan="12">Erro ao carregar dados. Tente novamente.</td></tr>';
+        });
+    }
+
+    document.getElementById('btn-apply').addEventListener('click', applyFilters);
+
+    /* ── Limpar ───────────────────────────────────────────────────────── */
+    document.getElementById('btn-clear-all').addEventListener('click', function(){
+        document.getElementById('f-data-inicio').value = '';
+        document.getElementById('f-data-fim').value    = '';
+        document.getElementById('f-setor').value       = '';
+        ['f-status','f-oficial','f-militar'].forEach(function(id){ document.getElementById(id).value = ''; });
+        ['f-status-search','f-oficial-search','f-militar-search'].forEach(function(id){ document.getElementById(id).value = ''; });
+        ['sd-status-clear','sd-oficial-clear','sd-militar-clear'].forEach(function(id){ document.getElementById(id).style.display = 'none'; });
+        document.querySelectorAll('.quick-btn').forEach(function(b){ b.classList.remove('active'); });
+        applyFilters();
+    });
+
+    /* carrega ao abrir a página */
+    applyFilters();
+})();
+</script>
+{% endblock extra_js %}

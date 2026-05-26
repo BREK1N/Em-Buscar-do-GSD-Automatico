@@ -547,7 +547,11 @@ def _get_document_context(patd, for_docx=False):
         deadline_str = deadline.strftime('%d/%m/%Y às %H:%M')
 
     # Lógica para Oficial Apurador
-    oficial_definido = patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
+    oficial_definido = (
+        patd.oficial_responsavel is not None
+        and patd.status not in ['definicao_oficial', 'aguardando_aprovacao_atribuicao']
+        and patd.status not in ['ciencia_militar', 'aguardando_justificativa', 'prazo_expirado']
+    )
 
     localidade_value = patd.circunstancias.get('localidade', 'Rio de Janeiro') if patd.circunstancias else 'Rio de Janeiro'
 

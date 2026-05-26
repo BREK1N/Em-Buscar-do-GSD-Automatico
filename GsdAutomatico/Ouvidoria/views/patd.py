@@ -39,21 +39,49 @@ from .helpers import (
 from .commander import _check_and_finalize_patd, _check_and_advance_reconsideracao_status
 from ..analise_transgressao import (
     AnaliseTransgressao, MilitarAcusado, analisar_documento_pdf,
-    verifica_similaridade, personalizar_ocorrencia,
+    verifica_similaridade, personalizar_ocorrencia, enquadra_item,
 )
 
 logger = logging.getLogger(__name__)
 
-STATUS_GROUPS = {
-    "Aguardando Oficial": {
-        'definicao_oficial': 'Aguardando definição do Oficial',
-        'aguardando_aprovacao_atribuicao': 'Aguardando aprovação de atribuição de oficial',
+PHASE_GROUPS = [
+    {
+        'key': 'ciencia_defesa',
+        'label': '1 – Confecção / Ciência e Defesa',
+        'statuses': ['ciencia_militar', 'aguardando_justificativa', 'prazo_expirado', 'preclusao'],
     },
+    {
+        'key': 'apuracao',
+        'label': '2 – Apuração',
+        'statuses': [
+            'definicao_oficial', 'aguardando_aprovacao_atribuicao',
+            'em_apuracao', 'apuracao_preclusao',
+            'aguardando_punicao', 'aguardando_punicao_alterar',
+            'assinatura_cmd_gsd_despacho_abertura', 'aplicacao_punicao_cmd_base',
+            'analise_comandante', 'aguardando_assinatura_npd',
+        ],
+    },
+    {
+        'key': 'condenacao',
+        'label': '3 – Ciência da Condenação / NPD',
+        'statuses': [
+            'periodo_reconsideracao', 'em_reconsideracao',
+            'aguardando_comandante_base', 'aguardando_nova_punicao',
+            'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao',
+        ],
+    },
+]
+
+STATUS_GROUPS = {
     "Fase de Defesa": {
         'ciencia_militar': 'Aguardando ciência do militar',
         'aguardando_justificativa': 'Aguardando Justificativa',
         'prazo_expirado': 'Prazo expirado',
         'preclusao': 'Preclusão - Sem Defesa',
+    },
+    "Aguardando Oficial": {
+        'definicao_oficial': 'Aguardando atribuição do Oficial',
+        'aguardando_aprovacao_atribuicao': 'Aguardando aprovação de atribuição de oficial',
     },
     "Fase de Apuração": {
         'em_apuracao': 'Em Apuração',
@@ -166,7 +194,7 @@ def index(request):
             # NOVA LOGICA: VERIFICAÇÃO DE DUPLICIDADE
             # =================================================================
             # 1. Busca PATDs desse militar na mesma data (excluindo arquivadas e deletadas)
-            existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia, arquivado=False)
+            existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia, arquivado=False, deleted=False)
             
             # 2. Compara o texto da transgressão
             is_duplicate = False
@@ -191,6 +219,17 @@ def index(request):
                 })
             # =================================================================
 
+            # Processa itens_enquadrados se enviados
+            itens_enquadrados = None
+            itens_json_str = post_data.get('itens_enquadrados_json', '')
+            if itens_json_str:
+                try:
+                    itens_enquadrados = json.loads(itens_json_str)
+                    if not isinstance(itens_enquadrados, list):
+                        itens_enquadrados = None
+                except (json.JSONDecodeError, ValueError):
+                    pass
+
             # Se não for duplicada, cria a PATD normalmente
             try:
                 patd = PATD.objects.create(
@@ -200,7 +239,8 @@ def index(request):
                     data_ocorrencia=data_ocorrencia,
                     protocolo_comaer=protocolo_comaer,
                     oficio_transgressao=oficio_transgressao,
-                    data_oficio=data_oficio
+                    data_oficio=data_oficio,
+                    itens_enquadrados=itens_enquadrados,
                 )
                 
                 # Anexar o ofício de lançamento que foi salvo temporariamente
@@ -253,7 +293,7 @@ def index(request):
                 return JsonResponse({'status': 'error', 'message': 'Formato de data da ocorrência inválido.'}, status=400)
             
             # Check for duplicates (excluding archived and deleted)
-            existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia, arquivado=False)
+            existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia, arquivado=False, deleted=False)
             is_duplicate = False
             duplicated_patd_num = None
             for patd_existente in existing_patds:
@@ -365,7 +405,7 @@ def index(request):
 
                     if militar:
                         logger.info(f"Militar encontrado no BD: {militar}")
-                        existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia, arquivado=False)
+                        existing_patds = PATD.objects.filter(militar=militar, data_ocorrencia=data_ocorrencia, arquivado=False, deleted=False)
 
                         # Sempre personaliza a ocorrência para mencionar apenas este militar
                         try:
@@ -392,6 +432,13 @@ def index(request):
                                 break
 
                         if not duplicata:
+                            itens_pre_enquadrados = []
+                            try:
+                                resultado_itens = enquadra_item(transgressao_acusado)
+                                itens_pre_enquadrados = resultado_itens.item if resultado_itens and resultado_itens.item else []
+                            except Exception as _e:
+                                logger.warning(f"Falha ao pré-enquadrar itens para {militar}: {_e}")
+
                             militares_para_confirmacao.append({
                                 'id': militar.id,
                                 'nome_guerra': militar.nome_guerra,
@@ -399,6 +446,7 @@ def index(request):
                                 'saram': militar.saram,
                                 'posto': militar.posto,
                                 'transgressao_individual': transgressao_acusado,
+                                'itens_enquadrados': itens_pre_enquadrados,
                             })
                     else:
                         logger.warning(f"Militar '{acusado.nome_completo or acusado.nome_guerra}' não encontrado no banco de dados.")
@@ -461,6 +509,29 @@ def index(request):
     return render(request, 'indexOuvidoria.html', context)
 
 
+@login_required
+@ouvidoria_required
+@require_POST
+def enquadrar_itens_view(request):
+    """Recebe uma transgressão e retorna os itens enquadrados pela IA."""
+    try:
+        data = json.loads(request.body)
+    except (json.JSONDecodeError, ValueError):
+        return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
+
+    transgressao = data.get('transgressao', '').strip()
+    if not transgressao:
+        return JsonResponse({'status': 'error', 'message': 'Transgressão não fornecida.'}, status=400)
+
+    try:
+        resultado = enquadra_item(transgressao)
+        itens = resultado.item if resultado and resultado.item else []
+        return JsonResponse({'status': 'success', 'itens': itens})
+    except Exception as e:
+        logger.error(f"Erro ao enquadrar itens: {e}")
+        return JsonResponse({'status': 'error', 'message': 'Erro ao processar o enquadramento.'}, status=500)
+
+
 @method_decorator([login_required, comandante_redirect, ouvidoria_required], name='dispatch')
 class PATDListView(ListView):
     model = PATD
@@ -472,6 +543,7 @@ class PATDListView(ListView):
         from django.utils import timezone as _tz
         query = self.request.GET.get('q')
         status_filter = self.request.GET.get('status')
+        fase_key = self.request.GET.get('fase')
         ano = self.request.GET.get('ano', str(_tz.now().year))
 
         # --- Sorting Logic ---
@@ -504,8 +576,14 @@ class PATDListView(ListView):
             qs = qs.filter(
                 Q(numero_patd__icontains=query) |
                 Q(militar__nome_completo__icontains=query) |
-                Q(militar__nome_guerra__icontains=query)
+                Q(militar__nome_guerra__icontains=query) |
+                Q(militar__saram__icontains=query)
             )
+
+        if fase_key:
+            phase = next((p for p in PHASE_GROUPS if p['key'] == fase_key), None)
+            if phase:
+                qs = qs.filter(status__in=phase['statuses'])
 
         if status_filter:
             if status_filter in STATUS_GROUPS:
@@ -532,6 +610,29 @@ class PATDListView(ListView):
                 status='finalizado'
             ).count()
         context['current_status'] = self.request.GET.get('status', '')
+        context['current_fase'] = self.request.GET.get('fase', '')
+
+        # Phase tab counts (base queryset without phase/status filter)
+        from django.utils import timezone as _tz
+        _ano = self.request.GET.get('ano', str(_tz.now().year))
+        base_qs = PATD.objects.exclude(status='finalizado').exclude(arquivado=True)
+        try:
+            base_qs = base_qs.filter(data_inicio__year=int(_ano))
+        except (ValueError, TypeError):
+            pass
+        _q = self.request.GET.get('q')
+        if _q:
+            base_qs = base_qs.filter(
+                Q(numero_patd__icontains=_q) |
+                Q(militar__nome_completo__icontains=_q) |
+                Q(militar__nome_guerra__icontains=_q) |
+                Q(militar__saram__icontains=_q)
+            )
+        phases_with_counts = []
+        for phase in PHASE_GROUPS:
+            count = base_qs.filter(status__in=phase['statuses']).count()
+            phases_with_counts.append({**phase, 'count': count})
+        context['phase_groups'] = phases_with_counts
 
         # Ano selecionado
         from django.utils import timezone as _tz
@@ -961,12 +1062,11 @@ def prosseguir_sem_alegacao(request, pk):
                 'message': f'É obrigatório atribuir as testemunhas antes de prosseguir. Faltam: {", ".join(testemunhas_faltando)}.',
             }, status=400)
 
-        # Avança para 'preclusao': o Termo de Preclusão será exibido
-        # para que as testemunhas assinem. Só após ambas assinarem
-        # o status avança automaticamente para 'apuracao_preclusao'.
-        patd.status = 'preclusao'
+        # Avança para 'definicao_oficial' para atribuir o oficial apurador
+        # antes de abrir o Termo de Preclusão.
+        patd.status = 'definicao_oficial'
         patd.save(update_fields=['status'])
-        return JsonResponse({'status': 'success', 'message': 'Termo de Preclusão aberto. As testemunhas devem assinar antes de prosseguir.'})
+        return JsonResponse({'status': 'success', 'message': 'Prazo encerrado sem defesa. Atribua o oficial apurador para prosseguir.'})
     except Exception as e:
         logger.error(f"Erro ao prosseguir sem alegação para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)

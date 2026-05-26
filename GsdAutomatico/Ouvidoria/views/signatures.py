@@ -207,8 +207,16 @@ def salvar_assinatura_reconsideracao(request, pk):
 @login_required
 @require_POST
 def remover_assinatura(request, pk):
-    if not request.user.is_superuser:
-        return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem remover assinaturas.'}, status=403)
+    from ..permissions import has_ouvidoria_access
+
+    is_ouvidoria = has_ouvidoria_access(request.user)
+    is_superuser = request.user.is_superuser
+
+    # Tipos de assinatura dos militares acusados — ouvidoria pode remover
+    TIPOS_MILITAR_ACUSADO = {'ciencia', 'defesa', 'reconsideracao', 'testemunha1', 'testemunha2'}
+
+    if not is_ouvidoria and not is_superuser:
+        return JsonResponse({'status': 'error', 'message': 'Acesso negado.'}, status=403)
 
     try:
         patd = get_object_or_404(PATD, pk=pk)
@@ -221,6 +229,10 @@ def remover_assinatura(request, pk):
 
         if not signature_type:
             return JsonResponse({'status': 'error', 'message': 'O tipo de assinatura não foi especificado.'}, status=400)
+
+        # Membros da ouvidoria só podem remover assinaturas dos militares acusados
+        if is_ouvidoria and not is_superuser and signature_type not in TIPOS_MILITAR_ACUSADO:
+            return JsonResponse({'status': 'error', 'message': 'Apenas administradores podem remover este tipo de assinatura.'}, status=403)
 
         if signature_type == 'oficial':
             return JsonResponse({'status': 'error', 'message': 'A assinatura do oficial não pode ser removida.'}, status=403)

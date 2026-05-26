@@ -158,7 +158,7 @@ class PATD(models.Model):
     status = models.CharField(
         max_length=50,
         choices=STATUS_CHOICES,
-        default='definicao_oficial',
+        default='ciencia_militar',
         verbose_name="Status"
     )
     status_anterior = models.CharField(
@@ -345,8 +345,14 @@ class PATD(models.Model):
             
             # Se o oficial responsável mudou E um novo oficial foi definido
             if orig.oficial_responsavel != self.oficial_responsavel and self.oficial_responsavel:
+                # Guarda o status anterior para restaurar após o aceite
+                # Se vier de 'definicao_oficial' pós-defesa → próximo status é 'em_apuracao'
+                # Se vier de 'preclusao'/'prazo_expirado' → próximo é 'apuracao_preclusao'
+                if orig.status in ('definicao_oficial',):
+                    self.status_anterior = 'em_apuracao'
+                elif orig.status in ('preclusao', 'prazo_expirado', 'apuracao_preclusao'):
+                    self.status_anterior = 'apuracao_preclusao'
                 self.status = 'aguardando_aprovacao_atribuicao'
-                # Não limpa mais a assinatura aqui para preservar a assinatura padrão que pode ser adicionada depois
         super(PATD, self).save(*args, **kwargs)
 
 

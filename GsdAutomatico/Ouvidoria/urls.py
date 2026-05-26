@@ -94,7 +94,13 @@ urlpatterns = [
     path('notificacoes/verificar-prazos/', views.verificar_e_atualizar_prazos, name='verificar_e_atualizar_prazos'),
     path('notificacoes/aguardando-prazo/', views.patds_aguardando_prazo_json, name='patds_aguardando_prazo_json'),
 
+    # RELATÓRIO DA OUVIDORIA
+    path('relatorio/', views.relatorio_ouvidoria, name='relatorio_ouvidoria'),
+    path('relatorio/dados.json', views.relatorio_ouvidoria_json, name='relatorio_ouvidoria_json'),
+    path('relatorio/exportar.xlsx', views.relatorio_ouvidoria_excel, name='relatorio_ouvidoria_excel'),
+
     # API
     path('api/search-militares/', views.search_militares_json, name='search_militares_json'),
+    path('api/enquadrar-itens/', views.enquadrar_itens_view, name='enquadrar_itens'),
     path('anexo/<int:pk>/excluir/', views.excluir_anexo, name='excluir_anexo'),
 ]
