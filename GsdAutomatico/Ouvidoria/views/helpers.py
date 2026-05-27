@@ -1222,5 +1222,7 @@ def _try_advance_status_from_justificativa(patd):
         return False
 
     patd.status = 'definicao_oficial'
+    patd.oficial_responsavel = None
+    patd.oficial_aceitou = None
     logger.info(f"PATD {patd.pk}: Avançando status de 'aguardando_justificativa' para 'definicao_oficial' (aguardando atribuição de oficial pós-defesa).")
     return True
