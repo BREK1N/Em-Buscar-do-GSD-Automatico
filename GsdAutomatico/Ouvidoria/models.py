@@ -342,17 +342,25 @@ class PATD(models.Model):
         if not is_new:
             # CORREÇÃO: Usar all_objects em vez de objects para não dar erro ao restaurar
             orig = PATD.all_objects.get(pk=self.pk)
-            
-            # Se o oficial responsável mudou E um novo oficial foi definido
-            if orig.oficial_responsavel != self.oficial_responsavel and self.oficial_responsavel:
-                # Guarda o status anterior para restaurar após o aceite
-                # Se vier de 'definicao_oficial' pós-defesa → próximo status é 'em_apuracao'
-                # Se vier de 'preclusao'/'prazo_expirado' → próximo é 'apuracao_preclusao'
+
+            STATUS_AGUARDANDO_ATRIBUICAO = {'definicao_oficial', 'preclusao', 'prazo_expirado'}
+            # Dispara o fluxo de atribuição quando:
+            # - um oficial está sendo definido (não nulo)
+            # - E o oficial mudou OU já estamos num status que espera atribuição
+            #   (cobre re-atribuição do mesmo oficial pós-defesa)
+            is_assigning = (
+                self.oficial_responsavel_id is not None and (
+                    orig.oficial_responsavel_id != self.oficial_responsavel_id or
+                    orig.status in STATUS_AGUARDANDO_ATRIBUICAO
+                )
+            )
+            if is_assigning:
                 if orig.status in ('definicao_oficial',):
                     self.status_anterior = 'em_apuracao'
                 elif orig.status in ('preclusao', 'prazo_expirado', 'apuracao_preclusao'):
                     self.status_anterior = 'apuracao_preclusao'
                 self.status = 'aguardando_aprovacao_atribuicao'
+                self.oficial_aceitou = None
         super(PATD, self).save(*args, **kwargs)
 
 
