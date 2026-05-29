@@ -165,13 +165,24 @@ def salvar_documento_patd(request, pk):
             patd.circunstancias = circunstancias # Reatribuição força o Django a reconhecer a mudança
 
         # 3. Atualiza as Datas dinamicamente
+        datetime_fields = {f.name for f in PATD._meta.get_fields() if hasattr(f, 'get_internal_type') and f.get_internal_type() == 'DateTimeField'}
         for field_name, date_str in dates.items():
             # Só atualiza se o campo existir no modelo PATD para evitar erros
             if hasattr(patd, field_name):
                 if date_str:
                     try:
                         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-                        setattr(patd, field_name, date_obj)
+                        if field_name in datetime_fields:
+                            # Preserva o horário existente, só troca a data
+                            existing = getattr(patd, field_name)
+                            if existing:
+                                existing_local = existing.astimezone() if existing.tzinfo else existing
+                                new_dt = existing_local.replace(year=date_obj.year, month=date_obj.month, day=date_obj.day)
+                            else:
+                                new_dt = timezone.make_aware(datetime.combine(date_obj, datetime.min.time()))
+                            setattr(patd, field_name, new_dt)
+                        else:
+                            setattr(patd, field_name, date_obj)
                     except (ValueError, TypeError):
                         logger.warning(f"Formato de data inválido para o campo {field_name}: {date_str}")
                 else:

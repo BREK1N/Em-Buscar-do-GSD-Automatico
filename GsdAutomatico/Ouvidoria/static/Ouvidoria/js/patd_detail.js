@@ -771,7 +771,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
     const pageContainer = document.getElementById('document-preview-container');
     pageContainer.addEventListener('change', function(e) {
-        if (e.target.classList.contains('editable-date')) {
+        if (e.target.classList.contains('editable-date') || e.target.classList.contains('editable-date-part')) {
             scheduleSave();
         }
     });
@@ -806,6 +806,25 @@ document.addEventListener('DOMContentLoaded', function() {
             if (fieldName) dates[fieldName] = input.value;
         });
 
+        // Coleta inputs de data em partes (dia, mês, ano separados) e monta a data
+        const dateParts = {};
+        pageContainer.querySelectorAll('.editable-date-part').forEach(input => {
+            const fieldName = input.dataset.dateField;
+            const part = input.dataset.datePart;
+            if (fieldName && part) {
+                if (!dateParts[fieldName]) dateParts[fieldName] = {};
+                dateParts[fieldName][part] = input.value;
+            }
+        });
+        for (const [fieldName, parts] of Object.entries(dateParts)) {
+            const day = String(parts.day || '').padStart(2, '0');
+            const month = String(parts.month || '').padStart(2, '0');
+            const year = parts.year || '';
+            if (day && month && year) {
+                dates[fieldName] = `${year}-${month}-${day}`;
+            }
+        }
+
         const texts = {};
         pageContainer.querySelectorAll('.editable-text').forEach(input => {
             const fieldName = input.dataset.textField;
@@ -828,6 +847,19 @@ document.addEventListener('DOMContentLoaded', function() {
             const placeholder = datePlaceholders[fieldName];
             if (placeholder) {
                 input.replaceWith(document.createTextNode(placeholder));
+            }
+        });
+
+        // Substitui inputs de partes de data pelo placeholder correspondente
+        const datePartPlaceholders = {
+            'data_inicio': { day: '{dia}', month: '{Mês}', year: '{Ano}' }
+        };
+        tempContainer.querySelectorAll('.editable-date-part').forEach(input => {
+            const fieldName = input.dataset.dateField;
+            const part = input.dataset.datePart;
+            const ph = datePartPlaceholders[fieldName]?.[part];
+            if (ph) {
+                input.replaceWith(document.createTextNode(ph));
             }
         });
 
