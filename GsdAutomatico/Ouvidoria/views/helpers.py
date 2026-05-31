@@ -253,10 +253,11 @@ def _pdf_to_pages_html(pdf_path):
         return '<p style="color:red;">[Erro ao processar o PDF]</p>'
 
 
-def _get_document_context(patd, for_docx=False):
+def _get_document_context(patd, for_docx=False, doc_name=None):
     """
     Função centralizada para coletar e formatar todos os dados
     necessários para qualquer documento.
+    doc_name: nome do template (ex: 'PATD_Coringa') para usar data independente por documento.
     """
     config = Configuracao.load()
     from informatica.models import ConfiguracaoComandantes
@@ -267,7 +268,21 @@ def _get_document_context(patd, for_docx=False):
 
     # Formatações de Data
     data_inicio = patd.data_inicio
-    data_patd_fmt = data_inicio.strftime('%d%m%Y')
+
+    # Usa data específica do documento se existir, senão usa data_inicio
+    if doc_name and patd.datas_documentos and doc_name in patd.datas_documentos:
+        from datetime import date as date_type
+        try:
+            from datetime import datetime as dt_type
+            data_doc_str = patd.datas_documentos[doc_name]
+            data_doc = dt_type.strptime(data_doc_str, '%Y-%m-%d')
+            data_inicio = patd.data_inicio.replace(
+                year=data_doc.year, month=data_doc.month, day=data_doc.day
+            )
+        except Exception:
+            pass
+
+    data_patd_fmt = patd.data_inicio.strftime('%d%m%Y')
     
     if for_docx:
         # Tenta definir o local, mas tem um fallback robusto se falhar.
@@ -315,15 +330,16 @@ def _get_document_context(patd, for_docx=False):
         data_reconsideracao_fmt = f'<input type="date" class="editable-date" data-date-field="data_reconsideracao" value="{patd.data_reconsideracao.strftime("%Y-%m-%d") if patd.data_reconsideracao else ""}" >'
         
         meses = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho', 'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
-        mes_select_html = f'<select class="editable-date-part" data-date-field="data_inicio" data-date-part="month">'
+        doc_attr = f' data-doc="{doc_name}"' if doc_name else ''
+        mes_select_html = f'<select class="editable-date-part" data-date-field="data_inicio" data-date-part="month"{doc_attr}>'
         for i, nome_mes in enumerate(meses):
             selected = 'selected' if data_inicio.month == i + 1 else ''
             mes_select_html += f'<option value="{i+1}" {selected}>{nome_mes}</option>'
         mes_select_html += '</select>'
-        
-        dia_fmt = f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="day" value="{data_inicio.day}" min="1" max="31">'
+
+        dia_fmt = f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="day" value="{data_inicio.day}" min="1" max="31"{doc_attr}>'
         mes_fmt = mes_select_html
-        ano_fmt = f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="year" value="{data_inicio.year}" min="2000" max="2100">'
+        ano_fmt = f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="year" value="{data_inicio.year}" min="2000" max="2100"{doc_attr}>'
 
     # Formatação de Itens Enquadrados e Circunstâncias
     itens_enquadrados_str = ", ".join([str(item.get('numero', '')) for item in patd.itens_enquadrados]) if patd.itens_enquadrados else ""
@@ -993,12 +1009,16 @@ def _render_document_from_template(template_name, context):
         return error_msg
 
 
+def _ctx(patd, for_docx, doc_name):
+    return _get_document_context(patd, for_docx=for_docx, doc_name=doc_name)
+
+
 def get_document_pages(patd, for_docx=False):
     """
     Gera uma LISTA de páginas de documento em HTML a partir dos templates.
     Cada item na lista representa um documento/seção separada.
     """
-    base_context = _get_document_context(patd, for_docx=for_docx)
+    base_context = _ctx(patd, for_docx, 'PATD_Coringa')
     document_pages_raw = []
     page_counter = 0
     pagina_alegacao_num = 0
@@ -1013,7 +1033,7 @@ def get_document_pages(patd, for_docx=False):
     if patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists():
         page_counter += 1
         pagina_alegacao_num = page_counter
-        alegacao_context = base_context.copy()
+        alegacao_context = _ctx(patd, for_docx, 'PATD_Alegacao_DF')
         alegacao_html = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
         alegacao_texto_html = (patd.alegacao_defesa or "").replace('\n', '<br>')
         alegacao_html = alegacao_html.replace('{Alegação de defesa}', alegacao_texto_html)
@@ -1034,7 +1054,7 @@ def get_document_pages(patd, for_docx=False):
     if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in status_preclusao_e_posteriores:
         page_counter += 1
         pagina_alegacao_num = page_counter
-        html_content = _render_document_from_template('PRECLUSAO.docx', base_context)
+        html_content = _render_document_from_template('PRECLUSAO.docx', _ctx(patd, for_docx, 'PRECLUSAO'))
         html_content = f'<div data-document-id="alegacao_defesa">{html_content}</div>'
         document_pages_raw.append(PB)
         document_pages_raw.append(html_content)
@@ -1050,18 +1070,18 @@ def get_document_pages(patd, for_docx=False):
     if patd.justificado:
         page_counter += 1
         document_pages_raw.append(PB)
-        document_pages_raw.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', base_context))
+        document_pages_raw.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', _ctx(patd, for_docx, 'RELATORIO_JUSTIFICADO')))
 
     elif patd.punicao_sugerida and patd.status not in status_cmd_base_e_posteriores:
         page_counter += 1
         document_pages_raw.append(PB)
-        document_pages_raw.append(_render_document_from_template('RELATORIO_DELTA.docx', base_context))
+        document_pages_raw.append(_render_document_from_template('RELATORIO_DELTA.docx', _ctx(patd, for_docx, 'RELATORIO_DELTA')))
 
     # 4b. Relatório Delta – CMD da Base (primeira prisão disciplinar)
     if patd.status in status_cmd_base_e_posteriores and not patd.justificado:
         page_counter += 1
         document_pages_raw.append(PB)
-        relatorio_delta_html = _render_document_from_template('RELATORIO_DELTA_BASE.docx', base_context)
+        relatorio_delta_html = _render_document_from_template('RELATORIO_DELTA_BASE.docx', _ctx(patd, for_docx, 'RELATORIO_DELTA_BASE'))
         relatorio_delta_base_anexo = patd.anexos.filter(tipo='relatorio_delta_base').first()
         if relatorio_delta_base_anexo:
             # Mantém todas as páginas do template EXCETO a última,
@@ -1090,7 +1110,7 @@ def get_document_pages(patd, for_docx=False):
         # MODELO_NPD_BASE.docx — gerado junto com o Relatório Delta Base
         page_counter += 1
         document_pages_raw.append(PB)
-        npd_base_html = _render_document_from_template('MODELO_NPD_BASE.docx', base_context)
+        npd_base_html = _render_document_from_template('MODELO_NPD_BASE.docx', _ctx(patd, for_docx, 'MODELO_NPD_BASE'))
         npd_base_anexo = patd.anexos.filter(tipo='npd_base').first()
         if npd_base_anexo:
             # Substitui a PRIMEIRA página pelo anexo; mantém as páginas seguintes do template.
@@ -1124,7 +1144,7 @@ def get_document_pages(patd, for_docx=False):
     if patd.status in status_npd_e_posteriores and not patd.justificado and patd.status not in status_cmd_base_e_posteriores:
         page_counter += 1
         document_pages_raw.append(PB)
-        document_pages_raw.append(_render_document_from_template('MODELO_NPD.docx', base_context))
+        document_pages_raw.append(_render_document_from_template('MODELO_NPD.docx', _ctx(patd, for_docx, 'MODELO_NPD')))
         formulario_resumo_anexo = patd.anexos.filter(tipo='formulario_resumo').first()
         if formulario_resumo_anexo:
             document_pages_raw.append(PB)
@@ -1137,7 +1157,7 @@ def get_document_pages(patd, for_docx=False):
     ]
     if patd.status in status_reconsideracao_e_posteriores and not patd.justificado:
         page_counter += 1
-        reconsideracao_context = base_context.copy()
+        reconsideracao_context = _ctx(patd, for_docx, 'MODELO_RECONSIDERACAO')
         if not patd.texto_reconsideracao and not patd.anexos.filter(tipo='reconsideracao').exists():
             reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
         else:
@@ -1161,7 +1181,7 @@ def get_document_pages(patd, for_docx=False):
     if patd.nova_punicao_tipo and patd.status in ['aguardando_publicacao', 'finalizado']:
         page_counter += 1
         document_pages_raw.append(PB)
-        document_pages_raw.append(_render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', base_context))
+        document_pages_raw.append(_render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', _ctx(patd, for_docx, 'MODELO_NPD_RECONSIDERACAO')))
 
     # --- INÍCIO DA LÓGICA DE DUAS PASSAGENS ---
     # 1. Primeira Passagem: Contar páginas físicas

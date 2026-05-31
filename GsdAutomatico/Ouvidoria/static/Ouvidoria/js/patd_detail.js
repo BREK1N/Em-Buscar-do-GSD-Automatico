@@ -203,22 +203,42 @@ document.addEventListener('DOMContentLoaded', function() {
                 signatureFileInput.click();
             });
 
+            function loadImageIntoCanvas(src) {
+                const img = new Image();
+                img.onload = () => {
+                    const ratio = Math.max(window.devicePixelRatio || 1, 2);
+                    const canvasW = canvas.offsetWidth;
+                    const canvasH = canvas.offsetHeight;
+                    // Só reduz se a imagem for maior que o canvas; nunca aumenta
+                    const scale = Math.min(1, canvasW / img.naturalWidth, canvasH / img.naturalHeight);
+                    const drawW = Math.round(img.naturalWidth * scale);
+                    const drawH = Math.round(img.naturalHeight * scale);
+                    // Centraliza no canvas
+                    const offX = Math.round((canvasW - drawW) / 2);
+                    const offY = Math.round((canvasH - drawH) / 2);
+                    signaturePad.clear();
+                    const ctx = canvas.getContext('2d');
+                    ctx.drawImage(img, offX * ratio, offY * ratio, drawW * ratio, drawH * ratio);
+                };
+                img.src = src;
+            }
+
             signatureFileInput.addEventListener('change', (event) => {
                 const file = event.target.files[0];
                 if (file && file.type.startsWith('image/')) {
                     const reader = new FileReader();
-                    reader.onload = (e) => {
-                        signaturePad.fromDataURL(e.target.result, {
-                            width: canvas.width,
-                            height: canvas.height
-                        });
-                    };
+                    reader.onload = (e) => loadImageIntoCanvas(e.target.result);
                     reader.readAsDataURL(file);
                 } else {
                     alert('Por favor, selecione um ficheiro de imagem válido.');
                 }
                 signatureFileInput.value = '';
             });
+
+            const reuseBtn = document.getElementById('reuse-first-signature-btn');
+            if (reuseBtn && assinaturasMilitar && assinaturasMilitar[0]) {
+                reuseBtn.addEventListener('click', () => loadImageIntoCanvas(assinaturasMilitar[0]));
+            }
         }
 
         if (pasteSignatureBtn) {
@@ -775,6 +795,11 @@ document.addEventListener('DOMContentLoaded', function() {
             scheduleSave();
         }
     });
+    pageContainer.addEventListener('blur', function(e) {
+        if (e.target.classList.contains('editable-date-part')) {
+            scheduleSave();
+        }
+    }, true);
     pageContainer.addEventListener('input', function(e) {
         if (e.target.classList.contains('editable-text')) {
             scheduleSave();
@@ -800,30 +825,8 @@ document.addEventListener('DOMContentLoaded', function() {
     function saveDocumentChanges() {
         if (!pageContainer) return;
 
+        // Datas são salvas pelo script inline do template — não coletar aqui para evitar conflito
         const dates = {};
-        pageContainer.querySelectorAll('.editable-date').forEach(input => {
-            const fieldName = input.dataset.dateField;
-            if (fieldName) dates[fieldName] = input.value;
-        });
-
-        // Coleta inputs de data em partes (dia, mês, ano separados) e monta a data
-        const dateParts = {};
-        pageContainer.querySelectorAll('.editable-date-part').forEach(input => {
-            const fieldName = input.dataset.dateField;
-            const part = input.dataset.datePart;
-            if (fieldName && part) {
-                if (!dateParts[fieldName]) dateParts[fieldName] = {};
-                dateParts[fieldName][part] = input.value;
-            }
-        });
-        for (const [fieldName, parts] of Object.entries(dateParts)) {
-            const day = String(parts.day || '').padStart(2, '0');
-            const month = String(parts.month || '').padStart(2, '0');
-            const year = parts.year || '';
-            if (day && month && year) {
-                dates[fieldName] = `${year}-${month}-${day}`;
-            }
-        }
 
         const texts = {};
         pageContainer.querySelectorAll('.editable-text').forEach(input => {

@@ -285,6 +285,27 @@
     .page-content .btn:hover {
         background-color: #1d4ed8 !important;
     }
+    .page-content input.editable-date,
+    .page-content input.editable-date-part,
+    .page-content select.editable-date-part {
+        background-color: #ffffff !important;
+        color: #000000 !important;
+        -webkit-text-fill-color: #000000 !important;
+        color-scheme: light !important;
+        border: 1px solid #888 !important;
+        border-radius: 3px;
+        padding: 1px 4px;
+        font-family: 'Times New Roman', Times, serif;
+        font-size: 12pt;
+        -webkit-appearance: none;
+        -moz-appearance: textfield;
+        appearance: none;
+    }
+    .page-content input[type=number].editable-date-part::-webkit-inner-spin-button,
+    .page-content input[type=number].editable-date-part::-webkit-outer-spin-button {
+        -webkit-appearance: none;
+        margin: 0;
+    }
 
     /* Parágrafos: zeramos margem/padding do browser — o espaçamento vem do DOCX via style inline */
     .page-content p {
@@ -1242,7 +1263,7 @@
         overflow-y: auto;
     }
     #signature-canvas-generic {
-        height: 400px; /* Aumenta a altura do canvas */
+        height: 520px;
         width: 100%;
     }
 </style>
@@ -1440,6 +1461,9 @@
         <div class="form-actions" style="justify-content: flex-end;">
             <input type="file" id="signature-file-input" accept="image/*" style="display: none;">
             <button type="button" class="btn btn-secondary" id="import-signature-btn">Importar Assinatura</button>
+            {% if patd.assinaturas_militar %}
+            <button type="button" class="btn btn-secondary" id="reuse-first-signature-btn">Reutilizar 1ª Assinatura</button>
+            {% endif %}
             <button type="button" class="btn btn-secondary" id="paste-signature-btn">Colar da Área de Transferência</button>
             <button type="button" class="btn btn-secondary" id="clear-signature-btn-generic">Limpar</button>
             <button type="button" class="btn btn-secondary" id="cancel-signature-btn-generic">Cancelar</button>
@@ -2043,6 +2067,158 @@ const PATD_CONFIG = {
         input.value = '';
         preview.style.display = 'none';
         nome.textContent = '';
+    });
+})();
+
+// Fix de datas: salva imediatamente ao sair do campo e aplica estilo para tema escuro
+(function() {
+    const CSRF_TOKEN = '{{ csrf_token }}';
+    const saveUrl = "{% url 'Ouvidoria:salvar_documento_patd' patd.pk %}";
+    let saveTimer = null;
+
+    function showToast(msg, ok) {
+        let t = document.getElementById('_date-save-toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = '_date-save-toast';
+            t.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;z-index:99999;transition:opacity .4s;';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.style.background = ok ? '#22c55e' : '#ef4444';
+        t.style.color = '#fff';
+        t.style.opacity = '1';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function(){ t.style.opacity = '0'; }, 3000);
+    }
+
+    function applyInputStyles(root) {
+        (root || document).querySelectorAll(
+            'input.editable-date, input.editable-date-part, select.editable-date-part'
+        ).forEach(function(el) {
+            el.style.setProperty('background-color', '#ffffff', 'important');
+            el.style.setProperty('color', '#000000', 'important');
+            el.style.setProperty('border', '1px solid #888', 'important');
+            el.style.setProperty('border-radius', '3px', 'important');
+            el.style.setProperty('padding', '1px 4px', 'important');
+            el.style.setProperty('font-family', "'Times New Roman', Times, serif", 'important');
+            el.style.setProperty('font-size', '12pt', 'important');
+            el.style.colorScheme = 'light';
+            if (el.type === 'number') {
+                el.style.setProperty('-moz-appearance', 'textfield', 'important');
+                el.style.setProperty('-webkit-appearance', 'none', 'important');
+                el.style.setProperty('appearance', 'none', 'important');
+            }
+        });
+    }
+
+    // Armazena os valores capturados no momento do evento
+    let _capturedDates = null;
+
+    function collectDatesFromDOM() {
+        const container = document.getElementById('document-preview-container');
+        if (!container) return {};
+        const dates = {};
+        container.querySelectorAll('.editable-date').forEach(function(inp) {
+            if (inp.dataset.dateField) dates[inp.dataset.dateField] = inp.value;
+        });
+        const dateParts = {};
+        container.querySelectorAll('.editable-date-part').forEach(function(inp) {
+            const f = inp.dataset.dateField, p = inp.dataset.datePart;
+            if (f && p) { if (!dateParts[f]) dateParts[f] = {}; dateParts[f][p] = inp.value; }
+        });
+        for (const [f, parts] of Object.entries(dateParts)) {
+            const d = String(parts.day || '').padStart(2, '0');
+            const m = String(parts.month || '').padStart(2, '0');
+            const y = parts.year || '';
+            if (d && m && y) dates[f] = y + '-' + m + '-' + d;
+        }
+        return dates;
+    }
+
+    function saveDatesNow() {
+        clearTimeout(saveTimer);
+        // Usa os valores capturados no momento do evento, não agora
+        const dates = _capturedDates || collectDatesFromDOM();
+        _capturedDates = null;
+        if (!Object.keys(dates).length) return;
+        showToast('Salvando data...', true);
+        fetch(saveUrl, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json', 'X-CSRFToken': CSRF_TOKEN },
+            body: JSON.stringify({ texto_documento: '', dates: dates, texts: {} })
+        }).then(function(r){ return r.json(); }).then(function(data){
+            if (data.status === 'success') {
+                showToast('Data salva! Banco: ' + (data.debug_data_inicio || '?'), true);
+                console.log('[DateSave] OK. Enviado:', dates, '| Banco após save:', data.debug_data_inicio);
+            } else {
+                showToast('Erro: ' + data.message, false);
+                console.warn('[DateSave] Erro:', data.message);
+            }
+        }).catch(function(e){
+            showToast('Erro de rede ao salvar', false);
+            console.error('[DateSave] Falha:', e);
+        });
+    }
+
+    // Aplica estilos quando inputs são inseridos no DOM
+    const observer = new MutationObserver(function(mutations) {
+        let found = false;
+        mutations.forEach(function(m) { if (m.addedNodes.length) found = true; });
+        if (found) applyInputStyles();
+    });
+    document.addEventListener('DOMContentLoaded', function() {
+        const container = document.getElementById('document-preview-container');
+        if (container) {
+            observer.observe(container, { childList: true, subtree: true });
+
+            function collectDatesFromPage(changedInput) {
+                const fieldName = changedInput.dataset.dateField;
+                const docName = changedInput.dataset.doc || null;
+                if (!fieldName) return {};
+                const dates = {};
+
+                // Se for um input de data completa (type=date)
+                if (changedInput.classList.contains('editable-date')) {
+                    const key = docName ? 'doc:' + docName : fieldName;
+                    dates[key] = changedInput.value;
+                    return dates;
+                }
+
+                // Se for uma parte de data (dia/mês/ano), monta a data completa
+                const page = changedInput.closest('.page-content') || container;
+                const docFilter = docName ? `[data-doc="${docName}"]` : ':not([data-doc])';
+                const parts = {};
+                page.querySelectorAll(`.editable-date-part[data-date-field="${fieldName}"]${docFilter}`).forEach(function(inp) {
+                    if (inp.dataset.datePart) parts[inp.dataset.datePart] = inp.value;
+                });
+                const d = String(parts.day || '').padStart(2, '0');
+                const m = String(parts.month || '').padStart(2, '0');
+                const y = parts.year || '';
+                if (d && m && y) {
+                    const key = docName ? 'doc:' + docName : fieldName;
+                    dates[key] = y + '-' + m + '-' + d;
+                }
+                return dates;
+            }
+
+            container.addEventListener('change', function(e) {
+                const t = e.target;
+                if (t.classList.contains('editable-date') || t.classList.contains('editable-date-part')) {
+                    _capturedDates = collectDatesFromPage(t);
+                    clearTimeout(saveTimer);
+                    saveTimer = setTimeout(saveDatesNow, 100);
+                }
+            });
+            container.addEventListener('blur', function(e) {
+                const t = e.target;
+                if (t.classList.contains('editable-date') || t.classList.contains('editable-date-part')) {
+                    _capturedDates = collectDatesFromPage(t);
+                    clearTimeout(saveTimer);
+                    saveTimer = setTimeout(saveDatesNow, 50);
+                }
+            }, true);
+        }
     });
 })();
 </script>

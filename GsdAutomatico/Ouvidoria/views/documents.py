@@ -149,13 +149,15 @@ def salvar_documento_patd(request, pk):
         texto_documento = data.get('texto_documento')
         dates = data.get('dates', {})
         texts = data.get('texts', {})
+        logger.info(f"[salvar_doc] PATD {pk} | dates recebidos: {dates}")
 
         # Validação básica
         if texto_documento is None:
             return JsonResponse({'status': 'error', 'message': 'Nenhum texto recebido.'}, status=400)
 
-        # 1. Atualiza o texto do documento
-        patd.documento_texto = texto_documento
+        # 1. Atualiza o texto do documento (ignora string vazia para não apagar o conteúdo)
+        if texto_documento:
+            patd.documento_texto = texto_documento
         
         # 2. Atualiza a Localidade (Manipulação segura de JSONField)
         if 'localidade' in texts:
@@ -164,16 +166,28 @@ def salvar_documento_patd(request, pk):
             circunstancias['localidade'] = texts['localidade']
             patd.circunstancias = circunstancias # Reatribuição força o Django a reconhecer a mudança
 
-        # 3. Atualiza as Datas dinamicamente
+        # 3. Atualiza as Datas
+        # Formato: dates pode ter campos do modelo (data_ciencia, etc.) OU
+        # datas por documento: { "doc:PATD_Coringa": "2026-05-30", ... }
         datetime_fields = {f.name for f in PATD._meta.get_fields() if hasattr(f, 'get_internal_type') and f.get_internal_type() == 'DateTimeField'}
+        datas_documentos = dict(patd.datas_documentos or {})
+
         for field_name, date_str in dates.items():
-            # Só atualiza se o campo existir no modelo PATD para evitar erros
+            # Datas por documento (prefixo "doc:")
+            if field_name.startswith('doc:'):
+                doc_name = field_name[4:]
+                if date_str:
+                    datas_documentos[doc_name] = date_str
+                else:
+                    datas_documentos.pop(doc_name, None)
+                continue
+
+            # Campos do modelo PATD
             if hasattr(patd, field_name):
                 if date_str:
                     try:
                         date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
                         if field_name in datetime_fields:
-                            # Preserva o horário existente, só troca a data
                             existing = getattr(patd, field_name)
                             if existing:
                                 existing_local = existing.astimezone() if existing.tzinfo else existing
@@ -186,12 +200,23 @@ def salvar_documento_patd(request, pk):
                     except (ValueError, TypeError):
                         logger.warning(f"Formato de data inválido para o campo {field_name}: {date_str}")
                 else:
-                    # Se vier vazio, define como None (null no banco)
                     setattr(patd, field_name, None)
+
+        patd.datas_documentos = datas_documentos
 
         patd.save()
 
-        return JsonResponse({'status': 'success', 'message': 'Documento, datas e localidade salvos com sucesso.'})
+        # Relê do banco para confirmar o que foi salvo
+        patd.refresh_from_db()
+        saved_data_inicio = patd.data_inicio.strftime('%Y-%m-%d') if patd.data_inicio else None
+        logger.info(f"[salvar_documento_patd] PATD {pk} salvo. data_inicio no banco: {saved_data_inicio} | dates recebidos: {dates}")
+
+        return JsonResponse({
+            'status': 'success',
+            'message': 'Documento, datas e localidade salvos com sucesso.',
+            'debug_data_inicio': saved_data_inicio,
+            'debug_dates_received': dates,
+        })
         
     except json.JSONDecodeError:
         return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)

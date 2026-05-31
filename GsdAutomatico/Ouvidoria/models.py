@@ -207,6 +207,7 @@ class PATD(models.Model):
     justificado = models.BooleanField(default=False, verbose_name="Transgressão Justificada")
     anexo_reconsideracao_oficial = models.FileField(upload_to=patd_anexo_path, null=True, blank=True, verbose_name="Anexo da Reconsideração do Oficial")
     assinaturas_npd_reconsideracao = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas da NPD de Reconsideração (Base64)")
+    datas_documentos = models.JSONField(default=dict, blank=True, null=True, verbose_name="Datas por Documento")
     relatorio_final = models.TextField(blank=True, null=True, verbose_name="Relatório Final")
     arquivado = models.BooleanField(default=False, verbose_name="Arquivado")
     motivo_arquivamento = models.TextField(blank=True, null=True, verbose_name="Motivo do Arquivamento")

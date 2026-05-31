@@ -560,17 +560,6 @@ class PATDListView(ListView):
         except (ValueError, TypeError):
             pass
 
-        # --- Rank-based security ---
-        user = self.request.user
-        if hasattr(user, 'profile') and user.profile.militar and not user.is_superuser:
-            user_rank_value = get_rank_value(user.profile.militar.posto)
-            
-            # Get all ranks that are higher than the current user's rank (lower value means higher rank)
-            higher_ranks = [posto for posto, value in RANK_HIERARCHY.items() if value < user_rank_value]
-
-            # Exclude PATDs where the militar has one of these higher ranks
-            if higher_ranks:
-                qs = qs.exclude(militar__posto__in=higher_ranks)
 
         if query:
             qs = qs.filter(
@@ -684,20 +673,6 @@ class PATDDetailView(DetailView):
     context_object_name = 'patd'
 
     def dispatch(self, request, *args, **kwargs):
-        # --- Rank-based security check ---
-        user = request.user
-        if hasattr(user, 'profile') and user.profile.militar and not user.is_superuser:
-            patd = self.get_object()
-            # Ensure the accused militar exists before comparing ranks
-            if patd.militar and hasattr(patd.militar, 'posto'):
-                user_rank_value = get_rank_value(user.profile.militar.posto)
-                subject_rank_value = get_rank_value(patd.militar.posto)
-
-                # Lower value means higher rank
-                if subject_rank_value < user_rank_value:
-                    messages.error(request, "Você não tem permissão para visualizar a PATD de um militar com graduação superior à sua.")
-                    return redirect('Ouvidoria:patd_list')
-        
         response = super().dispatch(request, *args, **kwargs)
         return response
 
