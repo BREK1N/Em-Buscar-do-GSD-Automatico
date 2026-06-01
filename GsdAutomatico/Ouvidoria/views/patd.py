@@ -24,7 +24,7 @@ from django.utils import timezone
 
 from ..models import PATD, Configuracao, Anexo
 from ..forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm, ComandanteAprovarForm
-from ..permissions import has_ouvidoria_access, can_delete_patd, has_comandante_access, can_edit_patd
+from ..permissions import has_ouvidoria_access, can_delete_patd, has_comandante_access, can_edit_patd, is_apurador
 from Secao_pessoal.models import Efetivo
 from Secao_pessoal.utils import get_rank_value, RANK_HIERARCHY
 from .decorators import (
@@ -929,6 +929,8 @@ class PATDDetailView(DetailView):
 
         # --- FIM DA MODIFICAÇÃO ---
 
+        context['user_is_apurador'] = is_apurador(self.request.user)
+
         return context
 
 
@@ -1057,7 +1059,7 @@ def excluir_anexo(request, pk):
         patd = anexo.patd
         user_militar = request.user.profile.militar if hasattr(request.user, 'profile') else None
 
-        if not (request.user.is_superuser or user_militar == patd.oficial_responsavel):
+        if not (request.user.is_superuser or user_militar == patd.oficial_responsavel or is_apurador(request.user)):
              return JsonResponse({'status': 'error', 'message': 'Você não tem permissão para excluir este anexo.'}, status=403)
 
         if anexo.arquivo and os.path.isfile(anexo.arquivo.path):

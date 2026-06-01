@@ -6,7 +6,7 @@ from django.contrib.auth.decorators import user_passes_test
 from django.contrib.auth.mixins import UserPassesTestMixin
 
 from ..models import PATD
-from ..permissions import has_comandante_access, has_ouvidoria_access, can_finalizar_ouvidoria
+from ..permissions import has_comandante_access, has_ouvidoria_access, can_finalizar_ouvidoria, is_apurador
 
 logger = logging.getLogger(__name__)
 
@@ -25,7 +25,8 @@ def comandante_redirect(view_func):
 
 def oficial_responsavel_required(view_func):
     """
-    Decorator que verifica se o usuário logado é o oficial responsável pela PATD.
+    Decorator que verifica se o usuário logado é o oficial responsável pela PATD
+    ou pertence ao grupo Apurador - Ouvidoria.
     """
     @wraps(view_func)
     def _wrapped_view(request, pk, *args, **kwargs):
@@ -33,6 +34,10 @@ def oficial_responsavel_required(view_func):
 
         # Superusuário sempre tem acesso
         if request.user.is_superuser:
+            return view_func(request, pk, *args, **kwargs)
+
+        # Grupo Apurador tem acesso independente de ser oficial responsável
+        if is_apurador(request.user):
             return view_func(request, pk, *args, **kwargs)
 
         # Verifica se o usuário tem um perfil militar e se ele é o oficial responsável

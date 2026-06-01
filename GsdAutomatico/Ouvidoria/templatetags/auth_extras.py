@@ -48,6 +48,11 @@ def can_delete_patd_filter(user):
 def can_edit_apuracao_filter(user):
     """Verifica se o usuário pode editar a apuração de uma PATD."""
     return permissions.can_edit_apuracao(user)
+
+@register.filter(name='is_apurador')
+def is_apurador_filter(user):
+    """Verifica se o usuário pertence ao grupo Apurador - Ouvidoria."""
+    return permissions.is_apurador(user)
     
 @register.filter(name='can_edit_transgressao')
 def can_edit_transgressao_filter(user):

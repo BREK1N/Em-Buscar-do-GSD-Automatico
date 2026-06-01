@@ -206,7 +206,6 @@ document.addEventListener('DOMContentLoaded', function() {
             function loadImageIntoCanvas(src) {
                 const img = new Image();
                 img.onload = () => {
-                    const ratio = Math.max(window.devicePixelRatio || 1, 2);
                     const canvasW = canvas.offsetWidth;
                     const canvasH = canvas.offsetHeight;
                     // Só reduz se a imagem for maior que o canvas; nunca aumenta
@@ -217,8 +216,11 @@ document.addEventListener('DOMContentLoaded', function() {
                     const offX = Math.round((canvasW - drawW) / 2);
                     const offY = Math.round((canvasH - drawH) / 2);
                     signaturePad.clear();
+                    // O ctx já tem scale(ratio, ratio) aplicado pelo resizeCanvas — usar coords lógicas
                     const ctx = canvas.getContext('2d');
-                    ctx.drawImage(img, offX * ratio, offY * ratio, drawW * ratio, drawH * ratio);
+                    ctx.drawImage(img, offX, offY, drawW, drawH);
+                    // Marca como não-vazio para que signaturePad.isEmpty() retorne false
+                    signaturePad._isEmpty = false;
                 };
                 img.src = src;
             }

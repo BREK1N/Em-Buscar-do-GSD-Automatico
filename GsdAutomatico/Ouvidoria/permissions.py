@@ -3,9 +3,10 @@ OUVIDORIA_S2 = "S2 - Ouvidoria"
 OUVIDORIA_CB = "CB - Ouvidoria"
 OUVIDORIA_ADJUNTO = "ADJUNTO - Ouvidoria"
 OUVIDORIA_CHEFE = "Chefe - Ouvidoria"
+OUVIDORIA_APURADOR = "Apurador - Ouvidoria"
 COMANDANTE = "Comandante"
 
-OUVIDORIA_GROUPS = [OUVIDORIA_S2, OUVIDORIA_CB, OUVIDORIA_ADJUNTO, OUVIDORIA_CHEFE]
+OUVIDORIA_GROUPS = [OUVIDORIA_S2, OUVIDORIA_CB, OUVIDORIA_ADJUNTO, OUVIDORIA_CHEFE, OUVIDORIA_APURADOR]
 OUVIDORIA_EDIT_PATD_GROUPS = [OUVIDORIA_CB, OUVIDORIA_ADJUNTO, OUVIDORIA_CHEFE]
 
 def is_in_group(user, group_name):
@@ -54,13 +55,21 @@ def can_delete_patd(user):
 def can_edit_apuracao(user):
     """
     Checks if the user has permission to edit the 'Apuração' fields of a PATD.
-    (ADJUNTO and Chefe roles)
+    (ADJUNTO, Chefe e Apurador roles)
     """
     if not user.is_authenticated:
         return False
     if user.is_superuser:
         return True
-    return user.groups.filter(name__in=[OUVIDORIA_ADJUNTO, OUVIDORIA_CHEFE]).exists()
+    return user.groups.filter(name__in=[OUVIDORIA_ADJUNTO, OUVIDORIA_CHEFE, OUVIDORIA_APURADOR]).exists()
+
+def is_apurador(user):
+    """Verifica se o usuário pertence ao grupo Apurador - Ouvidoria."""
+    if not user.is_authenticated:
+        return False
+    if user.is_superuser:
+        return True
+    return user.groups.filter(name=OUVIDORIA_APURADOR).exists()
     
 def can_edit_transgressao(user):
     """

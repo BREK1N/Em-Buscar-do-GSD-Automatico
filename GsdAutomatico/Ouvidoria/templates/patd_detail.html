@@ -738,12 +738,12 @@
                 </div>
                 {% endif %}
                 {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
-                    {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel %}
+                    {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel or user_is_apurador %}
                     <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
                     {% endif %}
                 {% endif %}
                 {% if patd.status == 'aplicacao_punicao_cmd_base' %}
-                    {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel %}
+                    {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel or user_is_apurador %}
                     <button type="button" class="btn btn-primary" id="btn-alterar-punicao-cmd-base">Alterar Punição</button>
                     <label class="btn btn-success" style="cursor:pointer;display:inline-flex;align-items:center;gap:6px;" title="Substitui a última página do Relatório Delta Base">
                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px;height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13" /></svg>
@@ -1079,7 +1079,7 @@
     </div>
     {% endif %}
 
-     {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel %}{% if patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao' or patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
+     {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel or user_is_apurador %}{% if patd.status == 'em_apuracao' or patd.status == 'apuracao_preclusao' or patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
     <div class="card" id="analise-disciplinar-card">
         <div class="card-header">
              <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-1.5 5.25H12" /></svg>
@@ -1769,7 +1769,7 @@ const PATD_CONFIG = {
     dataPublicacaoPunicao:    '{{ patd.data_publicacao_punicao }}',
     dataPublicacaoPunicaoIso: '{{ patd.data_publicacao_punicao|date:"c" }}',
     prazoDefesaDias: parseInt('{{ prazo_defesa_dias }}', 10) || 0,
-    isOficialResponsavel: '{{ request.user.profile.militar.pk }}' === '{{ patd.oficial_responsavel.pk }}',
+    isOficialResponsavel: '{{ request.user.profile.militar.pk }}' === '{{ patd.oficial_responsavel.pk }}' || {{ user_is_apurador|yesno:"true,false" }},
     hasDefesaSig:   '{{ patd.assinatura_alegacao_defesa|yesno:"true,false" }}' === 'true',
     defesaSigUrl:   '{% if patd.assinatura_alegacao_defesa.name %}{{ patd.assinatura_alegacao_defesa.url }}{% endif %}',
     hasReconSig:    '{{ patd.assinatura_reconsideracao|yesno:"true,false" }}' === 'true',
