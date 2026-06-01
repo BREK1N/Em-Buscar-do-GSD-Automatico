@@ -722,13 +722,7 @@ class PATDDetailView(DetailView):
         context['prazo_defesa_dias'] = config.prazo_defesa_dias
         context['prazo_defesa_minutos'] = config.prazo_defesa_minutos
 
-        # --- INÍCIO DA MODIFICAÇÃO: Passar status bloqueados para o template ---
-        context['locked_statuses_for_edit'] = [
-            'analise_comandante', 'aguardando_assinatura_npd', 'periodo_reconsideracao',
-            'em_reconsideracao', 'aguardando_comandante_base', 
-            'finalizado'
-        ]
-        # --- FIM DA MODIFICAÇÃO ---
+        context['locked_statuses_for_edit'] = []
 
         doc_context = _get_document_context(patd)
         context['comandante_assinatura'] = doc_context.get('assinatura_comandante_data')
@@ -955,15 +949,6 @@ class PATDUpdateView(UserPassesTestMixin, UpdateView):
         return kwargs
 
     def dispatch(self, request, *args, **kwargs):
-        patd = self.get_object()
-        locked_statuses = [
-            'analise_comandante', 'aguardando_assinatura_npd', 'periodo_reconsideracao',
-            'em_reconsideracao', 'aguardando_comandante_base',
-            'finalizado'
-        ]
-        if not request.user.is_superuser and patd.status in locked_statuses:
-            messages.error(request, "A PATD não pode ser editada nesta fase do processo.")
-            return redirect('Ouvidoria:patd_detail', pk=patd.pk)
         return super().dispatch(request, *args, **kwargs)
 
     def form_valid(self, form):
