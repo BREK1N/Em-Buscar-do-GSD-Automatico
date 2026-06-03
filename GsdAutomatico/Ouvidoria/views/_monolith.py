@@ -758,6 +758,7 @@ def get_document_pages(patd, for_docx=False):
         # Substitui o placeholder do texto da alegação pelo conteúdo real, formatado para HTML
         alegacao_texto_html = (patd.alegacao_defesa or "").replace('\n', '<br>')
         alegacao_html = alegacao_html.replace('{Alegação de defesa}', alegacao_texto_html)
+        alegacao_html = f'<div data-document-id="alegacao_defesa">{alegacao_html}</div>'
         document_pages_raw.append(alegacao_html)
         # --- FIM DA CORREÇÃO ---
         
@@ -836,33 +837,11 @@ def get_document_pages(patd, for_docx=False):
             document_pages_raw.append('<div class="manual-page-break"></div>')
             document_pages_raw.append("<p>{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}</p>")
 
-    # --- INÍCIO DA LÓGICA DE DUAS PASSAGENS ---
-    # 1. Primeira Passagem: Contar páginas físicas
-    physical_page_count = 0
-    alegacao_physical_page_num = 0
-    
-    for doc_html in document_pages_raw:
-        # Conta as quebras de página manuais dentro do documento
-        num_breaks = doc_html.count('<div class="manual-page-break"></div>')
-        
-        # Se este é o documento da alegação, registra o número da página atual
-        if '<div data-document-id="alegacao_defesa">' in doc_html:
-            alegacao_physical_page_num = physical_page_count + 1
-            
-        # Cada documento começa em uma nova página, e adiciona as quebras internas
-        physical_page_count += (1 + num_breaks)
+    # {pagina_alegacao} é resolvido no JS buscando o título "ALEGAÇÕES DE DEFESA" no DOM.
+    final_document_pages = document_pages_raw
 
-    # 2. Segunda Passagem: Substituir o placeholder com o número correto
-    final_document_pages = []
-    for doc_html in document_pages_raw:
-        final_html = doc_html.replace('{pagina_alegacao}', f"{alegacao_physical_page_num:02d}")
-        final_document_pages.append(final_html)
-    # --- FIM DA LÓGICA DE DUAS PASSAGENS ---
-
-    # --- INÍCIO DA MODIFICAÇÃO: Ponto de interrupção correto para justificação ---
     if patd.justificado:
         return final_document_pages
-    # --- FIM DA MODIFICAÇÃO ---
 
     return final_document_pages
 def _check_preclusao_signatures(patd):
@@ -2440,21 +2419,9 @@ def prosseguir_sem_alegacao(request, pk):
         if patd.status != 'prazo_expirado':
             return JsonResponse({'status': 'error', 'message': 'Ação permitida apenas para PATDs com prazo expirado.'}, status=400)
 
-        testemunhas_faltando = []
-        if not patd.testemunha1_id:
-            testemunhas_faltando.append('1ª Testemunha')
-        if not patd.testemunha2_id:
-            testemunhas_faltando.append('2ª Testemunha')
-        if testemunhas_faltando:
-            return JsonResponse({
-                'status': 'error',
-                'code': 'testemunhas_ausentes',
-                'message': f'É obrigatório atribuir as testemunhas antes de prosseguir. Faltam: {", ".join(testemunhas_faltando)}.',
-            }, status=400)
-
         patd.status = 'preclusao'
         patd.save(update_fields=['status'])
-        return JsonResponse({'status': 'success', 'message': 'Termo de Preclusão aberto. As testemunhas devem assinar antes de prosseguir.'})
+        return JsonResponse({'status': 'success', 'message': 'Termo de Preclusão aberto.'})
     except Exception as e:
         logger.error(f"Erro ao prosseguir sem alegação para PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
@@ -2820,16 +2787,6 @@ def patd_aprovar(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
     form = ComandanteAprovarForm(request.POST)
 
-    # Verifica se as testemunhas estão definidas (lógica existente)
-    errors = []
-    if not patd.testemunha1 or not patd.testemunha2:
-        errors.append("É necessário definir as duas testemunhas no processo.")
-
-    if errors:
-        error_message = f"PATD Nº {patd.numero_patd}: Não foi possível aprovar. " + " ".join(errors)
-        messages.error(request, error_message)
-        return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
-
     # Verifica o formulário e a senha
     if form.is_valid():
         senha = form.cleaned_data['senha_comandante']
@@ -2876,10 +2833,6 @@ def patd_retornar(request, pk):
 @require_POST
 def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
-
-    if not patd.testemunha1 or not patd.testemunha2:
-        messages.error(request, "As testemunhas devem estar definidas antes de avançar para o Comandante.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
 
     patd.status = 'analise_comandante'
     patd.save()
@@ -3029,10 +2982,6 @@ def justificar_patd(request, pk):
         if patd.status not in ['em_apuracao', 'apuracao_preclusao']:
              return JsonResponse({'status': 'error', 'message': 'A PATD não está na fase correta para ser justificada.'}, status=400)
 
-        # Verifica se as testemunhas foram definidas
-        if not patd.testemunha1 or not patd.testemunha2:
-            return JsonResponse({'status': 'error', 'message': 'É necessário definir as duas testemunhas antes de justificar o processo.'}, status=400)
-        
         # Limpar dados de punição
         patd.punicao = ""
         patd.dias_punicao = ""

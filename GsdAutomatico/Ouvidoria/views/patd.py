@@ -44,63 +44,114 @@ from ..analise_transgressao import (
 
 logger = logging.getLogger(__name__)
 
+
+def _fix_pdf_text_encoding(text: str) -> str:
+    """
+    Corrige problemas de encoding em texto extraído de PDFs brasileiros.
+
+    Cobre três padrões comuns:
+    1. Caracteres no Private Use Area (U+F000-U+F0FF) gerados por fontes WinAnsi/
+       MacRoman sem mapa ToUnicode — subtrai 0xF000 para recuperar o Latin-1 original.
+    2. Sequências de escape literal '\\uXXXX' armazenadas como texto em vez de
+       como o caractere Unicode correspondente.
+    3. Caractere de substituição U+FFFD seguido de dois dígitos hex — padrão
+       produzido quando PyMuPDF não consegue decodificar um byte Latin-1 como UTF-8.
+    """
+    if not text:
+        return text
+
+    # Fix 1: PUA U+F021..U+F0FF → Latin-1 U+0021..U+00FF
+    fixed = []
+    for ch in text:
+        cp = ord(ch)
+        if 0xF021 <= cp <= 0xF0FF:
+            fixed.append(chr(cp - 0xF000))
+        else:
+            fixed.append(ch)
+    text = ''.join(fixed)
+
+    # Fix 2: sequências literais \uXXXX → caractere Unicode
+    text = re.sub(r'\\u([0-9a-fA-F]{4})', lambda m: chr(int(m.group(1), 16)), text)
+
+    # Fix 3: U+FFFD + 2 hex chars → chr(byte) — ex: �e7 → ç
+    text = re.sub('�([0-9a-fA-F]{2})', lambda m: chr(int(m.group(1), 16)), text)
+
+    return text
+
+
 PHASE_GROUPS = [
     {
+        'key': 'confeccao',
+        'label': '1 – Confecção / FR e Ficha Individual',
+        'statuses': ['confeccao_fr_ficha'],
+    },
+    {
         'key': 'ciencia_defesa',
-        'label': '1 – Confecção / Ciência e Defesa',
+        'label': '2 – Ciência do Militar e Defesa',
         'statuses': ['ciencia_militar', 'aguardando_justificativa', 'prazo_expirado', 'preclusao'],
     },
     {
         'key': 'apuracao',
-        'label': '2 – Apuração',
+        'label': '3 – Apuração',
         'statuses': [
             'definicao_oficial', 'aguardando_aprovacao_atribuicao',
             'em_apuracao', 'apuracao_preclusao',
             'aguardando_punicao', 'aguardando_punicao_alterar',
             'assinatura_cmd_gsd_despacho_abertura', 'aplicacao_punicao_cmd_base',
+        ],
+    },
+    {
+        'key': 'aguardando_comandante',
+        'label': '4 – Aguardando Resposta do Comandante',
+        'statuses': [
             'analise_comandante', 'aguardando_assinatura_npd',
+            'aguardando_nova_punicao',
         ],
     },
     {
         'key': 'condenacao',
-        'label': '3 – Ciência da Condenação / NPD',
+        'label': '5 – Ciência da Condenação / NPD',
         'statuses': [
             'periodo_reconsideracao', 'em_reconsideracao',
-            'aguardando_comandante_base', 'aguardando_nova_punicao',
+            'aguardando_comandante_base',
             'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao',
+            'finalizado',
         ],
     },
 ]
 
 STATUS_GROUPS = {
-    "Fase de Defesa": {
+    "1 – Confecção / FR e Ficha Individual": {
+        'confeccao_fr_ficha': 'Confecção / FR e Ficha Individual',
+    },
+    "2 – Ciência do Militar e Defesa": {
         'ciencia_militar': 'Aguardando ciência do militar',
         'aguardando_justificativa': 'Aguardando Justificativa',
         'prazo_expirado': 'Prazo expirado',
         'preclusao': 'Preclusão - Sem Defesa',
     },
-    "Aguardando Oficial": {
+    "3 – Apuração": {
         'definicao_oficial': 'Aguardando atribuição do Oficial',
         'aguardando_aprovacao_atribuicao': 'Aguardando aprovação de atribuição de oficial',
-    },
-    "Fase de Apuração": {
         'em_apuracao': 'Em Apuração',
         'apuracao_preclusao': 'Em Apuração (Preclusão)',
         'aguardando_punicao': 'Aguardando Aplicação da Punição',
         'aguardando_punicao_alterar': 'Aguardando Punição (alterar)',
+        'assinatura_cmd_gsd_despacho_abertura': 'Assinatura CMD GSD – Despacho de Abertura',
+        'aplicacao_punicao_cmd_base': 'Aplicação da Punição – CMD da Base',
     },
-    "Decisão do Comandante": {
+    "4 – Aguardando Resposta do Comandante": {
         'analise_comandante': 'Em Análise pelo Comandante',
         'aguardando_assinatura_npd': 'Aguardando Assinatura NPD',
+        'aguardando_nova_punicao': 'Aguardando nova punição',
     },
-    "Fase de Reconsideração": {
+    "5 – Ciência da Condenação / NPD": {
         'periodo_reconsideracao': 'Período de Reconsideração',
         'em_reconsideracao': 'Em Reconsideração',
         'aguardando_comandante_base': 'Aguardando Comandante da Base',
         'aguardando_preenchimento_npd_reconsideracao': 'Aguardando preenchimento NPD Reconsideração',
-    },
-    "Aguardando Publicação": {
         'aguardando_publicacao': 'Aguardando publicação',
+        'finalizado': 'Finalizado',
     },
 }
 
@@ -350,7 +401,7 @@ def index(request):
                 for page in doc:
                     page_text = page.get_text()
                     if len(page_text.strip()) > 50:
-                        content += page_text + "\n\n"
+                        content += _fix_pdf_text_encoding(page_text) + "\n\n"
                     else:
                         try:
                             pix = page.get_pixmap(dpi=300)
@@ -766,6 +817,20 @@ class PATDDetailView(DetailView):
         assinaturas_pendentes = []
         s = patd.status
 
+        if s == 'confeccao_fr_ficha':
+            if not patd.anexos.filter(tipo='formulario_resumo').exists():
+                assinaturas_pendentes.append({
+                    'quem': 'Ouvidoria',
+                    'descricao': 'Anexar Formulário de Resumo (FR)',
+                    'urgente': True,
+                })
+            if not patd.anexos.filter(tipo='ficha_individual').exists():
+                assinaturas_pendentes.append({
+                    'quem': 'Ouvidoria',
+                    'descricao': 'Anexar Ficha Individual',
+                    'urgente': True,
+                })
+
         if s == 'ciencia_militar':
             if not (patd.assinaturas_militar and len(patd.assinaturas_militar) > 0):
                 assinaturas_pendentes.append({
@@ -816,18 +881,6 @@ class PATDDetailView(DetailView):
                 assinaturas_pendentes.append({
                     'quem': f'Militar Arrolado — {patd.militar}',
                     'descricao': 'Assinatura na NPD (ainda nenhuma registrada)',
-                    'urgente': True,
-                })
-            if patd.testemunha1 and not patd.assinatura_testemunha1:
-                assinaturas_pendentes.append({
-                    'quem': f'1ª Testemunha — {patd.testemunha1}',
-                    'descricao': 'Assinatura na NPD',
-                    'urgente': True,
-                })
-            if patd.testemunha2 and not patd.assinatura_testemunha2:
-                assinaturas_pendentes.append({
-                    'quem': f'2ª Testemunha — {patd.testemunha2}',
-                    'descricao': 'Assinatura na NPD',
                     'urgente': True,
                 })
 
@@ -1011,19 +1064,6 @@ def prosseguir_sem_alegacao(request, pk):
         if patd.status != 'prazo_expirado':
             return JsonResponse({'status': 'error', 'message': 'Ação permitida apenas para PATDs com prazo expirado.'}, status=400)
 
-        # Testemunhas devem estar atribuídas
-        testemunhas_faltando = []
-        if not patd.testemunha1_id:
-            testemunhas_faltando.append('1ª Testemunha')
-        if not patd.testemunha2_id:
-            testemunhas_faltando.append('2ª Testemunha')
-        if testemunhas_faltando:
-            return JsonResponse({
-                'status': 'error',
-                'code': 'testemunhas_ausentes',
-                'message': f'É obrigatório atribuir as testemunhas antes de prosseguir. Faltam: {", ".join(testemunhas_faltando)}.',
-            }, status=400)
-
         # Avança para 'definicao_oficial' para atribuir o oficial apurador
         # antes de abrir o Termo de Preclusão.
         patd.status = 'definicao_oficial'
@@ -1116,10 +1156,6 @@ def justificar_patd(request, pk):
         if patd.status not in ['em_apuracao', 'apuracao_preclusao']:
              return JsonResponse({'status': 'error', 'message': 'A PATD não está na fase correta para ser justificada.'}, status=400)
 
-        # Verifica se as testemunhas foram definidas
-        if not patd.testemunha1 or not patd.testemunha2:
-            return JsonResponse({'status': 'error', 'message': 'É necessário definir as duas testemunhas antes de justificar o processo.'}, status=400)
-        
         # Limpar dados de punição
         patd.punicao = ""
         patd.dias_punicao = ""

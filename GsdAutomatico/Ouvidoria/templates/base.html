@@ -1042,8 +1042,6 @@
             }).then(r => r.json()).then(data => {
                 if (data.status === 'success') {
                     if (window.location.pathname.includes(`/patd/${patdId}`)) window.location.reload();
-                } else if (data.code === 'testemunhas_ausentes') {
-                    alert('⚠️ ' + data.message + '\n\nAcesse a PATD e atribua as testemunhas na aba "Editar" antes de prosseguir.');
                 } else { alert('Erro: ' + data.message); }
             }).catch(() => {});
         }

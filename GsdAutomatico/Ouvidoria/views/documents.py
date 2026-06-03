@@ -155,7 +155,8 @@ def salvar_documento_patd(request, pk):
         if texto_documento is None:
             return JsonResponse({'status': 'error', 'message': 'Nenhum texto recebido.'}, status=400)
 
-        # 1. Atualiza o texto do documento (ignora string vazia para não apagar o conteúdo)
+        # 1. Atualiza o texto do documento
+        # Aceita tanto JSON array de páginas HTML (edição direta) quanto texto simples
         if texto_documento:
             patd.documento_texto = texto_documento
         
@@ -225,6 +226,8 @@ def salvar_documento_patd(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Erro interno ao salvar.'}, status=500)
 
 
+
+
 @login_required
 @comandante_redirect
 @ouvidoria_required
@@ -252,6 +255,9 @@ def upload_ficha_individual(request, pk):
         tipo='ficha_individual'
     )
 
+    if patd.status == 'confeccao_fr_ficha':
+        _try_advance_from_confeccao(patd)
+
     messages.success(request, "Ficha individual atualizada com sucesso.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
 
@@ -268,8 +274,20 @@ def upload_formulario_resumo(request, pk):
         return redirect('Ouvidoria:patd_detail', pk=pk)
     patd.anexos.filter(tipo='formulario_resumo').delete()
     Anexo.objects.create(patd=patd, arquivo=request.FILES['formulario_resumo'], tipo='formulario_resumo')
+
+    if patd.status == 'confeccao_fr_ficha':
+        _try_advance_from_confeccao(patd)
+
     messages.success(request, "Formulário de resumo anexado com sucesso.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
+
+
+def _try_advance_from_confeccao(patd):
+    tem_ficha = patd.anexos.filter(tipo='ficha_individual').exists()
+    tem_resumo = patd.anexos.filter(tipo='formulario_resumo').exists()
+    if tem_ficha and tem_resumo:
+        patd.status = 'ciencia_militar'
+        patd.save(update_fields=['status'])
 
 
 def _append_anexo_content(document, anexo):

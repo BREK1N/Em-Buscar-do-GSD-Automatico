@@ -209,16 +209,6 @@ def patd_aprovar(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
     form = ComandanteAprovarForm(request.POST)
 
-    # Verifica se as testemunhas estão definidas (lógica existente)
-    errors = []
-    if not patd.testemunha1 or not patd.testemunha2:
-        errors.append("É necessário definir as duas testemunhas no processo.")
-
-    if errors:
-        error_message = f"PATD Nº {patd.numero_patd}: Não foi possível aprovar. " + " ".join(errors)
-        messages.error(request, error_message)
-        return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
-
     # Verifica o formulário e a senha
     if form.is_valid():
         senha = form.cleaned_data['senha_comandante']
@@ -314,10 +304,6 @@ def aceitar_despacho_abertura(request, pk):
 @require_POST
 def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
-
-    if not patd.testemunha1 or not patd.testemunha2:
-        messages.error(request, "As testemunhas devem estar definidas antes de avançar para o Comandante.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
 
     patd.status = 'analise_comandante'
     patd.save()

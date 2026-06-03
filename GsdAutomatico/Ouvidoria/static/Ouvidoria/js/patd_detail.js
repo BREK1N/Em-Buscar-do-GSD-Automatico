@@ -1000,6 +1000,176 @@ document.addEventListener('DOMContentLoaded', function() {
         _applyZoom(_zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
     }, { passive: false });
 
+    // ── PLACEHOLDER: barra de formatação removida ──
+    (function initFormatToolbar_DISABLED() {
+        const fmtBar = document.getElementById('format-toolbar');
+        if (!fmtBar || isFinalized) return;
+
+        let _savedRange = null;
+
+        function saveRange() {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+                const r = sel.getRangeAt(0);
+                const container = r.commonAncestorContainer;
+                if (pageContainer.contains(container)) {
+                    _savedRange = r.cloneRange();
+                }
+            }
+        }
+
+        function restoreRange() {
+            if (!_savedRange) return;
+            const sel = window.getSelection();
+            sel.removeAllRanges();
+            sel.addRange(_savedRange);
+        }
+
+        function exec(cmd, value) {
+            restoreRange();
+            document.execCommand(cmd, false, value || null);
+            updateActiveStates();
+            scheduleSave();
+        }
+
+        function updateActiveStates() {
+            const cmds = {
+                'fmt-bold':          'bold',
+                'fmt-italic':        'italic',
+                'fmt-underline':     'underline',
+                'fmt-strike':        'strikeThrough',
+                'fmt-align-left':    'justifyLeft',
+                'fmt-align-center':  'justifyCenter',
+                'fmt-align-right':   'justifyRight',
+                'fmt-align-justify': 'justifyFull',
+            };
+            Object.entries(cmds).forEach(([id, cmd]) => {
+                const btn = document.getElementById(id);
+                if (btn) btn.classList.toggle('active', document.queryCommandState(cmd));
+            });
+            // Atualiza seletores de fonte e tamanho
+            const fontName = document.queryCommandValue('fontName').replace(/['"]/g, '');
+            const fmtFont = document.getElementById('fmt-font-family');
+            if (fmtFont && fontName) {
+                const opt = Array.from(fmtFont.options).find(o => o.value.toLowerCase() === fontName.toLowerCase());
+                fmtFont.value = opt ? opt.value : '';
+            }
+            const fontSize = document.queryCommandValue('fontSize');
+            const fmtSize = document.getElementById('fmt-font-size');
+            // execCommand fontSize usa 1-7 internamente; mapeamos para pt
+            const sizeMap = {'1':'8','2':'10','3':'12','4':'14','5':'18','6':'24','7':'36'};
+            if (fmtSize && fontSize) fmtSize.value = sizeMap[fontSize] || '';
+        }
+
+        // Mostra a toolbar quando foca num contenteditable de página
+        pageContainer.addEventListener('focusin', function(e) {
+            if (e.target.classList.contains('page-content') || e.target.closest('.page-content')) {
+                fmtBar.classList.add('visible');
+            }
+        });
+        // Esconde quando o foco sai do documento E não vai para a toolbar
+        pageContainer.addEventListener('focusout', function(e) {
+            setTimeout(function() {
+                const active = document.activeElement;
+                if (!pageContainer.contains(active) && !fmtBar.contains(active)) {
+                    fmtBar.classList.remove('visible');
+                }
+            }, 150);
+        });
+
+        // Salva a seleção antes de qualquer clique na toolbar
+        fmtBar.addEventListener('mousedown', function(e) {
+            saveRange();
+            e.preventDefault(); // Não tira o foco do contenteditable
+        });
+
+        // Atualiza estados ao mudar seleção
+        document.addEventListener('selectionchange', function() {
+            const sel = window.getSelection();
+            if (sel && sel.rangeCount > 0) {
+                const container = sel.getRangeAt(0).commonAncestorContainer;
+                if (pageContainer.contains(container)) {
+                    saveRange();
+                    updateActiveStates();
+                }
+            }
+        });
+
+        // Botões de estilo
+        document.getElementById('fmt-bold')?.addEventListener('click',      () => exec('bold'));
+        document.getElementById('fmt-italic')?.addEventListener('click',    () => exec('italic'));
+        document.getElementById('fmt-underline')?.addEventListener('click', () => exec('underline'));
+        document.getElementById('fmt-strike')?.addEventListener('click',    () => exec('strikeThrough'));
+
+        // Alinhamento
+        document.getElementById('fmt-align-left')?.addEventListener('click',    () => exec('justifyLeft'));
+        document.getElementById('fmt-align-center')?.addEventListener('click',  () => exec('justifyCenter'));
+        document.getElementById('fmt-align-right')?.addEventListener('click',   () => exec('justifyRight'));
+        document.getElementById('fmt-align-justify')?.addEventListener('click', () => exec('justifyFull'));
+
+        // Listas
+        document.getElementById('fmt-ul')?.addEventListener('click', () => exec('insertUnorderedList'));
+        document.getElementById('fmt-ol')?.addEventListener('click', () => exec('insertOrderedList'));
+
+        // Indentação
+        document.getElementById('fmt-indent')?.addEventListener('click',  () => exec('indent'));
+        document.getElementById('fmt-outdent')?.addEventListener('click', () => exec('outdent'));
+
+        // Desfazer / Refazer
+        document.getElementById('fmt-undo')?.addEventListener('click', () => exec('undo'));
+        document.getElementById('fmt-redo')?.addEventListener('click', () => exec('redo'));
+
+        // Limpar formatação
+        document.getElementById('fmt-clear')?.addEventListener('click', () => exec('removeFormat'));
+
+        // Cor do texto
+        const colorInput = document.getElementById('fmt-color-input');
+        const colorBar   = document.getElementById('fmt-color-bar');
+        document.getElementById('fmt-color-btn')?.addEventListener('click', function(e) {
+            saveRange();
+            colorInput.click();
+        });
+        colorInput?.addEventListener('input', function() {
+            colorBar.style.background = colorInput.value;
+        });
+        colorInput?.addEventListener('change', function() {
+            colorBar.style.background = colorInput.value;
+            exec('foreColor', colorInput.value);
+        });
+
+        // Realce (highlight)
+        document.getElementById('fmt-highlight-btn')?.addEventListener('click', function() {
+            exec('hiliteColor', '#FFFF00');
+        });
+
+        // Fonte
+        document.getElementById('fmt-font-family')?.addEventListener('change', function() {
+            if (this.value) exec('fontName', this.value);
+            this.blur();
+        });
+
+        // Tamanho — mapeia pt para o índice 1-7 do execCommand
+        const ptToIdx = {'8':'1','9':'2','10':'3','11':'3','12':'3','14':'4','16':'5','18':'5','20':'5','22':'6','24':'6','28':'7','32':'7','36':'7'};
+        document.getElementById('fmt-font-size')?.addEventListener('change', function() {
+            if (this.value) {
+                const idx = ptToIdx[this.value] || '3';
+                exec('fontSize', idx);
+                // Força o tamanho exato via CSS pois execCommand usa índices aproximados
+                restoreRange();
+                const sel = window.getSelection();
+                if (sel && sel.rangeCount > 0 && !sel.isCollapsed) {
+                    const span = document.createElement('span');
+                    span.style.fontSize = this.value + 'pt';
+                    try {
+                        sel.getRangeAt(0).surroundContents(span);
+                        scheduleSave();
+                    } catch(e) { /* seleção parcial — usa o execCommand já aplicado */ }
+                }
+            }
+            this.blur();
+        });
+    })();
+
     // ── Navegação de páginas ──
     let _pageEls = [];
 
@@ -1196,6 +1366,24 @@ document.addEventListener('DOMContentLoaded', function() {
         // Atualiza lista de páginas e indicador
         _pageEls = Array.from(scaleWrapper.querySelectorAll('.page'));
         _updatePageIndicator();
+
+        // Resolve {pagina_alegacao} buscando o título "ALEGAÇÕES DE DEFESA" no DOM
+        (function() {
+            const pages = Array.from(scaleWrapper.querySelectorAll('.page'));
+            let num = 0;
+            for (let i = 0; i < pages.length; i++) {
+                if (pages[i].textContent.includes('ALEGAÇÕES DE DEFESA')) { num = i + 1; break; }
+            }
+            if (!num) return;
+            const str = String(num).padStart(2, '0');
+            const walker = document.createTreeWalker(scaleWrapper, NodeFilter.SHOW_TEXT, null, false);
+            const nodes = [];
+            let n;
+            while ((n = walker.nextNode())) {
+                if (n.nodeValue && n.nodeValue.includes('{pagina_alegacao}')) nodes.push(n);
+            }
+            nodes.forEach(n => { n.nodeValue = n.nodeValue.replace(/\{pagina_alegacao\}/g, str); });
+        })();
         _applyZoom(_zoom); // aplica zoom atual
 
         if (isFinalized) {

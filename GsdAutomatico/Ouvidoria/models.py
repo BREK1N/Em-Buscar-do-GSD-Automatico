@@ -93,6 +93,8 @@ class PATD(models.Model):
         # Fase Inicial
         ('definicao_oficial', 'Aguardando definição do Oficial'),
         ('aguardando_aprovacao_atribuicao', 'Aguardando aprovação de atribuição de oficial'),
+        # Confecção FR e Ficha Individual
+        ('confeccao_fr_ficha', 'Confecção / FR e Ficha Individual'),
         # Fase de Defesa
         ('ciencia_militar', 'Aguardando ciência do militar'),
         ('aguardando_justificativa', 'Aguardando Justificativa'),
@@ -158,7 +160,7 @@ class PATD(models.Model):
     status = models.CharField(
         max_length=50,
         choices=STATUS_CHOICES,
-        default='ciencia_militar',
+        default='confeccao_fr_ficha',
         verbose_name="Status"
     )
     status_anterior = models.CharField(

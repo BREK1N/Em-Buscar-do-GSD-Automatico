@@ -939,9 +939,26 @@ def _render_document_from_template(template_name, context):
             if tag == 'p':
                 p = docx.text.paragraph.Paragraph(child, document)
 
-                # Quebra de página explícita
+                # Quebra de página explícita via placeholder
                 if '{nova_pagina}' in p.text:
                     items.append(('<div class="manual-page-break"></div>', None))
+                    continue
+
+                # Quebra de página nativa do DOCX (w:br type="page")
+                _W_NS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main'
+                _native_pb_runs = child.findall(f'.//{{{_W_NS}}}br[@{{{_W_NS}}}type="page"]')
+                if _native_pb_runs:
+                    items.append(('<div class="manual-page-break"></div>', None))
+                    # Remove os runs de page break do XML temporariamente para renderizar
+                    # o restante do parágrafo (pode conter variáveis como {N PATD})
+                    for _br in _native_pb_runs:
+                        _br_parent = _br.getparent()
+                        if _br_parent is not None:
+                            _br_parent.remove(_br)
+                    # Se o parágrafo ainda tiver conteúdo após remover o break, renderiza
+                    if p.text.strip():
+                        bdr = _get_paragraph_border_css(p)
+                        items.append((_render_paragraph_html(p, context, template_name), bdr))
                     continue
 
                 # Parágrafo vazio
@@ -1037,6 +1054,7 @@ def get_document_pages(patd, for_docx=False):
         alegacao_html = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
         alegacao_texto_html = (patd.alegacao_defesa or "").replace('\n', '<br>')
         alegacao_html = alegacao_html.replace('{Alegação de defesa}', alegacao_texto_html)
+        alegacao_html = f'<div data-document-id="alegacao_defesa">{alegacao_html}</div>'
         document_pages_raw.append(PB)
         document_pages_raw.append(alegacao_html)
         if patd.anexos.filter(tipo='defesa').exists():
@@ -1183,38 +1201,11 @@ def get_document_pages(patd, for_docx=False):
         document_pages_raw.append(PB)
         document_pages_raw.append(_render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', _ctx(patd, for_docx, 'MODELO_NPD_RECONSIDERACAO')))
 
-    # --- INÍCIO DA LÓGICA DE DUAS PASSAGENS ---
-    # 1. Primeira Passagem: Contar páginas físicas
-    physical_page_count = 0
-    alegacao_physical_page_num = 0
-    
-    _PB_ONLY = '<div class="manual-page-break"></div>'
-    for doc_html in document_pages_raw:
-        # Separadores isolados não contam como página
-        if doc_html.strip() == _PB_ONLY:
-            continue
+    # {pagina_alegacao} é resolvido no JS buscando o título "ALEGAÇÕES DE DEFESA" no DOM.
+    final_document_pages = document_pages_raw
 
-        # Conta as quebras de página manuais dentro do documento
-        num_breaks = doc_html.count(_PB_ONLY)
-
-        # Se este é o documento da alegação, registra o número da página atual
-        if '<div data-document-id="alegacao_defesa">' in doc_html:
-            alegacao_physical_page_num = physical_page_count + 1
-
-        # Cada documento começa em uma nova página, e adiciona as quebras internas
-        physical_page_count += (1 + num_breaks)
-
-    # 2. Segunda Passagem: Substituir o placeholder com o número correto
-    final_document_pages = []
-    for doc_html in document_pages_raw:
-        final_html = doc_html.replace('{pagina_alegacao}', f"{alegacao_physical_page_num:02d}")
-        final_document_pages.append(final_html)
-    # --- FIM DA LÓGICA DE DUAS PASSAGENS ---
-
-    # --- INÍCIO DA MODIFICAÇÃO: Ponto de interrupção correto para justificação ---
     if patd.justificado:
         return final_document_pages
-    # --- FIM DA MODIFICAÇÃO ---
 
     return final_document_pages
 
