@@ -1,5 +1,6 @@
 # GsdAutomatico/Ouvidoria/analise_transgressao.py
 import httpx
+import logging
 import os
 from typing import List, Dict, Optional
 from dotenv import load_dotenv
@@ -11,38 +12,37 @@ from langchain.output_parsers import BooleanOutputParser
 
 load_dotenv()
 
+logger = logging.getLogger(__name__)
+
 openai_api_key = os.getenv("OPENAI_API_KEY")
 if not openai_api_key:
     raise ValueError("A variável OPENAI_API_KEY não foi encontrada no ficheiro .env")
 
-# --- CORREÇÃO DE SSL PARA PROXY CORPORATIVO ---
-print("--- [DEBUG] INICIANDO CONFIGURAÇÃO DO CLIENTE OPENAI ---")
-
-# 1. Tenta capturar o proxy definido no .env ou no sistema
+# --- Configuração do cliente HTTP para proxy corporativo ---
+# Para usar o certificado do proxy da Intraer, defina REQUESTS_CA_BUNDLE=/caminho/cert.pem no .env
+# Nunca use verify=False em produção — permite ataques MITM que expõem dados sigilosos.
 proxy_url = os.getenv("http_proxy") or os.getenv("HTTP_PROXY") or os.getenv("https_proxy") or os.getenv("HTTPS_PROXY")
-print(f"--- [DEBUG] Proxy detectado: {proxy_url}")
+ssl_verify = os.getenv("REQUESTS_CA_BUNDLE") or os.getenv("SSL_CERT_FILE") or True
 
-# 2. Configura o cliente HTTP para IGNORAR a validação SSL
-# O parâmetro 'verify=False' é o segredo para funcionar dentro do Docker na Intraer
+logger.debug("Configurando cliente OpenAI. Proxy: %s | SSL verify: %s", proxy_url or "nenhum", ssl_verify)
+
 if proxy_url:
-    print("--- [DEBUG] Criando cliente HTTP com proxy e verify=False")
     http_client = httpx.Client(
         proxy=proxy_url,
-        verify=False,  # Ignora erro de certificado do Proxy
-        timeout=60.0   # Aumenta o tempo limite para evitar timeout na rede lenta
+        verify=ssl_verify,
+        timeout=60.0,
     )
 else:
-    print("--- [DEBUG] Nenhum proxy encontrado. Criando cliente padrão com verify=False por garantia.")
-    http_client = httpx.Client(verify=False)
+    http_client = httpx.Client(verify=ssl_verify)
 
-# 3. Inicializa o modelo passando o nosso cliente "permissivo"
 model = ChatOpenAI(
     model="gpt-4.1",
     temperature=0,
     api_key=openai_api_key,
-    http_client=http_client # <--- Injeta o cliente modificado
+    http_client=http_client,
+    max_retries=3,  # retry automático com backoff exponencial em RateLimitError/Timeout
 )
-print("--- [DEBUG] MODELO CARREGADO COM SUCESSO ---")
+logger.debug("Cliente OpenAI inicializado com sucesso.")
 
 # --- MODELOS DE DADOS ---
 

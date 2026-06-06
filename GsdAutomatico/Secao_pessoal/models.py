@@ -24,7 +24,7 @@ class Efetivo(models.Model):
     inspsau_validade = models.DateField(null=True, blank=True, verbose_name="Validade da INSPSAU")
     documento_inspsau = models.FileField(upload_to='inspsau_documentos/', null=True, blank=True, verbose_name="Documento da INSPSAU")
     inspsau_parecer = models.TextField(blank=True, null=True, verbose_name="Parecer da INSPSAU")
-    deleted = models.BooleanField(default=False, verbose_name="Excluído")
+    deleted = models.BooleanField(default=False, db_index=True, verbose_name="Excluído")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
 
     # Campos de Prestação de Serviço

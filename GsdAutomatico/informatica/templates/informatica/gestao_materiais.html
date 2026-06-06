@@ -472,6 +472,11 @@
                     {% endfor %}
                 </tbody>
             </table>
+            {% if cautelas_historico_has_more %}
+            <p class="text-muted text-center mt-2" style="font-size:0.85rem;">
+                Exibindo as 100 cautelas mais recentes. Registros mais antigos estão no banco de dados.
+            </p>
+            {% endif %}
         </div>
     </div>
 </div>

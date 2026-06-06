@@ -63,15 +63,20 @@ def extender_prazo_massa(request):
         patds_expiradas = PATD.objects.filter(status='prazo_expirado')
         if not patds_expiradas.exists():
             return JsonResponse({'status': 'no_action', 'message': 'Nenhuma PATD com prazo expirado para atualizar.'})
-        count = 0
-        for patd in patds_expiradas:
-            config = Configuracao.load()
-            delta_dias = config.prazo_defesa_dias - dias_extensao
-            delta_minutos = config.prazo_defesa_minutos - minutos_extensao
-            patd.data_ciencia = timezone.now() - timedelta(days=delta_dias, minutes=delta_minutos)
+
+        # Carrega config uma única vez fora do loop (evita get_or_create × N)
+        config = Configuracao.load()
+        delta_dias = config.prazo_defesa_dias - dias_extensao
+        delta_minutos = config.prazo_defesa_minutos - minutos_extensao
+        nova_data_ciencia = timezone.now() - timedelta(days=delta_dias, minutes=delta_minutos)
+
+        patds_lista = list(patds_expiradas)
+        for patd in patds_lista:
+            patd.data_ciencia = nova_data_ciencia
             patd.status = 'aguardando_justificativa'
-            patd.save()
-            count += 1
+
+        PATD.objects.bulk_update(patds_lista, ['data_ciencia', 'status'])
+        count = len(patds_lista)
         return JsonResponse({'status': 'success', 'message': f'{count} prazos foram estendidos com sucesso.'})
     except (ValueError, TypeError):
         return JsonResponse({'status': 'error', 'message': 'Dados de entrada inválidos.'}, status=400)

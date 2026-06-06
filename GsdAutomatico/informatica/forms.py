@@ -1,5 +1,7 @@
 # GsdAutomatico/informatica/forms.py
 
+import secrets
+
 from django import forms
 from django.contrib.auth.forms import UserCreationForm, UserChangeForm
 from django.contrib.auth.models import User, Group
@@ -40,7 +42,9 @@ class InformaticaUserCreationForm(forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        user.set_password('12345678')
+        temp_password = secrets.token_urlsafe(10)
+        user.set_password(temp_password)
+        user._generated_password = temp_password  # lido pela view para exibir uma única vez
         user.email = self.cleaned_data.get('email', '')
 
         nome = self.cleaned_data.get('nome_completo', '').strip()

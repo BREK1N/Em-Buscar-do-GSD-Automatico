@@ -625,25 +625,68 @@ function getCookie(name) {
     return v;
 }
 
+function pollTask(taskId, onSuccess, onError) {
+    var attempts = 0;
+    var maxAttempts = 90; // 3 min a 2s cada
+    var timer = setInterval(function() {
+        attempts++;
+        if (attempts > maxAttempts) {
+            clearInterval(timer);
+            onError('Tempo limite excedido. Tente novamente.');
+            return;
+        }
+        fetch('/api/task/' + taskId + '/')
+            .then(function(r) { return r.json(); })
+            .then(function(d) {
+                if (d.status === 'success') { clearInterval(timer); onSuccess(d.result); }
+                else if (d.status === 'error') { clearInterval(timer); onError(d.message || 'Erro na tarefa.'); }
+                // 'pending' → aguarda próximo tick
+            })
+            .catch(function() { clearInterval(timer); onError('Erro de comunicação durante o processamento.'); });
+    }, 2000);
+}
+
 function handleRegenerate(buttonId, url, fieldId) {
     const btn = document.getElementById(buttonId);
     if (!btn) return;
     btn.addEventListener('click', function() {
         const orig = btn.innerHTML;
-        btn.textContent = 'Gerando…';
+        btn.textContent = 'Aguardando IA…';
         btn.disabled = true;
+
         fetch(url, {
             method: 'POST',
             headers: { 'X-CSRFToken': getCookie('csrftoken'), 'Content-Type': 'application/json' },
             body: JSON.stringify({})
         })
-        .then(r => r.json())
-        .then(data => {
-            if (data.status === 'success') document.getElementById(fieldId).value = data.novo_texto;
-            else alert('Erro: ' + data.message);
+        .then(function(r) { return r.json(); })
+        .then(function(data) {
+            if (data.status === 'success') {
+                // caminho rápido (cache hit)
+                document.getElementById(fieldId).value = data.novo_texto || '';
+                btn.innerHTML = orig; btn.disabled = false;
+            } else if (data.status === 'pending' && data.task_id) {
+                btn.textContent = 'Processando…';
+                pollTask(
+                    data.task_id,
+                    function(result) {
+                        document.getElementById(fieldId).value = result.novo_texto || '';
+                        btn.innerHTML = orig; btn.disabled = false;
+                    },
+                    function(errMsg) {
+                        alert('Erro: ' + errMsg);
+                        btn.innerHTML = orig; btn.disabled = false;
+                    }
+                );
+            } else {
+                alert('Erro: ' + (data.message || 'Erro desconhecido.'));
+                btn.innerHTML = orig; btn.disabled = false;
+            }
         })
-        .catch(() => alert('Erro de comunicação.'))
-        .finally(() => { btn.innerHTML = orig; btn.disabled = false; });
+        .catch(function() {
+            alert('Erro de comunicação.');
+            btn.innerHTML = orig; btn.disabled = false;
+        });
     });
 }
 

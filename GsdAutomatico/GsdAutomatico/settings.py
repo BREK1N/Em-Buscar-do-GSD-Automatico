@@ -35,7 +35,7 @@ SECRET_KEY = os.getenv('SECRET_KEY')
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = os.getenv('DEBUG', 'False') == 'True'
 
-ALLOWED_HOSTS = os.getenv('ALLOWED_HOSTS', '*').split(',')
+ALLOWED_HOSTS = [h.strip() for h in os.getenv('ALLOWED_HOSTS', '').split(',') if h.strip()]
 
 
 # Application definition
@@ -65,14 +65,42 @@ INSTALLED_APPS = [
 # ── Django Channels ───────────────────────────────────────────────────────────
 ASGI_APPLICATION = 'GsdAutomatico.asgi.application'
 
-# InMemoryChannelLayer — funciona sem Redis (servidor único).
-# Para produção multi-worker, troque por RedisChannelLayer:
-#   pip install channels-redis
-#   CHANNEL_LAYERS = {"default": {"BACKEND": "channels_redis.core.RedisChannelLayer",
-#                                  "CONFIG": {"hosts": [("redis", 6379)]}}}
 CHANNEL_LAYERS = {
     "default": {
-        "BACKEND": "channels.layers.InMemoryChannelLayer",
+        "BACKEND": "channels_redis.core.RedisChannelLayer",
+        "CONFIG": {
+            "hosts": [os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')],
+        },
+    }
+}
+
+# ── Celery ────────────────────────────────────────────────────────────────────
+CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
+CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/1')
+CELERY_ACCEPT_CONTENT = ['json']
+CELERY_TASK_SERIALIZER = 'json'
+CELERY_RESULT_SERIALIZER = 'json'
+CELERY_TIMEZONE = 'America/Sao_Paulo'
+CELERY_TASK_TRACK_STARTED = True
+CELERY_TASK_TIME_LIMIT = 300        # 5 min — mata workers travados
+CELERY_TASK_SOFT_TIME_LIMIT = 270   # aviso 30s antes
+
+CELERY_BEAT_SCHEDULE = {
+    'fetch-docker-logs': {
+        'task': 'informatica.tasks.fetch_docker_logs_task',
+        'schedule': 30.0,
+    },
+}
+
+# ── Cache (Redis) ─────────────────────────────────────────────────────────────
+CACHES = {
+    'default': {
+        'BACKEND': 'django_redis.cache.RedisCache',
+        'LOCATION': os.getenv('REDIS_URL', 'redis://redis:6379/1'),
+        'OPTIONS': {
+            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+        },
+        'TIMEOUT': 300,
     }
 }
 
@@ -139,7 +167,12 @@ DATABASES = {
 # Password validation
 # https://docs.djangoproject.com/en/5.2/ref/settings/#auth-password-validators
 
-AUTH_PASSWORD_VALIDATORS = []
+AUTH_PASSWORD_VALIDATORS = [
+    {'NAME': 'django.contrib.auth.password_validation.UserAttributeSimilarityValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.MinimumLengthValidator', 'OPTIONS': {'min_length': 8}},
+    {'NAME': 'django.contrib.auth.password_validation.CommonPasswordValidator'},
+    {'NAME': 'django.contrib.auth.password_validation.NumericPasswordValidator'},
+]
 
 
 # Internationalization
@@ -161,13 +194,13 @@ STATIC_URL = '/Static/'
 STATICFILES_DIRS = [os.path.join(BASE_DIR, 'Static')]
 STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
-STATICFILES_STORAGE = 'whitenoise.storage.StaticFilesStorage'
+STATICFILES_STORAGE = 'whitenoise.storage.CompressedManifestStaticFilesStorage'
 
 # Evita erro 500 se um ficheiro específico faltar no manifest do collectstatic
 WHITENOISE_MANIFEST_STRICT = False
 
-# Restaura o comportamento original: faz o WhiteNoise ler diretamente da pasta 'Static'
-WHITENOISE_USE_FINDERS = True
+# Arquivos com hash no nome são imutáveis — cache por 1 ano
+WHITENOISE_MAX_AGE = 31536000
 
 # Media files (Uploads)
 MEDIA_URL = '/media/'
@@ -178,6 +211,18 @@ MEDIA_ROOT = os.path.join(BASE_DIR.parent, 'media')
 # https://docs.djangoproject.com/en/5.2/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+# ── Segurança ─────────────────────────────────────────────────────────────────
+SECURE_BROWSER_XSS_FILTER = True
+SECURE_CONTENT_TYPE_NOSNIFF = True
+SESSION_COOKIE_HTTPONLY = True
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+
+# django-ratelimit
+RATELIMIT_EXCEPTION_HANDLER = 'django_ratelimit.exceptions.Ratelimited'
 
 LOGIN_URL = 'login:login'
 LOGIN_REDIRECT_URL = 'Ouvidoria:index'

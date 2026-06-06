@@ -543,18 +543,49 @@ def index(request):
                 return JsonResponse(response_data)
 
             except Exception as e:
-                 error_type = type(e).__name__
-                 error_message = str(e)
-                 error_traceback = traceback.format_exc()
+                import openai as _openai
+                error_type = type(e).__name__
+                error_message = str(e)
+                logger.error(
+                    "Erro na análise do PDF: %s - %s",
+                    error_type, error_message, exc_info=True,
+                )
 
-                 logger.error(f"Erro detalhado na análise do PDF: {error_type} - {error_message}\nTraceback:\n{error_traceback}")
-                 user_message = f"Ocorreu um erro inesperado durante a análise ({error_type}). Verifique os logs do servidor para mais detalhes."
-                 
-                 return JsonResponse({
-                     'status': 'error',
-                     'message': user_message,
-                     'detail': f"{error_type}: {error_message}"
-                 }, status=500)
+                if isinstance(e, _openai.RateLimitError):
+                    if 'insufficient_quota' in error_message:
+                        user_message = (
+                            "Os créditos da API de IA foram esgotados. "
+                            "O administrador do sistema (Informática) precisa recarregar "
+                            "os créditos em platform.openai.com para restaurar a funcionalidade."
+                        )
+                    else:
+                        user_message = (
+                            "A API de IA está temporariamente sobrecarregada. "
+                            "Aguarde 1 minuto e tente novamente."
+                        )
+                    return JsonResponse(
+                        {'status': 'error', 'message': user_message, 'detail': error_message},
+                        status=429,
+                    )
+
+                if isinstance(e, _openai.AuthenticationError):
+                    user_message = (
+                        "Chave de API da IA inválida ou expirada. "
+                        "Contate o administrador do sistema (Informática)."
+                    )
+                    return JsonResponse(
+                        {'status': 'error', 'message': user_message, 'detail': error_message},
+                        status=503,
+                    )
+
+                user_message = (
+                    f"Ocorreu um erro inesperado durante a análise ({error_type}). "
+                    "Verifique os logs do servidor para mais detalhes."
+                )
+                return JsonResponse(
+                    {'status': 'error', 'message': user_message, 'detail': f"{error_type}: {error_message}"},
+                    status=500,
+                )
 
     # Lógica para GET request (permanece igual)
     return render(request, 'indexOuvidoria.html', context)

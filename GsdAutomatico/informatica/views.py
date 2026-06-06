@@ -15,12 +15,14 @@ from .forms import (
     GroupForm, ConfiguracaoForm
 )
 from .models import GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem, Armario, Prateleira, GroupProfile, SECAO_CHOICES, ConfiguracaoComandantes
+from django.db import transaction
 from django.db.models import Q, ProtectedError
 import logging
 from django.http import JsonResponse
 from django.views.decorators.http import require_POST
 from django.contrib import messages
 from django.utils import timezone
+from django.core.cache import cache
 import json
 import datetime
 import docker
@@ -106,30 +108,19 @@ def dashboard(request):
     general_admin_apps = get_model_admin_links(general_models_info)
     ouvidoria_apps = get_model_admin_links(ouvidoria_models_info)
     
-    quick_stats = {
-        'total_users': User.objects.count(),
-        'acervo': Material.objects.count(),
-        'em_cautela': Cautela.objects.filter(ativa=True).count(),
-        'militares_count': Efetivo.objects.count(),
-    }
+    quick_stats = cache.get('informatica_dashboard_stats')
+    if quick_stats is None:
+        quick_stats = {
+            'total_users': User.objects.count(),
+            'acervo': Material.objects.count(),
+            'em_cautela': Cautela.objects.filter(ativa=True).count(),
+            'militares_count': Efetivo.objects.count(),
+        }
+        cache.set('informatica_dashboard_stats', quick_stats, timeout=300)
 
-    terminal_logs = []
-    try:
-        client = docker.from_env()
-        containers = client.containers.list()
-        terminal_logs.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Conectado ao Daemon do Docker.")
-        for container in containers:
-            logs = container.logs(tail=5, timestamps=True).decode('utf-8', errors='replace')
-            for entry in logs.split('\n'):
-                if entry.strip():
-                    clean_entry = entry[:150] + '...' if len(entry) > 150 else entry
-                    terminal_logs.append(f"[{container.name}] {clean_entry}")
-    except Exception as e:
-        terminal_logs.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] ERRO: Não foi possível ler logs do Docker.")
-        terminal_logs.append(f"Detalhe: {str(e)}")
-        
-    if not terminal_logs:
-         terminal_logs.append(f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Nenhum container ativo ou logs vazios.")
+    terminal_logs = cache.get('docker_terminal_logs', [
+        f"[{datetime.datetime.now().strftime('%H:%M:%S')}] Atualizando logs em background..."
+    ])
 
     cautelas_recentes = Cautela.objects.filter(ativa=True).select_related('recebedor').prefetch_related('itens__material').order_by('-data_emissao')[:5]
 
@@ -213,7 +204,8 @@ class UserCreateView(StaffRequiredMixin, CreateView):
         return context
     def form_valid(self, form):
         user = form.save()
-        messages.success(self.request, f"Utilizador '{user.username}' criado com senha padrão '12345678'.")
+        generated_pwd = getattr(user, '_generated_password', '—')
+        messages.success(self.request, f"Utilizador '{user.username}' criado. Senha temporária: {generated_pwd} (anote agora — não será exibida novamente).")
         return redirect(self.success_url)
 
 class UserUpdateView(StaffRequiredMixin, UpdateView):
@@ -244,11 +236,17 @@ class UserDeleteView(StaffRequiredMixin, DeleteView):
 @staff_member_required
 @require_POST
 def reset_user_password(request, pk):
+    import secrets
     user_to_reset = get_object_or_404(User, pk=pk)
     try:
-        user_to_reset.set_password('12345678')
+        temp_password = secrets.token_urlsafe(10)
+        user_to_reset.set_password(temp_password)
         user_to_reset.save()
-        return JsonResponse({'status': 'success', 'message': f"Senha do utilizador '{user_to_reset.username}' redefinida."})
+        return JsonResponse({
+            'status': 'success',
+            'message': f"Senha do utilizador '{user_to_reset.username}' redefinida.",
+            'nova_senha': temp_password,
+        })
     except Exception as e:
         return JsonResponse({'status': 'error', 'message': 'Não foi possível redefinir a senha.'}, status=500)
 
@@ -416,46 +414,26 @@ def configuracao_comandantes(request):
 # ==========================================
 @staff_member_required
 def system_logs_api(request):
-    logs_data = []
-    ignored_terms = ['/static/', '/media/', '/favicon.ico', '/api/logs/', 'POST /jsi18n/', 'Auto-reloading', 'Watching for file changes', '/admin/login/']
-    try:
-        client = docker.from_env()
-        containers = client.containers.list()
-        for container in containers:
-            name = container.name.lower()
-            if 'db' in name or 'postgres' in name: continue
-            if not ('web' in name or 'nginx' in name): continue
-            log_output = container.logs(tail=100, timestamps=True).decode('utf-8', errors='replace')
-            for entry in log_output.split('\n'):
-                if not entry.strip(): continue
-                if any(term in entry for term in ignored_terms): continue
-                display_text = entry[31:] if len(entry) > 31 and entry[4] == '-' and entry[19] == 'T' else entry
-                logs_data.append({'container': container.name, 'text': display_text[:300]})
-    except Exception as e:
-        logs_data.append({'container': 'system', 'text': f"Erro: {str(e)}"})
+    from .tasks import fetch_docker_logs_task
+    logs_data = cache.get('docker_logs_api')
+    if logs_data is None:
+        fetch_docker_logs_task.delay()
+        logs_data = [{'container': 'system', 'text': 'Coletando logs em background, tente novamente em instantes...'}]
     return JsonResponse({'logs': logs_data})
 
-URL_MONITOR = "http://10.52.18.29:5000"
-LOG_FILE_PATH = "/logs_do_host/backup_sender.log"
+URL_MONITOR = os.getenv('URL_MONITOR', 'http://10.52.18.29:5000')
+LOG_FILE_PATH = os.getenv('LOG_FILE_PATH', '/logs_do_host/backup_sender.log')
 
 @login_required
 def monitoramento_backup(request):
     if not is_informatica_admin(request.user):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden()
-    context = {}
-    try:
-        response = requests.get(URL_MONITOR, timeout=5)
-        if response.status_code == 200:
-            dados = response.json()
-            context['online'] = True
-            context['dados'] = dados
-        else:
-            context['online'] = False
-            context['erro'] = f"Erro HTTP: {response.status_code}"
-    except Exception as e:
-        context['online'] = False
-        context['erro'] = str(e)
+    context = cache.get('monitor_data')
+    if context is None:
+        from .tasks import fetch_monitor_task
+        fetch_monitor_task.delay()
+        context = {'online': False, 'erro': 'Coletando dados em background, recarregue em alguns instantes.'}
     return render(request, 'informatica/monitoramento.html', context)
 
 @login_required
@@ -500,7 +478,10 @@ def gestao_materiais_view(request):
     armarios = Armario.objects.all().prefetch_related('prateleiras__materiais').order_by('nome')
     
     cautelas_ativas = Cautela.objects.filter(ativa=True).select_related('sobreaviso', 'recebedor').order_by('-data_emissao')
-    cautelas_historico = Cautela.objects.filter(ativa=False).select_related('sobreaviso', 'recebedor').order_by('-data_emissao')
+    _historico_qs = Cautela.objects.filter(ativa=False).select_related('sobreaviso', 'recebedor').order_by('-data_emissao')
+    _historico_total = _historico_qs.count()
+    cautelas_historico = _historico_qs[:100]
+    cautelas_historico_has_more = _historico_total > 100
 
     materiais_disponiveis = materiais.filter(quantidade_disponivel__gt=0, funcionando=True)
     
@@ -531,11 +512,16 @@ def gestao_materiais_view(request):
         'localizacao_texto': mat.localizacao_texto or '',
     } for mat in materiais]
 
-    militares_dados_json = []
-    for m in militares:
-        last_cautela = Cautela.objects.filter(recebedor=m).order_by('-data_emissao').first()
-        telefone = last_cautela.telefone_contato if last_cautela and last_cautela.telefone_contato else ''
-        militares_dados_json.append({'id': m.id, 'telefone': telefone, 'saram': getattr(m, 'saram', '')})
+    # Busca o telefone da última cautela de cada militar em 1 query via Subquery (evita N+1)
+    from django.db.models import OuterRef, Subquery as _Subquery
+    _last_tel = Cautela.objects.filter(
+        recebedor=OuterRef('pk')
+    ).order_by('-data_emissao').values('telefone_contato')[:1]
+    militares_com_tel = militares.annotate(_last_telefone=_Subquery(_last_tel))
+    militares_dados_json = [
+        {'id': m.id, 'telefone': m._last_telefone or '', 'saram': getattr(m, 'saram', '')}
+        for m in militares_com_tel
+    ]
 
     militares_info_json = []
     for m in militares_info:
@@ -557,7 +543,9 @@ def gestao_materiais_view(request):
         'grupos': grupos, 'subgrupos': subgrupos, 'materiais': materiais,
         'armarios': armarios,
         'setores': setores,
-        'cautelas_ativas': cautelas_ativas, 'cautelas_historico': cautelas_historico,
+        'cautelas_ativas': cautelas_ativas,
+        'cautelas_historico': cautelas_historico,
+        'cautelas_historico_has_more': cautelas_historico_has_more,
         'materiais_json': json.dumps(materiais_json),
         'acervo_json': json.dumps(acervo_json),
         'militares_dados_json': json.dumps(militares_dados_json),
@@ -814,124 +802,145 @@ def api_salvar_cautela(request):
         sobreaviso = Efetivo.objects.get(id=data.get('sobreaviso_id'))
         recebedor = Efetivo.objects.get(id=data.get('recebedor_id'))
         materiais_list = data.get('materiais', [])
-        
-        if not materiais_list: return JsonResponse({'status': 'error', 'message': 'Nenhum material selecionado.'})
 
-        if data.get('salvar_padrao') and data.get('assinatura_sobreaviso'):
-            sobreaviso.assinatura = data.get('assinatura_sobreaviso')
-            sobreaviso.save()
+        if not materiais_list:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum material selecionado.'})
 
-        cautela = Cautela.objects.create(
-            sobreaviso=sobreaviso,
-            recebedor=recebedor,
-            assinatura_sobreaviso=data.get('assinatura_sobreaviso'),
-            assinatura_recebedor=data.get('assinatura_recebedor'),
-            nome_missao=data.get('nome_missao', ''),
-            telefone_contato=data.get('telefone_contato', '')
-        )
-        
-        for mat_data in materiais_list:
-            material = Material.objects.get(id=mat_data['id'])
-            qtd = int(mat_data['qtd'])
-            if material.quantidade_disponivel < qtd:
-                raise ValueError(f"Material {material.nome} só tem {material.quantidade_disponivel} disponíveis!")
-                
-            CautelaItem.objects.create(cautela=cautela, material=material, quantidade=qtd)
-            material.quantidade_disponivel -= qtd
-            if material.quantidade_disponivel == 0: material.disponivel = False
-            material.save()
-            
+        with transaction.atomic():
+            if data.get('salvar_padrao') and data.get('assinatura_sobreaviso'):
+                sobreaviso.assinatura = data.get('assinatura_sobreaviso')
+                sobreaviso.save()
+
+            cautela = Cautela.objects.create(
+                sobreaviso=sobreaviso,
+                recebedor=recebedor,
+                assinatura_sobreaviso=data.get('assinatura_sobreaviso'),
+                assinatura_recebedor=data.get('assinatura_recebedor'),
+                nome_missao=data.get('nome_missao', ''),
+                telefone_contato=data.get('telefone_contato', '')
+            )
+
+            mat_ids = [int(m['id']) for m in materiais_list]
+            # select_for_update impede que dois requests simultâneos emprestem o mesmo estoque
+            materiais_map = {
+                m.pk: m
+                for m in Material.objects.select_for_update().filter(pk__in=mat_ids)
+            }
+
+            for mat_data in materiais_list:
+                material = materiais_map[int(mat_data['id'])]
+                qtd = int(mat_data['qtd'])
+                if material.quantidade_disponivel < qtd:
+                    raise ValueError(f"Material {material.nome} só tem {material.quantidade_disponivel} disponíveis!")
+                CautelaItem.objects.create(cautela=cautela, material=material, quantidade=qtd)
+                material.quantidade_disponivel -= qtd
+                if material.quantidade_disponivel == 0:
+                    material.disponivel = False
+                material.save()
+
         return JsonResponse({'status': 'success', 'cautela_id': cautela.id})
-    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 @staff_member_required
 @require_POST
 def api_devolver_cautela(request, pk):
     data = json.loads(request.body)
     try:
-        cautela = Cautela.objects.get(id=pk)
-        sobreaviso_devolucao = Efetivo.objects.get(id=data.get('sobreaviso_id'))
-        
-        cautela.ativa = False
-        cautela.data_devolucao = timezone.now()
-        cautela.recebedor_devolucao = sobreaviso_devolucao
-        cautela.assinatura_devolucao = data.get('assinatura_devolucao')
-        cautela.save()
-        
-        for item in cautela.itens.filter(devolvido=False):
-            item.devolvido = True
-            item.data_devolucao = timezone.now()
-            item.recebedor_devolucao = sobreaviso_devolucao
-            item.assinatura_devolucao = data.get('assinatura_devolucao')
-            item.save()
-            item.material.quantidade_disponivel += item.quantidade
-            item.material.disponivel = True
-            item.material.save()
-            
+        with transaction.atomic():
+            cautela = Cautela.objects.select_for_update().get(id=pk)
+            sobreaviso_devolucao = Efetivo.objects.get(id=data.get('sobreaviso_id'))
+            agora = timezone.now()
+
+            cautela.ativa = False
+            cautela.data_devolucao = agora
+            cautela.recebedor_devolucao = sobreaviso_devolucao
+            cautela.assinatura_devolucao = data.get('assinatura_devolucao')
+            cautela.save()
+
+            for item in cautela.itens.select_related('material').filter(devolvido=False):
+                item.devolvido = True
+                item.data_devolucao = agora
+                item.recebedor_devolucao = sobreaviso_devolucao
+                item.assinatura_devolucao = data.get('assinatura_devolucao')
+                item.save()
+                item.material.quantidade_disponivel += item.quantidade
+                item.material.disponivel = True
+                item.material.save()
+
         return JsonResponse({'status': 'success'})
-    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 @staff_member_required
 @require_POST
 def api_devolver_item_cautela(request, item_id):
     data = json.loads(request.body)
     try:
-        item = CautelaItem.objects.get(id=item_id)
-        sobreaviso_devolucao = Efetivo.objects.get(id=data.get('sobreaviso_id'))
-        
-        item.devolvido = True
-        item.data_devolucao = timezone.now()
-        item.recebedor_devolucao = sobreaviso_devolucao
-        item.assinatura_devolucao = data.get('assinatura_devolucao')
-        item.save()
-        
-        item.material.quantidade_disponivel += item.quantidade
-        item.material.disponivel = True
-        item.material.save()
-        
-        cautela = item.cautela
-        if not cautela.itens.filter(devolvido=False).exists():
-            cautela.ativa = False
-            cautela.data_devolucao = timezone.now()
-            cautela.recebedor_devolucao = sobreaviso_devolucao
-            cautela.assinatura_devolucao = data.get('assinatura_devolucao')
-            cautela.save()
-            
+        with transaction.atomic():
+            item = CautelaItem.objects.select_related('material', 'cautela').select_for_update().get(id=item_id)
+            sobreaviso_devolucao = Efetivo.objects.get(id=data.get('sobreaviso_id'))
+            agora = timezone.now()
+
+            item.devolvido = True
+            item.data_devolucao = agora
+            item.recebedor_devolucao = sobreaviso_devolucao
+            item.assinatura_devolucao = data.get('assinatura_devolucao')
+            item.save()
+
+            item.material.quantidade_disponivel += item.quantidade
+            item.material.disponivel = True
+            item.material.save()
+
+            cautela = item.cautela
+            if not cautela.itens.filter(devolvido=False).exists():
+                cautela.ativa = False
+                cautela.data_devolucao = agora
+                cautela.recebedor_devolucao = sobreaviso_devolucao
+                cautela.assinatura_devolucao = data.get('assinatura_devolucao')
+                cautela.save()
+
         return JsonResponse({'status': 'success'})
-    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 @staff_member_required
 @require_POST
 def api_devolver_multiplos_itens(request, cautela_id):
     data = json.loads(request.body)
     try:
-        cautela = Cautela.objects.get(id=cautela_id)
-        sobreaviso_devolucao = Efetivo.objects.get(id=data.get('sobreaviso_id'))
-        item_ids = data.get('item_ids', [])
-        
-        for item_id in item_ids:
-            item = CautelaItem.objects.get(id=item_id, cautela=cautela)
-            if not item.devolvido:
+        with transaction.atomic():
+            cautela = Cautela.objects.select_for_update().get(id=cautela_id)
+            sobreaviso_devolucao = Efetivo.objects.get(id=data.get('sobreaviso_id'))
+            item_ids = data.get('item_ids', [])
+            agora = timezone.now()
+
+            itens = (
+                CautelaItem.objects.select_related('material')
+                .select_for_update()
+                .filter(id__in=item_ids, cautela=cautela, devolvido=False)
+            )
+            for item in itens:
                 item.devolvido = True
-                item.data_devolucao = timezone.now()
+                item.data_devolucao = agora
                 item.recebedor_devolucao = sobreaviso_devolucao
                 item.assinatura_devolucao = data.get('assinatura_devolucao')
                 item.save()
-                
+
                 item.material.quantidade_disponivel += item.quantidade
                 item.material.disponivel = True
                 item.material.save()
-        
-        # Se depois dessa baixa múltipla todos os itens estiverem devolvidos, baixa a cautela inteira
-        if not cautela.itens.filter(devolvido=False).exists():
-            cautela.ativa = False
-            cautela.data_devolucao = timezone.now()
-            cautela.recebedor_devolucao = sobreaviso_devolucao
-            cautela.assinatura_devolucao = data.get('assinatura_devolucao')
-            cautela.save()
-            
+
+            if not cautela.itens.filter(devolvido=False).exists():
+                cautela.ativa = False
+                cautela.data_devolucao = agora
+                cautela.recebedor_devolucao = sobreaviso_devolucao
+                cautela.assinatura_devolucao = data.get('assinatura_devolucao')
+                cautela.save()
+
         return JsonResponse({'status': 'success'})
-    except Exception as e: return JsonResponse({'status': 'error', 'message': str(e)})
+    except Exception as e:
+        return JsonResponse({'status': 'error', 'message': str(e)})
 
 
 @staff_member_required

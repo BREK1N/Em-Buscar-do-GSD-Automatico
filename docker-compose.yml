@@ -1,4 +1,15 @@
 services:
+  redis:
+    image: redis:7-alpine
+    restart: always
+    ports:
+      - "6379:6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+
   db:
     image: postgres:15-alpine
     restart: always
@@ -27,7 +38,7 @@ services:
     volumes:
       - static_volume:/app/staticfiles
       - ./media:/app/media
-      - .:/app 
+      - .:/app
       - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/app/logs
       - /home/admin-gsd/logs:/logs_do_host
@@ -36,11 +47,13 @@ services:
       - DEBUG=${DEBUG}
       - ALLOWED_HOSTS=${ALLOWED_HOSTS}
       - NAME=${DB_NAME}
-      - USER=${DB_USER}          # O Django receberá USER=gsd
+      - USER=${DB_USER}
       - PASSWORD=${DB_PASSWORD}
       - HOST=${DB_HOST}
       - PORT=${DB_PORT}
       - DATABASE=postgres
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - REDIS_URL=${REDIS_URL}
       # Variáveis de Proxy
       #- http_proxy=${http_proxy}
       #- https_proxy=${https_proxy}
@@ -51,6 +64,63 @@ services:
       - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
     depends_on:
       db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-worker:
+    build:
+      context: .
+    restart: always
+    entrypoint: []
+    command: sh -c "cd /app/GsdAutomatico && celery -A GsdAutomatico worker --loglevel=info --concurrency=2"
+    volumes:
+      - .:/app
+      - /var/run/docker.sock:/var/run/docker.sock
+      - ./logs:/app/logs
+      - /home/admin-gsd/logs:/logs_do_host
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - ALLOWED_HOSTS=${ALLOWED_HOSTS}
+      - NAME=${DB_NAME}
+      - USER=${DB_USER}
+      - PASSWORD=${DB_PASSWORD}
+      - HOST=${DB_HOST}
+      - PORT=${DB_PORT}
+      - DATABASE=postgres
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - REDIS_URL=${REDIS_URL}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+
+  celery-beat:
+    build:
+      context: .
+    restart: always
+    entrypoint: []
+    command: sh -c "cd /app/GsdAutomatico && celery -A GsdAutomatico beat --loglevel=info"
+    volumes:
+      - .:/app
+    environment:
+      - SECRET_KEY=${SECRET_KEY}
+      - DEBUG=${DEBUG}
+      - NAME=${DB_NAME}
+      - USER=${DB_USER}
+      - PASSWORD=${DB_PASSWORD}
+      - HOST=${DB_HOST}
+      - PORT=${DB_PORT}
+      - DATABASE=postgres
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
+      - REDIS_URL=${REDIS_URL}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
         condition: service_healthy
 
   nginx:

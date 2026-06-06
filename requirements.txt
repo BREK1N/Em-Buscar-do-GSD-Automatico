@@ -99,3 +99,12 @@ pytesseract==0.3.10
 # WebSockets / Real-time
 channels==4.1.0
 daphne==4.1.2
+channels-redis==4.2.0
+
+# Segurança
+django-ratelimit==4.1.0
+
+# Celery + Redis
+celery[redis]==5.4.0
+redis==5.0.8
+django-redis==5.4.0

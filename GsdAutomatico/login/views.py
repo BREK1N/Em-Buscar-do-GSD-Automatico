@@ -4,13 +4,16 @@ from django.shortcuts import render, redirect
 from django.contrib.auth import authenticate, login, logout, update_session_auth_hash
 from django.contrib.auth.forms import AuthenticationForm
 from django.contrib.auth.decorators import login_required, user_passes_test
+from django_ratelimit.decorators import ratelimit
+from GsdAutomatico.ratelimit_utils import rate_if_external
 from .forms import CustomUserCreationForm, CustomSetPasswordForm
 from django.contrib import messages
-from django.urls import reverse # Importar reverse
+from django.urls import reverse
 
 def is_admin(user):
     return user.is_superuser
 
+@ratelimit(key='ip', rate=rate_if_external, method='POST', block=True)
 def login_view(request):
     if request.user.is_authenticated:
         # Se já está autenticado, verifica os grupos para redirecionar corretamente
@@ -102,6 +105,7 @@ def select_app_view(request):
 
 
 @login_required
+@ratelimit(key='user', rate='5/m', method='POST', block=True)
 def force_password_change_view(request):
     if request.method == 'POST':
         form = CustomSetPasswordForm(user=request.user, data=request.POST)
@@ -130,7 +134,13 @@ def custom_404_view(request, exception):
     - Se não estiver logado, vai para a página de login.
     """
     if request.user.is_authenticated:
-        # Usa a mesma lógica de redirecionamento do login
         return redirect_based_on_groups(request.user)
     else:
         return redirect('login:login')
+
+
+def custom_403_view(request, exception=None):
+    from django_ratelimit.exceptions import Ratelimited
+    if isinstance(exception, Ratelimited):
+        return render(request, 'login/429.html', status=429)
+    return render(request, 'login/403.html', status=403)

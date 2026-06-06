@@ -1,4 +1,5 @@
 import json
+import logging
 import mimetypes
 from django.shortcuts import render, redirect, get_object_or_404
 from django.contrib.auth.decorators import login_required
@@ -13,12 +14,14 @@ from django.http import HttpResponse, FileResponse, Http404
 from django.utils import timezone
 from django.core.paginator import Paginator
 from django.contrib.auth import get_user_model
+from django.core.cache import cache
 
 from Secao_pessoal.models import Efetivo, SolicitacaoTrocaSetor
 from .models import Notificacao, Mensagem, LeituraMensagem, Anexo
 from .forms import NotificacaoForm, MensagemForm, FiltroInboxForm
 
 User = get_user_model()
+logger = logging.getLogger(__name__)
 
 # ─── Helpers ──────────────────────────────────────────────────────────────────
 
@@ -63,7 +66,12 @@ def _resolve_base_template(request):
 
 
 def _sidebar_counts(user):
-    """Retorna contagens para a sidebar."""
+    """Retorna contagens para a sidebar, com cache de 30s por usuário."""
+    cache_key = f'inbox_sidebar_{user.pk}'
+    counts = cache.get(cache_key)
+    if counts is not None:
+        return counts
+
     base_qs = Mensagem.objects.filter(eh_rascunho=False)
 
     nao_lidas = base_qs.filter(
@@ -90,13 +98,15 @@ def _sidebar_counts(user):
         favoritos=user
     ).exclude(permanentemente_excluida_por=user).count()
 
-    return {
+    counts = {
         'count_nao_lidas': nao_lidas,
         'count_chamados_abertos': chamados_abertos,
         'count_rascunhos': rascunhos,
         'count_excluidas': excluidas,
         'count_favoritas': favoritas,
     }
+    cache.set(cache_key, counts, timeout=30)
+    return counts
 
 
 def _base_context(request):
@@ -690,7 +700,7 @@ def api_notificacoes_check(request):
             content_type='application/json'
         )
     except Exception as e:
-        print(f"Erro API notificações: {e}")
+        logger.error("Erro API notificações: %s", e)
     return HttpResponse(
         json.dumps({'count': 0, 'notifications': []}),
         content_type='application/json'
@@ -726,7 +736,7 @@ def api_limpar_notificacoes(request):
                 Notificacao.objects.filter(destinatario=user.profile.militar, lida=False).update(lida=True)
         return JsonResponse({'ok': True})
     except Exception as e:
-        print(f"[api_limpar_notificacoes] Erro: {e}")
+        logger.error("[api_limpar_notificacoes] Erro: %s", e)
         return JsonResponse({'error': str(e)}, status=500)
 
 

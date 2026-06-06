@@ -21,6 +21,7 @@ from django.conf import settings
 from django.conf.urls.static import static
 from Secao_pessoal import views as secao_pessoal_views
 from caixa_entrada import views as caixa_entrada_views
+from . import views as core_views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
@@ -37,9 +38,11 @@ urlpatterns = [
     path('chamada/', include('chamada.urls')),
     path('esi/', include('ESI.urls', namespace='ESI')),
     path('comunicacoes/responder/<int:solicitacao_id>/<str:acao>/', secao_pessoal_views.responder_troca_setor, name='responder_troca_setor_global'),
+    path('api/task/<str:task_id>/', core_views.task_status_view, name='task_status'),
 ]
 
 handler404 = 'login.views.custom_404_view'
+handler403 = 'login.views.custom_403_view'
 
 if settings.DEBUG:
     urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

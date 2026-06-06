@@ -1894,11 +1894,36 @@ document.addEventListener('DOMContentLoaded', function() {
         if(btnApurar) btnApurar.style.display = 'none';
     }
 
+    function pollTask(taskId, onSuccess, onError) {
+        var attempts = 0;
+        var maxAttempts = 90; // 3 min a 2s cada
+        var timer = setInterval(function() {
+            attempts++;
+            if (attempts > maxAttempts) {
+                clearInterval(timer);
+                onError('Tempo limite excedido. Tente novamente.');
+                return;
+            }
+            fetch('/api/task/' + taskId + '/')
+                .then(function(r) { return r.json(); })
+                .then(function(d) {
+                    if (d.status === 'success') { clearInterval(timer); onSuccess(d.result); }
+                    else if (d.status === 'error') { clearInterval(timer); onError(d.message || 'Erro na tarefa.'); }
+                })
+                .catch(function() { clearInterval(timer); onError('Erro de comunicação durante o processamento.'); });
+        }, 2000);
+    }
+
     function fetchAnalisePunicao(forceReanalyze = false) {
         if(btnApurar) btnApurar.classList.add('loading');
         if(btnReanalisar) btnReanalisar.classList.add('loading');
 
         const url = PATD_CONFIG.urls.analisarPunicao;
+
+        function _onDone() {
+            if(btnApurar) btnApurar.classList.remove('loading');
+            if(btnReanalisar) btnReanalisar.classList.remove('loading');
+        }
 
         fetch(url, {
             method: 'POST',
@@ -1912,20 +1937,27 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(data => {
             if (data.status === 'success' && data.analise_data) {
                 preencherFormApuracao(data.analise_data);
+                _onDone();
+            } else if (data.status === 'pending' && data.task_id) {
+                pollTask(
+                    data.task_id,
+                    function(result) { preencherFormApuracao(result); _onDone(); },
+                    function(errMsg) {
+                        alert('Erro ao buscar análise: ' + errMsg);
+                        if (analiseData && !forceReanalyze) preencherFormApuracao(analiseData);
+                        _onDone();
+                    }
+                );
             } else {
                 alert('Erro ao buscar análise: ' + (data.message || 'Erro desconhecido.'));
-                if (analiseData && !forceReanalyze) {
-                    preencherFormApuracao(analiseData);
-                }
+                if (analiseData && !forceReanalyze) preencherFormApuracao(analiseData);
+                _onDone();
             }
         })
         .catch(error => {
             console.error('Erro no fetch da análise:', error);
             alert('Erro de comunicação ao buscar análise da punição.');
-        })
-        .finally(() => {
-            if(btnApurar) btnApurar.classList.remove('loading');
-            if(btnReanalisar) btnReanalisar.classList.remove('loading');
+            _onDone();
         });
     }
 

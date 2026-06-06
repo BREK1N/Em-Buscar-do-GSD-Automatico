@@ -1,4 +1,5 @@
 # GsdAutomatico/Ouvidoria/signals.py
+import logging
 
 from django.db.models.signals import post_save, post_migrate
 from django.dispatch import receiver
@@ -6,6 +7,8 @@ from django.contrib.auth.models import Group
 from .models import Configuracao
 from .permissions import OUVIDORIA_GROUPS, COMANDANTE
 from informatica.models import ConfiguracaoComandantes
+
+logger = logging.getLogger(__name__)
 
 @receiver(post_migrate)
 def create_default_groups(sender, **kwargs):
@@ -20,12 +23,12 @@ def create_default_groups(sender, **kwargs):
         for group_name in OUVIDORIA_GROUPS:
             group, created = Group.objects.get_or_create(name=group_name)
             if created:
-                print(f"--- [SISTEMA] Grupo criado automaticamente: {group_name}")
+                logger.info("Grupo criado automaticamente: %s", group_name)
 
         # 2. Garante que o grupo Comandante existe
         group, created = Group.objects.get_or_create(name=COMANDANTE)
         if created:
-            print(f"--- [SISTEMA] Grupo criado automaticamente: {COMANDANTE}")
+            logger.info("Grupo criado automaticamente: %s", COMANDANTE)
 
 @receiver(post_save, sender=ConfiguracaoComandantes)
 def on_commander_change(sender, instance, **kwargs):
@@ -60,6 +63,4 @@ def on_commander_change(sender, instance, **kwargs):
             new_commander_user.groups.add(comandante_group)
 
     except Exception as e:
-        # Em caso de qualquer erro (ex: BD não pronto na migração inicial), ignora.
-        print(f"Erro no signal on_commander_change: {e}")
-        pass
+        logger.error("Erro no signal on_commander_change: %s", e)

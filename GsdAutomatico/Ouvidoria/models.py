@@ -36,14 +36,18 @@ class Configuracao(models.Model):
     )
 
     def save(self, *args, **kwargs):
-        # Garante que só existe uma instância deste modelo
         self.pk = 1
         super(Configuracao, self).save(*args, **kwargs)
+        from django.core.cache import cache
+        cache.delete('configuracao_singleton')
 
     @classmethod
     def load(cls):
-        # Método de conveniência para obter a instância de configuração
-        obj, created = cls.objects.get_or_create(pk=1)
+        from django.core.cache import cache
+        obj = cache.get('configuracao_singleton')
+        if obj is None:
+            obj, _ = cls.objects.get_or_create(pk=1)
+            cache.set('configuracao_singleton', obj, timeout=3600)
         return obj
     
 
@@ -161,6 +165,7 @@ class PATD(models.Model):
         max_length=50,
         choices=STATUS_CHOICES,
         default='confeccao_fr_ficha',
+        db_index=True,
         verbose_name="Status"
     )
     status_anterior = models.CharField(
@@ -211,10 +216,10 @@ class PATD(models.Model):
     assinaturas_npd_reconsideracao = models.JSONField(default=list, blank=True, null=True, verbose_name="Assinaturas da NPD de Reconsideração (Base64)")
     datas_documentos = models.JSONField(default=dict, blank=True, null=True, verbose_name="Datas por Documento")
     relatorio_final = models.TextField(blank=True, null=True, verbose_name="Relatório Final")
-    arquivado = models.BooleanField(default=False, verbose_name="Arquivado")
+    arquivado = models.BooleanField(default=False, db_index=True, verbose_name="Arquivado")
     motivo_arquivamento = models.TextField(blank=True, null=True, verbose_name="Motivo do Arquivamento")
     justificativa_texto = models.TextField(blank=True, null=True, verbose_name="Texto da Justificativa")
-    deleted = models.BooleanField(default=False, verbose_name="Excluído")
+    deleted = models.BooleanField(default=False, db_index=True, verbose_name="Excluído")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
     restored_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Restauração")
     restored_by = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, null=True, blank=True, related_name='restored_patds', verbose_name="Restaurado por")
@@ -370,6 +375,10 @@ class PATD(models.Model):
     class Meta:
         verbose_name = "PATD"
         verbose_name_plural = "PATDs"
+        indexes = [
+            # O PATDManager sempre filtra deleted=False antes de qualquer status
+            models.Index(fields=['deleted', 'status'], name='patd_deleted_status_idx'),
+        ]
         constraints = [
             models.UniqueConstraint(
                 ExtractYear('data_inicio'), 'numero_patd',

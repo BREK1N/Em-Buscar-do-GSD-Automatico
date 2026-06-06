@@ -251,7 +251,7 @@ def missao_escala_pdf(request, missao_id):
     try:
         subprocess.run(
             ['weasyprint', html_path, pdf_path],
-            check=True, capture_output=True
+            check=True, capture_output=True, timeout=60
         )
         with open(pdf_path, 'rb') as pdf_f:
             pdf_data = pdf_f.read()

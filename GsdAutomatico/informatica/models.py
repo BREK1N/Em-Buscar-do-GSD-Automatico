@@ -146,7 +146,7 @@ class Cautela(models.Model):
     assinatura_sobreaviso = models.TextField()
     assinatura_recebedor = models.TextField()
 
-    ativa = models.BooleanField(default=True)
+    ativa = models.BooleanField(default=True, db_index=True)
     nome_missao = models.CharField(max_length=200, blank=True, null=True, verbose_name="Missão/Formatura")
     telefone_contato = models.CharField(max_length=50, blank=True, null=True, verbose_name="Telefone de Contato")
 

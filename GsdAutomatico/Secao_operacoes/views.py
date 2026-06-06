@@ -361,9 +361,15 @@ def escala_edit(request, pk):
             adicionados = militares_depois - militares_antes
             removidos = militares_antes - militares_depois
 
+            # Busca todos os militares afetados em 1 query (evita N+1)
+            militares_map = {
+                m.pk: m
+                for m in Efetivo.objects.filter(pk__in=adicionados | removidos)
+            }
+
             for mid in adicionados:
-                try:
-                    dest = Efetivo.objects.get(pk=mid)
+                dest = militares_map.get(mid)
+                if dest:
                     _notificar(
                         remetente=militar_logado,
                         destinatario=dest,
@@ -374,12 +380,10 @@ def escala_edit(request, pk):
                             f"Adicionado por: {militar_logado.nome_guerra if militar_logado else 'Sistema'}."
                         )
                     )
-                except Efetivo.DoesNotExist:
-                    pass
 
             for mid in removidos:
-                try:
-                    dest = Efetivo.objects.get(pk=mid)
+                dest = militares_map.get(mid)
+                if dest:
                     _notificar(
                         remetente=militar_logado,
                         destinatario=dest,
@@ -389,8 +393,6 @@ def escala_edit(request, pk):
                             f"Removido por: {militar_logado.nome_guerra if militar_logado else 'Sistema'}."
                         )
                     )
-                except Efetivo.DoesNotExist:
-                    pass
 
             messages.success(request, 'Escala atualizada com sucesso!')
             return redirect('Secao_operacoes:escala_detail', pk=escala.pk)

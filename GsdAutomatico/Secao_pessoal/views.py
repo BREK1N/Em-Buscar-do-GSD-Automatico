@@ -1,3 +1,4 @@
+import logging
 import pandas as pd
 import openpyxl
 import os
@@ -53,6 +54,8 @@ import re
 from .analise_inspsau import analisar_inspsau_pdf
 from .analise_fq import analisar_fq_documento
 from chamada.models import RegistroChamada as ChamadaRegistro
+
+logger = logging.getLogger(__name__)
 
 def is_s1_member(user):
     return user.groups.filter(name='Seção de Pessoal (S1)').exists()
@@ -253,9 +256,9 @@ def inspsau(request):
                         if pytesseract:
                             content += pytesseract.image_to_string(img, lang='por') + "\n\n"
                         else:
-                            print("Aviso: pytesseract não instalado. OCR ignorado.")
+                            logger.warning("pytesseract não instalado — OCR ignorado.")
                     except Exception as e:
-                        print(f"Aviso: Erro ao realizar OCR na página: {e}")
+                        logger.warning("Erro ao realizar OCR na página: %s", e)
             doc.close()
             os.remove(temp_file_path) # Remove o ficheiro temporário
 
