@@ -191,7 +191,5 @@ def comandante_pendencias_json(request):
     if not has_comandante_access(request.user):
         return JsonResponse({'count': 0})
 
-    count = PATD.objects.filter(
-        status__in=['analise_comandante', 'assinatura_cmd_gsd_despacho_abertura']
-    ).count()
+    count = PATD.objects.filter(status='analise_comandante').count()
     return JsonResponse({'count': count})

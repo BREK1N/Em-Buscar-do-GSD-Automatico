@@ -77,8 +77,6 @@ class Anexo(models.Model):
         ('ficha_individual', 'Ficha Individual'),
         ('formulario_resumo', 'Formulário de Resumo'),
         ('documento_final', 'Documento Final Completo'),
-        ('relatorio_delta_base', 'Relatório Delta – CMD da Base'),
-        ('npd_base', 'NPD – CMD da Base'),
     ])
     data_upload = models.DateTimeField(auto_now_add=True)
     
@@ -109,15 +107,12 @@ class PATD(models.Model):
         ('apuracao_preclusao', 'Em Apuração (Preclusão)'), 
         ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
         ('aguardando_punicao_alterar', 'Aguardando Punição (alterar)'),
-        ('assinatura_cmd_gsd_despacho_abertura', 'Assinatura CMD GSD – Despacho de Abertura'),
-        ('aplicacao_punicao_cmd_base', 'Aplicação da Punição – CMD da Base'),
         # Fase de Decisão
         ('analise_comandante', 'Em Análise pelo Comandante'),
         ('aguardando_assinatura_npd', 'Aguardando Assinatura NPD'),
         # Fase Final
         ('periodo_reconsideracao', 'Período de Reconsideração'),
         ('em_reconsideracao', 'Em Reconsideração'),
-        ('aguardando_comandante_base', 'Aguardando Comandante da Base'),
         ('aguardando_nova_punicao', 'Aguardando nova punição'),
         ('aguardando_publicacao', 'Aguardando publicação'),
         ('finalizado', 'Finalizado'),

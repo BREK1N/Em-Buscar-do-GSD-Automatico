@@ -510,9 +510,8 @@ def _get_document_context(patd, for_docx=False, doc_name=None):
 
     # Assinatura do Comandante - SÓ ADICIONA SE A PATD JÁ FOI APROVADA
     status_aprovados_e_posteriores = [
-        'aplicacao_punicao_cmd_base',
         'aguardando_assinatura_npd', 'periodo_reconsideracao', 'em_reconsideracao',
-        'aguardando_comandante_base', 'aguardando_preenchimento_npd_reconsideracao',
+        'aguardando_preenchimento_npd_reconsideracao',
         'aguardando_publicacao', 'finalizado'
     ]
     # Usa a assinatura salva no despacho se disponível, senão cai para a padrão do comandante
@@ -1065,9 +1064,8 @@ def get_document_pages(patd, for_docx=False):
     status_preclusao_e_posteriores = [
         'preclusao', 'apuracao_preclusao', 'aguardando_punicao',
         'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar',
-        'aplicacao_punicao_cmd_base', 'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao',
+        'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao',
         'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao',
-        'aguardando_comandante_base'
     ]
     if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in status_preclusao_e_posteriores:
         page_counter += 1
@@ -1078,88 +1076,22 @@ def get_document_pages(patd, for_docx=False):
         document_pages_raw.append(html_content)
 
     # 4. Relatório de Apuração
-    # Statuses que usam o fluxo CMD da Base (RELATORIO_DELTA_BASE em vez de RELATORIO_DELTA)
-    status_cmd_base_e_posteriores = [
-        'aplicacao_punicao_cmd_base', 'finalizado',
-        'periodo_reconsideracao', 'em_reconsideracao', 'aguardando_publicacao',
-        'aguardando_comandante_base', 'aguardando_nova_punicao',
-    ]
-
     if patd.justificado:
         page_counter += 1
         document_pages_raw.append(PB)
         document_pages_raw.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', _ctx(patd, for_docx, 'RELATORIO_JUSTIFICADO')))
 
-    elif patd.punicao_sugerida and patd.status not in status_cmd_base_e_posteriores:
+    elif patd.punicao_sugerida:
         page_counter += 1
         document_pages_raw.append(PB)
         document_pages_raw.append(_render_document_from_template('RELATORIO_DELTA.docx', _ctx(patd, for_docx, 'RELATORIO_DELTA')))
 
-    # 4b. Relatório Delta – CMD da Base (primeira prisão disciplinar)
-    if patd.status in status_cmd_base_e_posteriores and not patd.justificado:
-        page_counter += 1
-        document_pages_raw.append(PB)
-        relatorio_delta_html = _render_document_from_template('RELATORIO_DELTA_BASE.docx', _ctx(patd, for_docx, 'RELATORIO_DELTA_BASE'))
-        relatorio_delta_base_anexo = patd.anexos.filter(tipo='relatorio_delta_base').first()
-        if relatorio_delta_base_anexo:
-            # Mantém todas as páginas do template EXCETO a última,
-            # e substitui a última pelo arquivo assinado pelo CMD da Base.
-            # Tudo num único item para que o viewer aplique page-meta corretamente.
-            pb_marker = '<div class="manual-page-break"></div>'
-            parts = relatorio_delta_html.split(pb_marker)
-            page_meta_match = re.search(r'<div class="page-meta"[^>]*></div>', relatorio_delta_html)
-            page_meta = page_meta_match.group(0) if page_meta_match else ''
-            ext = os.path.splitext(relatorio_delta_base_anexo.arquivo.name)[1].lower()
-            if ext == '.pdf':
-                attachment_html = f'<p><embed src="{relatorio_delta_base_anexo.arquivo.url}" type="application/pdf" width="100%" height="900px"></p>'
-            else:
-                attachment_html = f'<p><img src="{relatorio_delta_base_anexo.arquivo.url}" style="max-width:100%;height:auto;"></p>'
-            if len(parts) > 1:
-                # Preserva páginas 1..N-1, substitui a última pelo anexo
-                pages_to_keep = pb_marker.join(parts[:-1])
-                combined = pages_to_keep + pb_marker + page_meta + attachment_html
-            else:
-                # Template de 1 página: apenas o anexo
-                combined = page_meta + attachment_html
-            document_pages_raw.append(combined)
-        else:
-            document_pages_raw.append(relatorio_delta_html)
-
-        # MODELO_NPD_BASE.docx — gerado junto com o Relatório Delta Base
-        page_counter += 1
-        document_pages_raw.append(PB)
-        npd_base_html = _render_document_from_template('MODELO_NPD_BASE.docx', _ctx(patd, for_docx, 'MODELO_NPD_BASE'))
-        npd_base_anexo = patd.anexos.filter(tipo='npd_base').first()
-        if npd_base_anexo:
-            # Substitui a PRIMEIRA página pelo anexo; mantém as páginas seguintes do template.
-            # Usa um único item com pb_marker interno para que o viewer reinjecte o
-            # page-meta corretamente em todas as seções.
-            pb_marker = '<div class="manual-page-break"></div>'
-            parts = npd_base_html.split(pb_marker)
-            # Extrai o page-meta de parts[0] para preservar as dimensões de página
-            page_meta_match = re.search(r'<div class="page-meta"[^>]*></div>', parts[0])
-            page_meta = page_meta_match.group(0) if page_meta_match else ''
-            ext = os.path.splitext(npd_base_anexo.arquivo.name)[1].lower()
-            if ext == '.pdf':
-                attachment_html = f'<p><embed src="{npd_base_anexo.arquivo.url}" type="application/pdf" width="100%" height="900px"></p>'
-            else:
-                attachment_html = f'<p><img src="{npd_base_anexo.arquivo.url}" style="max-width:100%;height:auto;"></p>'
-            if len(parts) > 1:
-                # Monta num único item: [page-meta+attachment] pb [page-meta+página2+...]
-                remaining = pb_marker.join(parts[1:])
-                combined = page_meta + attachment_html + pb_marker + page_meta + remaining
-                document_pages_raw.append(combined)
-            else:
-                document_pages_raw.append(page_meta + attachment_html)
-        else:
-            document_pages_raw.append(npd_base_html)
-
-    # 5. Nota de Punição Disciplinar (NPD) — não gerada no fluxo CMD da Base
+    # 5. Nota de Punição Disciplinar (NPD)
     status_npd_e_posteriores = [
         'aguardando_assinatura_npd', 'finalizado', 'periodo_reconsideracao',
-        'em_reconsideracao', 'aguardando_publicacao', 'aguardando_comandante_base'
+        'em_reconsideracao', 'aguardando_publicacao',
     ]
-    if patd.status in status_npd_e_posteriores and not patd.justificado and patd.status not in status_cmd_base_e_posteriores:
+    if patd.status in status_npd_e_posteriores and not patd.justificado:
         page_counter += 1
         document_pages_raw.append(PB)
         document_pages_raw.append(_render_document_from_template('MODELO_NPD.docx', _ctx(patd, for_docx, 'MODELO_NPD')))
@@ -1171,7 +1103,7 @@ def get_document_pages(patd, for_docx=False):
     # 6. Reconsideração
     status_reconsideracao_e_posteriores = [
         'em_reconsideracao', 'aguardando_publicacao', 'finalizado',
-        'aguardando_comandante_base', 'aguardando_nova_punicao',
+        'aguardando_nova_punicao',
     ]
     if patd.status in status_reconsideracao_e_posteriores and not patd.justificado:
         page_counter += 1

@@ -97,7 +97,14 @@ NOMES DOS ACUSADOS — REGRAS ABSOLUTAS
 2. QUEM É O ACUSADO: é o militar contra quem o documento foi escrito — quem cometeu a falta.
 3. NÃO extraia: signatário, quem assinou o documento, testemunhas, comandante destinatário, vítima (salvo em rixas).
 4. SARAM: associe o número ao nome correto. SARAM tem 6 ou 7 dígitos e geralmente aparece próximo ao nome.
-5. MÚLTIPLOS ACUSADOS: se o documento descreve falta coletiva (briga, rixa, falta em grupo), liste TODOS.
+5. MÚLTIPLOS ACUSADOS — OBRIGATÓRIO:
+   - ANTES de preencher qualquer campo: leia o documento INTEIRO e identifique TODOS os nomes de militares acusados.
+   - A lista `acusados` deve conter UM item para CADA militar que cometeu a transgressão.
+   - NÃO pare ao encontrar o primeiro nome. Continue até o final do documento.
+   - Se o documento mencionar nomes em parágrafos separados, em tabela, ou em lista numerada, extraia CADA UM.
+   - Faltas coletivas (briga, rixa, recusa em grupo, embriaguez em grupo, ausência coletiva) têm MÚLTIPLOS acusados — procure todos.
+   - Se o documento listar "1º - FULANO, 2º - BELTRANO", cada um deve ser um item separado na lista.
+   - NUNCA retorne uma lista vazia se houver ao menos um nome de militar acusado no documento.
 
 ═══════════════════════════════════════════
 DATA DA OCORRÊNCIA — REGRAS ABSOLUTAS
@@ -120,6 +127,8 @@ CAMPO `transgressao_individual` (por acusado)
 
     human_prompt = (
         "Extraia os dados deste documento militar copiando o texto LITERALMENTE, sem alterar nenhuma palavra.\n\n"
+        "IMPORTANTE: leia o documento do início ao fim antes de responder. "
+        "Certifique-se de incluir TODOS os militares acusados na lista — não apenas o primeiro encontrado.\n\n"
         "Documento:\n{documento}"
     )
 

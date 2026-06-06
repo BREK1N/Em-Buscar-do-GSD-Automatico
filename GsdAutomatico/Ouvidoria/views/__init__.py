@@ -52,11 +52,9 @@ from .commander import (
     ComandanteDashboardView,
     patd_aprovar,
     patd_retornar,
-    aceitar_despacho_abertura,
     avancar_para_comandante,
     solicitar_reconsideracao,
     salvar_reconsideracao,
-    anexar_documento_reconsideracao_oficial,
     relatorio_json,
     relatorio_excel,
 )
@@ -111,10 +109,5 @@ from .patd import (
     justificar_patd,
     salvar_nova_punicao,
     preview_nova_punicao,
-    anexar_relatorio_delta_base,
-    alterar_punicao_cmd_base,
-    anexar_npd_base,
-    avancar_cmd_base,
-    confirmar_destino_apuracao,
     enquadrar_itens_view,
 )

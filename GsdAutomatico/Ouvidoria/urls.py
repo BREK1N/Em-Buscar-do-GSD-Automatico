@@ -45,12 +45,6 @@ urlpatterns = [
     path('patd/<int:pk>/aceitar_atribuicao_patd/', views.aceitar_atribuicao_patd, name='aceitar_atribuicao_patd'),
     path('patd/<int:pk>/salvar_nova_punicao/', views.salvar_nova_punicao, name='salvar_nova_punicao'),
     path('patd/<int:pk>/preview_nova_punicao/', views.preview_nova_punicao, name='preview_nova_punicao'),
-    path('patd/<int:pk>/anexar_relatorio_delta_base/', views.anexar_relatorio_delta_base, name='anexar_relatorio_delta_base'),
-    path('patd/<int:pk>/alterar_punicao_cmd_base/', views.alterar_punicao_cmd_base, name='alterar_punicao_cmd_base'),
-    path('patd/<int:pk>/anexar_npd_base/', views.anexar_npd_base, name='anexar_npd_base'),
-    path('patd/<int:pk>/avancar_cmd_base/', views.avancar_cmd_base, name='avancar_cmd_base'),
-    path('patd/<int:pk>/confirmar_destino_apuracao/', views.confirmar_destino_apuracao, name='confirmar_destino_apuracao'),
-    path('patd/<int:pk>/aceitar_despacho_abertura/', views.aceitar_despacho_abertura, name='aceitar_despacho_abertura'),
 
     path('patds/<int:pk>/regenerar-ocorrencia/', views.regenerar_ocorrencia, name='regenerar_ocorrencia'),
     path('patds/<int:pk>/regenerar-resumo-defesa/', views.regenerar_resumo_defesa, name='regenerar_resumo_defesa'),
@@ -78,7 +72,6 @@ urlpatterns = [
     path('patd/<int:pk>/retornar/', views.patd_retornar, name='patd_retornar'),
     path('patd/<int:pk>/solicitar_reconsideracao/', views.solicitar_reconsideracao, name='solicitar_reconsideracao'),
     path('patd/<int:pk>/salvar_reconsideracao/', views.salvar_reconsideracao, name='salvar_reconsideracao'),
-    path('patd/<int:pk>/anexar_reconsideracao_oficial/', views.anexar_documento_reconsideracao_oficial, name='anexar_reconsideracao_oficial'),
 
 
     # CONFIGURAÇÃO DE ASSINATURAS

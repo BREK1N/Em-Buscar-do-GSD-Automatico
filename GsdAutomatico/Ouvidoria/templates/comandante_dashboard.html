@@ -163,21 +163,9 @@
                             <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"—" }}</td>
                             <td>
                                 <span class="status-pill">{{ patd.get_status_display }}</span>
-                                {% if patd.status == 'assinatura_cmd_gsd_despacho_abertura' %}
-                                <div style="margin-top:4px;font-size:.78rem;color:var(--text-secondary);line-height:1.3;">
-                                    Primeira prisão do militar – Aplicação da punição com o CMD da Base.
-                                </div>
-                                {% endif %}
                             </td>
                             <td class="actions-cell">
                                 <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver Detalhes</a>
-                                {% if patd.status == 'assinatura_cmd_gsd_despacho_abertura' %}
-                                <button type="button" class="btn btn-sm btn-success open-despacho-abertura-modal-btn"
-                                    data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}"
-                                    data-action-url="{% url 'Ouvidoria:aceitar_despacho_abertura' patd.pk %}">
-                                    Aceitar Despacho
-                                </button>
-                                {% else %}
                                 <button type="button" class="btn btn-sm btn-success open-aprovar-modal-btn"
                                     data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
                                     Aprovar
@@ -186,7 +174,6 @@
                                     data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
                                     Retornar
                                 </button>
-                                {% endif %}
                             </td>
                         </tr>
                         {% empty %}

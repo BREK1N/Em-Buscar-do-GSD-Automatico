@@ -22,23 +22,6 @@ from .signatures import _check_preclusao_signatures
 logger = logging.getLogger(__name__)
 
 
-def _is_primeira_prisao_disciplinar(patd):
-    if 'prisão' not in (patd.punicao or '').lower():
-        return False
-    ja_teve_prisao = PATD.objects.filter(
-        militar=patd.militar,
-        punicao__icontains='prisão',
-        justificado=False,
-        status__in=[
-            'aguardando_punicao', 'aguardando_punicao_alterar',
-            'aplicacao_punicao_cmd_base', 'analise_comandante',
-            'aguardando_assinatura_npd', 'periodo_reconsideracao',
-            'em_reconsideracao', 'aguardando_comandante_base',
-            'aguardando_nova_punicao', 'aguardando_publicacao', 'finalizado',
-        ],
-    ).exclude(pk=patd.pk).exists()
-    return not ja_teve_prisao
-
 
 @login_required
 @oficial_responsavel_required
@@ -180,27 +163,13 @@ def salvar_apuracao(request, pk):
         patd.definir_natureza_transgressao()
         patd.calcular_e_atualizar_comportamento()
 
-        primeira_prisao = _is_primeira_prisao_disciplinar(patd)
-
-        if primeira_prisao:
-            patd.save(update_fields=[
-                'itens_enquadrados', 'circunstancias', 'punicao_sugerida',
-                'dias_punicao', 'punicao', 'justificado', 'transgressao_afirmativa',
-                'texto_relatorio', 'natureza_transgressao', 'comportamento',
-            ])
-            return JsonResponse({
-                'status': 'success',
-                'primeira_prisao': True,
-                'message': 'Apuração salva. Confirme o destino do processo.',
-            })
-        else:
-            patd.status = 'aguardando_punicao'
-            patd.save(update_fields=[
-                'itens_enquadrados', 'circunstancias', 'punicao_sugerida',
-                'dias_punicao', 'punicao', 'justificado', 'transgressao_afirmativa',
-                'texto_relatorio', 'natureza_transgressao', 'comportamento', 'status',
-            ])
-            return JsonResponse({'status': 'success', 'primeira_prisao': False, 'message': 'Apuração salva com sucesso!'})
+        patd.status = 'aguardando_punicao'
+        patd.save(update_fields=[
+            'itens_enquadrados', 'circunstancias', 'punicao_sugerida',
+            'dias_punicao', 'punicao', 'justificado', 'transgressao_afirmativa',
+            'texto_relatorio', 'natureza_transgressao', 'comportamento', 'status',
+        ])
+        return JsonResponse({'status': 'success', 'message': 'Apuração salva com sucesso!'})
 
     except Exception as e:
         logger.error("Erro ao salvar apuração da PATD %s: %s", pk, e)

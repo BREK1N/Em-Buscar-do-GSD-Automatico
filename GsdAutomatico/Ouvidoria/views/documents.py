@@ -1274,7 +1274,7 @@ def exportar_patd_docx(request, pk):
                 src = (embed_tag or img_tag).get('src', '')
                 found_anexo = False
                 if src:
-                    for anexo in patd.anexos.filter(tipo__in=['oficio_lancamento', 'ficha_individual', 'formulario_resumo', 'relatorio_delta_base', 'npd_base']):
+                    for anexo in patd.anexos.filter(tipo__in=['oficio_lancamento', 'ficha_individual', 'formulario_resumo']):
                         if anexo.arquivo.url == src:
                             _append_anexo_content(document, anexo)
                             last_action_was_page_break = False

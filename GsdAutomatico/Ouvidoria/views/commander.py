@@ -77,9 +77,9 @@ def _check_and_advance_reconsideracao_status(patd_pk):
             final_has_signature = has_signature_db_field or has_signature_filesystem
 
             if patd.status == 'em_reconsideracao' and has_content and final_has_signature:
-                patd.status = 'aguardando_comandante_base'
+                patd.status = 'aguardando_nova_punicao'
                 patd.save(update_fields=['status'])
-                logger.info(f"PATD {patd.pk} status advanced to 'aguardando_comandante_base'.")
+                logger.info(f"PATD {patd.pk} status advanced to 'aguardando_nova_punicao'.")
             else:
                 logger.info(f"PATD {patd.pk}: Conditions not met to advance status (still 'em_reconsideracao').")
     except PATD.DoesNotExist:
@@ -122,7 +122,7 @@ class ComandanteDashboardView(ListView):
     def get_queryset(self):
         # Este queryset é para a lista principal de PATDs "Aguardando Decisão"
         return PATD.objects.filter(
-            status__in=['analise_comandante', 'assinatura_cmd_gsd_despacho_abertura']
+            status='analise_comandante'
         ).select_related('militar').order_by('-data_inicio')
 
     def get_context_data(self, **kwargs):
@@ -251,53 +251,6 @@ def patd_retornar(request, pk):
     return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
 
 
-@login_required
-@comandante_required
-@require_POST
-def aceitar_despacho_abertura(request, pk):
-    """Comandante GSD aceita o despacho de abertura da 1ª prisão e avança para aplicacao_punicao_cmd_base."""
-    patd = get_object_or_404(PATD, pk=pk)
-    if patd.status != 'assinatura_cmd_gsd_despacho_abertura':
-        messages.error(request, "Ação não permitida no status atual.")
-        return redirect(request.META.get('HTTP_REFERER', 'Ouvidoria:comandante_dashboard'))
-
-    form = ComandanteAprovarForm(request.POST)
-    if form.is_valid():
-        senha = form.cleaned_data['senha_comandante']
-        user = authenticate(username=request.user.username, password=senha)
-        if user is not None:
-            import base64
-            from django.core.files.base import ContentFile as _ContentFile
-            patd.status = 'aplicacao_punicao_cmd_base'
-            update_fields = ['status']
-
-            # Preenche a assinatura do CMD GSD com a assinatura padrão do militar logado
-            try:
-                militar_cmd = request.user.profile.militar
-                if militar_cmd and militar_cmd.assinatura and not patd.assinatura_cmd_gsd_despacho:
-                    sig = militar_cmd.assinatura
-                    if ';base64,' in sig:
-                        fmt, imgstr = sig.split(';base64,')
-                        ext = fmt.split('/')[-1] if '/' in fmt else 'png'
-                    else:
-                        imgstr = sig
-                        ext = 'png'
-                    fname = f'sig_cmd_gsd_despacho_{militar_cmd.pk}_{patd.pk}.{ext}'
-                    patd.assinatura_cmd_gsd_despacho.save(fname, _ContentFile(base64.b64decode(imgstr), name=fname), save=False)
-                    update_fields.append('assinatura_cmd_gsd_despacho')
-            except Exception as e:
-                logger.warning(f"Não foi possível salvar assinatura do CMD GSD para PATD {pk}: {e}")
-
-            patd.save(update_fields=update_fields)
-            messages.success(request, f"PATD Nº {patd.numero_patd}: Despacho de abertura aceito. Processo encaminhado para Aplicação da Punição – CMD da Base.")
-            return redirect('Ouvidoria:patd_detail', pk=pk)
-        else:
-            messages.error(request, "Senha do Comandante incorreta. Ação não realizada.")
-    else:
-        messages.error(request, "Erro no formulário. A senha é obrigatória.")
-
-    return redirect(request.META.get('HTTP_REFERER') or reverse('Ouvidoria:patd_detail', args=[pk]))
-
 
 @login_required
 @oficial_responsavel_required
@@ -369,9 +322,6 @@ def salvar_reconsideracao(request, pk):
 def anexar_documento_reconsideracao_oficial(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
-        if patd.status != 'aguardando_comandante_base':
-            messages.error(request, "Ação não permitida no status atual.")
-            return redirect('Ouvidoria:patd_detail', pk=pk)
 
         anexo_file = request.FILES.get('anexo_oficial')
         if not anexo_file:
@@ -380,14 +330,8 @@ def anexar_documento_reconsideracao_oficial(request, pk):
 
         Anexo.objects.create(patd=patd, arquivo=anexo_file, tipo='reconsideracao_oficial')
 
-        # --- INÍCIO DA MODIFICAÇÃO ---
-        # Atualiza o status para aguardar a definição da nova punição
-        patd.status = 'aguardando_nova_punicao'
-        patd.save(update_fields=['status'])
-
-        messages.success(request, "Documento anexado com sucesso! O processo agora aguarda a definição da nova punição.")
+        messages.success(request, "Documento de reconsideração anexado com sucesso.")
         return redirect('Ouvidoria:patd_detail', pk=pk)
-        # --- FIM DA MODIFICAÇÃO ---
     except Exception as e:
         logger.error(f"Erro ao anexar documento de reconsideração oficial para PATD {pk}: {e}")
         messages.error(request, f"Ocorreu um erro ao anexar o documento: {e}")

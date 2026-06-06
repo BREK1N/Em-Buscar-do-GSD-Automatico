@@ -2036,39 +2036,8 @@ document.addEventListener('DOMContentLoaded', function() {
             .then(response => response.json())
             .then(data => {
                 if (data.status === 'success') {
-                    if (data.primeira_prisao) {
-                        // Mostra modal de confirmação do destino
-                        const modal = document.getElementById('primeira-prisao-modal');
-                        if (modal) {
-                            modal.classList.add('active');
-                            const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]') ?
-                                document.querySelector('[name=csrfmiddlewaretoken]').value :
-                                (document.cookie.match(/csrftoken=([^;]+)/) || [])[1] || '';
-
-                            const enviarDestino = function(cmdBase) {
-                                modal.classList.remove('active');
-                                fetch(PATD_CONFIG.urls.confirmarDestinoApuracao, {
-                                    method: 'POST',
-                                    headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
-                                    body: JSON.stringify({ cmd_base: cmdBase })
-                                })
-                                .then(r => r.json())
-                                .then(d => {
-                                    if (d.status === 'success') window.location.reload();
-                                    else alert('Erro ao confirmar destino: ' + d.message);
-                                })
-                                .catch(() => alert('Erro de comunicação ao confirmar destino.'));
-                            };
-
-                            document.getElementById('btn-confirmar-cmd-base').onclick = () => enviarDestino(true);
-                            document.getElementById('btn-confirmar-fluxo-normal').onclick = () => enviarDestino(false);
-                        } else {
-                            window.location.reload();
-                        }
-                    } else {
-                        alert('Apuração salva com sucesso! A página será recarregada.');
-                        window.location.reload();
-                    }
+                    alert('Apuração salva com sucesso! A página será recarregada.');
+                    window.location.reload();
                 } else {
                     alert('Erro ao salvar apuração: ' + data.message);
                     if(btnSpinner) btnSpinner.style.display = 'none';
@@ -2141,29 +2110,6 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    // Modal – Despacho de Abertura (CMD GSD)
-    const despachoModal = document.getElementById('despacho-abertura-modal');
-    const cancelDespachoBtn = document.getElementById('cancel-despacho-btn');
-
-    document.body.addEventListener('click', function(e) {
-        if (e.target.closest && e.target.closest('.open-despacho-abertura-modal-btn')) {
-            if (despachoModal) despachoModal.classList.add('active');
-        }
-    });
-
-    if (cancelDespachoBtn) {
-        cancelDespachoBtn.addEventListener('click', () => {
-            despachoModal.classList.remove('active');
-        });
-    }
-
-    if (despachoModal) {
-        despachoModal.addEventListener('click', (e) => {
-            if (e.target === despachoModal) {
-                despachoModal.classList.remove('active');
-            }
-        });
-    }
 });
 
 document.querySelectorAll('.file-input-check').forEach(input => {
