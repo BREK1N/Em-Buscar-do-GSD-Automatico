@@ -111,9 +111,10 @@ class ChamadoConsumer(AsyncWebsocketConsumer):
             c = Chamado.objects.get(pk=chamado_pk)
         except Chamado.DoesNotExist:
             return False
+        _INFORMATICA = ['informatica-admin', 'informatica-secao']
         return (
             user.is_superuser
-            or user.groups.filter(name="Militar da Informática").exists()
+            or user.groups.filter(name__in=_INFORMATICA).exists()
             or c.solicitante_id == user.id
         )
 
@@ -131,7 +132,7 @@ class ChamadoConsumer(AsyncWebsocketConsumer):
     def _is_informatica(self, user):
         return (
             user.is_superuser
-            or user.groups.filter(name="Militar da Informática").exists()
+            or user.groups.filter(name__in=['informatica-admin', 'informatica-secao']).exists()
         )
 
     @database_sync_to_async

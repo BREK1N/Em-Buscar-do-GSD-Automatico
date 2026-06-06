@@ -81,7 +81,8 @@ def notificar_patd_expirado(sender, instance, **kwargs):
     from django.contrib.auth import get_user_model
     User = get_user_model()
     try:
-        users = User.objects.filter(groups__name='Ouvidoria', is_active=True)
+        from Ouvidoria.permissions import OUVIDORIA_GROUPS
+        users = User.objects.filter(groups__name__in=OUVIDORIA_GROUPS, is_active=True)
         nome = str(getattr(instance, 'militar', '') or '')
         notificar(
             users,

@@ -6,55 +6,61 @@
 
 {% block extra_head %}
 <style>
-    /* --- Estilos do Formulário SaaS --- */
     .form-card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px 30px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
     .form-card-header { border-bottom: 1px solid var(--bg-main); padding-bottom: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;}
     .form-card-header h2 { margin: 0; font-size: 1.25rem; color: var(--text-primary); }
-    
+
     .form-item label { font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block; font-size: 0.9rem;}
-    .form-item input[type="text"], .form-item input[type="email"], .form-item input[type="password"], .form-item select { 
-        width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); transition: all 0.2s; 
+    .form-item input[type="text"], .form-item input[type="email"], .form-item input[type="password"], .form-item select {
+        width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); transition: all 0.2s;
     }
     .form-item input:focus, .form-item select:focus { border-color: var(--accent-color); box-shadow: 0 0 0 3px rgba(59,130,246,0.1); outline: none; }
-    
     .form-help-text { font-size: 0.8rem; color: var(--text-secondary); margin-top: 6px; }
     .alert-error { color: var(--danger-color); font-size: 0.8rem; margin-top: 5px; }
 
-    /* --- Checkboxes como Cards Modernos (Permissões/Grupos) --- */
-    .permissions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 15px; margin-top: 10px; }
+    /* Checkboxes */
     .permission-card { background-color: var(--bg-main); border: 1px solid var(--border-color); border-radius: 10px; padding: 12px 15px; transition: all 0.2s; }
     .permission-card:hover { border-color: var(--accent-color); }
     .permission-card input[type="checkbox"] { display: none; }
     .permission-card label { display: flex; align-items: center; cursor: pointer; font-weight: 500; margin: 0; color: var(--text-primary);}
     .permission-card label::before { content: ''; display: inline-block; width: 20px; height: 20px; margin-right: 12px; border: 2px solid var(--border-color); border-radius: 6px; background-color: var(--bg-content); transition: all 0.2s; flex-shrink: 0;}
     .permission-card input[type="checkbox"]:checked + label::before { background-color: var(--accent-color); border-color: var(--accent-color); background-image: url("data:image/svg+xml,%3csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 8 8'%3e%3cpath fill='%23fff' d='M6.564.75l-3.59 3.612-1.538-1.55L0 4.26 2.974 7.25 8 2.193z'/%3e%3c/svg%3e"); background-repeat: no-repeat; background-position: center; }
+    .permissions-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin-top: 10px; }
 
-    /* --- Selecionar Militar Box --- */
+    /* Militar selector */
     .militar-selector { display: flex; align-items: center; justify-content: space-between; padding: 12px 15px; border: 1px dashed var(--border-color); border-radius: 8px; background-color: var(--bg-main); margin-top: 5px; }
     #selected-militar-name { color: var(--text-secondary); font-style: italic; font-size: 0.95rem; }
     #selected-militar-name.selected { color: var(--accent-color); font-style: normal; font-weight: 600;}
-    
+
+    /* Password reset */
     .password-reset-button { color: var(--accent-color); background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.2); padding: 8px 15px; border-radius: 6px; font-weight: 600; cursor: pointer; transition: all 0.2s; display: inline-block;}
     .password-reset-button:hover { background: rgba(59,130,246,0.2); }
 
-    /* --- Modais (Reset Senha e Seleção) --- */
-    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0, 0, 0, 0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
+    /* Modais */
+    .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background-color: rgba(0,0,0,0.6); display: flex; justify-content: center; align-items: center; z-index: 2000; opacity: 0; visibility: hidden; transition: opacity 0.3s, visibility 0.3s; }
     .modal-overlay.active { opacity: 1; visibility: visible; }
     .modal-content { background-color: var(--bg-content); padding: 30px; border-radius: 16px; width: 90%; max-width: 500px; box-shadow: 0 10px 15px -3px rgba(0,0,0,0.2); transform: scale(0.9); transition: transform 0.3s; box-sizing: border-box; }
     .modal-overlay.active .modal-content { transform: scale(1); }
     .modal-content h3 { margin-top: 0; color: var(--text-primary); margin-bottom: 10px; font-size: 1.3rem;}
     .modal-content p { color: var(--text-secondary); margin-bottom: 25px; }
-    
     #reset-username-placeholder { font-weight: bold; color: var(--text-primary); }
     #reset-feedback { margin-top: 15px; font-size: 0.9rem; font-weight: 500;}
     #reset-feedback.success { color: var(--success-color); }
     #reset-feedback.error { color: var(--danger-color); }
-
-    /* Modal Militar List */
     .militar-modal-list { list-style: none; padding: 0; max-height: 300px; overflow-y: auto; margin-top: 15px;}
     .militar-modal-list li { padding: 12px 15px; border-bottom: 1px solid var(--border-color); cursor: pointer; color: var(--text-primary); transition: background 0.2s; border-radius: 6px;}
     .militar-modal-list li:hover { background-color: var(--bg-main); color: var(--accent-color);}
     .militar-modal-list li:last-child { border-bottom: none; }
+
+    /* Tabs de seção (grupos) */
+    .secao-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 20px; border-bottom: 1px solid var(--border-color); padding-bottom: 12px; }
+    .secao-tab { padding: 6px 16px; border-radius: 20px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-secondary); font-size: 0.85rem; font-weight: 500; cursor: pointer; transition: all 0.2s; }
+    .secao-tab:hover { border-color: var(--accent-color); color: var(--accent-color); }
+    .secao-tab.active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+    .secao-block { display: none; }
+    .secao-block.visible { display: block; }
+    .secao-block-title { font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-secondary); margin-bottom: 12px; }
+    .selected-count { font-size: 0.8rem; color: var(--accent-color); font-weight: 600; margin-left: 8px; }
 </style>
 {% endblock %}
 
@@ -67,16 +73,19 @@
 <form method="post" class="model-form">
     {% csrf_token %}
     {{ form.non_field_errors }}
+    {{ form.militar }}
 
+    {# ── Dados Pessoais ── #}
     <div class="form-card">
-         <div class="form-card-header">
+        <div class="form-card-header">
             <i class="fas fa-user" style="color: var(--accent-color); font-size: 1.2rem;"></i>
             <h2>Dados Pessoais e Conta</h2>
         </div>
-        
-        <div class="row g-4"> <!-- Grid Bootstrap para alinhamento -->
+
+        <div class="row g-4">
+            {# Campos genéricos do form — exclui os tratados manualmente #}
             {% for field in form %}
-                {% if field.name != 'groups' and field.name != 'user_permissions' and field.name != 'militar' %}
+                {% if field.name != 'groups' and field.name != 'user_permissions' and field.name != 'militar' and field.name != 'nome_completo' %}
                     <div class="col-md-6 form-item">
                         <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
                         {% if field.field.widget.input_type == 'checkbox' %}
@@ -93,7 +102,15 @@
                 {% endif %}
             {% endfor %}
 
-            <!-- Botão de Senha Padrão -->
+            {# Nome Completo — campo único #}
+            <div class="col-md-6 form-item">
+                <label for="{{ form.nome_completo.id_for_label }}">{{ form.nome_completo.label }}:</label>
+                {{ form.nome_completo }}
+                <div class="form-help-text">Preencha manualmente ou clique em "Buscar Militar" para preencher automaticamente.</div>
+                {% for error in form.nome_completo.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+            </div>
+
+            {# Palavra-passe #}
             <div class="col-md-6 form-item">
                 <label>Palavra-passe do Sistema:</label>
                 {% if object %}
@@ -101,49 +118,101 @@
                     <div class="form-help-text">Clique no botão para redefinir a palavra-passe deste utilizador para o padrão.</div>
                 {% else %}
                     <div class="form-help-text p-2" style="background: var(--bg-main); border: 1px dashed var(--border-color); border-radius: 8px;">
-                        <i class="fas fa-info-circle me-1" style="color: var(--accent-color);"></i> A palavra-passe inicial será definida como <strong>'12345678'</strong>. O utilizador deverá alterá-la no primeiro login.
+                        <i class="fas fa-info-circle me-1" style="color: var(--accent-color);"></i> A palavra-passe inicial será <strong>'12345678'</strong>. O utilizador deverá alterá-la no primeiro login.
                     </div>
                 {% endif %}
             </div>
 
-            <!-- Seleção de Militar (Somente Criação) -->
-            {% if not object and form.militar %}
-                <div class="col-12 form-item mt-2">
-                    <label>Vincular a um Militar Cadastrado:</label>
-                    {{ form.militar }}
-                    <div class="militar-selector">
-                        <span id="selected-militar-name"><i class="fas fa-user-slash me-2"></i> Nenhum militar selecionado</span>
-                        <button type="button" class="btn btn-secondary btn-sm" id="militar-select-btn" style="border-radius: 6px;"><i class="fas fa-search me-1"></i> Buscar Militar</button>
-                    </div>
-                    {% if form.militar.help_text %}<div class="form-help-text">{{ form.militar.help_text }}</div>{% endif %}
-                    {% for error in form.militar.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+            {# Seleção de Militar — disponível em criação E edição #}
+            <div class="col-12 form-item mt-2">
+                <label>Militar Associado:</label>
+                <div class="militar-selector">
+                    <span id="selected-militar-name">
+                        {% if object and militar_atual %}
+                            <i class="fas fa-check-circle me-1" style="color: var(--accent-color);"></i>
+                            <strong>{{ militar_atual.posto }} {{ militar_atual.nome_guerra }}</strong>
+                            <span style="color: var(--text-secondary); font-size: 0.85rem;"> — {{ militar_atual.nome_completo }}</span>
+                        {% else %}
+                            <i class="fas fa-user-slash me-2"></i> Nenhum militar selecionado
+                        {% endif %}
+                    </span>
+                    <button type="button" class="btn btn-secondary btn-sm" id="militar-select-btn" style="border-radius: 6px;">
+                        <i class="fas fa-search me-1"></i> {% if object and militar_atual %}Alterar Militar{% else %}Buscar Militar{% endif %}
+                    </button>
                 </div>
-            {% endif %}
+                {% if object and militar_atual %}
+                    <div class="form-help-text">Clique em "Alterar Militar" para vincular a outro militar.</div>
+                {% else %}
+                    <div class="form-help-text">Associe este utilizador a um militar existente no efetivo.</div>
+                {% endif %}
+            </div>
         </div>
     </div>
 
+    {# ── Grupos de Permissão por Seção ── #}
     <div class="form-card">
         <div class="form-card-header">
             <i class="fas fa-users-cog" style="color: var(--accent-color); font-size: 1.2rem;"></i>
             <h2>Grupos de Permissão</h2>
         </div>
-        <div class="form-item">
-            {% if form.groups %}
-                <p style="color: var(--text-secondary); margin-bottom: 15px;">Selecione os grupos de acesso para definir as permissões deste utilizador no sistema.</p>
-                <div class="permissions-grid">
-                    {% for choice in form.groups %}
-                        <div class="permission-card">
-                            {{ choice.tag }}
-                            <label for="{{ choice.id_for_label }}">{{ choice.choice_label }}</label>
+
+        {% if grupos_por_secao %}
+            <p style="color: var(--text-secondary); margin-bottom: 15px;">Selecione os grupos de acesso para definir as permissões deste utilizador.</p>
+
+            <div class="secao-tabs">
+                <button type="button" class="secao-tab active" data-secao="todas">Todas</button>
+                {% for secao in grupos_por_secao %}
+                    <button type="button" class="secao-tab" data-secao="{{ secao.key }}">
+                        {{ secao.label }}
+                        <span class="selected-count" id="count-{{ secao.key }}" style="display:none;"></span>
+                    </button>
+                {% endfor %}
+            </div>
+
+            {# Bloco "Todas" — mostra tudo junto #}
+            <div class="secao-block visible" data-secao-block="todas">
+                {% for secao in grupos_por_secao %}
+                    {% if secao.groups %}
+                        <div class="secao-block-title">{{ secao.label }}</div>
+                        <div class="permissions-grid" style="margin-bottom: 20px;">
+                            {% for group in secao.groups %}
+                                <div class="permission-card">
+                                    <input type="checkbox"
+                                           name="groups"
+                                           id="group_all_{{ group.pk }}"
+                                           value="{{ group.pk }}"
+                                           {% if group.pk in selected_group_ids %}checked{% endif %}>
+                                    <label for="group_all_{{ group.pk }}">{{ group.name }}</label>
+                                </div>
+                            {% endfor %}
                         </div>
-                    {% endfor %}
+                    {% endif %}
+                {% endfor %}
+            </div>
+
+            {# Blocos por seção #}
+            {% for secao in grupos_por_secao %}
+                <div class="secao-block" data-secao-block="{{ secao.key }}">
+                    <div class="permissions-grid">
+                        {% for group in secao.groups %}
+                            <div class="permission-card">
+                                <input type="checkbox"
+                                       name="groups"
+                                       id="group_{{ secao.key }}_{{ group.pk }}"
+                                       value="{{ group.pk }}"
+                                       data-group-pk="{{ group.pk }}"
+                                       {% if group.pk in selected_group_ids %}checked{% endif %}>
+                                <label for="group_{{ secao.key }}_{{ group.pk }}">{{ group.name }}</label>
+                            </div>
+                        {% endfor %}
+                    </div>
                 </div>
-                {% if form.groups.help_text %}<div class="form-help-text">{{ form.groups.help_text|safe }}</div>{% endif %}
-                {% for error in form.groups.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
-            {% else %}
-                <p style="color: var(--text-secondary);">Campo de grupos não disponível neste formulário.</p>
-            {% endif %}
-        </div>
+            {% endfor %}
+
+            {% for error in form.groups.errors %}<div class="alert-error mt-2">{{ error }}</div>{% endfor %}
+        {% else %}
+            <p style="color: var(--text-secondary);">Nenhum grupo cadastrado no sistema.</p>
+        {% endif %}
     </div>
 
     <div class="d-flex gap-3 mb-5">
@@ -152,9 +221,7 @@
     </div>
 </form>
 
-{# --- MODAIS --- #}
-
-{# Modal de Confirmação para Reset de Senha #}
+{# ── Modal reset de senha ── #}
 {% if object %}
 <div class="modal-overlay" id="reset-password-modal">
     <div class="modal-content">
@@ -169,95 +236,72 @@
 </div>
 {% endif %}
 
-{# Modal para Selecionar Militar #}
-{% if not object %}
+{# ── Modal seleção de militar (criação e edição) ── #}
 <div class="modal-overlay" id="militar-modal">
     <div class="modal-content">
         <h3><i class="fas fa-address-book me-2" style="color: var(--accent-color);"></i> Selecionar Militar</h3>
         <p style="margin-bottom: 15px; font-size: 0.9rem;">Busque pelo nome ou posto para associar a conta.</p>
         <input type="text" id="militar-search-input" placeholder="Pesquisar por nome ou posto..." style="width: 100%; padding: 12px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary);">
         <ul class="militar-modal-list" id="militar-results-list">
-             <li>A carregar...</li>
+            <li>A carregar...</li>
         </ul>
         <div class="d-flex justify-content-end mt-3">
             <button type="button" class="btn btn-secondary" id="cancel-militar-select-btn" style="border-radius: 8px;">Cancelar</button>
         </div>
     </div>
 </div>
-{% endif %}
 
 {% endblock %}
 
 {% block extra_js %}
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    console.log("DOM Carregado."); // Log inicial
-    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value; // Usa optional chaining
-    
-    // Garantir que object existe antes de aceder a pk
+document.addEventListener('DOMContentLoaded', function () {
+    const csrfToken = document.querySelector('[name=csrfmiddlewaretoken]')?.value;
     const isEditMode = "{{ object.pk|default:'' }}" !== "";
-    console.log("Modo Edição:", isEditMode);
 
-    // --- Lógica do Modal de Reset de Senha (apenas para Edição) ---
+    // ── Reset de senha (edição) ──
     if (isEditMode) {
-        console.log("Tentando configurar modal de reset de senha...");
-        const resetPasswordBtn = document.getElementById('reset-password-btn');
-        const resetPasswordModal = document.getElementById('reset-password-modal');
+        const resetBtn       = document.getElementById('reset-password-btn');
+        const resetModal     = document.getElementById('reset-password-modal');
         const cancelResetBtn = document.getElementById('cancel-reset-btn');
         const confirmResetBtn = document.getElementById('confirm-reset-btn');
         const usernamePlaceholder = document.getElementById('reset-username-placeholder');
-        const resetFeedback = document.getElementById('reset-feedback');
-        const userId = "{{ object.pk }}";
+        const resetFeedback  = document.getElementById('reset-feedback');
+        const userId   = "{{ object.pk }}";
         const username = "{{ object.username }}";
 
-        if (resetPasswordBtn && resetPasswordModal && cancelResetBtn && confirmResetBtn && usernamePlaceholder && resetFeedback) {
-            resetPasswordBtn.addEventListener('click', () => {
+        if (resetBtn && resetModal) {
+            resetBtn.addEventListener('click', () => {
                 usernamePlaceholder.textContent = username;
                 resetFeedback.textContent = '';
                 resetFeedback.className = '';
                 confirmResetBtn.disabled = false;
                 confirmResetBtn.textContent = 'Sim, Redefinir';
-                resetPasswordModal.classList.add('active');
+                resetModal.classList.add('active');
             });
-
-            cancelResetBtn.addEventListener('click', () => {
-                resetPasswordModal.classList.remove('active');
-            });
-
-            resetPasswordModal.addEventListener('click', (e) => {
-                if (e.target === resetPasswordModal) {
-                    resetPasswordModal.classList.remove('active');
-                }
-            });
-
+            cancelResetBtn.addEventListener('click', () => resetModal.classList.remove('active'));
+            resetModal.addEventListener('click', e => { if (e.target === resetModal) resetModal.classList.remove('active'); });
             confirmResetBtn.addEventListener('click', () => {
                 confirmResetBtn.disabled = true;
                 confirmResetBtn.textContent = 'Aguarde...';
-                resetFeedback.textContent = '';
-                resetFeedback.className = '';
-
-                const url = `/informatica/users/${userId}/reset-password/`;
-                
-                fetch(url, {
-                    method: 'POST',
-                    headers: { 'X-CSRFToken': csrfToken },
+                fetch(`/informatica/users/${userId}/reset-password/`, {
+                    method: 'POST', headers: { 'X-CSRFToken': csrfToken },
                 })
-                .then(response => response.json().then(data => ({ status: response.status, body: data })))
+                .then(r => r.json().then(d => ({ status: r.status, body: d })))
                 .then(({ status, body }) => {
                     if (status === 200 && body.status === 'success') {
                         resetFeedback.textContent = body.message || 'Senha redefinida com sucesso!';
                         resetFeedback.className = 'success';
-                        setTimeout(() => { resetPasswordModal.classList.remove('active'); }, 2500);
+                        setTimeout(() => resetModal.classList.remove('active'), 2500);
                     } else {
-                        resetFeedback.textContent = body.message || 'Ocorreu um erro ao redefinir a senha.';
+                        resetFeedback.textContent = body.message || 'Ocorreu um erro.';
                         resetFeedback.className = 'error';
                         confirmResetBtn.disabled = false;
                         confirmResetBtn.textContent = 'Sim, Redefinir';
                     }
                 })
-                .catch(error => {
-                    console.error('Erro no fetch:', error);
-                    resetFeedback.textContent = 'Erro de comunicação com o servidor.';
+                .catch(() => {
+                    resetFeedback.textContent = 'Erro de comunicação.';
                     resetFeedback.className = 'error';
                     confirmResetBtn.disabled = false;
                     confirmResetBtn.textContent = 'Sim, Redefinir';
@@ -266,101 +310,113 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }
 
-    // --- Lógica do Modal de Seleção de Militar (apenas para Criação) ---
-    if (!isEditMode) {
-        console.log("Modo Criação: Configurando modal de seleção de militar.");
-        const militarSelectBtn = document.getElementById('militar-select-btn');
-        const militarModal = document.getElementById('militar-modal');
-        const cancelMilitarSelectBtn = document.getElementById('cancel-militar-select-btn');
-        const militarSearchInput = document.getElementById('militar-search-input');
-        const militarResultsList = document.getElementById('militar-results-list');
-        const hiddenMilitarInput = document.getElementById('id_militar'); // Campo hidden do form
-        const selectedMilitarName = document.getElementById('selected-militar-name');
-        let searchTimeout;
+    // ── Seleção de militar (criação e edição) ──
+    const militarSelectBtn    = document.getElementById('militar-select-btn');
+    const militarModal        = document.getElementById('militar-modal');
+    const cancelMilitarBtn    = document.getElementById('cancel-militar-select-btn');
+    const militarSearchInput  = document.getElementById('militar-search-input');
+    const militarResultsList  = document.getElementById('militar-results-list');
+    const hiddenMilitarInput  = document.getElementById('id_militar');
+    const selectedMilitarName = document.getElementById('selected-militar-name');
+    const nomeCompletoInput   = document.getElementById('id_nome_completo');
+    let searchTimeout;
 
-        if (militarSelectBtn && militarModal && cancelMilitarSelectBtn && militarSearchInput && militarResultsList && hiddenMilitarInput && selectedMilitarName) {
-            
-            militarSelectBtn.addEventListener('click', () => {
-                militarModal.classList.add('active');
-                loadMilitares('');
-            });
+    function closeMilitarModal() { militarModal.classList.remove('active'); }
 
-            function closeModal() {
-                militarModal.classList.remove('active');
-            }
-            
-            cancelMilitarSelectBtn.addEventListener('click', closeModal);
-            
-            militarModal.addEventListener('click', (e) => {
-                if (e.target === militarModal) closeModal();
-            });
+    if (militarSelectBtn && militarModal) {
+        militarSelectBtn.addEventListener('click', () => {
+            militarModal.classList.add('active');
+            militarSearchInput.value = '';
+            loadMilitares('');
+        });
+        cancelMilitarBtn.addEventListener('click', closeMilitarModal);
+        militarModal.addEventListener('click', e => { if (e.target === militarModal) closeMilitarModal(); });
 
-            function loadMilitares(query) {
-                const url = `{% url 'Ouvidoria:search_militares_json' %}?q=${encodeURIComponent(query)}`;
-                fetch(url)
-                    .then(response => {
-                        if (!response.ok) throw new Error(`Erro HTTP! status: ${response.status}`);
-                        return response.json();
-                    })
-                    .then(data => {
-                        militarResultsList.innerHTML = '';
-                        if (data && Array.isArray(data) && data.length > 0) {
-                            data.forEach(militar => {
-                                const li = document.createElement('li');
-                                li.innerHTML = `<strong>${militar.posto || ''} ${militar.nome_guerra || ''}</strong> - <span style="font-size: 0.85rem; color: var(--text-secondary);">${militar.nome_completo || ''}</span>`;
-                                li.dataset.id = militar.id;
-                                li.dataset.name = `${militar.posto || ''} ${militar.nome_guerra || ''}`.trim();
-                                li.dataset.nomeCompleto = militar.nome_completo || '';
-                                militarResultsList.appendChild(li);
-                            });
-                        } else {
-                            militarResultsList.innerHTML = '<li>Nenhum militar encontrado.</li>';
-                        }
-                    })
-                    .catch(error => {
-                        console.error("Erro ao buscar militares:", error);
-                        militarResultsList.innerHTML = '<li>Erro ao carregar militares. Verifique o console.</li>';
-                    });
-            }
-
-            militarSearchInput.addEventListener('input', () => {
-                clearTimeout(searchTimeout);
-                searchTimeout = setTimeout(() => {
-                    loadMilitares(militarSearchInput.value);
-                }, 300);
-            });
-
-            militarResultsList.addEventListener('click', (e) => {
-                const targetLi = e.target.closest('li');
-                if (targetLi && targetLi.dataset.id) {
-                    hiddenMilitarInput.value = targetLi.dataset.id;
-                    selectedMilitarName.innerHTML = `<i class="fas fa-check-circle me-1"></i> ${targetLi.dataset.name}`;
-                    selectedMilitarName.classList.add('selected');
-
-                    // Auto-fill first/last name from nome_completo
-                    const nomeCompleto = (targetLi.dataset.nomeCompleto || '').trim();
-                    const firstNameInput = document.getElementById('id_first_name');
-                    const lastNameInput  = document.getElementById('id_last_name');
-                    if (firstNameInput && lastNameInput && nomeCompleto) {
-                        const partes = nomeCompleto.split(/\s+/);
-                        if (!firstNameInput.value) firstNameInput.value = partes[0] || '';
-                        if (!lastNameInput.value)  lastNameInput.value  = partes.length > 1 ? partes[partes.length - 1] : '';
+        function loadMilitares(query) {
+            const url = `{% url 'Ouvidoria:search_militares_json' %}?q=${encodeURIComponent(query)}`;
+            fetch(url)
+                .then(r => { if (!r.ok) throw new Error(r.status); return r.json(); })
+                .then(data => {
+                    militarResultsList.innerHTML = '';
+                    if (data && data.length > 0) {
+                        data.forEach(m => {
+                            const li = document.createElement('li');
+                            li.innerHTML = `<strong>${m.posto || ''} ${m.nome_guerra || ''}</strong> <span style="font-size:0.85rem;color:var(--text-secondary);">— ${m.nome_completo || ''}</span>`;
+                            li.dataset.id = m.id;
+                            li.dataset.display = `${m.posto || ''} ${m.nome_guerra || ''}`.trim();
+                            li.dataset.nomeCompleto = m.nome_completo || '';
+                            militarResultsList.appendChild(li);
+                        });
+                    } else {
+                        militarResultsList.innerHTML = '<li>Nenhum militar encontrado.</li>';
                     }
-
-                    const event = new Event('change', { bubbles: true });
-                    hiddenMilitarInput.dispatchEvent(event);
-                    closeModal();
-                }
-            });
-
-            hiddenMilitarInput.addEventListener('change', () => {
-                if (!hiddenMilitarInput.value) {
-                    selectedMilitarName.innerHTML = '<i class="fas fa-user-slash me-2"></i> Nenhum militar selecionado';
-                    selectedMilitarName.classList.remove('selected');
-                }
-            });
+                })
+                .catch(() => { militarResultsList.innerHTML = '<li>Erro ao carregar militares.</li>'; });
         }
+
+        militarSearchInput.addEventListener('input', () => {
+            clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => loadMilitares(militarSearchInput.value), 300);
+        });
+
+        militarResultsList.addEventListener('click', e => {
+            const li = e.target.closest('li');
+            if (!li || !li.dataset.id) return;
+            // Atualiza campo oculto
+            if (hiddenMilitarInput) hiddenMilitarInput.value = li.dataset.id;
+            // Atualiza display
+            selectedMilitarName.innerHTML = `<i class="fas fa-check-circle me-1" style="color:var(--accent-color);"></i> <strong>${li.dataset.display}</strong>`;
+            selectedMilitarName.classList.add('selected');
+            // Preenche nome completo se estiver vazio
+            if (nomeCompletoInput && !nomeCompletoInput.value.trim()) {
+                nomeCompletoInput.value = li.dataset.nomeCompleto;
+            }
+            // Altera rótulo do botão
+            militarSelectBtn.innerHTML = '<i class="fas fa-search me-1"></i> Alterar Militar';
+            closeMilitarModal();
+        });
     }
+
+    // ── Tabs de seção dos grupos ──
+    const tabs   = document.querySelectorAll('.secao-tab');
+    const blocks = document.querySelectorAll('.secao-block');
+
+    function updateCounts() {
+        document.querySelectorAll('[data-secao-block]').forEach(block => {
+            const secao = block.dataset.secaoBlock;
+            if (secao === 'todas') return;
+            const checked = block.querySelectorAll('input[type="checkbox"]:checked').length;
+            const countEl = document.getElementById(`count-${secao}`);
+            if (countEl) {
+                if (checked > 0) { countEl.textContent = checked; countEl.style.display = ''; }
+                else { countEl.style.display = 'none'; }
+            }
+        });
+    }
+
+    tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+            tabs.forEach(t => t.classList.remove('active'));
+            tab.classList.add('active');
+            const target = tab.dataset.secao;
+            blocks.forEach(b => {
+                b.classList.toggle('visible', b.dataset.secaoBlock === target);
+            });
+        });
+    });
+
+    // Sincroniza checkboxes entre "todas" e blocos individuais
+    document.addEventListener('change', e => {
+        if (e.target.type !== 'checkbox' || e.target.name !== 'groups') return;
+        const pk = e.target.value;
+        const checked = e.target.checked;
+        document.querySelectorAll(`input[type="checkbox"][name="groups"][value="${pk}"]`).forEach(cb => {
+            cb.checked = checked;
+        });
+        updateCounts();
+    });
+
+    updateCounts();
 });
 </script>
 {% endblock %}

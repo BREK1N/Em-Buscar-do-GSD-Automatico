@@ -1,8 +1,18 @@
 from django.contrib.auth.signals import user_logged_in, user_logged_out, user_login_failed
+from django.db.models.signals import post_migrate
 from django.dispatch import receiver
 import logging
 
 logger = logging.getLogger('django')
+
+
+@receiver(post_migrate)
+def create_informatica_groups(sender, **kwargs):
+    if sender.name == 'informatica':
+        from django.contrib.auth.models import Group
+        Group.objects.get_or_create(name='informatica-admin')
+        Group.objects.get_or_create(name='informatica-secao')
+
 
 @receiver(user_logged_in)
 def log_user_login(sender, request, user, **kwargs):

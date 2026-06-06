@@ -16,7 +16,7 @@ def create_default_groups(sender, **kwargs):
     # Verifica se o sender é a aplicação atual para evitar execução duplicada
     # Ajuste 'Ouvidoria' se o nome da tua AppConfig for diferente
     if sender.name == 'Ouvidoria':
-        # 1. Cria grupos da Ouvidoria (S2, CB, ADJUNTO, CHEFE)
+        # 1. Cria grupos da Ouvidoria (S2, CB, ADJUNTO, CHEFE, APURADOR)
         for group_name in OUVIDORIA_GROUPS:
             group, created = Group.objects.get_or_create(name=group_name)
             if created:

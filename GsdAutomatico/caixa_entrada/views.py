@@ -30,12 +30,15 @@ _SECAO_TEMPLATES = {
     'home': 'home/base_for_inbox.html',
 }
 
+from Ouvidoria.permissions import OUVIDORIA_GROUPS as _OUVIDORIA_GROUPS
+
 _GROUP_SECAO = {
-    'Ouvidoria': 'ouvidoria',
-    'Informatica': 'informatica',
-    'seção de operação': 'operacoes',
-    'Secao_operacoes': 'operacoes',
-    'S1': 's1',
+    **{g: 'ouvidoria' for g in _OUVIDORIA_GROUPS},
+    'informatica-admin': 'informatica',
+    'informatica-secao': 'informatica',
+    'SOP - Operações': 'operacoes',
+    'SOP- Escalas': 'operacoes',
+    'Seção de Pessoal (S1)': 's1',
 }
 
 

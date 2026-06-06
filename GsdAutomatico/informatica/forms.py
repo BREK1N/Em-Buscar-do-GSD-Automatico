@@ -12,12 +12,8 @@ from login.models import UserProfile # Modelo do Login
 class InformaticaUserCreationForm(forms.ModelForm):
     """ Formulário para criar novos utilizadores na área de informática """
 
-    first_name = forms.CharField(
-        required=False, label="Primeiro Nome",
-        widget=forms.TextInput(attrs={'placeholder': 'Preenchido automaticamente ao vincular militar'})
-    )
-    last_name = forms.CharField(
-        required=False, label="Último Nome",
+    nome_completo = forms.CharField(
+        required=False, label="Nome Completo",
         widget=forms.TextInput(attrs={'placeholder': 'Preenchido automaticamente ao vincular militar'})
     )
     email = forms.EmailField(
@@ -36,26 +32,24 @@ class InformaticaUserCreationForm(forms.ModelForm):
         widget=forms.CheckboxSelectMultiple,
         required=False,
         label="Grupos de Permissão",
-        help_text="Os grupos que este utilizador pertence."
     )
 
     class Meta:
         model = User
-        fields = ("username", "first_name", "last_name", "email", "militar", "groups")
+        fields = ("username", "email", "militar", "groups")
 
     def save(self, commit=True):
         user = super().save(commit=False)
         user.set_password('12345678')
-        user.first_name = self.cleaned_data.get('first_name', '')
-        user.last_name  = self.cleaned_data.get('last_name', '')
-        user.email      = self.cleaned_data.get('email', '')
+        user.email = self.cleaned_data.get('email', '')
 
-        # Se nenhum nome foi preenchido manualmente, puxar do militar vinculado
+        nome = self.cleaned_data.get('nome_completo', '').strip()
         militar_selecionado = self.cleaned_data.get('militar')
-        if militar_selecionado and not user.first_name and not user.last_name:
-            partes = (militar_selecionado.nome_completo or '').split()
-            user.first_name = partes[0] if partes else ''
-            user.last_name  = partes[-1] if len(partes) > 1 else ''
+        if not nome and militar_selecionado:
+            nome = (militar_selecionado.nome_completo or '').strip()
+        partes = nome.split()
+        user.first_name = partes[0] if partes else ''
+        user.last_name  = ' '.join(partes[1:]) if len(partes) > 1 else ''
 
         if commit:
             user.save()
@@ -69,19 +63,55 @@ class InformaticaUserCreationForm(forms.ModelForm):
 
 class InformaticaUserChangeForm(UserChangeForm):
     """ Formulário para editar utilizadores existentes """
-    password = None # Remove o campo de senha da edição
+    password = None
 
+    nome_completo = forms.CharField(
+        required=False, label="Nome Completo",
+        widget=forms.TextInput(attrs={'placeholder': 'Nome completo do utilizador'})
+    )
+    militar = forms.ModelChoiceField(
+        queryset=Efetivo.objects.all(),
+        required=False,
+        label="Militar Associado",
+        widget=forms.HiddenInput()
+    )
     groups = forms.ModelMultipleChoiceField(
         queryset=Group.objects.all(),
         widget=forms.CheckboxSelectMultiple,
         required=False,
         label="Grupos de Permissão",
-        help_text="Os grupos que este utilizador pertence."
     )
 
     class Meta:
         model = User
-        fields = ('username', 'first_name', 'last_name', 'email', 'is_active', 'is_staff', 'is_superuser', 'groups')
+        fields = ('username', 'email', 'is_active', 'is_staff', 'is_superuser', 'groups')
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        if self.instance and self.instance.pk:
+            self.fields['nome_completo'].initial = self.instance.get_full_name().strip() or self.instance.first_name
+            try:
+                mil = self.instance.profile.militar
+                self.fields['militar'].initial = mil.pk if mil else None
+            except Exception:
+                pass
+
+    def save(self, commit=True):
+        user = super().save(commit=False)
+        nome = self.cleaned_data.get('nome_completo', '').strip()
+        militar_selecionado = self.cleaned_data.get('militar')
+        if not nome and militar_selecionado:
+            nome = (militar_selecionado.nome_completo or '').strip()
+        partes = nome.split()
+        user.first_name = partes[0] if partes else ''
+        user.last_name  = ' '.join(partes[1:]) if len(partes) > 1 else ''
+        if commit:
+            user.save()
+            self.save_m2m()
+            profile, _ = UserProfile.objects.get_or_create(user=user)
+            profile.militar = militar_selecionado
+            profile.save()
+        return user
 
 
 class GroupForm(forms.ModelForm):

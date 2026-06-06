@@ -2,7 +2,7 @@
 Views do módulo de Chamados de Suporte.
 
 Regras de acesso:
-  - Grupo 'Militar da Informática' (ou superuser): vê fila global, pode atender/mudar status
+  - Grupos 'informatica-admin' ou 'informatica-secao' (ou superuser): vê fila global, pode atender/mudar status
   - Demais usuários: veem somente seus próprios chamados
 
 Notificações na Caixa de Entrada:
@@ -31,9 +31,11 @@ from .models import AnexoChamado, Chamado, MensagemChamado
 
 # ── Helpers de permissão ──────────────────────────────────────────────────────
 
+_INFORMATICA_GROUPS = ['informatica-admin', 'informatica-secao']
+
 def _is_informatica(user):
     """Verifica se o usuário pertence ao grupo de suporte ou é superuser."""
-    return user.is_superuser or user.groups.filter(name='Militar da Informática').exists()
+    return user.is_superuser or user.groups.filter(name__in=_INFORMATICA_GROUPS).exists()
 
 
 # ── Mixin para injetar contexto da inbox no chamado ──────────────────────────
@@ -176,7 +178,7 @@ class ChamadoCreateView(_ChamadoMixin, CreateView):
                 )
 
         # Notifica o grupo Informática na caixa de entrada (evento de sistema)
-        for u in User.objects.filter(groups__name='Militar da Informática'):
+        for u in User.objects.filter(groups__name__in=_INFORMATICA_GROUPS).distinct():
             _notificar_sistema(
                 self.request.user, u,
                 f"[Chamado #{chamado.protocolo}] {chamado.titulo}",

@@ -6,7 +6,6 @@ from django.contrib.auth.models import Group
 @receiver(post_migrate)
 def create_operacoes_groups(sender, **kwargs):
     if sender.name == 'Secao_operacoes':
-        Group.objects.get_or_create(name='seção de operação')
         sop_group, created = Group.objects.get_or_create(name='SOP - Operações')
         if created:
             try:
@@ -17,3 +16,4 @@ def create_operacoes_groups(sender, **kwargs):
                 )
             except Exception:
                 pass
+        Group.objects.get_or_create(name='SOP- Escalas')

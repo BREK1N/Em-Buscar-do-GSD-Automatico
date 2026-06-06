@@ -55,8 +55,7 @@ from .analise_fq import analisar_fq_documento
 from chamada.models import RegistroChamada as ChamadaRegistro
 
 def is_s1_member(user):
-    """Check if the user is a member of the 'S1' group."""
-    return user.groups.filter(name__in=['S1', 'Seção de Pessoal (S1)']).exists()
+    return user.groups.filter(name='Seção de Pessoal (S1)').exists()
 
 s1_required = user_passes_test(is_s1_member)
 

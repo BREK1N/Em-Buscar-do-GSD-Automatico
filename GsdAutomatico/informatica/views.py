@@ -32,10 +32,10 @@ from django.contrib.auth import authenticate # Importação para validar senha
 logger = logging.getLogger(__name__)
 
 def is_informatica_admin(user):
-    return user.is_superuser or user.groups.filter(name='Militar da Informática').exists()
+    return user.is_superuser or user.groups.filter(name='informatica-admin').exists()
 
 def is_informatica_secao(user):
-    return user.is_superuser or user.groups.filter(name='Militar da Informática').exists()
+    return user.is_superuser or user.groups.filter(name__in=['informatica-admin', 'informatica-secao']).exists()
 
 class InformaticaAdminMixin(LoginRequiredMixin, UserPassesTestMixin):
     def test_func(self): return is_informatica_admin(self.request.user)
@@ -183,6 +183,23 @@ class UserListView(StaffRequiredMixin, ListView):
         context['search_query'] = self.request.GET.get('q', '')
         return context
 
+def _get_grupos_por_secao():
+    """Grupos organizados por seção, usando GroupProfile.secao."""
+    from collections import defaultdict
+    grupos = Group.objects.select_related('secao_profile').order_by('name')
+    secao_labels = dict(SECAO_CHOICES)
+    por_secao = defaultdict(list)
+    for g in grupos:
+        profile = getattr(g, 'secao_profile', None)
+        key = profile.secao if profile and profile.secao in secao_labels else 'geral'
+        por_secao[key].append(g)
+    return [
+        {'key': key, 'label': label, 'groups': por_secao[key]}
+        for key, label in SECAO_CHOICES
+        if por_secao.get(key)
+    ]
+
+
 class UserCreateView(StaffRequiredMixin, CreateView):
     model = User
     form_class = InformaticaUserCreationForm
@@ -191,6 +208,8 @@ class UserCreateView(StaffRequiredMixin, CreateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = "Adicionar Utilizador"
+        context['grupos_por_secao'] = _get_grupos_por_secao()
+        context['selected_group_ids'] = set()
         return context
     def form_valid(self, form):
         user = form.save()
@@ -205,6 +224,12 @@ class UserUpdateView(StaffRequiredMixin, UpdateView):
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['page_title'] = f"Editar Utilizador: {self.object.username}"
+        context['grupos_por_secao'] = _get_grupos_por_secao()
+        context['selected_group_ids'] = set(self.object.groups.values_list('pk', flat=True))
+        try:
+            context['militar_atual'] = self.object.profile.militar
+        except Exception:
+            context['militar_atual'] = None
         return context
 
 class UserDeleteView(StaffRequiredMixin, DeleteView):

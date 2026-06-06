@@ -59,22 +59,27 @@ def select_app_view(request):
     """
     Mostra uma página para o utilizador escolher qual app aceder.
     """
+    from Ouvidoria.permissions import OUVIDORIA_GROUPS
+    _ouvidoria_app = {'url_name': 'Ouvidoria:index', 'display_name': 'Ouvidoria GSD'}
+    _sop_app = {'url_name': 'Secao_operacoes:index', 'display_name': 'Seção de Operações'}
     app_groups = {
-        'Ouvidoria': {'url_name': 'Ouvidoria:index', 'display_name': 'Ouvidoria GSD'},
-        'Informatica': {'url_name': 'informatica:dashboard', 'display_name': 'Dashboard Informática'},
-        'S1': {'url_name': 'Secao_pessoal:index', 'display_name': 'Seção de Pessoal'},
-        'seção de operação': {'url_name': 'Secao_operacoes:index', 'display_name': 'Seção de Operações'}, # ADICIONADO: Seção de Operações
+        **{g: _ouvidoria_app for g in OUVIDORIA_GROUPS},
+        'informatica-admin': {'url_name': 'informatica:dashboard', 'display_name': 'Dashboard Informática'},
+        'informatica-secao': {'url_name': 'informatica:dashboard', 'display_name': 'Dashboard Informática'},
+        'Seção de Pessoal (S1)': {'url_name': 'Secao_pessoal:index', 'display_name': 'Seção de Pessoal'},
+        'SOP - Operações': _sop_app,
+        'SOP- Escalas': _sop_app,
     }
-    user_groups = request.user.groups.values_list('name', flat=True)
+    user_groups = set(request.user.groups.values_list('name', flat=True))
 
+    seen_urls = set()
     available_apps = []
-    if request.user.is_superuser:
-        # Superuser vê todos os apps definidos
-        available_apps = list(app_groups.values())
-    else:
-        for group_name, app_info in app_groups.items():
-            if group_name in user_groups:
-                available_apps.append(app_info)
+    candidates = app_groups.keys() if request.user.is_superuser else user_groups
+    for group_name in candidates:
+        app_info = app_groups.get(group_name)
+        if app_info and app_info['url_name'] not in seen_urls:
+            seen_urls.add(app_info['url_name'])
+            available_apps.append(app_info)
 
     # Se, por algum motivo, o utilizador chegar aqui sem apps disponíveis (não deveria acontecer pela lógica anterior)
     if not available_apps:
