@@ -62,6 +62,7 @@ from .commander import (
 from .documents import (
     salvar_documento_patd,
     salvar_alegacao_defesa,
+    adicionar_anexos_defesa,
     extender_prazo,
     exportar_patd_docx,
     preview_patd_pdf,

@@ -1742,7 +1742,11 @@ document.addEventListener('DOMContentLoaded', function() {
 
         let hasAnexos = false;
 
-        if (anexosDefesa.length > 0) {
+        const canManageDefesa = PATD_CONFIG.isOuvidoria || isSuperuser;
+        const hasDefesaContent = anexosDefesa.length > 0 || PATD_CONFIG.hasDefesa || PATD_CONFIG.hasDefesaSig;
+        const showDefesaSection = hasDefesaContent || canManageDefesa;
+
+        if (showDefesaSection) {
             defesaContainer.style.display = 'block';
             anexosDefesa.forEach(anexo => {
                 const li = document.createElement('li');
@@ -1753,14 +1757,20 @@ document.addEventListener('DOMContentLoaded', function() {
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:16px; height:16px;"><path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25" /></svg>
                             Abrir
                         </a>
-                        ${isSuperuser && !isFinalized ? `<button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>` : ''}
+                        ${canManageDefesa ? `<button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>` : ''}
                     </div>
                 `;
                 defesaList.appendChild(li);
             });
-            hasAnexos = true;
+            const addBtnContainer = document.getElementById('defesa-add-btn-container');
+            if (addBtnContainer) {
+                addBtnContainer.style.display = canManageDefesa ? 'block' : 'none';
+            }
+            if (hasDefesaContent || canManageDefesa) hasAnexos = true;
         } else {
             defesaContainer.style.display = 'none';
+            const addBtnContainer = document.getElementById('defesa-add-btn-container');
+            if (addBtnContainer) addBtnContainer.style.display = 'none';
         }
 
         if (anexosReconsideracao.length > 0) {
@@ -2054,6 +2064,83 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     renderAnexosGeral();
+
+    // Modal para adicionar anexos à defesa já enviada
+    const addDefesaAnexosModal = document.getElementById('add-defesa-anexos-modal');
+    if (addDefesaAnexosModal) {
+        const pickerBtn   = document.getElementById('add-defesa-anexos-picker-btn');
+        const fileInput   = document.getElementById('add-defesa-anexos-file-input');
+        const anexosList  = document.getElementById('add-defesa-anexos-list');
+        const form        = document.getElementById('form-add-defesa-anexos');
+        const submitBtn   = document.getElementById('submit-add-defesa-anexos-btn');
+        let selectedAddFiles = [];
+
+        function renderAddDefesaList() {
+            anexosList.innerHTML = '';
+            selectedAddFiles.forEach((file, idx) => {
+                const row = document.createElement('div');
+                row.style.cssText = 'display:flex;align-items:center;gap:8px;padding:8px 12px;background:var(--sidebar-bg);border:1px solid var(--border-color);border-radius:8px;font-size:.88rem;';
+                const icon = document.createElement('span');
+                icon.textContent = file.type.startsWith('image/') ? '🖼️' : '📄';
+                const name = document.createElement('span');
+                name.style.cssText = 'flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:var(--text-primary);';
+                name.textContent = file.name;
+                const size = document.createElement('span');
+                size.style.cssText = 'color:var(--text-secondary);font-size:.8rem;flex-shrink:0;';
+                size.textContent = (file.size / 1024).toFixed(0) + ' KB';
+                const removeBtn = document.createElement('button');
+                removeBtn.type = 'button';
+                removeBtn.style.cssText = 'background:none;border:none;cursor:pointer;color:var(--danger-color);font-size:1rem;padding:0;line-height:1;flex-shrink:0;';
+                removeBtn.title = 'Remover';
+                removeBtn.textContent = '✕';
+                removeBtn.addEventListener('click', () => { selectedAddFiles.splice(idx, 1); renderAddDefesaList(); });
+                row.append(icon, name, size, removeBtn);
+                anexosList.appendChild(row);
+            });
+        }
+
+        document.body.addEventListener('click', function(e) {
+            if (e.target && e.target.id === 'btn-add-defesa-anexos-trigger') {
+                selectedAddFiles = [];
+                renderAddDefesaList();
+                addDefesaAnexosModal.classList.add('active');
+            }
+        });
+
+        if (pickerBtn && fileInput) {
+            pickerBtn.addEventListener('click', () => { fileInput.value = ''; fileInput.click(); });
+            fileInput.addEventListener('change', () => {
+                Array.from(fileInput.files).forEach(f => selectedAddFiles.push(f));
+                renderAddDefesaList();
+            });
+        }
+
+        document.querySelectorAll('#cancel-add-defesa-anexos-btn, #cancel-add-defesa-anexos-btn-2').forEach(btn => {
+            btn.addEventListener('click', () => addDefesaAnexosModal.classList.remove('active'));
+        });
+
+        if (form) {
+            form.addEventListener('submit', e => {
+                e.preventDefault();
+                if (selectedAddFiles.length === 0) { alert('Selecione pelo menos um ficheiro.'); return; }
+                const formData = new FormData();
+                selectedAddFiles.forEach(f => formData.append('anexos_defesa', f));
+                submitBtn.disabled = true;
+                submitBtn.textContent = 'Enviando...';
+                fetch(PATD_CONFIG.urls.adicionarAnexosDefesa, {
+                    method: 'POST',
+                    headers: { 'X-CSRFToken': csrfToken },
+                    body: formData
+                })
+                .then(r => r.json())
+                .then(data => {
+                    if (data.status === 'success') { window.location.reload(); }
+                    else { alert('Erro: ' + data.message); submitBtn.disabled = false; submitBtn.textContent = 'Enviar Anexos'; }
+                })
+                .catch(() => { alert('Erro de conexão.'); submitBtn.disabled = false; submitBtn.textContent = 'Enviar Anexos'; });
+            });
+        }
+    }
 
     const activeTabId = localStorage.getItem(`activePatdTab-${PATD_CONFIG.patdPk}`) || 'tab-detalhes';
     document.querySelectorAll('.tab-link').forEach(l => l.classList.remove('active'));

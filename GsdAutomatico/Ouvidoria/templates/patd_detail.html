@@ -848,6 +848,9 @@
             <div id="anexos-defesa-container-geral" style="display: none; margin-bottom: 20px;">
                 <h4>Anexos da Alegação de Defesa</h4>
                 <ul id="anexos-defesa-list-geral"></ul>
+                <div id="defesa-add-btn-container" style="display:none; margin-top:8px;">
+                    <button id="btn-add-defesa-anexos-trigger" class="btn btn-sm btn-secondary" style="width:100%;">+ Adicionar Anexo</button>
+                </div>
             </div>
             <div id="anexos-reconsideracao-container-geral" style="display: none;">
                 <h4>Anexos da Reconsideração</h4>
@@ -1458,6 +1461,32 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="add-defesa-anexos-modal">
+    <div class="modal-content" style="max-width:520px;width:95%;">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:18px;">
+            <h3 style="margin:0;font-size:1.15rem;">Adicionar Anexos à Defesa</h3>
+            <button id="cancel-add-defesa-anexos-btn" type="button" style="background:none;border:none;cursor:pointer;font-size:1.3rem;color:var(--text-secondary);">✕</button>
+        </div>
+        <form id="form-add-defesa-anexos" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div class="form-item" style="margin-bottom:8px;">
+                <label style="font-weight:600;font-size:.85rem;color:var(--text-secondary);text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:8px;">Anexos <span style="font-weight:400;text-transform:none;font-size:.8rem;">(PDF ou imagem)</span></label>
+                <div id="add-defesa-anexos-list" style="display:flex;flex-direction:column;gap:8px;margin-bottom:8px;"></div>
+                <button type="button" id="add-defesa-anexos-picker-btn"
+                    style="display:flex;align-items:center;gap:6px;padding:7px 14px;border:1.5px dashed var(--accent-color);border-radius:8px;background:rgba(37,99,235,.06);color:var(--accent-color);font-size:.88rem;cursor:pointer;font-weight:500;width:100%;justify-content:center;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16"><path d="M8 4a.5.5 0 0 1 .5.5v3h3a.5.5 0 0 1 0 1h-3v3a.5.5 0 0 1-1 0v-3h-3a.5.5 0 0 1 0-1h3v-3A.5.5 0 0 1 8 4z"/></svg>
+                    Selecionar Ficheiros
+                </button>
+                <input type="file" id="add-defesa-anexos-file-input" accept=".pdf,.jpg,.jpeg,.png,.webp" style="display:none;" multiple>
+            </div>
+            <div style="border-top:1px solid var(--border-color);margin-top:18px;padding-top:14px;display:flex;justify-content:flex-end;gap:10px;">
+                <button type="button" id="cancel-add-defesa-anexos-btn-2" class="btn btn-secondary">Cancelar</button>
+                <button type="submit" id="submit-add-defesa-anexos-btn" class="btn btn-primary">Enviar Anexos</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <div class="modal-overlay" id="extender-prazo-modal">
     <div class="modal-content">
         <h3>Extender Prazo de Defesa</h3>
@@ -1636,6 +1665,7 @@ const PATD_CONFIG = {
     assinaturasMilitar: {{ assinaturas_militar_json|default:'[]'|safe }},
     documentPages:  {{ documento_texto_json|default:'[]'|safe }},
     isSuperuser:    {{ request.user.is_superuser|yesno:"true,false" }},
+    isOuvidoria:    true,
     isFinalized:    '{{ patd.status }}' === 'finalizado',
     patdStatus:     '{{ patd.status }}',
     patdPk:         {{ patd.pk }},
@@ -1650,6 +1680,7 @@ const PATD_CONFIG = {
     dataPublicacaoPunicaoIso: '{{ patd.data_publicacao_punicao|date:"c" }}',
     prazoDefesaDias: parseInt('{{ prazo_defesa_dias }}', 10) || 0,
     isOficialResponsavel: '{{ request.user.profile.militar.pk }}' === '{{ patd.oficial_responsavel.pk }}' || {{ user_is_apurador|yesno:"true,false" }},
+    hasDefesa:      {% if patd.alegacao_defesa %}true{% else %}false{% endif %},
     hasDefesaSig:   '{{ patd.assinatura_alegacao_defesa|yesno:"true,false" }}' === 'true',
     defesaSigUrl:   '{% if patd.assinatura_alegacao_defesa.name %}{{ patd.assinatura_alegacao_defesa.url }}{% endif %}',
     hasReconSig:    '{{ patd.assinatura_reconsideracao|yesno:"true,false" }}' === 'true',
@@ -1674,6 +1705,7 @@ const PATD_CONFIG = {
         salvarAssinaturaReconsideracao: "{% url 'Ouvidoria:salvar_assinatura_reconsideracao' patd.pk %}",
         removerAssinatura:            "{% url 'Ouvidoria:remover_assinatura' patd.pk %}",
         salvarAlegacaoDefesa:         "{% url 'Ouvidoria:salvar_alegacao_defesa' patd.pk %}",
+        adicionarAnexosDefesa:        "{% url 'Ouvidoria:adicionar_anexos_defesa' patd.pk %}",
         salvarDefesa:                 "{% url 'Ouvidoria:salvar_assinatura_defesa' patd.pk %}",
         prosseguirSemAlegacao:        "{% url 'Ouvidoria:prosseguir_sem_alegacao' patd.pk %}",
         extenderPrazo:                "{% url 'Ouvidoria:extender_prazo' patd.pk %}",

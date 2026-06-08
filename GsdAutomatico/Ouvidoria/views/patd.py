@@ -14,7 +14,7 @@ from django.urls import reverse_lazy, reverse
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
 from django.db.models.functions import TruncMonth
 from django.db import transaction
-from django.http import JsonResponse, HttpResponse
+from django.http import JsonResponse, HttpResponse, Http404
 from django.views.decorators.http import require_POST, require_GET
 from django.contrib.auth import authenticate
 from django.contrib.auth.decorators import login_required, user_passes_test
@@ -1108,18 +1108,14 @@ def excluir_anexo(request, pk):
     try:
         anexo = get_object_or_404(Anexo, pk=pk)
 
-        patd = anexo.patd
-        user_militar = request.user.profile.militar if hasattr(request.user, 'profile') else None
-
-        if not (request.user.is_superuser or user_militar == patd.oficial_responsavel or is_apurador(request.user)):
-             return JsonResponse({'status': 'error', 'message': 'Você não tem permissão para excluir este anexo.'}, status=403)
-
         if anexo.arquivo and os.path.isfile(anexo.arquivo.path):
             os.remove(anexo.arquivo.path)
 
         anexo.delete()
 
         return JsonResponse({'status': 'success', 'message': 'Anexo excluído com sucesso.'})
+    except Http404:
+        return JsonResponse({'status': 'error', 'message': 'Anexo não encontrado.'}, status=404)
     except Exception as e:
         logger.error(f"Erro ao excluir anexo {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)

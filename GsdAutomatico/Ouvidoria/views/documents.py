@@ -87,6 +87,26 @@ def salvar_alegacao_defesa(request, pk):
 @login_required
 @ouvidoria_required
 @require_POST
+def adicionar_anexos_defesa(request, pk):
+    try:
+        patd = get_object_or_404(PATD, pk=pk)
+
+        arquivos = request.FILES.getlist('anexos_defesa')
+        if not arquivos:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum arquivo fornecido.'}, status=400)
+
+        for arquivo in arquivos:
+            Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='defesa')
+
+        return JsonResponse({'status': 'success', 'message': f'{len(arquivos)} anexo(s) adicionado(s) com sucesso.'})
+    except Exception as e:
+        logger.error(f"Erro ao adicionar anexos à defesa da PATD {pk}: {e}")
+        return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
+
+
+@login_required
+@ouvidoria_required
+@require_POST
 def extender_prazo(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
@@ -680,15 +700,16 @@ def exportar_patd_pdf(request, pk):
         return (f'<p style="text-align:center;margin:0;"><img src="{b64}" style="{SIG_STYLE}"/></p>'
                 if b64 else '<span style="color:#888;font-style:italic;">[Sem assinatura]</span>')
 
-    config = Configuracao.load()
     cmd_sig_html = '<span style="color:#888;font-style:italic;">[Sem assinatura]</span>'
     # Prioridade: assinatura salva no despacho → assinatura padrão do comandante GSD
     if patd.assinatura_cmd_gsd_despacho:
         b64 = _field_to_b64(patd.assinatura_cmd_gsd_despacho)
         if b64:
             cmd_sig_html = f'<p style="text-align:center;margin:0;"><img src="{b64}" style="{SIG_STYLE}"/></p>'
-    elif config.comandante_gsd:
-        cmd_assinatura = getattr(config.comandante_gsd, 'assinatura', None)
+    else:
+        from informatica.models import ConfiguracaoComandantes
+        _cmd_gsd = ConfiguracaoComandantes.get_instance().comandante_gsd
+        cmd_assinatura = getattr(_cmd_gsd, 'assinatura', None) if _cmd_gsd else None
         if cmd_assinatura:
             if isinstance(cmd_assinatura, str) and cmd_assinatura.startswith('data:'):
                 cmd_sig_html = f'<p style="text-align:center;margin:0;"><img src="{cmd_assinatura}" style="{SIG_STYLE}"/></p>'
@@ -909,10 +930,8 @@ def exportar_patd_docx(request, pk):
     context = _get_document_context(patd, for_docx=True)
 
 
-    config = Configuracao.load()
-
-
-    comandante_gsd = config.comandante_gsd
+    from informatica.models import ConfiguracaoComandantes
+    comandante_gsd = ConfiguracaoComandantes.get_instance().comandante_gsd
 
 
 
