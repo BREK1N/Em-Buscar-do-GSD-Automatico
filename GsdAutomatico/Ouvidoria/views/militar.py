@@ -67,7 +67,7 @@ def patd_atribuicoes_pendentes(request):
         status='aguardando_aprovacao_atribuicao'
     ).count()
 
-    status_list_apuracao = ['em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_punicao_alterar']
+    status_list_apuracao = ['em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_punicao_alterar', 'analise_oficial_apurador']
     count_apuracao = PATD.objects.filter(
         oficial_responsavel=militar_logado,
         status__in=status_list_apuracao

@@ -100,8 +100,13 @@ PHASE_GROUPS = [
         ],
     },
     {
+        'key': 'analise_oficial',
+        'label': '4 – Análise do Oficial Apurador',
+        'statuses': ['analise_oficial_apurador'],
+    },
+    {
         'key': 'aguardando_comandante',
-        'label': '4 – Aguardando Resposta do Comandante',
+        'label': '5 – Aguardando Resposta do Comandante',
         'statuses': [
             'analise_comandante', 'aguardando_assinatura_npd',
             'aguardando_nova_punicao',
@@ -109,7 +114,7 @@ PHASE_GROUPS = [
     },
     {
         'key': 'condenacao',
-        'label': '5 – Ciência da Condenação / NPD',
+        'label': '6 – Ciência da Condenação / NPD',
         'statuses': [
             'periodo_reconsideracao', 'em_reconsideracao',
             'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao',
@@ -136,12 +141,15 @@ STATUS_GROUPS = {
         'aguardando_punicao': 'Aguardando Aplicação da Punição',
         'aguardando_punicao_alterar': 'Aguardando Punição (alterar)',
     },
-    "4 – Aguardando Resposta do Comandante": {
+    "4 – Análise do Oficial Apurador": {
+        'analise_oficial_apurador': 'Análise do Oficial Apurador',
+    },
+    "5 – Aguardando Resposta do Comandante": {
         'analise_comandante': 'Em Análise pelo Comandante',
         'aguardando_assinatura_npd': 'Aguardando Assinatura NPD',
         'aguardando_nova_punicao': 'Aguardando nova punição',
     },
-    "5 – Ciência da Condenação / NPD": {
+    "6 – Ciência da Condenação / NPD": {
         'periodo_reconsideracao': 'Período de Reconsideração',
         'em_reconsideracao': 'Em Reconsideração',
         'aguardando_preenchimento_npd_reconsideracao': 'Aguardando preenchimento NPD Reconsideração',

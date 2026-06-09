@@ -915,6 +915,17 @@ def _render_document_from_template(template_name, context):
             pass
         default_size_pt = default_size_pt or 12
 
+        # Aplica configuração global de fonte/tamanho se definida
+        try:
+            from ..models import Configuracao as _Cfg
+            _cfg = _Cfg.load()
+            if _cfg.fonte_padrao_documentos:
+                default_font = _cfg.fonte_padrao_documentos
+            if _cfg.tamanho_fonte_documentos:
+                default_size_pt = _cfg.tamanho_fonte_documentos
+        except Exception:
+            pass
+
         page_meta = (
             f'<div class="page-meta" style="display:none"'
             f' data-width="{_cm(sec.page_width)}"'
@@ -1034,6 +1045,9 @@ def get_document_pages(patd, for_docx=False):
     Gera uma LISTA de páginas de documento em HTML a partir dos templates.
     Cada item na lista representa um documento/seção separada.
     """
+    if not for_docx and patd.documento_html:
+        return patd.documento_html
+
     base_context = _ctx(patd, for_docx, 'PATD_Coringa')
     document_pages_raw = []
     page_counter = 0
@@ -1064,7 +1078,8 @@ def get_document_pages(patd, for_docx=False):
     status_preclusao_e_posteriores = [
         'preclusao', 'apuracao_preclusao', 'aguardando_punicao',
         'aguardando_assinatura_npd', 'finalizado', 'aguardando_punicao_alterar',
-        'analise_comandante', 'periodo_reconsideracao', 'em_reconsideracao',
+        'analise_oficial_apurador', 'analise_comandante',
+        'periodo_reconsideracao', 'em_reconsideracao',
         'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao',
     ]
     if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in status_preclusao_e_posteriores:
@@ -1145,8 +1160,8 @@ def get_document_pages(patd, for_docx=False):
 def _try_advance_status_from_justificativa(patd):
     """
     Verifica se a PATD no status 'aguardando_justificativa' pode avançar.
-    Após a alegação de defesa e assinaturas completas, avança para
-    'definicao_oficial' para que a ouvidoria atribua o oficial apurador.
+    Se houver Oficial Chefe configurado, auto-atribui e vai direto para 'em_apuracao'.
+    Caso contrário, vai para 'definicao_oficial' como fallback.
     """
     if patd.status != 'aguardando_justificativa':
         return False
@@ -1164,8 +1179,18 @@ def _try_advance_status_from_justificativa(patd):
         logger.warning(f"PATD {patd.pk}: Tentativa de avançar de 'aguardando_justificativa', mas assinaturas de ciência incompletas ({provided_signatures}/{required_signatures}).")
         return False
 
-    patd.status = 'definicao_oficial'
-    patd.oficial_responsavel = None
-    patd.oficial_aceitou = None
-    logger.info(f"PATD {patd.pk}: Avançando status de 'aguardando_justificativa' para 'definicao_oficial' (aguardando atribuição de oficial pós-defesa).")
+    from ..models import Configuracao
+    config = Configuracao.load()
+    oficial_chefe = config.oficial_chefe_ouvidoria
+
+    if oficial_chefe:
+        patd.oficial_responsavel = oficial_chefe
+        patd.oficial_aceitou = True  # pula fluxo de aprovação no PATD.save()
+        patd.status = 'em_apuracao'
+        logger.info(f"PATD {patd.pk}: Auto-atribuído oficial {oficial_chefe.nome_guerra} e avançando para 'em_apuracao'.")
+    else:
+        patd.status = 'definicao_oficial'
+        patd.oficial_responsavel = None
+        patd.oficial_aceitou = None
+        logger.info(f"PATD {patd.pk}: Sem oficial chefe configurado, avançando para 'definicao_oficial'.")
     return True

@@ -34,6 +34,22 @@ class Configuracao(models.Model):
         default=30,
         verbose_name="Dias de retenção na lixeira"
     )
+    fonte_padrao_documentos = models.CharField(
+        max_length=60, default='Times New Roman', blank=True,
+        verbose_name="Fonte padrão dos documentos"
+    )
+    tamanho_fonte_documentos = models.PositiveIntegerField(
+        default=12,
+        verbose_name="Tamanho de fonte padrão (pt)"
+    )
+    oficial_chefe_ouvidoria = models.ForeignKey(
+        'Secao_pessoal.Efetivo',
+        on_delete=models.SET_NULL,
+        null=True, blank=True,
+        related_name='configuracao_oficial_chefe',
+        limit_choices_to={'oficial': True},
+        verbose_name="Oficial Chefe da Ouvidoria"
+    )
 
     def save(self, *args, **kwargs):
         self.pk = 1
@@ -107,6 +123,8 @@ class PATD(models.Model):
         ('apuracao_preclusao', 'Em Apuração (Preclusão)'), 
         ('aguardando_punicao', 'Aguardando Aplicação da Punição'),
         ('aguardando_punicao_alterar', 'Aguardando Punição (alterar)'),
+        # Análise do Oficial Apurador
+        ('analise_oficial_apurador', 'Análise do Oficial Apurador'),
         # Fase de Decisão
         ('analise_comandante', 'Em Análise pelo Comandante'),
         ('aguardando_assinatura_npd', 'Aguardando Assinatura NPD'),
@@ -179,6 +197,7 @@ class PATD(models.Model):
     assinatura_testemunha2 = models.FileField(upload_to=patd_signature_path, blank=True, null=True, verbose_name="Assinatura da 2ª Testemunha")
     alegacao_defesa = models.TextField(blank=True, null=True, verbose_name="Alegação de Defesa")
     documento_texto = models.TextField(blank=True, null=True, verbose_name="Texto do Documento")
+    documento_html  = models.JSONField(default=list, blank=True, verbose_name="HTML editado do documento")
     itens_enquadrados = models.JSONField(null=True, blank=True, verbose_name="Itens Enquadrados na Análise")
     circunstancias = models.JSONField(null=True, blank=True, verbose_name="Atenuantes e Agravantes")
     punicao_sugerida = models.TextField(blank=True, null=True, verbose_name="Punição Sugerida pela IA")
@@ -214,6 +233,7 @@ class PATD(models.Model):
     arquivado = models.BooleanField(default=False, db_index=True, verbose_name="Arquivado")
     motivo_arquivamento = models.TextField(blank=True, null=True, verbose_name="Motivo do Arquivamento")
     justificativa_texto = models.TextField(blank=True, null=True, verbose_name="Texto da Justificativa")
+    oficial_assinou_analise = models.BooleanField(default=False, verbose_name="Oficial assinou análise")
     deleted = models.BooleanField(default=False, db_index=True, verbose_name="Excluído")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
     restored_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Restauração")
@@ -357,7 +377,7 @@ class PATD(models.Model):
                     orig.status in STATUS_AGUARDANDO_ATRIBUICAO
                 )
             )
-            if is_assigning:
+            if is_assigning and self.oficial_aceitou is not True:
                 if orig.status in ('definicao_oficial',):
                     self.status_anterior = 'em_apuracao'
                 elif orig.status in ('preclusao', 'prazo_expirado', 'apuracao_preclusao'):

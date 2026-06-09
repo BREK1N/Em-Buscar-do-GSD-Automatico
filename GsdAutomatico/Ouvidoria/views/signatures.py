@@ -326,6 +326,7 @@ def gerenciar_configuracoes_padrao(request):
                 return JsonResponse({'status': 'error', 'message': 'JSON inválido.'}, status=400)
             comandante_gsd_id = data.get('comandante_gsd_id')
             comandante_bagl_id = data.get('comandante_bagl_id')
+            oficial_chefe_id = data.get('oficial_chefe_ouvidoria_id')
             prazo_dias = data.get('prazo_defesa_dias')
             prazo_minutos = data.get('prazo_defesa_minutos')
 
@@ -340,6 +341,12 @@ def gerenciar_configuracoes_padrao(request):
                 config.comandante_bagl = comandante_bagl
             else:
                 config.comandante_bagl = None
+
+            if oficial_chefe_id:
+                oficial_chefe = get_object_or_404(Efetivo, pk=oficial_chefe_id, oficial=True)
+                config.oficial_chefe_ouvidoria = oficial_chefe
+            else:
+                config.oficial_chefe_ouvidoria = None
 
             if prazo_dias is not None:
                 config.prazo_defesa_dias = int(prazo_dias)
@@ -358,6 +365,7 @@ def gerenciar_configuracoes_padrao(request):
     data = {
         'comandante_gsd_id': config.comandante_gsd.id if config.comandante_gsd else None,
         'comandante_bagl_id': config.comandante_bagl.id if config.comandante_bagl else None,
+        'oficial_chefe_ouvidoria_id': config.oficial_chefe_ouvidoria.id if config.oficial_chefe_ouvidoria else None,
         'oficiais': oficiais_data,
         'prazo_defesa_dias': config.prazo_defesa_dias,
         'prazo_defesa_minutos': config.prazo_defesa_minutos

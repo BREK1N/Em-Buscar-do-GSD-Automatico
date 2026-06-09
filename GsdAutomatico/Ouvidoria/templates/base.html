@@ -677,6 +677,13 @@
                             <small>Este oficial será usado nos documentos de reconsideração.</small>
                         </div>
                         <div class="form-group">
+                            <label for="select-oficial-chefe-ouvidoria">Oficial Chefe da Ouvidoria</label>
+                            <select id="select-oficial-chefe-ouvidoria" name="oficial_chefe_ouvidoria_id">
+                                <option value="">-- Nenhum --</option>
+                            </select>
+                            <small>Oficial atribuído automaticamente como apurador em todas as PATDs.</small>
+                        </div>
+                        <div class="form-group">
                             <label for="input-prazo-defesa-dias">Prazo para Defesa (dias úteis)</label>
                             <input type="number" id="input-prazo-defesa-dias" name="prazo_defesa_dias" min="0" value="5">
                             <small>Número de dias úteis que o militar tem para apresentar a sua defesa.</small>
@@ -951,23 +958,27 @@
         // ── Aba Padrões ──
         const formConfigPadroes = document.getElementById('form-config-padroes');
         if (formConfigPadroes) {
-            const selectComandanteGsd    = document.getElementById('select-comandante-gsd');
-            const selectComandanteBagl   = document.getElementById('select-comandante-bagl');
-            const inputPrazoDefesaDias   = document.getElementById('input-prazo-defesa-dias');
-            const inputPrazoDefesaMinutos = document.getElementById('input-prazo-defesa-minutos');
-            const padroesFeedback        = document.getElementById('padroes-feedback');
+            const selectComandanteGsd         = document.getElementById('select-comandante-gsd');
+            const selectComandanteBagl        = document.getElementById('select-comandante-bagl');
+            const selectOficialChefeOuvidoria = document.getElementById('select-oficial-chefe-ouvidoria');
+            const inputPrazoDefesaDias        = document.getElementById('input-prazo-defesa-dias');
+            const inputPrazoDefesaMinutos     = document.getElementById('input-prazo-defesa-minutos');
+            const padroesFeedback             = document.getElementById('padroes-feedback');
 
             function loadConfigPadroes() {
                 const url = "{% url 'Ouvidoria:gerenciar_configuracoes_padrao' %}";
                 fetch(url).then(r => r.json()).then(data => {
                     selectComandanteGsd.innerHTML  = '<option value="">-- Nenhum --</option>';
                     selectComandanteBagl.innerHTML = '<option value="">-- Nenhum --</option>';
+                    if (selectOficialChefeOuvidoria) selectOficialChefeOuvidoria.innerHTML = '<option value="">-- Nenhum --</option>';
                     data.oficiais.forEach(o => {
                         selectComandanteGsd.add(new Option(o.texto, o.id));
                         selectComandanteBagl.add(new Option(o.texto, o.id));
+                        if (selectOficialChefeOuvidoria) selectOficialChefeOuvidoria.add(new Option(o.texto, o.id));
                     });
                     if (data.comandante_gsd_id)  selectComandanteGsd.value  = data.comandante_gsd_id;
                     if (data.comandante_bagl_id) selectComandanteBagl.value = data.comandante_bagl_id;
+                    if (data.oficial_chefe_ouvidoria_id && selectOficialChefeOuvidoria) selectOficialChefeOuvidoria.value = data.oficial_chefe_ouvidoria_id;
                     inputPrazoDefesaDias.value = data.prazo_defesa_dias;
                     if (inputPrazoDefesaMinutos) inputPrazoDefesaMinutos.value = data.prazo_defesa_minutos;
                 }).catch(() => {
@@ -985,6 +996,7 @@
                     body: JSON.stringify({
                         'comandante_gsd_id':  selectComandanteGsd.value,
                         'comandante_bagl_id': selectComandanteBagl.value,
+                        'oficial_chefe_ouvidoria_id': selectOficialChefeOuvidoria ? selectOficialChefeOuvidoria.value : '',
                         'prazo_defesa_dias':  inputPrazoDefesaDias.value,
                         'prazo_defesa_minutos': inputPrazoDefesaMinutos ? inputPrazoDefesaMinutos.value : 0
                     })

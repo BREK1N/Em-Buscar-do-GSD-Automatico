@@ -27,7 +27,7 @@ let signatureIndex = 0;
 function createSignatureHtml(signatureUrl, altText, signatureType, signatureIndex) {
     let html = `<img class="signature-image-embedded" src="${signatureUrl}" alt="${altText}">`;
     if (isSuperuser && !isFinalized) {
-        html += ` <button class="btn btn-sm btn-danger remove-signature-btn" data-signature-type="${signatureType}"`;
+        html += ` <button contenteditable="false" class="btn btn-sm btn-danger remove-signature-btn" data-signature-type="${signatureType}"`;
         if (signatureIndex !== undefined) {
             html += ` data-signature-index="${signatureIndex}"`;
         }
@@ -289,6 +289,88 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
+    // Modal: Avançar para Análise do Oficial
+    const avancarAnaliseModal = document.getElementById('avancar-analise-oficial-modal');
+    if (avancarAnaliseModal) {
+        const openBtn = document.getElementById('btn-avancar-analise-oficial');
+        const cancelBtn = document.getElementById('cancel-avancar-analise-btn');
+        if (openBtn) openBtn.addEventListener('click', () => avancarAnaliseModal.classList.add('active'));
+        if (cancelBtn) cancelBtn.addEventListener('click', () => avancarAnaliseModal.classList.remove('active'));
+        avancarAnaliseModal.addEventListener('click', e => {
+            if (e.target === avancarAnaliseModal) avancarAnaliseModal.classList.remove('active');
+        });
+    }
+
+    // Modal: Assinar Análise do Oficial (com senha)
+    const assinarAnaliseModal = document.getElementById('assinar-analise-modal');
+    if (assinarAnaliseModal) {
+        const openBtn     = document.getElementById('btn-assinar-analise');
+        const cancelBtn   = document.getElementById('cancel-assinar-analise-btn');
+        const form        = document.getElementById('assinar-analise-form');
+        const senhaInput  = document.getElementById('id_senha_assinar');
+        const alertEl     = document.getElementById('assinar-analise-alert');
+        const confirmBtn  = document.getElementById('confirm-assinar-btn');
+        const confirmTxt  = document.getElementById('confirm-assinar-txt');
+
+        function showAssinarAlert(tipo, msg) {
+            const isErro = tipo === 'erro';
+            alertEl.style.display = 'flex';
+            alertEl.style.background = isErro ? 'rgba(220,38,38,.12)' : 'rgba(22,163,74,.12)';
+            alertEl.style.border = `1px solid ${isErro ? 'rgba(220,38,38,.35)' : 'rgba(22,163,74,.35)'}`;
+            alertEl.style.color = isErro ? '#fca5a5' : '#86efac';
+            alertEl.innerHTML = `<span>${msg}</span>`;
+        }
+
+        if (openBtn) openBtn.addEventListener('click', () => {
+            senhaInput.value = '';
+            alertEl.style.display = 'none';
+            confirmBtn.disabled = false;
+            confirmTxt.textContent = 'Confirmar e Assinar';
+            assinarAnaliseModal.classList.add('active');
+            setTimeout(() => senhaInput.focus(), 100);
+        });
+        if (cancelBtn) cancelBtn.addEventListener('click', () => assinarAnaliseModal.classList.remove('active'));
+        assinarAnaliseModal.addEventListener('click', e => {
+            if (e.target === assinarAnaliseModal) assinarAnaliseModal.classList.remove('active');
+        });
+
+        if (form) form.addEventListener('submit', async function(e) {
+            e.preventDefault();
+            const senha = senhaInput.value.trim();
+            if (!senha) { showAssinarAlert('erro', 'Por favor, insira a sua senha.'); return; }
+            confirmBtn.disabled = true;
+            confirmTxt.textContent = 'Verificando…';
+            const fd = new FormData(form);
+            try {
+                const resp = await fetch(form.action, {
+                    method: 'POST',
+                    headers: { 'X-Requested-With': 'XMLHttpRequest' },
+                    body: fd,
+                });
+                let data = null;
+                if ((resp.headers.get('content-type') || '').includes('application/json')) {
+                    data = await resp.json();
+                }
+                if (data && data.ok) {
+                    showAssinarAlert('sucesso', data.mensagem || 'Análise assinada com sucesso!');
+                    confirmTxt.textContent = 'Assinado ✓';
+                    setTimeout(() => location.reload(), 1500);
+                } else {
+                    showAssinarAlert('erro', (data && data.erro) || 'Erro ao assinar. Tente novamente.');
+                    confirmBtn.disabled = false;
+                    confirmTxt.textContent = 'Confirmar e Assinar';
+                    senhaInput.value = '';
+                    senhaInput.focus();
+                }
+            } catch {
+                showAssinarAlert('erro', 'Erro de conexão. Verifique sua rede.');
+                confirmBtn.disabled = false;
+                confirmTxt.textContent = 'Confirmar e Assinar';
+            }
+        });
+    }
+
+    // Modal: Enviar para o Comandante
     const avancarModal = document.getElementById('avancar-modal');
     if (avancarModal) {
         const openBtn = document.getElementById('btn-avancar-comandante');
@@ -302,12 +384,6 @@ document.addEventListener('DOMContentLoaded', function() {
         avancarModal.addEventListener('click', e => {
             if (e.target === avancarModal) avancarModal.classList.remove('active');
         });
-
-        const urlParams = new URLSearchParams(window.location.search);
-        if (urlParams.has('erro') && urlParams.get('erro') === 'testemunhas') {
-            alert('Erro: Não é possível avançar. As duas testemunhas devem ser definidas na aba "Editar".');
-            window.history.replaceState({}, document.title, window.location.pathname);
-        }
     }
 
     const retornarModal = document.getElementById('retornar-patd-modal');
@@ -749,8 +825,8 @@ document.addEventListener('DOMContentLoaded', function() {
             console.log('[Assinatura Debug] placeholder T2 no doc:', processedHtml.includes('{Assinatura_Imagem_Testemunha_2}') ? 'Imagem' : (processedHtml.includes('{Botao Assinar Testemunha 2}') ? 'Botao' : 'ausente'));
         }
 
-        processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
-        processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
+        processedHtml = processedHtml.replace(/{Botao Adicionar Alegacao}/g, `<button contenteditable="false" id="add-defesa-btn-doc" class="btn btn-sm btn-primary">Adicionar Alegação de Defesa</button>`);
+        processedHtml = processedHtml.replace(/{Botao Adicionar Reconsideracao}/g, `<button contenteditable="false" id="add-reconsideracao-texto-btn-doc" class="btn btn-sm btn-primary">Adicionar Texto de Reconsideração</button>`);
 
         // Anexos são renderizados como folhas individuais no loop principal — não substituir inline
         processedHtml = processedHtml.replace(/{ANEXOS_DEFESA_PLACEHOLDER}/g, '');
@@ -758,8 +834,8 @@ document.addEventListener('DOMContentLoaded', function() {
         processedHtml = processedHtml.replace(/{ANEXO_OFICIAL_RECONSIDERACAO_PLACEHOLDER}/g, '');
         processedHtml = processedHtml.replace(/{FORMULARIO_RESUMO_PLACEHOLDER}/g, '');
 
-        processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? createSignatureHtml(defesaSigData, 'Assinatura da Defesa', 'defesa') : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
-        processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? createSignatureHtml(reconSigData, 'Assinatura da Reconsideração', 'reconsideracao') : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
+        processedHtml = processedHtml.replace(/{Assinatura Alegacao Defesa}/g, hasDefesaSig ? createSignatureHtml(defesaSigData, 'Assinatura da Defesa', 'defesa') : `<button contenteditable="false" class="btn btn-sm btn-primary open-signature-modal" data-type="defesa">Assinar Alegação de Defesa</button>`);
+        processedHtml = processedHtml.replace(/{Assinatura Reconsideracao}/g, hasReconSig ? createSignatureHtml(reconSigData, 'Assinatura da Reconsideração', 'reconsideracao') : `<button contenteditable="false" class="btn btn-sm btn-primary open-signature-modal" data-type="reconsideracao">Assinar Reconsideração</button>`);
 
         processedHtml = processedHtml.replace(/{Assinatura_Imagem_Oficial_Apurador}/g, oficialSigData ? createSignatureHtml(oficialSigData, 'Assinatura do Oficial Apurador', 'oficial') : '[Sem assinatura]');
         processedHtml = processedHtml.replace(/{Assinatura_Imagem_Comandante_GSD}/g, comandanteSigData ? `<img class="signature-image-embedded" src="${comandanteSigData}" alt="Assinatura do Comandante">` : '[Sem assinatura]');
@@ -772,19 +848,19 @@ document.addEventListener('DOMContentLoaded', function() {
             if (assinaturasMilitar[index]) {
                 return createSignatureHtml(assinaturasMilitar[index], `Assinatura ${index + 1}`, 'ciencia', index);
             } else {
-                return `<button class="btn btn-sm btn-primary open-signature-modal" data-type="ciencia" data-index="${index}">Assinar</button>`;
+                return `<button contenteditable="false" class="btn btn-sm btn-primary open-signature-modal" data-type="ciencia" data-index="${index}">Assinar</button>`;
             }
         });
 
         processedHtml = processedHtml.replace(/{Botao Assinar Oficial}/g, oficialSigData
             ? createSignatureHtml(oficialSigData, 'Assinatura do Oficial Apurador', 'oficial')
-            : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="oficial">Assinar</button>`);
+            : `<button contenteditable="false" class="btn btn-sm btn-primary open-signature-modal" data-type="oficial">Assinar</button>`);
         processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 1}/g, testemunha1SigData
             ? createSignatureHtml(testemunha1SigData, 'Assinatura da Testemunha 1', 'testemunha1')
-            : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
+            : `<button contenteditable="false" class="btn btn-sm btn-primary open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
         processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 2}/g, testemunha2SigData
             ? createSignatureHtml(testemunha2SigData, 'Assinatura da Testemunha 2', 'testemunha2')
-            : `<button class="btn btn-sm btn-primary open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
+            : `<button contenteditable="false" class="btn btn-sm btn-primary open-signature-modal" data-type="testemunha" data-testemunha-num="2">Assinar (Testemunha 2)</button>`);
 
         processedHtml = processedHtml.replace(/\[Sem assinatura\]/g, '<span class="no-signature-text">[Sem assinatura]</span>');
         processedHtml = processedHtml.replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>');
@@ -803,7 +879,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     }, true);
     pageContainer.addEventListener('input', function(e) {
-        if (e.target.classList.contains('editable-text')) {
+        if (e.target.classList.contains('editable-text') || e.target.classList.contains('page-content')) {
             scheduleSave();
         }
     });
@@ -915,35 +991,18 @@ document.addEventListener('DOMContentLoaded', function() {
             container.replaceWith(document.createTextNode(placeholder));
         });
 
-        const pageDelimiter = `PATD Nº ${PATD_CONFIG.numeroPATD}/BAGL-GSDGL/${PATD_CONFIG.dataInicioDmy}`;
-        let fullContent = [];
-
+        // Serializa o HTML de cada página preservando toda a formatação rich text
+        const pageHtmls = [];
         tempContainer.querySelectorAll('.page .page-content').forEach(contentDiv => {
-            let pageContent = [];
-            contentDiv.childNodes.forEach(node => {
-                if (node.nodeType === Node.TEXT_NODE) {
-                    pageContent.push(node.textContent.trim());
-                } else if (node.nodeType === Node.ELEMENT_NODE && node.tagName === 'P') {
-                    let cleanText = node.innerHTML.replace(/<br\s*\/?>/gi, '\n');
-                    cleanText = cleanText.replace(/&nbsp;/g, ' ');
-                    cleanText = cleanText.replace(/<strong>(.*?)<\/strong>/g, '**$1**');
-
-                    const tempDiv = document.createElement('div');
-                    tempDiv.innerHTML = cleanText;
-                    pageContent.push(tempDiv.textContent || tempDiv.innerText || '');
-                }
-            });
-            fullContent.push(pageContent.join('\n'));
+            pageHtmls.push(contentDiv.innerHTML);
         });
-
-        const newDocumentText = fullContent.join(`\n${pageDelimiter}\n`);
 
         const url = PATD_CONFIG.urls.salvarDocumento;
         fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
             body: JSON.stringify({
-                'texto_documento': newDocumentText,
+                'html_documento': pageHtmls,
                 'dates': dates,
                 'texts': texts
             })
@@ -951,14 +1010,24 @@ document.addEventListener('DOMContentLoaded', function() {
         .then(response => response.json())
         .then(data => {
             if (data.status === 'success') {
-                console.log("Documento e datas salvos automaticamente.");
+                showSaveStatus('Guardado', false);
             } else {
-                alert('Erro: ' + data.message);
+                showSaveStatus('Erro: ' + data.message, true);
             }
         })
         .catch(error => {
-            console.error('Erro:', error)
+            console.error('Erro:', error);
+            showSaveStatus('Erro ao guardar', true);
         });
+    }
+
+    function showSaveStatus(msg, isError) {
+        const el = document.getElementById('save-doc-status');
+        if (!el) return;
+        el.textContent = msg;
+        el.style.color = isError ? 'var(--danger-color, #dc3545)' : 'var(--success-color, #28a745)';
+        clearTimeout(el._hideTimer);
+        el._hideTimer = setTimeout(() => { el.textContent = ''; }, 3000);
     }
 
     // ── Zoom ──
@@ -1000,8 +1069,54 @@ document.addEventListener('DOMContentLoaded', function() {
         _applyZoom(_zoom + (e.deltaY < 0 ? ZOOM_STEP : -ZOOM_STEP));
     }, { passive: false });
 
-    // ── PLACEHOLDER: barra de formatação removida ──
-    (function initFormatToolbar_DISABLED() {
+    // ── Botão Guardar + modal de âmbito ──
+    (function initSaveDocBtn() {
+        const saveBtn    = document.getElementById('save-doc-btn');
+        const scopeModal = document.getElementById('save-scope-modal');
+        if (!saveBtn || !scopeModal) return;
+
+        saveBtn.addEventListener('click', function() {
+            scopeModal.classList.add('active');
+        });
+
+        document.getElementById('save-scope-cancel-btn')?.addEventListener('click', function() {
+            scopeModal.classList.remove('active');
+        });
+
+        document.getElementById('save-scope-patd-btn')?.addEventListener('click', function() {
+            scopeModal.classList.remove('active');
+            saveDocumentChanges();
+            showSaveStatus('A guardar...', false);
+        });
+
+        document.getElementById('save-scope-global-btn')?.addEventListener('click', function() {
+            scopeModal.classList.remove('active');
+            // Lê a fonte e tamanho do primeiro page-meta / primeira página renderizada
+            const firstPage = pageContainer.querySelector('.page');
+            const font = firstPage ? firstPage.style.fontFamily.replace(/['"]/g, '').split(',')[0].trim() : '';
+            const size = firstPage ? parseFloat(firstPage.style.fontSize) || 12 : 12;
+            const url  = PATD_CONFIG.urls.salvarConfigDocGlobal;
+            if (!url) { showSaveStatus('URL global não configurada', true); return; }
+            fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-CSRFToken': csrfToken },
+                body: JSON.stringify({ fonte: font, tamanho: size })
+            })
+            .then(r => r.json())
+            .then(d => {
+                if (d.status === 'success') showSaveStatus('Padrão global guardado', false);
+                else showSaveStatus('Erro: ' + d.message, true);
+            })
+            .catch(() => showSaveStatus('Erro ao guardar global', true));
+        });
+
+        scopeModal.addEventListener('click', function(e) {
+            if (e.target === scopeModal) scopeModal.classList.remove('active');
+        });
+    })();
+
+    // ── Barra de formatação rich text ──
+    (function initFormatToolbar() {
         const fmtBar = document.getElementById('format-toolbar');
         if (!fmtBar || isFinalized) return;
 
@@ -1038,15 +1153,22 @@ document.addEventListener('DOMContentLoaded', function() {
                 'fmt-italic':        'italic',
                 'fmt-underline':     'underline',
                 'fmt-strike':        'strikeThrough',
-                'fmt-align-left':    'justifyLeft',
-                'fmt-align-center':  'justifyCenter',
-                'fmt-align-right':   'justifyRight',
-                'fmt-align-justify': 'justifyFull',
             };
             Object.entries(cmds).forEach(([id, cmd]) => {
                 const btn = document.getElementById(id);
                 if (btn) btn.classList.toggle('active', document.queryCommandState(cmd));
             });
+            // Alinhamento: lê o CSS real do bloco ancestral (queryCommandState é instável para justify*)
+            const selAlign = window.getSelection();
+            if (selAlign && selAlign.rangeCount > 0) {
+                let n = selAlign.getRangeAt(0).commonAncestorContainer;
+                if (n.nodeType === Node.TEXT_NODE) n = n.parentElement;
+                const align = n ? window.getComputedStyle(n).textAlign : '';
+                document.getElementById('fmt-align-left')?.classList.toggle('active',    align === 'left' || align === 'start');
+                document.getElementById('fmt-align-center')?.classList.toggle('active',  align === 'center');
+                document.getElementById('fmt-align-right')?.classList.toggle('active',   align === 'right' || align === 'end');
+                document.getElementById('fmt-align-justify')?.classList.toggle('active', align === 'justify');
+            }
             // Atualiza seletores de fonte e tamanho
             const fontName = document.queryCommandValue('fontName').replace(/['"]/g, '');
             const fmtFont = document.getElementById('fmt-font-family');
@@ -1059,6 +1181,27 @@ document.addEventListener('DOMContentLoaded', function() {
             // execCommand fontSize usa 1-7 internamente; mapeamos para pt
             const sizeMap = {'1':'8','2':'10','3':'12','4':'14','5':'18','6':'24','7':'36'};
             if (fmtSize && fontSize) fmtSize.value = sizeMap[fontSize] || '';
+        }
+
+        function applyAlignment(align) {
+            restoreRange();
+            const sel = window.getSelection();
+            if (!sel || sel.rangeCount === 0) return;
+            let node = sel.getRangeAt(0).commonAncestorContainer;
+            if (node.nodeType === Node.TEXT_NODE) node = node.parentElement;
+            const pageContent = node ? node.closest('.page-content') : null;
+            if (!pageContent) return;
+            let block = node;
+            while (block && block !== pageContent) {
+                const tag = block.tagName ? block.tagName.toLowerCase() : '';
+                if (['p','div','h1','h2','h3','h4','h5','h6','li'].includes(tag)) break;
+                block = block.parentElement;
+            }
+            if (block && block !== pageContent) {
+                block.style.textAlign = align;
+            }
+            scheduleSave();
+            updateActiveStates();
         }
 
         // Mostra a toolbar quando foca num contenteditable de página
@@ -1102,10 +1245,10 @@ document.addEventListener('DOMContentLoaded', function() {
         document.getElementById('fmt-strike')?.addEventListener('click',    () => exec('strikeThrough'));
 
         // Alinhamento
-        document.getElementById('fmt-align-left')?.addEventListener('click',    () => exec('justifyLeft'));
-        document.getElementById('fmt-align-center')?.addEventListener('click',  () => exec('justifyCenter'));
-        document.getElementById('fmt-align-right')?.addEventListener('click',   () => exec('justifyRight'));
-        document.getElementById('fmt-align-justify')?.addEventListener('click', () => exec('justifyFull'));
+        document.getElementById('fmt-align-left')?.addEventListener('click',    () => applyAlignment('left'));
+        document.getElementById('fmt-align-center')?.addEventListener('click',  () => applyAlignment('center'));
+        document.getElementById('fmt-align-right')?.addEventListener('click',   () => applyAlignment('right'));
+        document.getElementById('fmt-align-justify')?.addEventListener('click', () => applyAlignment('justify'));
 
         // Listas
         document.getElementById('fmt-ul')?.addEventListener('click', () => exec('insertUnorderedList'));
@@ -1268,6 +1411,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'page-content';
+            if (!isFinalized) {
+                contentDiv.contentEditable = 'true';
+                contentDiv.spellcheck = false;
+            }
 
             let processedHtml = processPlaceholders(html);
             processedHtml = processedHtml.replace(/\t/g, '&emsp;&emsp;');

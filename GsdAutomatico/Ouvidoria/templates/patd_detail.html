@@ -186,13 +186,48 @@
         display: block;
     }
 
+    /* ── Toolbar de Formatação ── */
+    #format-toolbar {
+        display: none;
+        flex-wrap: wrap;
+        align-items: center;
+        gap: 3px;
+        padding: 5px 10px;
+        background: var(--bg-content, #fff);
+        border-bottom: 1px solid var(--border-color, #e5e7eb);
+        border-top: 1px solid var(--border-color, #e5e7eb);
+    }
+    #format-toolbar.visible { display: flex; }
+    #format-toolbar .fmt-btn {
+        display: inline-flex; align-items: center; justify-content: center;
+        min-width: 28px; height: 28px; padding: 0 5px;
+        border: 1px solid var(--border-color, #d1d5db);
+        border-radius: 4px;
+        background: transparent;
+        cursor: pointer;
+        font-size: .82rem;
+        color: var(--text-primary, #111);
+        transition: background .15s;
+    }
+    #format-toolbar .fmt-btn:hover    { background: var(--border-color, #e5e7eb); }
+    #format-toolbar .fmt-btn.active   { background: var(--accent-color, #2563eb); color: #fff; border-color: transparent; }
+    #format-toolbar .fmt-sep          { width: 1px; height: 20px; background: var(--border-color, #d1d5db); margin: 0 3px; }
+    #format-toolbar select {
+        height: 28px; padding: 0 4px; border: 1px solid var(--border-color, #d1d5db);
+        border-radius: 4px; font-size: .8rem; background: var(--bg-content, #fff); color: var(--text-primary, #111);
+        cursor: pointer;
+    }
+    #fmt-color-wrapper { position: relative; }
+    #fmt-color-bar     { position: absolute; bottom: 2px; left: 3px; right: 3px; height: 3px; border-radius: 2px; pointer-events: none; }
+    #save-doc-status   { font-size: .75rem; color: var(--text-secondary, #6b7280); transition: opacity .3s; }
+
     /* ── Toolbar ── */
     #viewer-toolbar {
         display: flex;
         align-items: center;
         gap: 8px;
         padding: 8px 12px;
-        background: var(--card-bg);
+        background: var(--bg-content, #fff);
         border: 1px solid var(--border-color);
         border-radius: 10px;
         margin-bottom: 6px;
@@ -574,7 +609,7 @@
 
     {# 1 – Confecção / FR e Ficha Individual #}
     <li class="status-step
-        {% if current_status in 'confeccao_fr_ficha,ciencia_militar,aguardando_justificativa,prazo_expirado,preclusao,definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao,periodo_reconsideracao,em_reconsideracao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %}
+        {% if current_status in 'confeccao_fr_ficha,ciencia_militar,aguardando_justificativa,prazo_expirado,preclusao,definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_oficial_apurador,analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao,periodo_reconsideracao,em_reconsideracao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %}
         {% if current_status != 'confeccao_fr_ficha' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Confecção</div>
@@ -582,7 +617,7 @@
 
     {# 2 – Ciência do Militar e Defesa #}
     <li class="status-step
-        {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,preclusao,definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao,periodo_reconsideracao,em_reconsideracao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %}
+        {% if current_status in 'ciencia_militar,aguardando_justificativa,prazo_expirado,preclusao,definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_oficial_apurador,analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao,periodo_reconsideracao,em_reconsideracao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %}
         {% if current_status not in 'confeccao_fr_ficha,ciencia_militar,aguardando_justificativa,prazo_expirado,preclusao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Ciência e Defesa</div>
@@ -590,21 +625,29 @@
 
     {# 3 – Apuração #}
     <li class="status-step
-        {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao,periodo_reconsideracao,em_reconsideracao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %}
+        {% if current_status in 'definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_oficial_apurador,analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao,periodo_reconsideracao,em_reconsideracao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %}
         {% if current_status not in 'confeccao_fr_ficha,ciencia_militar,aguardando_justificativa,prazo_expirado,preclusao,definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Apuração</div>
     </li>
 
-    {# 4 – Aguardando Resposta do Comandante #}
+    {# 4 – Análise do Oficial Apurador #}
+    <li class="status-step
+        {% if current_status in 'analise_oficial_apurador,analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao,periodo_reconsideracao,em_reconsideracao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %}
+        {% if current_status not in 'confeccao_fr_ficha,ciencia_militar,aguardando_justificativa,prazo_expirado,preclusao,definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_oficial_apurador' %}completed{% endif %}">
+        <div class="status-dot"></div>
+        <div class="status-label">Análise do Oficial</div>
+    </li>
+
+    {# 5 – Aguardando Resposta do Comandante #}
     <li class="status-step
         {% if current_status in 'analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao,periodo_reconsideracao,em_reconsideracao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %}
-        {% if current_status not in 'confeccao_fr_ficha,ciencia_militar,aguardando_justificativa,prazo_expirado,preclusao,definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao' %}completed{% endif %}">
+        {% if current_status not in 'confeccao_fr_ficha,ciencia_militar,aguardando_justificativa,prazo_expirado,preclusao,definicao_oficial,aguardando_aprovacao_atribuicao,em_apuracao,apuracao_preclusao,aguardando_punicao,aguardando_punicao_alterar,analise_oficial_apurador,analise_comandante,aguardando_assinatura_npd,aguardando_nova_punicao' %}completed{% endif %}">
         <div class="status-dot"></div>
         <div class="status-label">Resp. Comandante</div>
     </li>
 
-    {# 5 – Ciência da Condenação / NPD #}
+    {# 6 – Ciência da Condenação / NPD #}
     <li class="status-step
         {% if current_status in 'periodo_reconsideracao,em_reconsideracao,aguardando_preenchimento_npd_reconsideracao,aguardando_publicacao,finalizado' %}active{% endif %}
         {% if current_status == 'finalizado' %}completed{% endif %}">
@@ -682,7 +725,18 @@
                 {% endif %}
                 {% if patd.status == 'aguardando_punicao' or patd.status == 'aguardando_punicao_alterar' %}
                     {% if request.user.is_superuser or request.user.profile.militar == patd.oficial_responsavel or user_is_apurador %}
-                    <button type="button" class="btn btn-success" id="btn-avancar-comandante">Avançar para Comandante</button>
+                    <button type="button" class="btn btn-success" id="btn-avancar-analise-oficial">Avançar para Análise do Oficial</button>
+                    {% endif %}
+                {% endif %}
+                {% if patd.status == 'analise_oficial_apurador' %}
+                    {% if request.user.profile.militar == patd.oficial_responsavel %}
+                        {% if not patd.oficial_assinou_analise %}
+                        <button type="button" class="btn btn-warning" id="btn-assinar-analise">Assinar Análise (com senha)</button>
+                        {% else %}
+                        <button type="button" class="btn btn-success" id="btn-avancar-comandante">Enviar para o Comandante</button>
+                        {% endif %}
+                    {% else %}
+                    <span style="color:var(--text-secondary);font-size:.9rem;">Aguardando assinatura do oficial apurador.</span>
                     {% endif %}
                 {% endif %}
                 {% if patd.status == 'periodo_reconsideracao' %}
@@ -807,13 +861,7 @@
                       <div class="oficial-container">
                           <div class="detail-value">
                             {% if patd.status == 'definicao_oficial' %}
-                                {% if patd.alegacao_defesa or patd.anexos.all %}
-                                    <span style="color:var(--text-secondary);font-size:.85rem;">Aguardando atribuição pós-defesa</span>
-                                    <a href="{% url 'Ouvidoria:atribuir_oficial' patd.pk %}" class="btn btn-sm btn-primary" style="margin-left:8px;">Atribuir Oficial</a>
-                                {% else %}
-                                    <span style="color:var(--text-secondary);font-size:.85rem;">Aguardando atribuição</span>
-                                    <a href="{% url 'Ouvidoria:atribuir_oficial' patd.pk %}" class="btn btn-sm btn-primary" style="margin-left:8px;">Atribuir Oficial</a>
-                                {% endif %}
+                                <span style="color:var(--warning-color);font-size:.85rem;">⚠ Sem Oficial Chefe configurado nas Configurações</span>
                             {% elif patd.status == 'aguardando_aprovacao_atribuicao' %}
                                 Aguardando aceite de: <strong>{{ patd.oficial_responsavel }}</strong>
                                 {% if user.profile.militar == patd.oficial_responsavel %}
@@ -1186,6 +1234,89 @@
         </div>
     </div>
 
+    <!-- Toolbar de Formatação Rich Text -->
+    <div id="format-toolbar">
+        <!-- Fonte -->
+        <select id="fmt-font-family" title="Tipo de letra">
+            <option value="Times New Roman">Times New Roman</option>
+            <option value="Arial">Arial</option>
+            <option value="Calibri">Calibri</option>
+            <option value="Georgia">Georgia</option>
+            <option value="Courier New">Courier New</option>
+            <option value="Verdana">Verdana</option>
+            <option value="Tahoma">Tahoma</option>
+        </select>
+        <!-- Tamanho -->
+        <select id="fmt-font-size" title="Tamanho da letra" style="width:58px;">
+            <option value="8">8pt</option>
+            <option value="9">9pt</option>
+            <option value="10">10pt</option>
+            <option value="11">11pt</option>
+            <option value="12">12pt</option>
+            <option value="14">14pt</option>
+            <option value="16">16pt</option>
+            <option value="18">18pt</option>
+            <option value="20">20pt</option>
+            <option value="22">22pt</option>
+            <option value="24">24pt</option>
+            <option value="28">28pt</option>
+            <option value="32">32pt</option>
+            <option value="36">36pt</option>
+        </select>
+        <div class="fmt-sep"></div>
+        <!-- Estilo -->
+        <button class="fmt-btn" id="fmt-bold"      title="Negrito (Ctrl+B)"><strong>B</strong></button>
+        <button class="fmt-btn" id="fmt-italic"    title="Itálico (Ctrl+I)"><em>I</em></button>
+        <button class="fmt-btn" id="fmt-underline" title="Sublinhado (Ctrl+U)" style="text-decoration:underline;">U</button>
+        <button class="fmt-btn" id="fmt-strike"    title="Rasurado" style="text-decoration:line-through;">S</button>
+        <div class="fmt-sep"></div>
+        <!-- Cor do texto -->
+        <div class="fmt-btn fmt-sep" style="border:none;padding:0;position:relative;" id="fmt-color-wrapper" title="Cor do texto">
+            <button class="fmt-btn" id="fmt-color-btn" style="padding:0 6px;position:relative;">
+                A<div id="fmt-color-bar" style="background:#000;"></div>
+            </button>
+            <input type="color" id="fmt-color-input" value="#000000" style="position:absolute;opacity:0;width:28px;height:28px;top:0;left:0;cursor:pointer;">
+        </div>
+        <div class="fmt-sep"></div>
+        <!-- Alinhamento -->
+        <button class="fmt-btn" id="fmt-align-left"    title="Alinhar à esquerda">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="15" y2="12"/><line x1="3" y1="18" x2="18" y2="18"/></svg>
+        </button>
+        <button class="fmt-btn" id="fmt-align-center"  title="Centrar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="6" y1="12" x2="18" y2="12"/><line x1="4" y1="18" x2="20" y2="18"/></svg>
+        </button>
+        <button class="fmt-btn" id="fmt-align-right"   title="Alinhar à direita">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="9" y1="12" x2="21" y2="12"/><line x1="6" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <button class="fmt-btn" id="fmt-align-justify" title="Justificar">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="fmt-sep"></div>
+        <!-- Indentação -->
+        <button class="fmt-btn" id="fmt-indent"  title="Aumentar indentação">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="13 8 17 12 13 16"/><line x1="3" y1="12" x2="17" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <button class="fmt-btn" id="fmt-outdent" title="Diminuir indentação">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 8 3 12 7 16"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
+        </button>
+        <div class="fmt-sep"></div>
+        <!-- Desfazer / Refazer / Limpar -->
+        <button class="fmt-btn" id="fmt-undo"  title="Desfazer (Ctrl+Z)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 7v6h6"/><path d="M3 13A9 9 0 1 0 6 6.7L3 13"/></svg>
+        </button>
+        <button class="fmt-btn" id="fmt-redo"  title="Refazer (Ctrl+Y)">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 7v6h-6"/><path d="M21 13A9 9 0 1 1 18 6.7L21 13"/></svg>
+        </button>
+        <button class="fmt-btn" id="fmt-clear" title="Limpar formatação">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M3 6h18M8 6V4h8v2M19 6l-1 14H6L5 6"/></svg>
+        </button>
+        <!-- Guardar -->
+        <div style="margin-left:auto;display:flex;align-items:center;gap:8px;">
+            <span id="save-doc-status"></span>
+            <button id="save-doc-btn" class="btn btn-sm btn-primary" title="Guardar documento">Guardar</button>
+        </div>
+    </div>
+
     <!-- Área do documento -->
     <div id="document-preview-container" class="document-preview-container">
     </div>
@@ -1381,9 +1512,42 @@
         </form>
     </div>
 </div>
+<div class="modal-overlay" id="avancar-analise-oficial-modal">
+    <div class="modal-content">
+        <h3>Avançar para Análise do Oficial</h3>
+        <p>Tem certeza? A PATD passará para a etapa de análise e assinatura do oficial apurador.</p>
+        <form method="post" action="{% url 'Ouvidoria:avancar_para_analise_oficial' patd.pk %}" style="display: inline;">
+            {% csrf_token %}
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-avancar-analise-btn">Cancelar</button>
+                <button type="submit" class="btn btn-success">Confirmar</button>
+            </div>
+        </form>
+    </div>
+</div>
+<div class="modal-overlay" id="assinar-analise-modal">
+    <div class="modal-content">
+        <h3>Assinar Análise da Apuração</h3>
+        <p>Insira sua senha para confirmar e assinar digitalmente a análise desta PATD.</p>
+        <div id="assinar-analise-alert" style="display:none;margin-bottom:14px;padding:12px 16px;border-radius:8px;font-size:.88rem;font-weight:500;align-items:center;gap:10px;"></div>
+        <form id="assinar-analise-form" method="post" action="{% url 'Ouvidoria:assinar_analise_oficial' patd.pk %}">
+            {% csrf_token %}
+            <div class="form-group">
+                <label for="id_senha_assinar">Sua Senha:</label>
+                <input type="password" name="senha" required id="id_senha_assinar" autocomplete="current-password">
+            </div>
+            <div class="form-actions" style="justify-content: flex-end;">
+                <button type="button" class="btn btn-secondary" id="cancel-assinar-analise-btn">Cancelar</button>
+                <button type="submit" class="btn btn-warning" id="confirm-assinar-btn">
+                    <span id="confirm-assinar-txt">Confirmar e Assinar</span>
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 <div class="modal-overlay" id="avancar-modal">
     <div class="modal-content">
-        <h3>Avançar Processo</h3>
+        <h3>Enviar para o Comandante</h3>
         <p>Tem certeza? Esta PATD vai para análise do comandante. Já revisou tudo?</p>
         <form id="avancar-form" method="post" action="{% url 'Ouvidoria:avancar_para_comandante' patd.pk %}" style="display: inline;">
             {% csrf_token %}
@@ -1653,6 +1817,23 @@
     </div>
 </div>
 
+<div class="modal-overlay" id="save-scope-modal">
+    <div class="modal-content" style="max-width:440px;width:95%;text-align:center;">
+        <h3 style="margin-bottom:10px;">Guardar Documento</h3>
+        <p style="margin-bottom:20px;color:var(--text-secondary);">Onde pretende guardar as alterações?</p>
+        <div style="display:flex;flex-direction:column;gap:10px;">
+            <button id="save-scope-patd-btn" class="btn btn-primary">
+                Guardar só para esta PATD
+            </button>
+            <button id="save-scope-global-btn" class="btn btn-secondary">
+                Definir fonte e tamanho como padrão global<br>
+                <small style="font-weight:normal;opacity:.8;">(aplica-se a todas as PATDs que ainda não foram editadas)</small>
+            </button>
+            <button id="save-scope-cancel-btn" class="btn btn-secondary" style="margin-top:4px;">Cancelar</button>
+        </div>
+    </div>
+</div>
+
 {% endblock %}
 
 {% block extra_js %}
@@ -1711,6 +1892,7 @@ const PATD_CONFIG = {
         extenderPrazo:                "{% url 'Ouvidoria:extender_prazo' patd.pk %}",
         verificarPrazos:              "{% url 'Ouvidoria:verificar_e_atualizar_prazos' %}",
         salvarDocumento:              "{% url 'Ouvidoria:salvar_documento_patd' patd.pk %}",
+        salvarConfigDocGlobal:        "{% url 'Ouvidoria:salvar_config_doc_global' %}",
         justificarPatd:               "{% url 'Ouvidoria:justificar_patd' patd.pk %}",
         salvarNovaPunicao:            "{% url 'Ouvidoria:salvar_nova_punicao' patd.pk %}",
         previewNovaPunicao:           "{% url 'Ouvidoria:preview_nova_punicao' patd.pk %}",

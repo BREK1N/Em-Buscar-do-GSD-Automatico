@@ -28,7 +28,7 @@ from .decorators import ouvidoria_required, oficial_responsavel_required, comand
 from .helpers import (
     _get_document_context, _render_document_from_template,
     get_document_pages, format_militar_string,
-    _try_advance_status_from_justificativa,
+    _try_advance_status_from_justificativa, _sync_oficial_signature,
 )
 from ..analise_transgressao import analisar_e_resumir_defesa, reescrever_ocorrencia
 
@@ -77,6 +77,8 @@ def salvar_alegacao_defesa(request, pk):
         patd.save()
         _try_advance_status_from_justificativa(patd)
         patd.save()
+        if patd.status == 'em_apuracao':
+            _sync_oficial_signature(patd)
 
         return JsonResponse({'status': 'success', 'message': 'Alegação de defesa e anexos salvos com sucesso.'})
     except Exception as e:
@@ -167,16 +169,20 @@ def salvar_documento_patd(request, pk):
 
         # Obtém os dados
         texto_documento = data.get('texto_documento')
+        html_documento  = data.get('html_documento')   # lista de HTML strings (rich text)
         dates = data.get('dates', {})
         texts = data.get('texts', {})
         logger.info(f"[salvar_doc] PATD {pk} | dates recebidos: {dates}")
 
         # Validação básica
-        if texto_documento is None:
-            return JsonResponse({'status': 'error', 'message': 'Nenhum texto recebido.'}, status=400)
+        if texto_documento is None and html_documento is None:
+            return JsonResponse({'status': 'error', 'message': 'Nenhum conteúdo recebido.'}, status=400)
 
-        # 1. Atualiza o texto do documento
-        # Aceita tanto JSON array de páginas HTML (edição direta) quanto texto simples
+        # 1. Atualiza o HTML rico (edição directa com formatação)
+        if html_documento is not None and isinstance(html_documento, list):
+            patd.documento_html = html_documento
+
+        # 1b. Texto plano legado
         if texto_documento:
             patd.documento_texto = texto_documento
         
@@ -1398,5 +1404,33 @@ def exportar_patd_docx(request, pk):
 
     _set_download_cookie(request, response)
     return response
+
+
+@login_required
+@ouvidoria_required
+@require_POST
+def salvar_config_documento_global(request):
+    """Guarda as preferências globais de fonte/tamanho para todos os documentos."""
+    try:
+        data = json.loads(request.body)
+        config = Configuracao.load()
+        changed = False
+        fonte   = data.get('fonte', '').strip()
+        tamanho = data.get('tamanho')
+        if fonte:
+            config.fonte_padrao_documentos = fonte
+            changed = True
+        if tamanho is not None:
+            try:
+                config.tamanho_fonte_documentos = max(6, min(72, int(tamanho)))
+                changed = True
+            except (ValueError, TypeError):
+                pass
+        if changed:
+            config.save()
+        return JsonResponse({'status': 'success'})
+    except Exception as e:
+        logger.error(f"Erro ao guardar config global de documento: {e}")
+        return JsonResponse({'status': 'error', 'message': 'Erro interno.'}, status=500)
 
 

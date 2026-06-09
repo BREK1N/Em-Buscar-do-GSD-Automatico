@@ -255,8 +255,70 @@ def patd_retornar(request, pk):
 @login_required
 @oficial_responsavel_required
 @require_POST
+def avancar_para_analise_oficial(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+
+    STATUS_PERMITIDOS = {'aguardando_punicao', 'aguardando_punicao_alterar'}
+    if patd.status not in STATUS_PERMITIDOS:
+        messages.error(request, "A PATD não está em uma fase que permite avançar para análise do oficial.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    patd.status = 'analise_oficial_apurador'
+    patd.oficial_assinou_analise = False
+    patd.save()
+    messages.success(request, f"PATD Nº {patd.numero_patd} avançada para análise do oficial apurador.")
+    return redirect('Ouvidoria:patd_detail', pk=pk)
+
+
+@login_required
+@require_POST
+def assinar_analise_oficial(request, pk):
+    patd = get_object_or_404(PATD, pk=pk)
+    is_ajax = request.headers.get('X-Requested-With') == 'XMLHttpRequest'
+
+    try:
+        tem_perfil = hasattr(request.user, 'profile') and request.user.profile.militar
+    except Exception:
+        tem_perfil = False
+
+    if not (tem_perfil and request.user.profile.militar == patd.oficial_responsavel):
+        if is_ajax:
+            return JsonResponse({'ok': False, 'erro': 'Apenas o oficial responsável pode assinar.'}, status=403)
+        messages.error(request, "Apenas o oficial responsável pode assinar.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    if patd.status != 'analise_oficial_apurador':
+        if is_ajax:
+            return JsonResponse({'ok': False, 'erro': 'A PATD não está na fase de análise do oficial.'}, status=400)
+        messages.error(request, "A PATD não está na fase de análise do oficial.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    senha = request.POST.get('senha', '')
+    user = authenticate(request, username=request.user.username, password=senha)
+    if user is None:
+        if is_ajax:
+            return JsonResponse({'ok': False, 'erro': 'Senha incorreta. Tente novamente.'}, status=400)
+        messages.error(request, "Senha incorreta.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
+
+    patd.oficial_assinou_analise = True
+    patd.save(update_fields=['oficial_assinou_analise'])
+
+    if is_ajax:
+        return JsonResponse({'ok': True, 'mensagem': 'Análise assinada com sucesso.'})
+    messages.success(request, "Análise assinada com sucesso.")
+    return redirect('Ouvidoria:patd_detail', pk=pk)
+
+
+@login_required
+@oficial_responsavel_required
+@require_POST
 def avancar_para_comandante(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+
+    if patd.status != 'analise_oficial_apurador' or not patd.oficial_assinou_analise:
+        messages.error(request, "A PATD precisa estar na fase de análise do oficial e ter sido assinada antes de enviar ao Comandante.")
+        return redirect('Ouvidoria:patd_detail', pk=pk)
 
     patd.status = 'analise_comandante'
     patd.save()

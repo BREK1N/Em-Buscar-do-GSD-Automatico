@@ -32,6 +32,7 @@ urlpatterns = [
     path('patd/<int:pk>/salvar_assinatura_ciencia/', views.salvar_assinatura_ciencia, name='salvar_assinatura_ciencia'),
     path('patd/<int:pk>/salvar_alegacao_defesa/', views.salvar_alegacao_defesa, name='salvar_alegacao_defesa'),
     path('patd/<int:pk>/adicionar_anexos_defesa/', views.adicionar_anexos_defesa, name='adicionar_anexos_defesa'),
+    path('config/documento-global/', views.salvar_config_documento_global, name='salvar_config_doc_global'),
     path('patd/<int:pk>/salvar_assinatura_defesa/', views.salvar_assinatura_defesa, name='salvar_assinatura_defesa'),
     path('patd/<int:pk>/salvar_assinatura_reconsideracao/', views.salvar_assinatura_reconsideracao, name='salvar_assinatura_reconsideracao'),
     path('patd/<int:pk>/remover_assinatura/', views.remover_assinatura, name='remover_assinatura'),
@@ -62,7 +63,9 @@ urlpatterns = [
 
     # --- ROTAS DE ANÁLISE E APURAÇÃO ---
     path('patd/<int:pk>/analisar_punicao/', views.analisar_punicao, name='analisar_punicao'),
-    path('patd/<int:pk>/salvar_apuracao/', views.salvar_apuracao, name='salvar_apuracao'), 
+    path('patd/<int:pk>/salvar_apuracao/', views.salvar_apuracao, name='salvar_apuracao'),
+    path('patd/<int:pk>/avancar_para_analise_oficial/', views.avancar_para_analise_oficial, name='avancar_para_analise_oficial'),
+    path('patd/<int:pk>/assinar_analise_oficial/', views.assinar_analise_oficial, name='assinar_analise_oficial'),
     path('patd/<int:pk>/avancar_para_comandante/', views.avancar_para_comandante, name='avancar_para_comandante'),
 
     # ROTAS PARA O COMANDANTE
