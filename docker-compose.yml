@@ -52,8 +52,8 @@ services:
       - HOST=${DB_HOST}
       - PORT=${DB_PORT}
       - DATABASE=postgres
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
       # Variáveis de Proxy
       #- http_proxy=${http_proxy}
       #- https_proxy=${https_proxy}
@@ -62,6 +62,9 @@ services:
       - DJANGO_SUPERUSER_USERNAME=${DJANGO_SUPERUSER_USERNAME}
       - DJANGO_SUPERUSER_EMAIL=${DJANGO_SUPERUSER_EMAIL}
       - DJANGO_SUPERUSER_PASSWORD=${DJANGO_SUPERUSER_PASSWORD}
+      - OPENAI_API_KEY=${OPENAI_API_KEY}
+      - URL_MONITOR=${URL_MONITOR}
+      - LOG_FILE_PATH=${LOG_FILE_PATH}
     depends_on:
       db:
         condition: service_healthy
@@ -71,7 +74,7 @@ services:
   celery-worker:
     build:
       context: .
-    restart: always
+    restart: on-failure
     entrypoint: []
     command: sh -c "cd /app/GsdAutomatico && celery -A GsdAutomatico worker --loglevel=info --concurrency=2"
     volumes:
@@ -89,8 +92,8 @@ services:
       - HOST=${DB_HOST}
       - PORT=${DB_PORT}
       - DATABASE=postgres
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
       - OPENAI_API_KEY=${OPENAI_API_KEY}
     depends_on:
       db:
@@ -101,7 +104,7 @@ services:
   celery-beat:
     build:
       context: .
-    restart: always
+    restart: on-failure
     entrypoint: []
     command: sh -c "cd /app/GsdAutomatico && celery -A GsdAutomatico beat --loglevel=info"
     volumes:
@@ -115,8 +118,8 @@ services:
       - HOST=${DB_HOST}
       - PORT=${DB_PORT}
       - DATABASE=postgres
-      - CELERY_BROKER_URL=${CELERY_BROKER_URL}
-      - REDIS_URL=${REDIS_URL}
+      - CELERY_BROKER_URL=${CELERY_BROKER_URL:-redis://redis:6379/0}
+      - REDIS_URL=${REDIS_URL:-redis://redis:6379/1}
     depends_on:
       db:
         condition: service_healthy

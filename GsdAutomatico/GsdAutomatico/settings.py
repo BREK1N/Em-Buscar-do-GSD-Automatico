@@ -65,22 +65,53 @@ INSTALLED_APPS = [
 # ── Django Channels ───────────────────────────────────────────────────────────
 ASGI_APPLICATION = 'GsdAutomatico.asgi.application'
 
-# Usa `or` em vez de default no getenv para ignorar variáveis definidas como string vazia
-_REDIS_URL  = os.getenv('REDIS_URL')  or 'redis://127.0.0.1:6379/1'
-_BROKER_URL = os.getenv('CELERY_BROKER_URL') or 'redis://127.0.0.1:6379/0'
+# Variáveis definidas como string vazia são tratadas como ausentes (usa `or`)
+_REDIS_URL  = os.getenv('REDIS_URL')         or None
+_BROKER_URL = os.getenv('CELERY_BROKER_URL') or None
+_HAS_REDIS  = bool(_REDIS_URL or _BROKER_URL)
 
-CHANNEL_LAYERS = {
-    "default": {
-        "BACKEND": "channels_redis.core.RedisChannelLayer",
-        "CONFIG": {
-            "hosts": [_REDIS_URL],
-        },
+if _HAS_REDIS:
+    # Ambiente com Redis (produção / Docker)
+    _REDIS_URL  = _REDIS_URL  or 'redis://127.0.0.1:6379/1'
+    _BROKER_URL = _BROKER_URL or 'redis://127.0.0.1:6379/0'
+    CHANNEL_LAYERS = {
+        "default": {
+            "BACKEND": "channels_redis.core.RedisChannelLayer",
+            "CONFIG": {
+                "hosts": [_REDIS_URL],
+                "capacity": 1500,
+                "expiry": 10,
+            },
+        }
     }
-}
+    CACHES = {
+        'default': {
+            'BACKEND': 'django_redis.cache.RedisCache',
+            'LOCATION': _REDIS_URL,
+            'OPTIONS': {
+                'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+                'SOCKET_CONNECT_TIMEOUT': 5,
+                'SOCKET_TIMEOUT': 5,
+                'RETRY_ON_TIMEOUT': True,
+                'MAX_CONNECTIONS': 20,
+                'CONNECTION_POOL_KWARGS': {'max_connections': 20},
+            },
+            'TIMEOUT': 300,
+        }
+    }
+else:
+    # Sem Redis — usa backends em memória (desenvolvimento local)
+    _BROKER_URL = 'memory://'
+    CHANNEL_LAYERS = {"default": {"BACKEND": "channels.layers.InMemoryChannelLayer"}}
+    CACHES = {
+        'default': {
+            'BACKEND': 'django.core.cache.backends.locmem.LocMemCache',
+        }
+    }
 
 # ── Celery ────────────────────────────────────────────────────────────────────
 CELERY_BROKER_URL = _BROKER_URL
-CELERY_RESULT_BACKEND = _REDIS_URL
+CELERY_RESULT_BACKEND = _REDIS_URL or 'cache+memory://'
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -89,24 +120,17 @@ CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 300        # 5 min — mata workers travados
 CELERY_TASK_SOFT_TIME_LIMIT = 270   # aviso 30s antes
 CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
+CELERY_BROKER_CONNECTION_MAX_RETRIES = None  # tenta reconectar indefinidamente
+CELERY_BROKER_POOL_LIMIT = 10               # limite de conexões simultâneas ao broker
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1       # pega 1 task por vez (evita starvation)
+CELERY_TASK_ACKS_LATE = True                # confirma task só após conclusão (sem perda)
+CELERY_RESULT_EXPIRES = 3600               # resultados expiram em 1h
 
 CELERY_BEAT_SCHEDULE = {
     'fetch-docker-logs': {
         'task': 'informatica.tasks.fetch_docker_logs_task',
         'schedule': 30.0,
     },
-}
-
-# ── Cache (Redis) ─────────────────────────────────────────────────────────────
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': _REDIS_URL,
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-        },
-        'TIMEOUT': 300,
-    }
 }
 
 MIDDLEWARE = [
