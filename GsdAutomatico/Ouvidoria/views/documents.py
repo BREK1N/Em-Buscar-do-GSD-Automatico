@@ -74,11 +74,10 @@ def salvar_alegacao_defesa(request, pk):
                 patd.ocorrencia_reescrita = patd.transgressao
                 patd.comprovante = patd.transgressao
 
+        # Invalida o cache do documento para que a página de alegação seja gerada
+        patd.documento_html = []
         patd.save()
-        _try_advance_status_from_justificativa(patd)
-        patd.save()
-        if patd.status == 'em_apuracao':
-            _sync_oficial_signature(patd)
+        # Não avança status aqui — aguarda a assinatura da alegação de defesa
 
         return JsonResponse({'status': 'success', 'message': 'Alegação de defesa e anexos salvos com sucesso.'})
     except Exception as e:

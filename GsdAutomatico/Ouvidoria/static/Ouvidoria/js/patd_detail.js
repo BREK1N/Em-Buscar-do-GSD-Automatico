@@ -111,39 +111,41 @@ document.addEventListener('DOMContentLoaded', function() {
             signaturePad.clear();
         }
 
-        document.body.addEventListener('click', function(e) {
-            if (isFinalized) return;
-
+        // Abre o modal de assinatura no mousedown para evitar conflito com contenteditable.
+        // Assinaturas funcionam tanto em modo visualização quanto em modo edição.
+        document.body.addEventListener('mousedown', function(e) {
             const btn = e.target.closest('.open-signature-modal');
-            if (btn) {
-                const type = btn.dataset.type;
-                currentSignatureConfig = { type };
+            if (!btn) return;
 
-                const modalTitle = signatureModal.querySelector('#signature-modal-title');
-                const modalParagraph = signatureModal.querySelector('#signature-modal-prompt');
+            e.preventDefault(); // impede a seleção do elemento no contenteditable
 
-                if (type === 'ciencia') {
-                    currentSignatureConfig.index = parseInt(btn.dataset.index, 10);
-                    modalTitle.textContent = 'Registrar Ciência da Acusação';
-                    modalParagraph.textContent = `Eu, ${PATD_CONFIG.militarNome}, declaro ter ciência dos fatos a mim imputados (Assinatura ${currentSignatureConfig.index + 1}).`;
-                } else if (type === 'defesa') {
-                    modalTitle.textContent = 'Assinar Alegação de Defesa';
-                    modalParagraph.textContent = 'Confirmo que esta é a minha alegação de defesa.';
-                } else if (type === 'reconsideracao') {
-                    modalTitle.textContent = 'Assinar Pedido de Reconsideração';
-                    modalParagraph.textContent = 'Confirmo que este é o meu pedido de reconsideração.';
-                } else if (type === 'oficial') {
-                    modalTitle.textContent = 'Assinatura do Oficial Apurador';
-                    modalParagraph.textContent = 'Desenhe a assinatura no campo abaixo.';
-                } else if (type === 'testemunha') {
-                    currentSignatureConfig.num = btn.dataset.testemunhaNum;
-                    modalTitle.textContent = `Assinatura da ${currentSignatureConfig.num}ª Testemunha`;
-                    modalParagraph.textContent = 'A testemunha deve desenhar a assinatura no campo abaixo.';
-                }
+            const type = btn.dataset.type;
+            currentSignatureConfig = { type };
 
-                signatureModal.classList.add('active');
-                resizeCanvas();
+            const modalTitle    = signatureModal.querySelector('#signature-modal-title');
+            const modalParagraph = signatureModal.querySelector('#signature-modal-prompt');
+
+            if (type === 'ciencia') {
+                currentSignatureConfig.index = parseInt(btn.dataset.index, 10);
+                modalTitle.textContent = 'Registrar Ciência da Acusação';
+                modalParagraph.textContent = `Eu, ${PATD_CONFIG.militarNome}, declaro ter ciência dos fatos a mim imputados (Assinatura ${currentSignatureConfig.index + 1}).`;
+            } else if (type === 'defesa') {
+                modalTitle.textContent = 'Assinar Alegação de Defesa';
+                modalParagraph.textContent = 'Confirmo que esta é a minha alegação de defesa.';
+            } else if (type === 'reconsideracao') {
+                modalTitle.textContent = 'Assinar Pedido de Reconsideração';
+                modalParagraph.textContent = 'Confirmo que este é o meu pedido de reconsideração.';
+            } else if (type === 'oficial') {
+                modalTitle.textContent = 'Assinatura do Oficial Apurador';
+                modalParagraph.textContent = 'Desenhe a assinatura no campo abaixo.';
+            } else if (type === 'testemunha') {
+                currentSignatureConfig.num = btn.dataset.testemunhaNum;
+                modalTitle.textContent = `Assinatura da ${currentSignatureConfig.num}ª Testemunha`;
+                modalParagraph.textContent = 'A testemunha deve desenhar a assinatura no campo abaixo.';
             }
+
+            signatureModal.classList.add('active');
+            resizeCanvas();
         });
 
         document.getElementById('cancel-signature-btn-generic').addEventListener('click', () => signatureModal.classList.remove('active'));
@@ -852,9 +854,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
 
-        processedHtml = processedHtml.replace(/{Botao Assinar Oficial}/g, oficialSigData
-            ? createSignatureHtml(oficialSigData, 'Assinatura do Oficial Apurador', 'oficial')
-            : `<button contenteditable="false" class="btn btn-sm btn-primary open-signature-modal" data-type="oficial">Assinar</button>`);
+        processedHtml = processedHtml.replace(/{Botao Assinar Oficial}/g, `<span class="sig-pending-text">[Aguardando assinatura do oficial apurador]</span>`);
         processedHtml = processedHtml.replace(/{Botao Assinar Testemunha 1}/g, testemunha1SigData
             ? createSignatureHtml(testemunha1SigData, 'Assinatura da Testemunha 1', 'testemunha1')
             : `<button contenteditable="false" class="btn btn-sm btn-primary open-signature-modal" data-type="testemunha" data-testemunha-num="1">Assinar (Testemunha 1)</button>`);
@@ -903,8 +903,24 @@ document.addEventListener('DOMContentLoaded', function() {
     function saveDocumentChanges() {
         if (!pageContainer) return;
 
-        // Datas são salvas pelo script inline do template — não coletar aqui para evitar conflito
         const dates = {};
+
+        // Coleta partes de data (dia/mês/ano) e constrói string ISO para salvar no modelo
+        const datePartGroups = {};
+        pageContainer.querySelectorAll('.editable-date-part').forEach(input => {
+            const fieldName = input.dataset.dateField;
+            const part = input.dataset.datePart;
+            if (fieldName && part) {
+                if (!datePartGroups[fieldName]) datePartGroups[fieldName] = {};
+                datePartGroups[fieldName][part] = input.value;
+            }
+        });
+        for (const [fieldName, parts] of Object.entries(datePartGroups)) {
+            const { day, month, year } = parts;
+            if (day && month && year) {
+                dates[fieldName] = `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+            }
+        }
 
         const texts = {};
         pageContainer.querySelectorAll('.editable-text').forEach(input => {
@@ -928,19 +944,6 @@ document.addEventListener('DOMContentLoaded', function() {
             const placeholder = datePlaceholders[fieldName];
             if (placeholder) {
                 input.replaceWith(document.createTextNode(placeholder));
-            }
-        });
-
-        // Substitui inputs de partes de data pelo placeholder correspondente
-        const datePartPlaceholders = {
-            'data_inicio': { day: '{dia}', month: '{Mês}', year: '{Ano}' }
-        };
-        tempContainer.querySelectorAll('.editable-date-part').forEach(input => {
-            const fieldName = input.dataset.dateField;
-            const part = input.dataset.datePart;
-            const ph = datePartPlaceholders[fieldName]?.[part];
-            if (ph) {
-                input.replaceWith(document.createTextNode(ph));
             }
         });
 
@@ -1115,8 +1118,9 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     })();
 
-    // ── Barra de formatação rich text ──
+    // ── Barra de formatação rich text (desabilitada — somente visualização) ──
     (function initFormatToolbar() {
+        return; // Edição de texto desabilitada; documento é somente-leitura
         const fmtBar = document.getElementById('format-toolbar');
         if (!fmtBar || isFinalized) return;
 
@@ -1204,14 +1208,54 @@ document.addEventListener('DOMContentLoaded', function() {
             updateActiveStates();
         }
 
-        // Mostra a toolbar quando foca num contenteditable de página
+        // ── Toggle modo edição ──────────────────────────────────────────────────
+        const toggleEditBtn   = document.getElementById('toggle-edit-btn');
+        const toggleEditLabel = document.getElementById('toggle-edit-label');
+
+        function setEditMode(active) {
+            editModeActive = active;
+
+            // 1. Toggle contentEditable no texto rico das páginas
+            document.querySelectorAll('.page-content').forEach(el => {
+                el.contentEditable = active ? 'true' : 'false';
+            });
+
+            // 2. Habilita/desabilita todos os campos de formulário dentro das páginas
+            //    (input.editable-date, input.editable-date-part, select.editable-date-part,
+            //     textarea.editable-text, input.editable-text, etc.)
+            document.querySelectorAll('.page-content input, .page-content textarea, .page-content select').forEach(el => {
+                el.disabled = !active;
+            });
+
+            // 3. Classe CSS para feedback visual de modo
+            if (pageContainer) pageContainer.classList.toggle('view-mode', !active);
+
+            if (active) {
+                fmtBar.classList.add('visible');
+                if (toggleEditLabel) toggleEditLabel.textContent = 'Sair da Edição';
+                if (toggleEditBtn) toggleEditBtn.classList.add('active');
+                const first = document.querySelector('.page-content');
+                if (first) first.focus();
+            } else {
+                fmtBar.classList.remove('visible');
+                if (toggleEditLabel) toggleEditLabel.textContent = 'Modificar Documento';
+                if (toggleEditBtn) toggleEditBtn.classList.remove('active');
+                scheduleSave();
+            }
+        }
+
+        toggleEditBtn?.addEventListener('click', () => setEditMode(!editModeActive));
+
+        // Toolbar de formatação só aparece enquanto o modo edição está ativo
         pageContainer.addEventListener('focusin', function(e) {
+            if (!editModeActive) return;
             if (e.target.classList.contains('page-content') || e.target.closest('.page-content')) {
                 fmtBar.classList.add('visible');
             }
         });
-        // Esconde quando o foco sai do documento E não vai para a toolbar
+        // Esconde a toolbar quando o foco sai (mas só se estiver em modo edição)
         pageContainer.addEventListener('focusout', function(e) {
+            if (!editModeActive) return;
             setTimeout(function() {
                 const active = document.activeElement;
                 if (!pageContainer.contains(active) && !fmtBar.contains(active)) {
@@ -1411,10 +1455,8 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'page-content';
-            if (!isFinalized) {
-                contentDiv.contentEditable = 'true';
-                contentDiv.spellcheck = false;
-            }
+            contentDiv.contentEditable = 'false'; // ativado apenas quando o modo edição é ligado
+            contentDiv.spellcheck = false;
 
             let processedHtml = processPlaceholders(html);
             processedHtml = processedHtml.replace(/\t/g, '&emsp;&emsp;');
@@ -1532,6 +1574,11 @@ document.addEventListener('DOMContentLoaded', function() {
             nodes.forEach(n => { n.nodeValue = n.nodeValue.replace(/\{pagina_alegacao\}/g, str); });
         })();
         _applyZoom(_zoom); // aplica zoom atual
+
+        // Texto do documento não editável; inputs de data/texto permanecem interativos
+        document.querySelectorAll('.page-content').forEach(el => {
+            el.contentEditable = 'false';
+        });
 
         if (isFinalized) {
             const inputs = pageContainer.querySelectorAll('input.editable-date, textarea.editable-text');
@@ -2315,34 +2362,31 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     const aprovarModal = document.getElementById('aprovar-patd-modal');
-    const aprovarForm = document.getElementById('aprovar-patd-form');
-    const aprovarModalTitle = document.getElementById('aprovar-modal-title');
-    const cancelAprovarBtn = document.getElementById('cancel-aprovar-btn');
+    if (aprovarModal) {
+        const cancelAprovarBtn = document.getElementById('cancel-aprovar-btn');
+        if (cancelAprovarBtn) {
+            cancelAprovarBtn.addEventListener('click', () => aprovarModal.classList.remove('active'));
+        }
+        aprovarModal.addEventListener('click', (e) => {
+            if (e.target === aprovarModal) aprovarModal.classList.remove('active');
+        });
+    }
 
     document.body.addEventListener('click', function(e) {
-        if (e.target.classList.contains('open-aprovar-modal-btn')) {
-            const patdPk = e.target.dataset.patdPk;
-            const patdNumero = e.target.dataset.patdNumero;
-            const url = `/Ouvidoria/patd/${patdPk}/aprovar/`;
-            aprovarForm.action = url;
-            aprovarModalTitle.textContent = `Aprovar PATD Nº ${patdNumero}`;
-            aprovarModal.classList.add('active');
+        const btn = e.target.closest('.open-aprovar-modal-btn');
+        if (btn) {
+            const patdPk = btn.dataset.patdPk;
+            const patdNumero = btn.dataset.patdNumero;
+            const modal = document.getElementById('aprovar-patd-modal');
+            const form = document.getElementById('aprovar-patd-form');
+            const title = document.getElementById('aprovar-modal-title');
+            if (modal && form) {
+                form.action = `/Ouvidoria/patd/${patdPk}/aprovar/`;
+                if (title) title.textContent = `Aprovar PATD Nº ${patdNumero}`;
+                modal.classList.add('active');
+            }
         }
     });
-
-    if (cancelAprovarBtn) {
-        cancelAprovarBtn.addEventListener('click', () => {
-            aprovarModal.classList.remove('active');
-        });
-    }
-
-    if (aprovarModal) {
-        aprovarModal.addEventListener('click', (e) => {
-            if (e.target === aprovarModal) {
-                aprovarModal.classList.remove('active');
-            }
-        });
-    }
 
 });
 

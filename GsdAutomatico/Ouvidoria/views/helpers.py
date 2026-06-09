@@ -443,7 +443,7 @@ def _get_document_context(patd, for_docx=False, doc_name=None):
         '{Posto/Especialização Oficial Apurador}': format_militar_string(patd.oficial_responsavel, with_spec=True) if oficial_definido else " ",
         '{Saram Oficial Apurador}': str(getattr(patd.oficial_responsavel, 'saram', 'N/A')) if oficial_definido else " ",
         '{Setor Oficial Apurador}': getattr(patd.oficial_responsavel, 'setor', 'N/A') if oficial_definido else " ",
-        '{Assinatura Oficial Apurador}': '{Assinatura_Imagem_Oficial_Apurador}' if oficial_definido and patd.oficial_responsavel and patd.oficial_responsavel.assinatura else (' ' if not oficial_definido else '{Botao Assinar Oficial}'),
+        '{Assinatura Oficial Apurador}': '{Assinatura_Imagem_Oficial_Apurador}' if oficial_definido and patd.oficial_responsavel and patd.oficial_responsavel.assinatura and patd.oficial_assinou_analise else (' ' if not oficial_definido else '{Botao Assinar Oficial}'),
 
         # Dados do Comandante
         '{Comandante /Posto/Especialização}': format_militar_string(comandante_gsd, with_spec=True) if comandante_gsd else "[Comandante GSD não definido]",
@@ -1046,7 +1046,21 @@ def get_document_pages(patd, for_docx=False):
     Cada item na lista representa um documento/seção separada.
     """
     if not for_docx and patd.documento_html:
-        return patd.documento_html
+        pages = patd.documento_html
+        pages_text = ''.join(p for p in pages if isinstance(p, str)) if isinstance(pages, list) else str(pages)
+
+        # Cache inválido se defesa existe no modelo mas não está nas páginas cacheadas
+        has_defesa = bool(patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists())
+        cache_has_defesa = 'data-document-id="alegacao_defesa"' in pages_text
+        cache_has_oficial_sig = '{Assinatura_Imagem_Oficial_Apurador}' in pages_text
+        if (has_defesa and not cache_has_defesa) or (not patd.oficial_assinou_analise and cache_has_oficial_sig):
+            # Cai para regeneração completa abaixo
+            pass
+        else:
+            base_context = _ctx(patd, for_docx, 'PATD_Coringa')
+            if isinstance(pages, list):
+                return [_apply_context_to_text(p, base_context) if isinstance(p, str) else p for p in pages]
+            return pages
 
     base_context = _ctx(patd, for_docx, 'PATD_Coringa')
     document_pages_raw = []
@@ -1067,6 +1081,9 @@ def get_document_pages(patd, for_docx=False):
         alegacao_html = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
         alegacao_texto_html = (patd.alegacao_defesa or "").replace('\n', '<br>')
         alegacao_html = alegacao_html.replace('{Alegação de defesa}', alegacao_texto_html)
+        # O template usa {Assinatura Militar Arrolado} mas a assinatura da defesa
+        # tem campo e endpoint próprios — mapeia para o placeholder correto
+        alegacao_html = alegacao_html.replace('{Assinatura Militar Arrolado}', '{Assinatura Alegacao Defesa}')
         alegacao_html = f'<div data-document-id="alegacao_defesa">{alegacao_html}</div>'
         document_pages_raw.append(PB)
         document_pages_raw.append(alegacao_html)
@@ -1168,6 +1185,11 @@ def _try_advance_status_from_justificativa(patd):
 
     has_defesa = bool(patd.alegacao_defesa or patd.anexos.filter(tipo='defesa').exists())
     if not has_defesa:
+        return False
+
+    # Exige assinatura da alegação antes de avançar
+    if not patd.assinatura_alegacao_defesa:
+        logger.info(f"PATD {patd.pk}: Defesa submetida, aguardando assinatura da alegação para avançar.")
         return False
 
     document_pages = get_document_pages(patd)

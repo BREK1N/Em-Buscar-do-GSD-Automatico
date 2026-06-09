@@ -140,6 +140,19 @@
             <div class="help-text">Aparece como assinante nos documentos da ESI.</div>
         </div>
 
+        <div class="form-item">
+            <label>Oficial Chefe da Ouvidoria</label>
+            <select name="oficial_chefe_ouvidoria" class="select2-field">
+                <option value="">— Nenhum —</option>
+                {% for e in oficiais %}
+                <option value="{{ e.pk }}" {% if config_ouvidoria.oficial_chefe_ouvidoria and config_ouvidoria.oficial_chefe_ouvidoria.pk == e.pk %}selected{% endif %}>
+                    {{ e.posto }} {{ e.nome_guerra }} ({{ e.nome_completo }})
+                </option>
+                {% endfor %}
+            </select>
+            <div class="help-text">Oficial atribuído automaticamente como apurador em novas PATDs.</div>
+        </div>
+
         <button type="submit" class="btn-save"><i class="fas fa-save" style="margin-right:6px;"></i>Salvar</button>
     </div>
 </form>

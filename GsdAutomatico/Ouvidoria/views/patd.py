@@ -25,6 +25,9 @@ from django.utils import timezone
 from ..models import PATD, Configuracao, Anexo
 from ..forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm, ComandanteAprovarForm
 from ..permissions import has_ouvidoria_access, can_delete_patd, has_comandante_access, can_edit_patd, is_apurador
+
+def has_patd_detail_access(user):
+    return has_ouvidoria_access(user) or has_comandante_access(user)
 from Secao_pessoal.models import Efetivo
 from Secao_pessoal.utils import get_rank_value, RANK_HIERARCHY
 from .decorators import (
@@ -108,14 +111,14 @@ PHASE_GROUPS = [
         'key': 'aguardando_comandante',
         'label': '5 – Aguardando Resposta do Comandante',
         'statuses': [
-            'analise_comandante', 'aguardando_assinatura_npd',
-            'aguardando_nova_punicao',
+            'analise_comandante',
         ],
     },
     {
         'key': 'condenacao',
         'label': '6 – Ciência da Condenação / NPD',
         'statuses': [
+            'aguardando_assinatura_npd', 'aguardando_nova_punicao',
             'periodo_reconsideracao', 'em_reconsideracao',
             'aguardando_publicacao', 'aguardando_preenchimento_npd_reconsideracao',
             'finalizado',
@@ -762,7 +765,7 @@ class PATDTrashListView(ListView):
         return PATD.all_objects.filter(deleted=True).select_related('militar').order_by('-deleted_at')
 
 
-@method_decorator([login_required, ouvidoria_required], name='dispatch')
+@method_decorator([login_required, user_passes_test(has_patd_detail_access)], name='dispatch')
 class PATDDetailView(DetailView):
     model = PATD
     template_name = 'patd_detail.html'

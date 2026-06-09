@@ -302,7 +302,8 @@ def assinar_analise_oficial(request, pk):
         return redirect('Ouvidoria:patd_detail', pk=pk)
 
     patd.oficial_assinou_analise = True
-    patd.save(update_fields=['oficial_assinou_analise'])
+    patd.documento_html = []  # Força regeneração para incluir assinatura no documento
+    patd.save(update_fields=['oficial_assinou_analise', 'documento_html'])
 
     if is_ajax:
         return JsonResponse({'ok': True, 'mensagem': 'Análise assinada com sucesso.'})

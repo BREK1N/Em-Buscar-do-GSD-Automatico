@@ -152,6 +152,16 @@ def salvar_assinatura_defesa(request, pk):
             logger.error(f"Erro ao converter Base64 para ficheiro para PATD {pk}: {e}")
             return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
 
+        # Invalida cache para incluir a imagem da assinatura no documento
+        patd.documento_html = []
+
+        # Com a assinatura salva, tenta avançar o status para em_apuracao
+        from .helpers import _try_advance_status_from_justificativa, _sync_oficial_signature
+        _try_advance_status_from_justificativa(patd)
+        patd.save()
+        if patd.status == 'em_apuracao':
+            _sync_oficial_signature(patd)
+
         return JsonResponse({'status': 'success', 'message': 'Assinatura da defesa salva com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura da defesa da PATD {pk}: {e}")

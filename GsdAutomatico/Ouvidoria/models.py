@@ -350,6 +350,14 @@ class PATD(models.Model):
             pass
         
     @property
+    def mostrar_resumo_analise(self):
+        return self.status in {
+            'analise_oficial_apurador', 'analise_comandante', 'aguardando_assinatura_npd',
+            'aguardando_nova_punicao', 'periodo_reconsideracao', 'em_reconsideracao',
+            'aguardando_preenchimento_npd_reconsideracao', 'aguardando_publicacao', 'finalizado',
+        }
+
+    @property
     def dias_para_exclusao(self):
         if self.deleted and self.deleted_at:
             retencao = Configuracao.load().dias_retencao_lixeira

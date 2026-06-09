@@ -42,7 +42,7 @@ class InformaticaUserCreationForm(forms.ModelForm):
 
     def save(self, commit=True):
         user = super().save(commit=False)
-        temp_password = secrets.token_urlsafe(10)
+        temp_password = '12345678'
         user.set_password(temp_password)
         user._generated_password = temp_password  # lido pela view para exibir uma única vez
         user.email = self.cleaned_data.get('email', '')

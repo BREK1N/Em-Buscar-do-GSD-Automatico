@@ -236,15 +236,14 @@ class UserDeleteView(StaffRequiredMixin, DeleteView):
 @staff_member_required
 @require_POST
 def reset_user_password(request, pk):
-    import secrets
     user_to_reset = get_object_or_404(User, pk=pk)
     try:
-        temp_password = secrets.token_urlsafe(10)
+        temp_password = '12345678'
         user_to_reset.set_password(temp_password)
         user_to_reset.save()
         return JsonResponse({
             'status': 'success',
-            'message': f"Senha do utilizador '{user_to_reset.username}' redefinida.",
+            'message': f"Senha do utilizador '{user_to_reset.username}' redefinida para 12345678.",
             'nova_senha': temp_password,
         })
     except Exception as e:
@@ -390,7 +389,8 @@ class ConfiguracaoUpdateView(StaffRequiredMixin, UpdateView):
 @staff_member_required
 def configuracao_comandantes(request):
     config = ConfiguracaoComandantes.get_instance()
-    oficiais = Efetivo.objects.filter(oficial=True, deleted=False).order_by('posto', 'nome_guerra')
+    config_ouvidoria = Configuracao.load()
+    oficiais = Efetivo.objects.filter(oficial=True).order_by('posto', 'nome_guerra')
     if request.method == 'POST':
         def _get(field):
             pk = request.POST.get(field)
@@ -400,11 +400,14 @@ def configuracao_comandantes(request):
         config.chefe_sop = _get('chefe_sop')
         config.comandante_esi = _get('comandante_esi')
         config.save()
+        config_ouvidoria.oficial_chefe_ouvidoria = _get('oficial_chefe_ouvidoria')
+        config_ouvidoria.save()
         from django.contrib import messages
         messages.success(request, 'Comandantes salvos com sucesso.')
         return redirect('informatica:configuracao_comandantes')
     return render(request, 'informatica/configuracao_comandantes.html', {
         'config': config,
+        'config_ouvidoria': config_ouvidoria,
         'oficiais': oficiais,
     })
 
