@@ -65,18 +65,22 @@ INSTALLED_APPS = [
 # ── Django Channels ───────────────────────────────────────────────────────────
 ASGI_APPLICATION = 'GsdAutomatico.asgi.application'
 
+# Usa `or` em vez de default no getenv para ignorar variáveis definidas como string vazia
+_REDIS_URL  = os.getenv('REDIS_URL')  or 'redis://127.0.0.1:6379/1'
+_BROKER_URL = os.getenv('CELERY_BROKER_URL') or 'redis://127.0.0.1:6379/0'
+
 CHANNEL_LAYERS = {
     "default": {
         "BACKEND": "channels_redis.core.RedisChannelLayer",
         "CONFIG": {
-            "hosts": [os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')],
+            "hosts": [_REDIS_URL],
         },
     }
 }
 
 # ── Celery ────────────────────────────────────────────────────────────────────
-CELERY_BROKER_URL = os.getenv('CELERY_BROKER_URL', 'redis://redis:6379/0')
-CELERY_RESULT_BACKEND = os.getenv('REDIS_URL', 'redis://redis:6379/1')
+CELERY_BROKER_URL = _BROKER_URL
+CELERY_RESULT_BACKEND = _REDIS_URL
 CELERY_ACCEPT_CONTENT = ['json']
 CELERY_TASK_SERIALIZER = 'json'
 CELERY_RESULT_SERIALIZER = 'json'
@@ -84,6 +88,7 @@ CELERY_TIMEZONE = 'America/Sao_Paulo'
 CELERY_TASK_TRACK_STARTED = True
 CELERY_TASK_TIME_LIMIT = 300        # 5 min — mata workers travados
 CELERY_TASK_SOFT_TIME_LIMIT = 270   # aviso 30s antes
+CELERY_BROKER_CONNECTION_RETRY_ON_STARTUP = True
 
 CELERY_BEAT_SCHEDULE = {
     'fetch-docker-logs': {
@@ -96,7 +101,7 @@ CELERY_BEAT_SCHEDULE = {
 CACHES = {
     'default': {
         'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': os.getenv('REDIS_URL', 'redis://redis:6379/1'),
+        'LOCATION': _REDIS_URL,
         'OPTIONS': {
             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
         },
