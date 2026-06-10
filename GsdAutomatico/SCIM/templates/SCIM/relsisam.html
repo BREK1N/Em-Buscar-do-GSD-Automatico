@@ -1,0 +1,94 @@
+{% extends "SCIM/base_scim.html" %}
+
+{% block title %}SCIM — Relsisam{% endblock %}
+{% block header_title %}Relsisam{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+    <div>
+        <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;">Relsisam</h1>
+        <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:0.25rem;">Disponibilidade diária por capacidade — <strong>{{ hoje|date:"d/m/Y" }}</strong></p>
+    </div>
+    <button onclick="location.reload()" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.5rem 1rem;border:1px solid var(--border-strong);border-radius:8px;background:none;color:var(--text-secondary);font-size:0.8rem;font-weight:600;cursor:pointer;">
+        <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+        Atualizar
+    </button>
+</div>
+
+<!-- Totais do dia -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));gap:1rem;margin-bottom:2rem;">
+    <div style="background:var(--bg-card);border-radius:12px;padding:1.1rem 1.25rem;box-shadow:var(--shadow-card);border:1px solid var(--border);">
+        <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.4rem;">Missões Hoje</div>
+        <div style="font-size:1.8rem;font-weight:700;font-family:'Rajdhani',sans-serif;color:var(--text-primary);">{{ missoes_hoje }}</div>
+    </div>
+    <div style="background:var(--bg-card);border-radius:12px;padding:1.1rem 1.25rem;box-shadow:var(--shadow-card);border:1px solid var(--border);">
+        <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.4rem;">Militares em Missão</div>
+        <div style="font-size:1.8rem;font-weight:700;font-family:'Rajdhani',sans-serif;color:var(--warning);">{{ total_em_missao }}</div>
+    </div>
+</div>
+
+{% if dados %}
+<!-- Cards por capacidade -->
+<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.25rem;">
+    {% for d in dados %}
+    <div style="background:var(--bg-card);border-radius:12px;box-shadow:var(--shadow-card);border:1px solid var(--border);overflow:hidden;">
+        <!-- Header do card -->
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;color:var(--text-primary);">{{ d.tipo.nome }}</span>
+            <span style="font-size:0.75rem;color:var(--text-muted);">{{ d.total }} no total</span>
+        </div>
+
+        <!-- Métricas -->
+        <div style="padding:1rem 1.25rem;display:flex;gap:1rem;">
+            <!-- Disponíveis -->
+            <div style="flex:1;text-align:center;padding:0.75rem;border-radius:10px;background:{% if d.disponiveis > 0 %}var(--success-dim){% else %}var(--danger-dim){% endif %};">
+                <div style="font-size:2rem;font-weight:700;font-family:'Rajdhani',sans-serif;color:{% if d.disponiveis > 0 %}var(--success){% else %}var(--danger){% endif %};">{{ d.disponiveis }}</div>
+                <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:{% if d.disponiveis > 0 %}var(--success){% else %}var(--danger){% endif %};margin-top:2px;">Disponíveis</div>
+            </div>
+            <!-- Em missão -->
+            <div style="flex:1;text-align:center;padding:0.75rem;border-radius:10px;background:rgba(245,158,11,0.1);">
+                <div style="font-size:2rem;font-weight:700;font-family:'Rajdhani',sans-serif;color:var(--warning);">{{ d.em_missao }}</div>
+                <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--warning);margin-top:2px;">Em Missão</div>
+            </div>
+        </div>
+
+        <!-- Barra de progresso -->
+        {% if d.total > 0 %}
+        <div style="padding:0 1.25rem 1rem;">
+            <div style="height:6px;background:var(--border);border-radius:3px;overflow:hidden;">
+                <div style="height:100%;width:{% widthratio d.disponiveis d.total 100 %}%;background:{% if d.disponiveis > 0 %}var(--success){% else %}var(--danger){% endif %};border-radius:3px;transition:width 0.3s;"></div>
+            </div>
+            <div style="display:flex;justify-content:space-between;margin-top:4px;font-size:0.7rem;color:var(--text-muted);">
+                <span>{% widthratio d.disponiveis d.total 100 %}% disponível</span>
+                <span>{{ d.total }} total</span>
+            </div>
+        </div>
+        {% endif %}
+
+        <!-- Lista de militares em missão -->
+        {% if d.em_missao_lista %}
+        <div style="border-top:1px solid var(--border);padding:0.75rem 1.25rem;">
+            <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.5rem;">Em missão hoje</div>
+            <div style="display:flex;flex-wrap:wrap;gap:0.35rem;">
+                {% for mil in d.em_missao_lista %}
+                <span style="background:rgba(245,158,11,0.12);color:var(--warning);padding:2px 8px;border-radius:20px;font-size:0.75rem;font-weight:500;">{{ mil.posto }} {{ mil.nome_guerra }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+    </div>
+    {% endfor %}
+</div>
+{% else %}
+<div style="background:var(--bg-card);border-radius:12px;padding:3rem;text-align:center;box-shadow:var(--shadow-card);border:1px solid var(--border);">
+    <svg width="40" height="40" fill="none" stroke="var(--text-muted)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 1rem;display:block;"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+    <p style="color:var(--text-muted);font-size:0.9rem;">Nenhum tipo de curso ativo cadastrado.</p>
+    <a href="{% url 'SCIM:tipo_create' %}" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.55rem 1.1rem;background:var(--accent);color:#fff;border-radius:8px;font-size:0.875rem;font-weight:600;text-decoration:none;margin-top:1rem;">Cadastrar tipo de curso</a>
+</div>
+{% endif %}
+
+<!-- Auto-refresh a cada 60s -->
+<script>
+setTimeout(() => location.reload(), 60000);
+</script>
+{% endblock %}

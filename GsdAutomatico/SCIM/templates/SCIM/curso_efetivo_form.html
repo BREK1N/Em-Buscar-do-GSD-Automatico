@@ -1,0 +1,137 @@
+{% extends "SCIM/base_scim.html" %}
+
+{% block title %}SCIM — {{ titulo }}{% endblock %}
+{% block header_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div style="max-width:720px;">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
+        <a href="{% url 'SCIM:curso_list' %}" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);color:var(--text-secondary);text-decoration:none;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;">{{ titulo }}</h1>
+    </div>
+
+    <div style="background:var(--bg-card);border-radius:12px;padding:1.75rem;box-shadow:var(--shadow-card);border:1px solid var(--border);">
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.25rem;">
+
+                <!-- Campo Militar com busca -->
+                <div style="grid-column:1/-1;position:relative;">
+                    <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:0.4rem;">Militar *</label>
+                    <input type="text" id="militar_search" autocomplete="off" placeholder="Digite o nome ou posto..." class="form-control"
+                        style="font-size:0.875rem;"
+                        value="{{ form.efetivo.value|default:'' }}">
+                    <div id="militar_dropdown" style="display:none;position:absolute;top:100%;left:0;right:0;z-index:200;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,0.2);max-height:220px;overflow-y:auto;margin-top:4px;"></div>
+                    {{ form.efetivo.as_hidden }}
+                    {% if form.efetivo.errors %}<div style="color:var(--danger);font-size:0.75rem;margin-top:0.25rem;">{{ form.efetivo.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div style="grid-column:1/-1;">
+                    <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:0.4rem;">Tipo de Curso *</label>
+                    {{ form.tipo_curso }}
+                    {% if form.tipo_curso.errors %}<div style="color:var(--danger);font-size:0.75rem;margin-top:0.25rem;">{{ form.tipo_curso.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div>
+                    <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:0.4rem;">Data de Realização *</label>
+                    {{ form.data_realizacao }}
+                    {% if form.data_realizacao.errors %}<div style="color:var(--danger);font-size:0.75rem;margin-top:0.25rem;">{{ form.data_realizacao.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div>
+                    <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:0.4rem;">Instituição / Local</label>
+                    {{ form.instituicao }}
+                    {% if form.instituicao.errors %}<div style="color:var(--danger);font-size:0.75rem;margin-top:0.25rem;">{{ form.instituicao.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div style="grid-column:1/-1;">
+                    <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:0.4rem;">Certificado (PDF ou imagem)</label>
+                    {{ form.certificado }}
+                    {% if object.certificado %}
+                    <div style="margin-top:0.5rem;font-size:0.8rem;color:var(--text-muted);">
+                        Atual: <a href="{{ object.certificado.url }}" target="_blank" style="color:var(--accent);">{{ object.certificado.name }}</a>
+                    </div>
+                    {% endif %}
+                    {% if form.certificado.errors %}<div style="color:var(--danger);font-size:0.75rem;margin-top:0.25rem;">{{ form.certificado.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div style="grid-column:1/-1;">
+                    <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:0.4rem;">Observações</label>
+                    {{ form.observacoes }}
+                    {% if form.observacoes.errors %}<div style="color:var(--danger);font-size:0.75rem;margin-top:0.25rem;">{{ form.observacoes.errors.0 }}</div>{% endif %}
+                </div>
+            </div>
+
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;padding-top:1rem;border-top:1px solid var(--border);">
+                <a href="{% url 'SCIM:curso_list' %}" style="padding:0.6rem 1.25rem;background:var(--badge-bg);color:var(--text-secondary);border-radius:8px;font-size:0.875rem;font-weight:600;text-decoration:none;">Cancelar</a>
+                <button type="submit" style="padding:0.6rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:0.875rem;font-weight:600;cursor:pointer;">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const searchInput = document.getElementById('militar_search');
+    const dropdown = document.getElementById('militar_dropdown');
+    const hiddenInput = document.getElementById('id_efetivo');
+    let debounce = null;
+
+    // Se já tiver valor selecionado (modo edição), mostra o texto
+    {% if object and object.efetivo_id %}
+    searchInput.value = "{{ object.efetivo.posto }} {{ object.efetivo.nome_guerra }}";
+    {% endif %}
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(debounce);
+        const q = this.value.trim();
+        if (q.length < 2) { dropdown.style.display = 'none'; return; }
+        debounce = setTimeout(() => fetchEfetivos(q), 250);
+    });
+
+    async function fetchEfetivos(q) {
+        try {
+            const resp = await fetch(`{% url 'SCIM:api_efetivos' %}?q=${encodeURIComponent(q)}`);
+            const data = await resp.json();
+            renderDropdown(data);
+        } catch(e) {}
+    }
+
+    function renderDropdown(items) {
+        if (!items.length) { dropdown.style.display = 'none'; return; }
+        dropdown.innerHTML = items.map(e =>
+            `<div class="efetivo-item" data-id="${e.id}" data-label="${e.posto} ${e.nome_guerra}"
+                style="padding:0.6rem 1rem;cursor:pointer;font-size:0.875rem;color:var(--text-primary);border-bottom:1px solid var(--divider);">
+                <span style="font-weight:600;">${e.posto} ${e.nome_guerra}</span>
+                <span style="color:var(--text-muted);font-size:0.78rem;margin-left:0.5rem;">${e.nome_completo}</span>
+            </div>`
+        ).join('');
+        dropdown.style.display = 'block';
+
+        dropdown.querySelectorAll('.efetivo-item').forEach(item => {
+            item.addEventListener('mouseenter', () => item.style.background = 'var(--bg-page)');
+            item.addEventListener('mouseleave', () => item.style.background = '');
+            item.addEventListener('click', () => {
+                hiddenInput.value = item.dataset.id;
+                searchInput.value = item.dataset.label;
+                dropdown.style.display = 'none';
+            });
+        });
+    }
+
+    document.addEventListener('click', e => {
+        if (!searchInput.contains(e.target) && !dropdown.contains(e.target))
+            dropdown.style.display = 'none';
+    });
+
+    searchInput.addEventListener('keydown', e => {
+        if (e.key === 'Escape') dropdown.style.display = 'none';
+    });
+})();
+</script>
+{% endblock %}

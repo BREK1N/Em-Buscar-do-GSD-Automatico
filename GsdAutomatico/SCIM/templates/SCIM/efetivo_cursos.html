@@ -1,0 +1,99 @@
+{% extends "SCIM/base_scim.html" %}
+
+{% block title %}SCIM — Cursos de {{ efetivo.posto }} {{ efetivo.nome_guerra }}{% endblock %}
+{% block header_title %}Cursos do Militar{% endblock %}
+
+{% block content %}
+<!-- Header do militar -->
+<div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
+    <a href="{% url 'SCIM:efetivo_list' %}" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);color:var(--text-secondary);text-decoration:none;flex-shrink:0;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+    </a>
+    <div>
+        <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;line-height:1.1;">{{ efetivo.posto }} {{ efetivo.nome_guerra }}</h1>
+        <p style="color:var(--text-muted);font-size:0.8rem;margin-top:2px;">{{ efetivo.nome_completo }}{% if efetivo.setor %} · {{ efetivo.setor }}{% endif %}</p>
+    </div>
+</div>
+
+<!-- Card info militar -->
+<div style="background:var(--bg-card);border-radius:12px;padding:1.25rem 1.5rem;box-shadow:var(--shadow-card);border:1px solid var(--border);margin-bottom:1.5rem;display:flex;align-items:center;gap:2rem;flex-wrap:wrap;">
+    <div>
+        <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Posto / Grad</div>
+        <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);margin-top:2px;">{{ efetivo.posto }}</div>
+    </div>
+    <div>
+        <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Situação</div>
+        <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);margin-top:2px;">{{ efetivo.situacao|default:"—" }}</div>
+    </div>
+    <div>
+        <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Especialização</div>
+        <div style="font-size:0.95rem;font-weight:600;color:var(--text-primary);margin-top:2px;">{{ efetivo.especializacao|default:"—" }}</div>
+    </div>
+    <div>
+        <div style="font-size:0.7rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);">Total de Cursos</div>
+        <div style="font-size:0.95rem;font-weight:700;color:var(--accent);margin-top:2px;">{{ cursos|length }}</div>
+    </div>
+    <div style="margin-left:auto;">
+        <a href="{% url 'SCIM:curso_create' %}?efetivo={{ efetivo.pk }}" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.55rem 1.1rem;background:var(--accent);color:#fff;border-radius:8px;font-size:0.875rem;font-weight:600;text-decoration:none;">
+            <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+            Adicionar Curso
+        </a>
+    </div>
+</div>
+
+<!-- Cursos -->
+{% if cursos %}
+<div style="background:var(--bg-card);border-radius:12px;box-shadow:var(--shadow-card);border:1px solid var(--border);overflow:hidden;">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr style="background:var(--bg-page);">
+                <th style="padding:0.875rem 1.25rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Curso</th>
+                <th style="padding:0.875rem 1rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Realização</th>
+                <th style="padding:0.875rem 1rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Instituição</th>
+                <th style="padding:0.875rem 1rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Observações</th>
+                <th style="padding:0.875rem 1rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Cert.</th>
+                <th style="padding:0.875rem 1rem;border-bottom:1px solid var(--border);"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for curso in cursos %}
+            <tr>
+                <td style="padding:0.875rem 1.25rem;vertical-align:middle;">
+                    <span style="background:var(--accent-dim);color:var(--accent);padding:3px 10px;border-radius:20px;font-size:0.8rem;font-weight:600;">{{ curso.tipo_curso.nome }}</span>
+                </td>
+                <td style="padding:0.875rem 1rem;font-size:0.875rem;color:var(--text-secondary);vertical-align:middle;">{{ curso.data_realizacao|date:"d/m/Y" }}</td>
+                <td style="padding:0.875rem 1rem;font-size:0.875rem;color:var(--text-secondary);vertical-align:middle;">{{ curso.instituicao|default:"—" }}</td>
+                <td style="padding:0.875rem 1rem;font-size:0.875rem;color:var(--text-secondary);vertical-align:middle;">{{ curso.observacoes|truncatechars:50|default:"—" }}</td>
+                <td style="padding:0.875rem 1rem;vertical-align:middle;">
+                    {% if curso.certificado %}
+                    <a href="{{ curso.certificado.url }}" target="_blank" style="color:var(--accent);" title="Ver certificado">
+                        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+                    </a>
+                    {% else %}—{% endif %}
+                </td>
+                <td style="padding:0.875rem 1rem;vertical-align:middle;">
+                    <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+                        <a href="{% url 'SCIM:curso_update' curso.pk %}" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:6px;border:1px solid var(--border-strong);color:var(--text-secondary);text-decoration:none;">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+                        </a>
+                        <a href="{% url 'SCIM:curso_delete' curso.pk %}" style="display:flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:6px;border:1px solid var(--border-strong);color:var(--danger);text-decoration:none;">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/></svg>
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% else %}
+<div style="background:var(--bg-card);border-radius:12px;padding:3rem;text-align:center;box-shadow:var(--shadow-card);border:1px solid var(--border);">
+    <svg width="40" height="40" fill="none" stroke="var(--text-muted)" stroke-width="1.5" viewBox="0 0 24 24" style="margin:0 auto 1rem;display:block;"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+    <p style="color:var(--text-muted);font-size:0.9rem;margin-bottom:1rem;">Este militar ainda não possui cursos registrados.</p>
+    <a href="{% url 'SCIM:curso_create' %}?efetivo={{ efetivo.pk }}" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.55rem 1.1rem;background:var(--accent);color:#fff;border-radius:8px;font-size:0.875rem;font-weight:600;text-decoration:none;">
+        <svg width="15" height="15" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Adicionar primeiro curso
+    </a>
+</div>
+{% endif %}
+{% endblock %}

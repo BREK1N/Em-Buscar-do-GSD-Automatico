@@ -1,0 +1,45 @@
+{% extends "SCIM/base_scim.html" %}
+
+{% block title %}SCIM — {{ titulo }}{% endblock %}
+{% block header_title %}{{ titulo }}{% endblock %}
+
+{% block content %}
+<div style="max-width:560px;">
+    <div style="display:flex;align-items:center;gap:0.75rem;margin-bottom:1.5rem;">
+        <a href="{% url 'SCIM:tipo_list' %}" style="display:flex;align-items:center;justify-content:center;width:32px;height:32px;border-radius:8px;border:1px solid var(--border-strong);color:var(--text-secondary);text-decoration:none;">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg>
+        </a>
+        <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;">{{ titulo }}</h1>
+    </div>
+
+    <div style="background:var(--bg-card);border-radius:12px;padding:1.75rem;box-shadow:var(--shadow-card);border:1px solid var(--border);">
+        <form method="post">
+            {% csrf_token %}
+
+            <div style="display:flex;flex-direction:column;gap:1.25rem;margin-bottom:1.5rem;">
+                <div>
+                    <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:0.4rem;">Nome *</label>
+                    {{ form.nome }}
+                    {% if form.nome.errors %}<div style="color:var(--danger);font-size:0.75rem;margin-top:0.25rem;">{{ form.nome.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div>
+                    <label style="font-size:0.8rem;font-weight:600;color:var(--text-secondary);display:block;margin-bottom:0.4rem;">Descrição</label>
+                    {{ form.descricao }}
+                    {% if form.descricao.errors %}<div style="color:var(--danger);font-size:0.75rem;margin-top:0.25rem;">{{ form.descricao.errors.0 }}</div>{% endif %}
+                </div>
+
+                <div style="display:flex;align-items:center;gap:0.65rem;">
+                    {{ form.ativo }}
+                    <label style="font-size:0.875rem;font-weight:500;color:var(--text-primary);cursor:pointer;">Ativo</label>
+                </div>
+            </div>
+
+            <div style="display:flex;gap:0.75rem;justify-content:flex-end;padding-top:1rem;border-top:1px solid var(--border);">
+                <a href="{% url 'SCIM:tipo_list' %}" style="padding:0.6rem 1.25rem;background:var(--badge-bg);color:var(--text-secondary);border-radius:8px;font-size:0.875rem;font-weight:600;text-decoration:none;">Cancelar</a>
+                <button type="submit" style="padding:0.6rem 1.5rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:0.875rem;font-weight:600;cursor:pointer;">Salvar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

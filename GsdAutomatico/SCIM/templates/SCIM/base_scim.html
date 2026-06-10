@@ -1,0 +1,451 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}SCIM{% endblock %}</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        :root {
+            --accent:          #16a34a;
+            --accent-glow:     rgba(22,163,74,0.25);
+            --accent-dim:      rgba(22,163,74,0.12);
+            --danger:          #ef4444;
+            --danger-dim:      rgba(239,68,68,0.12);
+            --success:         #22c55e;
+            --success-dim:     rgba(34,197,94,0.12);
+            --warning:         #f59e0b;
+
+            --bg-page:         #f0f4f8;
+            --bg-card:         #ffffff;
+            --bg-card-header:  #1e293b;
+            --bg-sidebar:      #0f172a;
+            --bg-sidebar-item: rgba(255,255,255,0.05);
+            --bg-input:        #ffffff;
+            --border:          rgba(0,0,0,0.07);
+            --border-strong:   rgba(0,0,0,0.13);
+            --text-primary:    #0f172a;
+            --text-secondary:  #64748b;
+            --text-muted:      #94a3b8;
+            --badge-bg:        #e2e8f0;
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --divider:         rgba(0,0,0,0.06);
+            --bg-content:      var(--bg-card);
+            --bg-main:         var(--bg-page);
+            --bg-primary:      var(--bg-card);
+            --bg-secondary:    var(--bg-page);
+            --border-color:    var(--border-strong);
+            --accent-color:    var(--accent);
+            --success-color:   var(--success);
+            --danger-color:    var(--danger);
+            --text-inverse:    #ffffff;
+            --box-shadow:      var(--shadow-card);
+            --sidebar-w: 240px;
+            --header-h:  56px;
+        }
+
+        body.dark-theme {
+            --bg-page:         #0d1117;
+            --bg-card:         #161b22;
+            --bg-card-header:  #0d1117;
+            --bg-sidebar:      #010409;
+            --bg-sidebar-item: rgba(255,255,255,0.06);
+            --bg-input:        #0d1117;
+            --border:          rgba(255,255,255,0.06);
+            --border-strong:   rgba(255,255,255,0.11);
+            --text-primary:    #e6edf3;
+            --text-secondary:  #8b949e;
+            --text-muted:      #6e7681;
+            --badge-bg:        rgba(255,255,255,0.08);
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+            --divider:         rgba(255,255,255,0.06);
+            --bg-content:      var(--bg-card);
+            --bg-main:         var(--bg-page);
+            --bg-primary:      var(--bg-card);
+            --bg-secondary:    var(--bg-page);
+            --border-color:    var(--border-strong);
+            --accent-color:    var(--accent);
+            --box-shadow:      var(--shadow-card);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+            overflow-x: hidden;
+        }
+
+        .sidebar {
+            position: fixed; top: 0; left: 0;
+            width: var(--sidebar-w); height: 100vh;
+            background: var(--bg-sidebar);
+            display: flex; flex-direction: column;
+            z-index: 1100;
+            transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+            border-right: 1px solid rgba(255,255,255,0.04);
+        }
+        .sidebar-brand {
+            display: flex; align-items: center; gap: 0.65rem;
+            padding: 1.1rem 1.25rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            flex-shrink: 0;
+        }
+        .sidebar-brand-icon {
+            width: 32px; height: 32px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+        .sidebar-brand-name {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.05rem; font-weight: 700;
+            color: #e6edf3; letter-spacing: 0.06em;
+            text-transform: uppercase; line-height: 1;
+        }
+        .sidebar-nav {
+            flex: 1; overflow-y: auto;
+            padding: 0.5rem 0.65rem 1rem;
+            scrollbar-width: none;
+        }
+        .sidebar-nav::-webkit-scrollbar { display: none; }
+        .sidebar-nav ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+        .sidebar-nav a {
+            display: flex; align-items: center; gap: 0.65rem;
+            padding: 0.55rem 0.85rem; border-radius: 8px;
+            color: #8b949e; text-decoration: none;
+            font-size: 0.875rem; font-weight: 500;
+            transition: all 0.16s; position: relative;
+        }
+        .sidebar-nav a:hover { background: var(--bg-sidebar-item); color: #e6edf3; }
+        .sidebar-nav a.active { background: rgba(22,163,74,0.18); color: #86efac; }
+        .sidebar-nav a.active::before {
+            content: ''; position: absolute; left: 0; top: 20%; bottom: 20%;
+            width: 3px; background: var(--accent); border-radius: 0 3px 3px 0;
+        }
+        .sidebar-footer {
+            padding: 0.75rem 0.65rem;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            flex-shrink: 0;
+        }
+        .sidebar-footer a {
+            display: flex; align-items: center; gap: 0.65rem;
+            padding: 0.55rem 0.85rem; border-radius: 8px;
+            color: #6e7681; text-decoration: none;
+            font-size: 0.875rem; font-weight: 500;
+            transition: all 0.16s;
+        }
+        .sidebar-footer a:hover { background: var(--bg-sidebar-item); color: #e6edf3; }
+        .sidebar-footer a.logout-link:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+
+        .main-header {
+            position: fixed; top: 0; left: var(--sidebar-w); right: 0;
+            height: var(--header-h);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-strong);
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 0 1.5rem; z-index: 900;
+            transition: background 0.3s, border-color 0.3s, left 0.28s;
+        }
+        .header-left { display: flex; align-items: center; gap: 0.75rem; }
+        .mobile-nav-toggle {
+            display: none; background: none; border: none;
+            color: var(--text-secondary); cursor: pointer;
+            padding: 0.35rem; border-radius: 6px; transition: background 0.15s;
+        }
+        .mobile-nav-toggle:hover { background: var(--badge-bg); }
+        .header-right { display: flex; align-items: center; gap: 0.5rem; }
+        .header-btn {
+            display: flex; align-items: center; justify-content: center;
+            width: 34px; height: 34px; background: none;
+            border: 1px solid var(--border-strong); border-radius: 8px;
+            color: var(--text-secondary); cursor: pointer; text-decoration: none;
+            transition: all 0.16s; flex-shrink: 0; position: relative;
+        }
+        .header-btn:hover { background: var(--badge-bg); color: var(--text-primary); }
+        .user-chip {
+            display: flex; align-items: center; gap: 0.5rem;
+            padding: 0.3rem 0.75rem 0.3rem 0.4rem;
+            background: var(--badge-bg); border-radius: 20px;
+            font-size: 0.8rem; font-weight: 600; color: var(--text-secondary);
+        }
+        .user-avatar {
+            width: 24px; height: 24px;
+            background: var(--accent); border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff; font-size: 11px; font-weight: 700;
+            font-family: 'Rajdhani', sans-serif; flex-shrink: 0; overflow: hidden;
+        }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+        .header-eyebrow { font-size: 0.65rem; font-weight: 600; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.08em; }
+        .header-h1 { font-family: 'Rajdhani', sans-serif; font-size: 1.05rem; font-weight: 700; color: var(--text-primary); line-height: 1.1; }
+
+        .main-wrapper { margin-left: var(--sidebar-w); padding-top: var(--header-h); min-height: 100vh; transition: margin-left 0.28s; }
+        .main-container { padding: 2rem 1.75rem 4rem; }
+
+        .alert { border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.875rem; font-weight: 500; border: 1px solid transparent; }
+        .alert-success  { background: var(--success-dim); color: var(--success);  border-color: rgba(34,197,94,0.25); }
+        .alert-error,
+        .alert-danger   { background: var(--danger-dim);  color: var(--danger);   border-color: rgba(239,68,68,0.25); }
+        .alert-warning  { background: rgba(245,158,11,.1); color: var(--warning); border-color: rgba(245,158,11,.25); }
+        .alert-info     { background: var(--accent-dim);  color: var(--accent);   border-color: rgba(22,163,74,0.25); }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.active { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.4); }
+            .main-wrapper { margin-left: 0; }
+            .main-header { left: 0; }
+            .mobile-nav-toggle { display: flex; }
+            .main-container { padding: 1.25rem 1rem 3rem; }
+            .user-chip span { display: none; }
+        }
+
+        body.dark-theme .form-control,
+        body.dark-theme .form-select,
+        body.dark-theme input[type="text"],
+        body.dark-theme input[type="date"],
+        body.dark-theme textarea,
+        body.dark-theme select {
+            background-color: var(--bg-input) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-strong) !important;
+        }
+        body.dark-theme .card,
+        body.dark-theme .modal-content {
+            background-color: var(--bg-card);
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+        body.dark-theme .table td, body.dark-theme .table th {
+            color: var(--text-primary);
+            border-color: var(--border-strong);
+        }
+        body.dark-theme .table > :not(caption) > * > * {
+            background-color: transparent;
+            color: var(--text-primary);
+        }
+        body.dark-theme h1, body.dark-theme h2, body.dark-theme h3,
+        body.dark-theme h4, body.dark-theme h5, body.dark-theme h6,
+        body.dark-theme strong, body.dark-theme b, body.dark-theme label,
+        body.dark-theme p, body.dark-theme td, body.dark-theme th {
+            color: var(--text-primary);
+        }
+        body.dark-theme .bg-light, body.dark-theme .bg-white {
+            background-color: var(--bg-card) !important;
+            color: var(--text-primary) !important;
+        }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+<script>
+    (function() {
+        var t = localStorage.getItem('theme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
+        document.body.classList.add(t);
+    })();
+</script>
+
+<!-- Sidebar -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="#fff" viewBox="0 0 16 16">
+                <path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z" transform="scale(0.5) translate(4,2)"/>
+                <path d="M1 2.5A1.5 1.5 0 0 1 2.5 1h11A1.5 1.5 0 0 1 15 2.5v11a1.5 1.5 0 0 1-1.5 1.5H2.5A1.5 1.5 0 0 1 1 13.5v-11zM2.5 2a.5.5 0 0 0-.5.5v11a.5.5 0 0 0 .5.5h11a.5.5 0 0 0 .5-.5v-11a.5.5 0 0 0-.5-.5h-11z"/>
+                <path d="M4 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h7a.5.5 0 0 1 0 1h-7a.5.5 0 0 1-.5-.5zm0 3a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
+            </svg>
+        </div>
+        <span class="sidebar-brand-name">SCIM</span>
+    </div>
+
+    <nav class="sidebar-nav">
+        <ul>
+            <li>
+                <a href="{% url 'SCIM:index' %}" class="{% if request.resolver_match.url_name == 'index' %}active{% endif %}">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="7" height="7" rx="1"/><rect x="14" y="3" width="7" height="7" rx="1"/>
+                        <rect x="14" y="14" width="7" height="7" rx="1"/><rect x="3" y="14" width="7" height="7" rx="1"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'SCIM:relsisam' %}" class="{% if request.resolver_match.url_name == 'relsisam' %}active{% endif %}"
+                   style="{% if request.resolver_match.url_name == 'relsisam' %}background:rgba(22,163,74,0.18);color:#86efac;{% endif %}">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/>
+                    </svg>
+                    <span>Relsisam</span>
+                </a>
+            </li>
+            <li style="padding: 8px 10px 2px;">
+                <span style="font-size:0.65rem;font-weight:700;text-transform:uppercase;letter-spacing:0.1em;color:#4b5563;">Cadastros</span>
+            </li>
+            <li>
+                <a href="{% url 'SCIM:efetivo_list' %}" class="{% if 'efetivo' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                        <circle cx="9" cy="7" r="4"/>
+                        <path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+                    </svg>
+                    <span>Cursos do Efetivo</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'SCIM:tipo_list' %}" class="{% if 'tipo' in request.resolver_match.url_name %}active{% endif %}">
+                    <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/>
+                        <line x1="8" y1="18" x2="21" y2="18"/><circle cx="3" cy="6" r="1"/>
+                        <circle cx="3" cy="12" r="1"/><circle cx="3" cy="18" r="1"/>
+                    </svg>
+                    <span>Tipos de Curso</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+        <a href="{% url 'login:go_home' %}">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M3 9l9-7 9 7v11a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2z"/>
+                <polyline points="9 22 9 12 15 12 15 22"/>
+            </svg>
+            <span>Início</span>
+        </a>
+        <a href="{% url 'login:logout' %}" class="logout-link">
+            <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/>
+                <polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/>
+            </svg>
+            <span>Sair</span>
+        </a>
+    </div>
+</aside>
+
+<!-- Main -->
+<div class="main-wrapper">
+    <header class="main-header">
+        <div class="header-left">
+            <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Menu">
+                <svg width="20" height="20" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+                </svg>
+            </button>
+            <div class="header-title-group">
+                <div class="header-eyebrow">SCIM</div>
+                <div class="header-h1">{% block header_title %}Cursos e Instrução Militar{% endblock %}</div>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <a href="{% url 'login:go_home' %}" class="header-btn" title="Página Inicial">
+                <svg width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5ZM13 7.207V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V7.207l5-5 5 5Z"/>
+                </svg>
+            </a>
+
+            {% include 'notificacoes/panel_include.html' %}
+
+            <button class="header-btn" id="theme-toggle" title="Alternar tema">
+                <svg id="theme-icon-sun" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>
+                </svg>
+                <svg id="theme-icon-moon" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="display:none;">
+                    <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+                </svg>
+            </button>
+
+            {% if user.is_authenticated %}
+            <div style="position:relative;" id="user-dropdown-wrap">
+                <div class="user-chip" id="user-chip-toggle" style="cursor:pointer;">
+                    <div class="user-avatar">
+                        {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" alt="">{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
+                    </div>
+                    <span>{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</span>
+                    <svg fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:11px;height:11px;opacity:0.6;margin-left:2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                </div>
+                <div id="user-dropdown-menu" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:200;overflow:hidden;">
+                    <div style="padding:10px 14px;border-bottom:1px solid var(--border-color);font-size:11.5px;color:var(--text-secondary);">{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</div>
+                    <a href="{% url 'home:profile_edit' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:var(--text-primary);text-decoration:none;" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                        Editar Perfil
+                    </a>
+                    <a href="{% url 'login:logout' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:#ef4444;text-decoration:none;" onmouseenter="this.style.background='rgba(239,68,68,0.08)'" onmouseleave="this.style.background='transparent'">
+                        <svg fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
+                        Sair
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="main-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|lower }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const body = document.body;
+
+    const userChip = document.getElementById('user-chip-toggle');
+    const userMenu = document.getElementById('user-dropdown-menu');
+    if (userChip && userMenu) {
+        userChip.addEventListener('click', e => { e.stopPropagation(); userMenu.style.display = userMenu.style.display === 'none' ? 'block' : 'none'; });
+        document.addEventListener('click', () => { userMenu.style.display = 'none'; });
+    }
+
+    const themeToggle = document.getElementById('theme-toggle');
+    const sunIcon = document.getElementById('theme-icon-sun');
+    const moonIcon = document.getElementById('theme-icon-moon');
+    function applyTheme(theme) {
+        body.className = theme;
+        localStorage.setItem('theme', theme);
+        if (sunIcon && moonIcon) {
+            sunIcon.style.display = theme === 'dark-theme' ? 'none' : 'block';
+            moonIcon.style.display = theme === 'dark-theme' ? 'block' : 'none';
+        }
+    }
+    const saved = localStorage.getItem('theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
+    applyTheme(saved);
+    if (themeToggle) {
+        themeToggle.addEventListener('click', () => { applyTheme(body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme'); });
+    }
+
+    const toggle = document.getElementById('mobile-nav-toggle');
+    const sidebar = document.getElementById('sidebar');
+    if (toggle && sidebar) {
+        toggle.addEventListener('click', e => { e.stopPropagation(); sidebar.classList.toggle('active'); });
+        document.addEventListener('click', e => {
+            if (sidebar.classList.contains('active') && !sidebar.contains(e.target) && !toggle.contains(e.target))
+                sidebar.classList.remove('active');
+        });
+    }
+});
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

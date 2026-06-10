@@ -1,0 +1,72 @@
+{% extends "SCIM/base_scim.html" %}
+
+{% block title %}SCIM — Dashboard{% endblock %}
+{% block header_title %}Dashboard{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+    <div>
+        <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;color:var(--text-primary);">Seção de Cursos e Instrução Militar</h1>
+        <p style="color:var(--text-secondary);font-size:0.875rem;margin-top:0.25rem;">Gestão de cursos e especializações do efetivo</p>
+    </div>
+    <a href="{% url 'SCIM:curso_create' %}" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.55rem 1.1rem;background:var(--accent);color:#fff;border-radius:8px;font-size:0.875rem;font-weight:600;text-decoration:none;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Adicionar Curso
+    </a>
+</div>
+
+<!-- Totais -->
+<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:1rem;margin-bottom:2rem;">
+    <div style="background:var(--bg-card);border-radius:12px;padding:1.25rem 1.5rem;box-shadow:var(--shadow-card);border:1px solid var(--border);">
+        <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.5rem;">Total de Registros</div>
+        <div style="font-size:2rem;font-weight:700;font-family:'Rajdhani',sans-serif;color:var(--text-primary);">{{ total_cursos }}</div>
+    </div>
+    <div style="background:var(--bg-card);border-radius:12px;padding:1.25rem 1.5rem;box-shadow:var(--shadow-card);border:1px solid var(--border);">
+        <div style="font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);margin-bottom:0.5rem;">Tipos de Curso Ativos</div>
+        <div style="font-size:2rem;font-weight:700;font-family:'Rajdhani',sans-serif;color:var(--accent);">{{ total_tipos }}</div>
+    </div>
+</div>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;flex-wrap:wrap;">
+
+    <!-- Cursos por tipo -->
+    <div style="background:var(--bg-card);border-radius:12px;box-shadow:var(--shadow-card);border:1px solid var(--border);overflow:hidden;">
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-weight:600;font-size:0.9rem;">Cursos por Tipo</span>
+            <a href="{% url 'SCIM:tipo_list' %}" style="font-size:0.8rem;color:var(--accent);text-decoration:none;">Gerenciar tipos</a>
+        </div>
+        <div style="padding:0.5rem 0;">
+            {% for tipo in cursos_por_tipo %}
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1.25rem;">
+                <span style="font-size:0.875rem;color:var(--text-primary);">{{ tipo.nome }}</span>
+                <span style="background:var(--accent-dim);color:var(--accent);font-size:0.75rem;font-weight:600;padding:2px 10px;border-radius:20px;">{{ tipo.total }}</span>
+            </div>
+            {% empty %}
+            <p style="padding:1rem 1.25rem;color:var(--text-muted);font-size:0.875rem;">Nenhum tipo cadastrado ainda.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+    <!-- Últimos cursos registrados -->
+    <div style="background:var(--bg-card);border-radius:12px;box-shadow:var(--shadow-card);border:1px solid var(--border);overflow:hidden;">
+        <div style="padding:1rem 1.25rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;">
+            <span style="font-weight:600;font-size:0.9rem;">Últimos Registros</span>
+            <a href="{% url 'SCIM:curso_list' %}" style="font-size:0.8rem;color:var(--accent);text-decoration:none;">Ver todos</a>
+        </div>
+        <div style="padding:0.5rem 0;">
+            {% for curso in ultimos_cursos %}
+            <div style="display:flex;align-items:center;justify-content:space-between;padding:0.6rem 1.25rem;border-bottom:1px solid var(--divider);">
+                <div>
+                    <div style="font-size:0.875rem;font-weight:500;color:var(--text-primary);">{{ curso.efetivo.posto }} {{ curso.efetivo.nome_guerra }}</div>
+                    <div style="font-size:0.75rem;color:var(--text-muted);">{{ curso.tipo_curso.nome }}</div>
+                </div>
+                <span style="font-size:0.75rem;color:var(--text-secondary);">{{ curso.data_realizacao|date:"d/m/Y" }}</span>
+            </div>
+            {% empty %}
+            <p style="padding:1rem 1.25rem;color:var(--text-muted);font-size:0.875rem;">Nenhum curso registrado ainda.</p>
+            {% endfor %}
+        </div>
+    </div>
+
+</div>
+{% endblock %}

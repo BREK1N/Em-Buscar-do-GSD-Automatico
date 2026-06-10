@@ -37,6 +37,7 @@ urlpatterns = [
     path('notificacoes/', include('notificacoes.urls', namespace='notificacoes')),
     path('chamada/', include('chamada.urls')),
     path('esi/', include('ESI.urls', namespace='ESI')),
+    path('scim/', include('SCIM.urls', namespace='SCIM')),
     path('comunicacoes/responder/<int:solicitacao_id>/<str:acao>/', secao_pessoal_views.responder_troca_setor, name='responder_troca_setor_global'),
     path('api/task/<str:task_id>/', core_views.task_status_view, name='task_status'),
 ]

@@ -1,0 +1,24 @@
+{% extends "SCIM/base_scim.html" %}
+
+{% block title %}SCIM — Confirmar Exclusão{% endblock %}
+{% block header_title %}Excluir Curso{% endblock %}
+
+{% block content %}
+<div style="max-width:480px;margin:0 auto;">
+    <div style="background:var(--bg-card);border-radius:12px;padding:1.75rem;box-shadow:var(--shadow-card);border:1px solid var(--border);text-align:center;">
+        <div style="width:56px;height:56px;background:var(--danger-dim);border-radius:50%;display:flex;align-items:center;justify-content:center;margin:0 auto 1rem;">
+            <svg width="24" height="24" fill="none" stroke="var(--danger)" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/><path d="M10 11v6"/><path d="M14 11v6"/><path d="M9 6V4a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2"/></svg>
+        </div>
+        <h2 style="font-family:'Rajdhani',sans-serif;font-size:1.3rem;font-weight:700;margin-bottom:0.5rem;">Excluir Curso</h2>
+        <p style="color:var(--text-secondary);font-size:0.875rem;margin-bottom:1.5rem;">
+            Tem certeza que deseja excluir o registro de <strong>{{ object.tipo_curso.nome }}</strong> do militar <strong>{{ object.efetivo }}</strong>?<br>
+            Esta ação não pode ser desfeita.
+        </p>
+        <form method="post" style="display:flex;gap:0.75rem;justify-content:center;">
+            {% csrf_token %}
+            <a href="{% url 'SCIM:curso_list' %}" style="padding:0.6rem 1.25rem;background:var(--badge-bg);color:var(--text-secondary);border-radius:8px;font-size:0.875rem;font-weight:600;text-decoration:none;">Cancelar</a>
+            <button type="submit" style="padding:0.6rem 1.25rem;background:var(--danger);color:#fff;border:none;border-radius:8px;font-size:0.875rem;font-weight:600;cursor:pointer;">Excluir</button>
+        </form>
+    </div>
+</div>
+{% endblock %}

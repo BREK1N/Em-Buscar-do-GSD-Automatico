@@ -1,0 +1,86 @@
+{% extends "SCIM/base_scim.html" %}
+
+{% block title %}SCIM — Efetivo{% endblock %}
+{% block header_title %}Cursos do Efetivo{% endblock %}
+
+{% block content %}
+<div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;">
+    <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;">Efetivo</h1>
+    <a href="{% url 'SCIM:curso_create' %}" style="display:inline-flex;align-items:center;gap:0.5rem;padding:0.55rem 1.1rem;background:var(--accent);color:#fff;border-radius:8px;font-size:0.875rem;font-weight:600;text-decoration:none;">
+        <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+        Adicionar Curso
+    </a>
+</div>
+
+<!-- Busca -->
+<form method="get" style="margin-bottom:1.25rem;">
+    <div style="display:flex;gap:0.75rem;">
+        <input type="text" name="q" value="{{ filtro_q }}" placeholder="Buscar por nome, nome de guerra ou posto..." class="form-control" style="font-size:0.875rem;max-width:420px;">
+        <button type="submit" style="padding:0.55rem 1.1rem;background:var(--accent);color:#fff;border:none;border-radius:8px;font-size:0.875rem;font-weight:600;cursor:pointer;">Buscar</button>
+        {% if filtro_q %}<a href="{% url 'SCIM:efetivo_list' %}" style="padding:0.55rem 1rem;background:var(--badge-bg);color:var(--text-secondary);border-radius:8px;font-size:0.875rem;font-weight:600;text-decoration:none;">Limpar</a>{% endif %}
+    </div>
+</form>
+
+<!-- Tabela -->
+<div style="background:var(--bg-card);border-radius:12px;box-shadow:var(--shadow-card);border:1px solid var(--border);overflow:hidden;">
+    <table class="table table-hover mb-0">
+        <thead>
+            <tr style="background:var(--bg-page);">
+                <th style="padding:0.875rem 1.25rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Posto</th>
+                <th style="padding:0.875rem 1rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Nome de Guerra</th>
+                <th style="padding:0.875rem 1rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Nome Completo</th>
+                <th style="padding:0.875rem 1rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Setor</th>
+                <th style="padding:0.875rem 1rem;font-size:0.75rem;font-weight:600;text-transform:uppercase;letter-spacing:0.06em;color:var(--text-muted);border-bottom:1px solid var(--border);">Cursos</th>
+                <th style="padding:0.875rem 1rem;border-bottom:1px solid var(--border);"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for ef in efetivos %}
+            <tr>
+                <td style="padding:0.875rem 1.25rem;font-size:0.875rem;vertical-align:middle;">
+                    <span style="font-weight:600;color:var(--text-primary);">{{ ef.posto }}</span>
+                </td>
+                <td style="padding:0.875rem 1rem;font-size:0.875rem;font-weight:500;color:var(--text-primary);vertical-align:middle;">{{ ef.nome_guerra }}</td>
+                <td style="padding:0.875rem 1rem;font-size:0.875rem;color:var(--text-secondary);vertical-align:middle;">{{ ef.nome_completo }}</td>
+                <td style="padding:0.875rem 1rem;font-size:0.875rem;color:var(--text-secondary);vertical-align:middle;">{{ ef.setor|default:"—" }}</td>
+                <td style="padding:0.875rem 1rem;vertical-align:middle;">
+                    {% if ef.total_cursos %}
+                        <span style="background:var(--accent-dim);color:var(--accent);padding:3px 10px;border-radius:20px;font-size:0.78rem;font-weight:600;">{{ ef.total_cursos }} curso{{ ef.total_cursos|pluralize }}</span>
+                    {% else %}
+                        <span style="color:var(--text-muted);font-size:0.8rem;">Nenhum</span>
+                    {% endif %}
+                </td>
+                <td style="padding:0.875rem 1rem;vertical-align:middle;">
+                    <div style="display:flex;gap:0.5rem;justify-content:flex-end;">
+                        <a href="{% url 'SCIM:efetivo_cursos' ef.pk %}" style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.4rem 0.85rem;border:1px solid var(--border-strong);border-radius:6px;font-size:0.8rem;font-weight:500;color:var(--text-secondary);text-decoration:none;" title="Ver cursos">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M2 3h6a4 4 0 0 1 4 4v14a3 3 0 0 0-3-3H2z"/><path d="M22 3h-6a4 4 0 0 0-4 4v14a3 3 0 0 1 3-3h7z"/></svg>
+                            Ver cursos
+                        </a>
+                        <a href="{% url 'SCIM:curso_create' %}?efetivo={{ ef.pk }}" style="display:inline-flex;align-items:center;gap:0.4rem;padding:0.4rem 0.85rem;background:var(--accent);border-radius:6px;font-size:0.8rem;font-weight:500;color:#fff;text-decoration:none;" title="Adicionar curso">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                            Curso
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="padding:2rem;text-align:center;color:var(--text-muted);font-size:0.875rem;">Nenhum militar encontrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+
+    {% if is_paginated %}
+    <div style="padding:1rem 1.25rem;border-top:1px solid var(--border);display:flex;justify-content:center;gap:0.5rem;">
+        {% if page_obj.has_previous %}
+        <a href="?page={{ page_obj.previous_page_number }}&q={{ filtro_q }}" style="padding:0.4rem 0.85rem;border:1px solid var(--border-strong);border-radius:6px;font-size:0.8rem;color:var(--text-secondary);text-decoration:none;">← Anterior</a>
+        {% endif %}
+        <span style="padding:0.4rem 0.85rem;font-size:0.8rem;color:var(--text-muted);">{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>
+        {% if page_obj.has_next %}
+        <a href="?page={{ page_obj.next_page_number }}&q={{ filtro_q }}" style="padding:0.4rem 0.85rem;border:1px solid var(--border-strong);border-radius:6px;font-size:0.8rem;color:var(--text-secondary);text-decoration:none;">Próxima →</a>
+        {% endif %}
+    </div>
+    {% endif %}
+</div>
+{% endblock %}
