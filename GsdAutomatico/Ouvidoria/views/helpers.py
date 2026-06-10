@@ -1,6 +1,6 @@
 import io, os, re, logging, base64, uuid, tempfile
 from uuid import uuid4
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, date
 import locale
 from dotenv import load_dotenv
 
@@ -28,6 +28,25 @@ try:
     locale.setlocale(locale.LC_TIME, 'pt_BR.UTF-8')
 except locale.Error:
     logger.warning("Locale pt_BR.UTF-8 não encontrado. A data pode não ser formatada corretamente.")
+
+_TEMPLATE_CUTOFF_DATE = date(2026, 6, 1)
+
+def get_template_subfolder(patd):
+    """Retorna 'binfaegl' para PATDs criadas a partir de 01/06/2026, 'gsdgl' para as anteriores."""
+    try:
+        from datetime import datetime as _dt
+        # A data do PATD pode ter override per-documento em datas_documentos['PATD_Coringa']
+        doc_date_str = (patd.datas_documentos or {}).get('PATD_Coringa')
+        if doc_date_str:
+            d = _dt.strptime(doc_date_str, '%Y-%m-%d').date()
+        else:
+            d = patd.data_inicio.date()
+        subfolder = 'binfaegl' if d >= _TEMPLATE_CUTOFF_DATE else 'gsdgl'
+        logger.info(f"[subfolder] PATD {patd.pk} | data_inicio={patd.data_inicio} | doc_override={doc_date_str} | d={d} | subfolder={subfolder}")
+        return subfolder
+    except Exception:
+        logger.exception(f"[subfolder] Erro ao determinar subfolder para PATD {getattr(patd, 'pk', '?')}")
+        return 'gsdgl'
 
 def get_next_patd_number():
     """Gera o próximo número de PATD do ano corrente (reseta em 1 a cada virada)."""
@@ -862,7 +881,7 @@ def _render_table_html(table, context, template_name=''):
     return html
 
 
-def _render_document_from_template(template_name, context):
+def _render_document_from_template(template_name, context, subfolder=None):
     """
     Função genérica para renderizar um documento .docx a partir de um template,
     preservando alinhamento, formatação de runs (bold/italic/underline/tamanho),
@@ -871,7 +890,12 @@ def _render_document_from_template(template_name, context):
     Injeta um elemento <div class="page-meta"> com as dimensões reais do documento.
     """
     try:
-        doc_path = os.path.join(settings.BASE_DIR, 'pdf', template_name)
+        base_pdf = os.path.join(settings.BASE_DIR, 'pdf')
+        if subfolder:
+            candidate = os.path.join(base_pdf, subfolder, template_name)
+            doc_path = candidate if os.path.exists(candidate) else os.path.join(base_pdf, template_name)
+        else:
+            doc_path = os.path.join(base_pdf, template_name)
         document = docx.Document(doc_path)
 
         # Extrai dimensões reais da seção principal
@@ -1062,6 +1086,7 @@ def get_document_pages(patd, for_docx=False):
                 return [_apply_context_to_text(p, base_context) if isinstance(p, str) else p for p in pages]
             return pages
 
+    subfolder = get_template_subfolder(patd)
     base_context = _ctx(patd, for_docx, 'PATD_Coringa')
     document_pages_raw = []
     page_counter = 0
@@ -1069,7 +1094,7 @@ def get_document_pages(patd, for_docx=False):
 
     # 1. Documento Principal
     page_counter += 1
-    document_pages_raw.append(_render_document_from_template('PATD_Coringa.docx', base_context))
+    document_pages_raw.append(_render_document_from_template('PATD_Coringa.docx', base_context, subfolder=subfolder))
 
     PB = '<div class="manual-page-break"></div>'
 
@@ -1078,7 +1103,7 @@ def get_document_pages(patd, for_docx=False):
         page_counter += 1
         pagina_alegacao_num = page_counter
         alegacao_context = _ctx(patd, for_docx, 'PATD_Alegacao_DF')
-        alegacao_html = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context)
+        alegacao_html = _render_document_from_template('PATD_Alegacao_DF.docx', alegacao_context, subfolder=subfolder)
         alegacao_texto_html = (patd.alegacao_defesa or "").replace('\n', '<br>')
         alegacao_html = alegacao_html.replace('{Alegação de defesa}', alegacao_texto_html)
         # O template usa {Assinatura Militar Arrolado} mas a assinatura da defesa
@@ -1102,7 +1127,7 @@ def get_document_pages(patd, for_docx=False):
     if not patd.alegacao_defesa and not patd.anexos.filter(tipo='defesa').exists() and patd.status in status_preclusao_e_posteriores:
         page_counter += 1
         pagina_alegacao_num = page_counter
-        html_content = _render_document_from_template('PRECLUSAO.docx', _ctx(patd, for_docx, 'PRECLUSAO'))
+        html_content = _render_document_from_template('PRECLUSAO.docx', _ctx(patd, for_docx, 'PRECLUSAO'), subfolder=subfolder)
         html_content = f'<div data-document-id="alegacao_defesa">{html_content}</div>'
         document_pages_raw.append(PB)
         document_pages_raw.append(html_content)
@@ -1111,12 +1136,12 @@ def get_document_pages(patd, for_docx=False):
     if patd.justificado:
         page_counter += 1
         document_pages_raw.append(PB)
-        document_pages_raw.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', _ctx(patd, for_docx, 'RELATORIO_JUSTIFICADO')))
+        document_pages_raw.append(_render_document_from_template('RELATORIO_JUSTIFICADO.docx', _ctx(patd, for_docx, 'RELATORIO_JUSTIFICADO'), subfolder=subfolder))
 
     elif patd.punicao_sugerida:
         page_counter += 1
         document_pages_raw.append(PB)
-        document_pages_raw.append(_render_document_from_template('RELATORIO_DELTA.docx', _ctx(patd, for_docx, 'RELATORIO_DELTA')))
+        document_pages_raw.append(_render_document_from_template('RELATORIO_DELTA.docx', _ctx(patd, for_docx, 'RELATORIO_DELTA'), subfolder=subfolder))
 
     # 5. Nota de Punição Disciplinar (NPD)
     status_npd_e_posteriores = [
@@ -1126,7 +1151,7 @@ def get_document_pages(patd, for_docx=False):
     if patd.status in status_npd_e_posteriores and not patd.justificado:
         page_counter += 1
         document_pages_raw.append(PB)
-        document_pages_raw.append(_render_document_from_template('MODELO_NPD.docx', _ctx(patd, for_docx, 'MODELO_NPD')))
+        document_pages_raw.append(_render_document_from_template('MODELO_NPD.docx', _ctx(patd, for_docx, 'MODELO_NPD'), subfolder=subfolder))
         formulario_resumo_anexo = patd.anexos.filter(tipo='formulario_resumo').first()
         if formulario_resumo_anexo:
             document_pages_raw.append(PB)
@@ -1144,7 +1169,7 @@ def get_document_pages(patd, for_docx=False):
             reconsideracao_context['{Texto_reconsideracao}'] = '{Botao Adicionar Reconsideracao}'
         else:
             reconsideracao_context['{Texto_reconsideracao}'] = patd.texto_reconsideracao or "[Ver documentos anexos]"
-        html_content = _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context)
+        html_content = _render_document_from_template('MODELO_RECONSIDERACAO.docx', reconsideracao_context, subfolder=subfolder)
         html_content = html_content.replace('{Assinatura Militar Arrolado}', '{Assinatura Reconsideracao}')
         document_pages_raw.append(PB)
         document_pages_raw.append(html_content)
@@ -1163,7 +1188,7 @@ def get_document_pages(patd, for_docx=False):
     if patd.nova_punicao_tipo and patd.status in ['aguardando_publicacao', 'finalizado']:
         page_counter += 1
         document_pages_raw.append(PB)
-        document_pages_raw.append(_render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', _ctx(patd, for_docx, 'MODELO_NPD_RECONSIDERACAO')))
+        document_pages_raw.append(_render_document_from_template('MODELO_NPD_RECONSIDERACAO.docx', _ctx(patd, for_docx, 'MODELO_NPD_RECONSIDERACAO'), subfolder=subfolder))
 
     # {pagina_alegacao} é resolvido no JS buscando o título "ALEGAÇÕES DE DEFESA" no DOM.
     final_document_pages = document_pages_raw

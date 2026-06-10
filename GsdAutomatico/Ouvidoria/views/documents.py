@@ -29,6 +29,7 @@ from .helpers import (
     _get_document_context, _render_document_from_template,
     get_document_pages, format_militar_string,
     _try_advance_status_from_justificativa, _sync_oficial_signature,
+    get_template_subfolder,
 )
 from ..analise_transgressao import analisar_e_resumir_defesa, reescrever_ocorrencia
 
@@ -229,6 +230,13 @@ def salvar_documento_patd(request, pk):
                     setattr(patd, field_name, None)
 
         patd.datas_documentos = datas_documentos
+
+        # Invalida o cache se datas de modelo mudaram OU se a data do PATD_Coringa mudou
+        # (data_inicio no PATD_Coringa controla a seleção de template gsdgl/binfaegl)
+        model_dates_changed = any(not k.startswith('doc:') for k in dates.keys())
+        patd_coringa_date_changed = 'doc:PATD_Coringa' in dates
+        if model_dates_changed or patd_coringa_date_changed:
+            patd.documento_html = []
 
         patd.save()
 
@@ -457,7 +465,10 @@ def _append_alegacao_docx(document, patd, context):
         pb_para.paragraph_format.space_after = Pt(0)
         pb_para.add_run().add_break(WD_BREAK.PAGE)
 
-        doc_path = os.path.join(settings.BASE_DIR, 'pdf', 'PATD_Alegacao_DF.docx')
+        subfolder = get_template_subfolder(patd)
+        base_pdf = os.path.join(settings.BASE_DIR, 'pdf')
+        candidate = os.path.join(base_pdf, subfolder, 'PATD_Alegacao_DF.docx')
+        doc_path = candidate if os.path.exists(candidate) else os.path.join(base_pdf, 'PATD_Alegacao_DF.docx')
         alegacao_doc = Document(doc_path)
         for source_p in alegacao_doc.paragraphs:
             if source_p.text.strip():
