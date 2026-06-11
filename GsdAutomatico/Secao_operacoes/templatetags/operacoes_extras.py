@@ -43,8 +43,8 @@ def can_see_escalas(user):
 
 @register.filter
 def omis_numero(value):
-    """Formata número de OMIS: OMIS N° 42/SOPGSDGL/GSD GL"""
-    return f"OMIS N° {value}/SOPGSDGL/GSD GL"
+    """Formata número de OMIS: OMIS N° 42/SOPBINFAEGL/BINFAE GL"""
+    return f"OMIS N° {value}/SOPBINFAEGL/BINFAE GL"
 
 
 @register.filter

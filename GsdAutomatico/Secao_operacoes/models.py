@@ -84,12 +84,12 @@ class TurnoEscala(models.Model):
 class ConfiguracaoOperacoes(models.Model):
     diretriz_padrao_1 = models.TextField(
         blank=True,
-        default="Manter o Oficial de serviço do GSD GL / Sargento de Dia informado do início e do término da missão.",
+        default="Manter o Oficial de serviço do BINFAE GL / Sargento de Dia informado do início e do término da missão.",
         verbose_name="Diretriz padrão 1"
     )
     diretriz_padrao_2 = models.TextField(
         blank=True,
-        default="O relatório da missão deverá ser confeccionado pelo Cmt da mesma e entregue, em até 24h, ao Sgt de dia ao GSD GL. Deverá conter além das informações inerentes a missão, o horário do término da mesma, as alterações de cumprimento do quadro de horários, transporte, alimentação, faltas, sugestões, ocorrências, bem como as providências adotadas.",
+        default="O relatório da missão deverá ser confeccionado pelo Cmt da mesma e entregue, em até 24h, ao Sgt de dia ao BINFAE GL. Deverá conter além das informações inerentes a missão, o horário do término da mesma, as alterações de cumprimento do quadro de horários, transporte, alimentação, faltas, sugestões, ocorrências, bem como as providências adotadas.",
         verbose_name="Diretriz padrão 2"
     )
     observacoes_armamento_padrao = models.CharField(
@@ -132,7 +132,7 @@ class Missao(models.Model):
     horario_armamento = models.TimeField(null=True, blank=True, verbose_name="Armamento")
     horario_alimentacao = models.TimeField(null=True, blank=True, verbose_name="Alimentação")
     horario_sala_sgt = models.TimeField(null=True, blank=True, verbose_name="Horário Sala Sgt de Dia")
-    horario_saida = models.TimeField(null=True, blank=True, verbose_name="Saída do GSD GL")
+    horario_saida = models.TimeField(null=True, blank=True, verbose_name="Saída do BINFAE GL")
     horario_pronto = models.TimeField(null=True, blank=True, verbose_name="Pronto no Objetivo")
 
     transporte = models.CharField(max_length=200, blank=True, verbose_name="Transporte")
@@ -170,6 +170,7 @@ class Missao(models.Model):
     )
 
     horarios_config = models.TextField(blank=True, default='', verbose_name="Configuração de horários (JSON)")
+    efetivo_grupos_json = models.TextField(blank=True, default='', verbose_name="Grupos de Efetivo (JSON)")
 
     criado_por = models.ForeignKey(
         User, null=True, blank=True, on_delete=models.SET_NULL,

@@ -106,22 +106,56 @@ def painel_missoes(request):
 
 @esi_missoes_required
 def missao_escala(request, missao_id):
+    import json as _json
     missao = get_object_or_404(Missao, pk=missao_id)
     escala, _ = EscalaMissaoESI.objects.get_or_create(missao=missao)
 
     efetivo_esi = Efetivo.objects.filter(
         setor__icontains='ESI'
     ).order_by('posto', 'nome_guerra')
-
-    # Fallback: se ninguém no setor ESI, carrega todo efetivo ativo
     if not efetivo_esi.exists():
         efetivo_esi = Efetivo.objects.filter(ativo=True).order_by('posto', 'nome_guerra')
+
+    # Grupos da OMIS que são "A cargo da ESI"
+    esi_grupos = []
+    if missao.efetivo_grupos_json:
+        try:
+            grupos_omis = _json.loads(missao.efetivo_grupos_json)
+        except (ValueError, _json.JSONDecodeError):
+            grupos_omis = []
+        for g in grupos_omis:
+            if 'esi' in (g.get('acargo') or '').lower():
+                esi_grupos.append(g.get('label', ''))
+
+    # IDs e modo já atribuídos por grupo (de escala.grupos_json)
+    grupos_data = {}  # {label: {'militares': [...], 'modo': '...'}}
+    if escala.grupos_json:
+        try:
+            for g in _json.loads(escala.grupos_json):
+                grupos_data[g['label']] = {
+                    'militares': g.get('militares', []),
+                    'modo': g.get('modo', 'anexo'),
+                }
+        except (ValueError, _json.JSONDecodeError):
+            pass
+
+    esi_grupos_ctx = [
+        {
+            'label': lbl,
+            'militares': grupos_data.get(lbl, {}).get('militares', []),
+            'modo': grupos_data.get(lbl, {}).get('modo', 'anexo'),
+        }
+        for lbl in esi_grupos
+    ]
 
     return render(request, 'ESI/missao_escala.html', {
         'missao': missao,
         'escala': escala,
         'efetivo_esi': efetivo_esi,
         'militares_escalados_ids': list(escala.militares.values_list('id', flat=True)),
+        'esi_grupos': esi_grupos_ctx,
+        'esi_grupos_json': _json.dumps(esi_grupos_ctx, ensure_ascii=False),
+        'tem_grupos': bool(esi_grupos_ctx),
     })
 
 
@@ -131,14 +165,27 @@ def salvar_escala(request, missao_id):
     missao = get_object_or_404(Missao, pk=missao_id)
     escala, _ = EscalaMissaoESI.objects.get_or_create(missao=missao)
 
-    militares_ids = request.POST.getlist('militares')
+    import json as _json
     observacoes = request.POST.get('observacoes', '')
     identificacao_pelotao = request.POST.get('identificacao_pelotao', '')
-
-    escala.militares.set(militares_ids)
     escala.observacoes = observacoes
     escala.identificacao_pelotao = identificacao_pelotao
-    escala.save()
+
+    grupos_json_raw = request.POST.get('grupos_json', '').strip()
+    if grupos_json_raw:
+        try:
+            grupos = _json.loads(grupos_json_raw)
+        except (ValueError, _json.JSONDecodeError):
+            grupos = []
+        escala.grupos_json = grupos_json_raw
+        todos_ids = [mid for g in grupos for mid in g.get('militares', [])]
+        escala.save()
+        escala.militares.set(todos_ids)
+    else:
+        militares_ids = request.POST.getlist('militares')
+        escala.grupos_json = ''
+        escala.save()
+        escala.militares.set(militares_ids)
 
     # Notifica usuários de Operações sobre a escala ESI
     try:
@@ -153,7 +200,7 @@ def salvar_escala(request, missao_id):
         if usuarios_ops.exists():
             notificar(
                 usuarios_ops,
-                titulo=f"ESI escalou militares para OMIS N° {missao.numero}/SOPGSDGL/GSD GL",
+                titulo=f"ESI escalou militares para OMIS N° {missao.numero}/SOPBINFAEGL/BINFAE GL",
                 corpo=f"{militares_nomes} | {missao.nome_missao} — {missao.data_missao.strftime('%d/%m/%Y')}",
                 url=reverse('Secao_operacoes:missao_detail', args=[missao.pk]),
                 tipo='sistema',
@@ -210,10 +257,21 @@ def _build_paginas(militares):
 
 
 def _escala_pdf_ctx(missao, escala, request=None):
-    import os
+    import os, json as _json
     from django.conf import settings
     from informatica.models import ConfiguracaoComandantes
-    militares = list(escala.militares.order_by('posto', 'nome_guerra'))
+
+    # Exclui do anexo os militares cujo grupo está em modo "omis" (aparecem só na OMIS)
+    omis_ids = set()
+    if escala.grupos_json:
+        try:
+            for g in _json.loads(escala.grupos_json):
+                if g.get('modo') == 'omis':
+                    omis_ids.update(g.get('militares', []))
+        except Exception:
+            pass
+
+    militares = list(escala.militares.exclude(pk__in=omis_ids).order_by('posto', 'nome_guerra'))
     n = len(militares)
 
     paginas, num_paginas = _build_paginas(militares)

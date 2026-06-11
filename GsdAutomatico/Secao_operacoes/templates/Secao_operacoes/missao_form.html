@@ -381,6 +381,27 @@ textarea.form-control { resize:vertical; }
 .ef-ref { font-size:11px; color:var(--accent); text-align:center; margin-top:3px; opacity:0.75; font-weight:600; }
 .pessoa-selecionada { display:flex; align-items:center; gap:8px; padding:6px 10px; border-radius:8px; background:var(--accent-dim); color:var(--accent); font-size:13px; font-weight:600; margin-top:6px; }
 .pessoa-selecionada button { background:none; border:none; color:inherit; cursor:pointer; font-size:16px; }
+/* Grupos de efetivo dinâmico */
+.grupo-ef-card { border:1px solid var(--border-strong); border-radius:10px; padding:10px 12px; margin-bottom:8px; background:var(--bg-page); }
+.grupo-ef-header { display:flex; align-items:center; gap:8px; margin-bottom:8px; }
+.grupo-ef-label-input { flex:1; font-size:12px; font-weight:700; text-transform:uppercase; letter-spacing:.06em; color:var(--text-secondary); background:transparent; border:none; border-bottom:1px dashed var(--border-strong); padding:2px 4px; font-family:inherit; }
+.grupo-ef-label-input:focus { outline:none; border-bottom-color:var(--accent); }
+/* Chips de membros */
+.chips-area { display:flex; flex-wrap:wrap; gap:6px; min-height:36px; padding:8px; border:1px solid var(--border); border-radius:8px; background:var(--bg-input); margin-bottom:6px; align-content:flex-start; }
+.chip-militar { display:inline-flex; align-items:center; gap:4px; background:var(--accent-dim); color:var(--accent); border-radius:20px; padding:4px 8px 4px 12px; font-size:12px; font-weight:600; }
+.chip-texto { display:inline-flex; align-items:center; gap:4px; background:var(--bg-page); color:var(--text-secondary); border:1px dashed var(--border-strong); border-radius:20px; padding:4px 8px 4px 12px; font-size:12px; font-weight:600; }
+.chip-nota { font-size:11px; font-style:italic; opacity:0.75; margin-left:2px; }
+.chip-btn { background:none; border:none; cursor:pointer; padding:0 2px; font-size:13px; line-height:1; color:inherit; opacity:0.65; }
+.chip-btn:hover { opacity:1; }
+.chip-anotacao-input { display:none; width:100%; margin-top:4px; padding:4px 8px; border-radius:6px; border:1px solid var(--border-strong); background:var(--bg-input); color:var(--text-primary); font-size:12px; box-sizing:border-box; }
+.grupo-search-wrap { position:relative; margin-bottom:4px; }
+.btn-acargo-inline { margin-top:4px; font-size:12px; padding:4px 10px; background:none; border:1px dashed var(--border-strong); border-radius:8px; color:var(--text-muted); cursor:pointer; }
+.btn-acargo-inline:hover { color:var(--text-primary); border-color:var(--accent); }
+.acargo-inline-form { display:none; flex-direction:column; gap:4px; margin-top:6px; padding:8px; border:1px dashed var(--border-strong); border-radius:8px; background:var(--bg-input); }
+.acargo-inline-row { display:flex; gap:6px; align-items:center; }
+.acargo-inline-input { flex:1; padding:6px 10px; border-radius:8px; border:1px solid var(--border-strong); background:var(--bg-card); color:var(--text-primary); font-size:13px; }
+.acargo-mil-chip { display:inline-flex; align-items:center; gap:4px; background:var(--accent-dim); color:var(--accent); border-radius:20px; padding:3px 8px 3px 10px; font-size:12px; font-weight:600; margin-bottom:2px; }
+.acargo-mil-wrap { position:relative; }
 </style>
 <div class="form-card">
     <div class="section-title"><i class="fas fa-users" style="margin-right:6px;"></i>Efetivo</div>
@@ -423,106 +444,12 @@ textarea.form-control { resize:vertical; }
     {% endif %}
     <p id="ef_auto_msg" style="font-size:11px;color:var(--text-muted);margin-bottom:1rem;">Contadores preenchidos automaticamente pela seleção abaixo.</p>
 
-    <!-- CMT -->
-    <div style="margin-bottom:1rem;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Comandante da Missão (CMT)</label>
-            <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;">
-                <input type="checkbox" id="cmt_cargo_chk" {% if missao.cmt_a_cargo %}checked{% endif %} onchange="toggleACargo('cmt')"> A Cargo de
-            </label>
-        </div>
-        <div id="cmt_picker_area" {% if missao.cmt_a_cargo %}style="display:none;"{% endif %}>
-            <input type="hidden" name="cmt_missao_id" id="cmt_id" value="{{ missao.cmt_missao.pk|default:'' }}">
-            <div class="picker-wrap">
-                <input type="text" class="picker-search" id="cmt_search" placeholder="Buscar CMT..." autocomplete="off">
-                <div class="picker-results" id="cmt_results"></div>
-            </div>
-            <div id="cmt_chip" style="margin-top:6px;">
-                {% if missao.cmt_missao %}
-                <div class="pessoa-selecionada">
-                    <span>{{ missao.cmt_missao.posto }} {{ missao.cmt_missao.nome_guerra }}</span>
-                    <button type="button" onclick="limparCmt()">×</button>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        <div id="cmt_cargo_area" {% if not missao.cmt_a_cargo %}style="display:none;"{% endif %}>
-            <div class="acargo-wrap" style="position:relative;margin-top:4px;">
-                <div style="display:flex;gap:6px;">
-                    <input type="text" name="cmt_a_cargo" id="cmt_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.cmt_a_cargo|default:'' }}" style="flex:1;" autocomplete="off">
-                    <button type="button" class="btn-acargo-sugestoes" onclick="toggleACargoSugestoes('cmt')" title="Sugestões"><i class="fas fa-list"></i></button>
-                </div>
-                <div id="cmt_acargo_sugestoes" class="acargo-dropdown" style="display:none;"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- MOT -->
-    <div style="margin-bottom:1rem;">
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Motorista (MOT)</label>
-            <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;">
-                <input type="checkbox" id="mot_cargo_chk" {% if missao.mot_a_cargo %}checked{% endif %} onchange="toggleACargo('mot')"> A Cargo de
-            </label>
-        </div>
-        <div id="mot_picker_area" {% if missao.mot_a_cargo %}style="display:none;"{% endif %}>
-            <input type="hidden" name="motorista_id" id="mot_id" value="{{ missao.motorista.pk|default:'' }}">
-            <div class="picker-wrap">
-                <input type="text" class="picker-search" id="mot_search" placeholder="Buscar motorista..." autocomplete="off">
-                <div class="picker-results" id="mot_results"></div>
-            </div>
-            <div id="mot_chip" style="margin-top:6px;">
-                {% if missao.motorista %}
-                <div class="pessoa-selecionada">
-                    <span>{{ missao.motorista.posto }} {{ missao.motorista.nome_guerra }}</span>
-                    <button type="button" onclick="limparMot()">×</button>
-                </div>
-                {% endif %}
-            </div>
-        </div>
-        <div id="mot_cargo_area" {% if not missao.mot_a_cargo %}style="display:none;"{% endif %}>
-            <div class="acargo-wrap" style="position:relative;margin-top:4px;">
-                <div style="display:flex;gap:6px;">
-                    <input type="text" name="mot_a_cargo" id="mot_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.mot_a_cargo|default:'' }}" style="flex:1;" autocomplete="off">
-                    <button type="button" class="btn-acargo-sugestoes" onclick="toggleACargoSugestoes('mot')" title="Sugestões"><i class="fas fa-list"></i></button>
-                </div>
-                <div id="mot_acargo_sugestoes" class="acargo-dropdown" style="display:none;"></div>
-            </div>
-        </div>
-    </div>
-
-    <!-- EQUIPE -->
-    <div>
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
-            <label style="font-size:12px;font-weight:600;color:var(--text-muted);">Equipe</label>
-            <label style="font-size:12px;color:var(--text-muted);display:flex;align-items:center;gap:5px;cursor:pointer;">
-                <input type="checkbox" id="equipe_cargo_chk" {% if missao.equipe_a_cargo %}checked{% endif %} onchange="toggleACargo('equipe')"> A Cargo de
-            </label>
-        </div>
-        <div id="equipe_picker_area" {% if missao.equipe_a_cargo %}style="display:none;"{% endif %}>
-            <div class="picker-wrap">
-                <input type="text" class="picker-search" id="equipe_search" placeholder="Buscar e adicionar à equipe..." autocomplete="off">
-                <div class="picker-results" id="equipe_results"></div>
-            </div>
-            <div id="equipe_chips" style="margin-top:8px;">
-                {% for e in missao.equipe.all %}
-                <span class="pessoa-chip" data-id="{{ e.pk }}">
-                    {{ e.posto }} {{ e.nome_guerra }}
-                    <button type="button" onclick="removerEquipe(this, {{ e.pk }})">×</button>
-                </span>
-                {% endfor %}
-            </div>
-        </div>
-        <div id="equipe_cargo_area" {% if not missao.equipe_a_cargo %}style="display:none;"{% endif %}>
-            <div class="acargo-wrap" style="position:relative;margin-top:4px;">
-                <div style="display:flex;gap:6px;">
-                    <input type="text" name="equipe_a_cargo" id="equipe_cargo_input" class="picker-search" placeholder="Ex: A Cargo da ESI" value="{{ missao.equipe_a_cargo|default:'' }}" style="flex:1;" autocomplete="off">
-                    <button type="button" class="btn-acargo-sugestoes" onclick="toggleACargoSugestoes('equipe')" title="Sugestões"><i class="fas fa-list"></i></button>
-                </div>
-                <div id="equipe_acargo_sugestoes" class="acargo-dropdown" style="display:none;"></div>
-            </div>
-        </div>
-    </div>
+    <!-- Grupos dinâmicos de efetivo -->
+    <div id="grupos-efetivo-container" style="margin-bottom:0.5rem;"></div>
+    <button type="button" class="btn-add-row" onclick="adicionarGrupo()" style="margin-top:4px;">
+        <i class="fas fa-plus"></i> Adicionar Grupo
+    </button>
+    <input type="hidden" name="grupos_efetivo_json" id="grupos_efetivo_input">
 </div>
 
 <div class="form-actions-spacer"></div>
@@ -565,13 +492,226 @@ const OBS_ARMAMENTO_PADRAO = "{{ obs_armamento_padrao|escapejs }}";
 
 // All standard schedule items (key, label, field_name)
 const STD_HORARIOS = [
-    {key:'chamada',     label:'CHAMADA',                                   field:'horario_chamada'},
-    {key:'armamento',   label:'ARMAMENTO',                                 field:'horario_armamento'},
-    {key:'alimentacao', label:'ALIMENTAÇÃO',                               field:'horario_alimentacao'},
-    {key:'sala_sgt',    label:'HORÁRIO NA SALA SGT DE DIA AO GSD GL',      field:'horario_sala_sgt'},
-    {key:'saida',       label:'SAÍDA DO GSD GL',                           field:'horario_saida'},
-    {key:'pronto',      label:'PRONTO NO OBJETIVO',                        field:'horario_pronto'},
+    {key:'chamada',     label:'CHAMADA',                                       field:'horario_chamada'},
+    {key:'armamento',   label:'ARMAMENTO',                                     field:'horario_armamento'},
+    {key:'alimentacao', label:'ALIMENTAÇÃO',                                   field:'horario_alimentacao'},
+    {key:'sala_sgt',    label:'HORÁRIO NA SALA SGT DE DIA AO BINFAE GL',       field:'horario_sala_sgt'},
+    {key:'saida',       label:'SAÍDA DO BINFAE GL',                            field:'horario_saida'},
+    {key:'pronto',      label:'PRONTO NO OBJETIVO',                            field:'horario_pronto'},
 ];
+
+// ══ Grupos de Efetivo ══
+const GRUPOS_INICIAIS = {{ grupos_iniciais_json|safe }};
+let _grupos = JSON.parse(JSON.stringify(GRUPOS_INICIAIS));
+
+function _escHtml(s) {
+    return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+}
+
+function renderGrupos() {
+    const container = document.getElementById('grupos-efetivo-container');
+    if (!container) return;
+    container.innerHTML = _grupos.map((g, gi) => `
+        <div class="grupo-ef-card">
+            <div class="grupo-ef-header">
+                <input type="text" class="grupo-ef-label-input" value="${_escHtml(g.label)}"
+                       placeholder="Nome do grupo" data-gi="${gi}"
+                       oninput="_grupos[parseInt(this.dataset.gi)].label = this.value">
+                <button type="button" class="btn-remove-row" onclick="removerGrupo(${gi})" title="Remover grupo">
+                    <i class="fas fa-trash-alt" style="font-size:12px;"></i>
+                </button>
+            </div>
+            <div class="chips-area" id="chips-area-${gi}">
+                ${g.membros.map((m, mi) => _renderChipHtml(gi, mi, m)).join('')}
+            </div>
+            <div class="grupo-search-wrap">
+                <input type="text" class="picker-search grupo-busca" data-gi="${gi}"
+                       placeholder="🔍 Buscar e adicionar militar..." autocomplete="off">
+                <div class="picker-results" style="display:none;"></div>
+            </div>
+            <div class="acargo-sugestoes-wrap" style="position:relative;margin-top:4px;">
+                ${'acargo' in g
+                    ? `<div class="acargo-inline-row">
+                           <span style="font-size:11px;font-weight:700;color:var(--text-muted);white-space:nowrap;letter-spacing:.05em;">A CARGO DE:</span>
+                           <input type="text" class="acargo-inline-input" id="acargo-input-${gi}"
+                                  value="${_escHtml(g.acargo)}"
+                                  placeholder="Ex: A Cargo da ESI"
+                                  oninput="_grupos[${gi}].acargo = this.value">
+                           <button type="button" class="btn-acargo-sugestoes" onclick="toggleACargoSugestoes(${gi})" title="Catálogo"><i class="fas fa-list"></i></button>
+                           <button type="button" class="btn-remove-row" onclick="_limparACargoGrupo(${gi})" title="Remover">×</button>
+                       </div>`
+                    : `<button type="button" class="btn-acargo-inline" onclick="_ativarACargoGrupo(${gi})">
+                           <i class="fas fa-pencil-alt" style="font-size:11px;"></i> A cargo de
+                       </button>`
+                }
+                <div id="acargo-sugestoes-${gi}" class="acargo-dropdown" style="display:none;"></div>
+            </div>
+        </div>
+    `).join('');
+    container.querySelectorAll('.grupo-busca').forEach(_setupGrupoBusca);
+    recalcularEfetivo();
+}
+
+function _renderChipHtml(gi, mi, m) {
+    const ef = m.efetivo_id ? TODOS_EFETIVO.find(e => e.id === m.efetivo_id) : null;
+    if (ef) {
+        const notaHtml = m.texto ? ` <span class="chip-nota">(${_escHtml(m.texto)})</span>` : '';
+        return `<span class="chip-militar">${_escHtml(ef.label)}${notaHtml}<button type="button" class="chip-btn" onclick="_editarNotaChip(${gi},${mi})" title="Anotação">✎</button><button type="button" class="chip-btn" onclick="removerMembro(${gi},${mi})" title="Remover">×</button></span><input type="text" class="chip-anotacao-input" id="chip-nota-${gi}-${mi}" placeholder="Anotação (Enter para fechar)" value="${_escHtml(m.texto||'')}" data-gi="${gi}" data-mi="${mi}" onkeydown="if(event.key==='Enter'){event.preventDefault();_salvarNotaChip(${gi},${mi});}" onblur="_salvarNotaChip(${gi},${mi})">`;
+    } else {
+        return `<span class="chip-texto"><i class="fas fa-pencil-alt" style="font-size:10px;"></i> ${_escHtml(m.texto || '(vazio)')}<button type="button" class="chip-btn" onclick="removerMembro(${gi},${mi})" title="Remover">×</button></span>`;
+    }
+}
+
+function _editarNotaChip(gi, mi) {
+    const inp = document.getElementById(`chip-nota-${gi}-${mi}`);
+    if (!inp) return;
+    const visible = inp.style.display === 'block';
+    inp.style.display = visible ? 'none' : 'block';
+    if (!visible) inp.focus();
+}
+
+function _salvarNotaChip(gi, mi) {
+    const inp = document.getElementById(`chip-nota-${gi}-${mi}`);
+    if (inp && _grupos[gi] && _grupos[gi].membros[mi]) {
+        _grupos[gi].membros[mi].texto = inp.value;
+        inp.style.display = 'none';
+        renderGrupos();
+    }
+}
+
+function _ativarACargoGrupo(gi) {
+    _grupos[gi].acargo = '';
+    renderGrupos();
+    const inp = document.getElementById(`acargo-input-${gi}`);
+    if (inp) inp.focus();
+}
+
+function _limparACargoGrupo(gi) {
+    delete _grupos[gi].acargo;
+    renderGrupos();
+}
+
+/* ── A Cargo — sugestões ── */
+const ACARGA_OPCOES_URL = "{% url 'Secao_operacoes:api_acarga_opcoes' %}";
+const ACARGA_DELETE_TPL = "{% url 'Secao_operacoes:api_acarga_opcao_delete' pk=0 %}";
+let _acargaOpcoes = {{ acarga_opcoes_json|default:'[]'|safe }};
+
+function _renderACargoDropdown(gi) {
+    const dd = document.getElementById(`acargo-sugestoes-${gi}`);
+    if (!dd) return;
+    const items = _acargaOpcoes.map(o => `
+        <div class="acargo-item" onclick="_selecionarACargo(${gi},'${o.nome.replace(/'/g,"\\'")}')">
+            <span>${_escHtml(o.nome)}</span>
+            <button type="button" class="acargo-item-del" onclick="event.stopPropagation();_deletarACargo(${o.id},${gi})" title="Remover"><i class="fas fa-times"></i></button>
+        </div>`).join('');
+    dd.innerHTML = `
+        ${items || '<div style="padding:8px 10px;font-size:12px;color:var(--text-muted);">Nenhuma opção cadastrada.</div>'}
+        <div class="acargo-add-row">
+            <input type="text" class="acargo-add-input" id="acargo-new-${gi}" placeholder="Nova opção (ex: A Cargo da ESI)...">
+            <button type="button" class="acargo-add-btn" onclick="_adicionarACargo(${gi})"><i class="fas fa-plus"></i></button>
+        </div>`;
+    dd.style.display = 'block';
+}
+
+function toggleACargoSugestoes(gi) {
+    const dd = document.getElementById(`acargo-sugestoes-${gi}`);
+    if (!dd) return;
+    if (dd.style.display !== 'none') { dd.style.display = 'none'; return; }
+    _fecharTodasSugestoes();
+    _renderACargoDropdown(gi);
+}
+
+function _fecharTodasSugestoes() {
+    document.querySelectorAll('[id^="acargo-sugestoes-"]').forEach(d => { d.style.display = 'none'; });
+}
+
+function _selecionarACargo(gi, nome) {
+    _grupos[gi].acargo = nome;
+    _fecharTodasSugestoes();
+    renderGrupos();
+}
+
+function _adicionarACargo(gi) {
+    const inp = document.getElementById(`acargo-new-${gi}`);
+    const nome = inp ? inp.value.trim() : '';
+    if (!nome) return;
+    fetch(ACARGA_OPCOES_URL, {
+        method: 'POST',
+        headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
+        body: JSON.stringify({nome}),
+    }).then(r => r.json()).then(data => {
+        if (data.status === 'ok') {
+            if (data.created) _acargaOpcoes.push({id: data.id, nome: data.nome});
+            _renderACargoDropdown(gi);
+        }
+    });
+}
+
+function _deletarACargo(id, gi) {
+    fetch(ACARGA_DELETE_TPL.replace('/0/', `/${id}/`), {
+        method: 'POST', headers: {'X-CSRFToken': CSRF},
+    }).then(r => r.json()).then(() => {
+        _acargaOpcoes = _acargaOpcoes.filter(o => o.id !== id);
+        _renderACargoDropdown(gi);
+    });
+}
+
+document.addEventListener('click', e => {
+    if (!e.target.closest('.acargo-sugestoes-wrap')) _fecharTodasSugestoes();
+});
+
+function _setupGrupoBusca(input) {
+    const resultsEl = input.nextElementSibling;
+    let timer;
+    input.addEventListener('input', () => {
+        clearTimeout(timer);
+        const q = input.value.trim();
+        if (q.length < 1) { resultsEl.style.display = 'none'; return; }
+        timer = setTimeout(() => {
+            const gi = parseInt(input.dataset.gi);
+            const jaAdicionados = new Set((_grupos[gi].membros || []).map(m => m.efetivo_id).filter(Boolean));
+            const lista = buscarEfetivo(q);
+            if (!lista.length) { resultsEl.style.display = 'none'; return; }
+            resultsEl.innerHTML = lista.map(p =>
+                `<div class="picker-item${jaAdicionados.has(p.id) ? ' picker-item-added' : ''}" data-id="${p.id}" style="${jaAdicionados.has(p.id) ? 'opacity:0.5;cursor:default;' : ''}">
+                    <span>${_escHtml(p.label)}</span>
+                    ${jaAdicionados.has(p.id) ? '<i class="fas fa-check" style="color:var(--accent);font-size:11px;"></i>' : ''}
+                </div>`
+            ).join('');
+            resultsEl.querySelectorAll('.picker-item:not(.picker-item-added)').forEach(el => {
+                el.addEventListener('mousedown', e => {
+                    e.preventDefault();
+                    const id = parseInt(el.dataset.id);
+                    const pessoa = TODOS_EFETIVO.find(e2 => e2.id === id);
+                    const gi2 = parseInt(input.dataset.gi);
+                    verificarConflitos(pessoa, p => {
+                        _grupos[gi2].membros.push({efetivo_id: p.id, texto: ''});
+                        input.value = '';
+                        resultsEl.style.display = 'none';
+                        renderGrupos();
+                        const cards = document.querySelectorAll('.grupo-ef-card');
+                        const card = cards[gi2];
+                        if (card) { const b = card.querySelector('.grupo-busca'); if (b) b.focus(); }
+                    });
+                });
+            });
+            resultsEl.style.display = 'block';
+        }, 150);
+    });
+    input.addEventListener('blur', () => { setTimeout(() => { resultsEl.style.display = 'none'; }, 200); });
+}
+
+function adicionarGrupo() {
+    _grupos.push({label: 'NOVO GRUPO', membros: []});
+    renderGrupos();
+    const cards = document.querySelectorAll('.grupo-ef-card');
+    const last = cards[cards.length - 1];
+    if (last) { const inp = last.querySelector('.grupo-ef-label-input'); if (inp) inp.select(); }
+}
+
+function removerGrupo(gi) { _grupos.splice(gi, 1); renderGrupos(); }
+
+function removerMembro(gi, mi) { _grupos[gi].membros.splice(mi, 1); renderGrupos(); }
 
 /* ── Autocomplete de missão ── */
 const nomeMissaoInput = document.getElementById('id_nome_missao');
@@ -625,26 +765,13 @@ function preencherMissao(m) {
     setVal('id_uniforme', m.uniforme);
     setVal('id_observacoes_armamento', m.observacoes_armamento);
 
-    // A Cargo de + efetivo
-    ['cmt', 'mot', 'equipe'].forEach(role => {
-        const cargo = m[`${role}_a_cargo`] || '';
-        const chk = document.getElementById(`${role}_cargo_chk`);
-        chk.checked = !!cargo;
-        toggleACargo(role);
-        if (cargo) {
-            const inp = document.querySelector(`#${role}_cargo_area input`);
-            if (inp) inp.value = cargo;
-        }
-    });
-    if (m.cmt_a_cargo || m.mot_a_cargo || m.equipe_a_cargo) {
-        // modo manual: preenche os quantitativos
-        setVal('ef_of',     m.efetivo_of);
-        setVal('ef_so_sgt', m.efetivo_so_sgt);
-        setVal('ef_cb',     m.efetivo_cb);
-        setVal('ef_s1',     m.efetivo_s1);
-        setVal('ef_s2',     m.efetivo_s2);
-        setVal('ef_rec',    m.efetivo_rec);
+    // Carrega grupos de efetivo da missão copiada
+    if (m.grupos_efetivo && m.grupos_efetivo.length) {
+        _grupos = JSON.parse(JSON.stringify(m.grupos_efetivo));
+    } else {
+        _grupos = [{label:'CMT',membros:[]},{label:'MOT',membros:[]},{label:'EQUIPE',membros:[]}];
     }
+    renderGrupos();
 
     // Atualizar fantasmas de efetivo com valores da missão herdada
     _atualizarEfetivoRef({
@@ -670,82 +797,6 @@ function preencherMissao(m) {
     });
 }
 
-/* ── A Cargo — sugestões ── */
-const ACARGA_OPCOES_URL  = "{% url 'Secao_operacoes:api_acarga_opcoes' %}";
-const ACARGA_DELETE_TPL  = "{% url 'Secao_operacoes:api_acarga_opcao_delete' pk=0 %}";
-let _acargaOpcoes = {{ acarga_opcoes_json|default:'[]'|safe }};
-
-const _inputMap = { cmt: 'cmt_cargo_input', mot: 'mot_cargo_input', equipe: 'equipe_cargo_input' };
-
-function _renderACargoDropdown(role) {
-    const dd = document.getElementById(`${role}_acargo_sugestoes`);
-    if (!dd) return;
-    const items = _acargaOpcoes.map(o => `
-        <div class="acargo-item" onclick="_selecionarACargo('${role}','${o.nome.replace(/'/g,"\\'")}')">
-            <span>${o.nome}</span>
-            <button type="button" class="acargo-item-del" onclick="event.stopPropagation();_deletarACargo(${o.id},'${role}')" title="Remover"><i class="fas fa-times"></i></button>
-        </div>`).join('');
-    dd.innerHTML = `
-        ${items || '<div style="padding:8px 10px;font-size:12px;color:var(--text-muted);">Nenhuma opção cadastrada.</div>'}
-        <div class="acargo-add-row">
-            <input type="text" class="acargo-add-input" id="${role}_acargo_new" placeholder="Nova opção...">
-            <button type="button" class="acargo-add-btn" onclick="_adicionarACargo('${role}')"><i class="fas fa-plus"></i></button>
-        </div>`;
-}
-
-function toggleACargoSugestoes(role) {
-    const dd = document.getElementById(`${role}_acargo_sugestoes`);
-    if (!dd) return;
-    const visible = dd.style.display !== 'none';
-    // Fecha todos
-    ['cmt','mot','equipe'].forEach(r => {
-        const d = document.getElementById(`${r}_acargo_sugestoes`);
-        if (d) d.style.display = 'none';
-    });
-    if (!visible) { _renderACargoDropdown(role); dd.style.display = 'block'; }
-}
-
-function _selecionarACargo(role, nome) {
-    const inp = document.getElementById(_inputMap[role]);
-    if (inp) inp.value = nome;
-    const dd = document.getElementById(`${role}_acargo_sugestoes`);
-    if (dd) dd.style.display = 'none';
-}
-
-function _adicionarACargo(role) {
-    const inp = document.getElementById(`${role}_acargo_new`);
-    const nome = inp ? inp.value.trim() : '';
-    if (!nome) return;
-    fetch(ACARGA_OPCOES_URL, {
-        method: 'POST',
-        headers: {'X-CSRFToken': CSRF, 'Content-Type': 'application/json'},
-        body: JSON.stringify({nome}),
-    }).then(r => r.json()).then(data => {
-        if (data.status === 'ok') {
-            if (data.created) _acargaOpcoes.push({id: data.id, nome: data.nome});
-            _renderACargoDropdown(role);
-        }
-    });
-}
-
-function _deletarACargo(id, role) {
-    fetch(ACARGA_DELETE_TPL.replace('/0/', `/${id}/`), {
-        method: 'POST', headers: {'X-CSRFToken': CSRF},
-    }).then(r => r.json()).then(() => {
-        _acargaOpcoes = _acargaOpcoes.filter(o => o.id !== id);
-        _renderACargoDropdown(role);
-    });
-}
-
-// Fechar dropdown ao clicar fora
-document.addEventListener('click', e => {
-    if (!e.target.closest('.acargo-wrap') && !e.target.closest('.btn-acargo-sugestoes')) {
-        ['cmt','mot','equipe'].forEach(r => {
-            const d = document.getElementById(`${r}_acargo_sugestoes`);
-            if (d) d.style.display = 'none';
-        });
-    }
-});
 
 function _atualizarEfetivoRef(ref) {
     const campos = {of:'ef_of', so_sgt:'ef_so_sgt', cb:'ef_cb', s1:'ef_s1', s2:'ef_s2', rec:'ef_rec'};
@@ -1122,39 +1173,8 @@ function abrirCatalogoUniforme() {
     });
 }
 
-/* ══ A Cargo de ══ */
-function temACargo() {
-    return document.getElementById('cmt_cargo_chk').checked ||
-           document.getElementById('mot_cargo_chk').checked ||
-           document.getElementById('equipe_cargo_chk').checked;
-}
-
-function toggleACargo(role) {
-    const chk = document.getElementById(`${role}_cargo_chk`).checked;
-    document.getElementById(`${role}_picker_area`).style.display = chk ? 'none' : '';
-    document.getElementById(`${role}_cargo_area`).style.display  = chk ? '' : 'none';
-    if (!chk) {
-        // Desmarcando: limpa o texto para não enviar no POST e não persistir
-        const inp = document.getElementById(`${role}_cargo_input`);
-        if (inp) inp.value = '';
-    }
-    atualizarModoEfetivo();
-}
-
-function atualizarModoEfetivo() {
-    const manual = temACargo();
-    const campos = ['ef_of','ef_so_sgt','ef_cb','ef_s1','ef_s2','ef_rec'];
-    campos.forEach(id => {
-        const el = document.getElementById(id);
-        el.readOnly = !manual;
-        el.style.background = manual ? '' : 'var(--bg-page)';
-        el.style.cursor = manual ? '' : 'default';
-    });
-    document.getElementById('ef_auto_msg').textContent = manual
-        ? 'Modo manual: preencha os quantitativos manualmente.'
-        : 'Contadores preenchidos automaticamente pela seleção abaixo.';
-    if (!manual) recalcularEfetivo();
-}
+/* ══ (A Cargo de removido — use o campo de observação por membro) ══ */
+function atualizarModoEfetivo() { recalcularEfetivo(); }
 
 /* ══ Picker de Efetivo ══ */
 const POSTOS_OF    = ['ASP','ASPIRANTE','2T','1T','CAP','CAPITÃO','CAPITAO','CP','MAJ','MAJOR','MJ','TC','CEL','CORONEL','CL','BRIG','BRIGADEIRO','BG'];
@@ -1162,9 +1182,6 @@ const POSTOS_SO_SGT = ['SO','SGT','1S','2S','3S'];
 const POSTOS_CB    = ['CB','CABO'];
 const POSTOS_S1    = ['S1','SD1','SDP1'];
 const POSTOS_S2    = ['S2','SD2','SDP2','SD','SOL','SOLDADO'];
-
-// Inicializa estado ao carregar
-atualizarModoEfetivo();
 
 function categoriaPosto(posto) {
     const p = (posto||'').toUpperCase().trim();
@@ -1177,28 +1194,15 @@ function categoriaPosto(posto) {
 }
 
 function recalcularEfetivo() {
-    if (temACargo()) return; // modo manual, não sobrescreve
     const contagem = {of:0, so_sgt:0, cb:0, s1:0, s2:0, rec:0};
-
-    // CMT
-    const cmtId = parseInt(document.getElementById('cmt_id').value);
-    if (cmtId) {
-        const p = TODOS_EFETIVO.find(e => e.id === cmtId);
-        if (p) { const c = p.oficial ? 'of' : categoriaPosto(p.posto); if (c) contagem[c]++; }
-    }
-    // MOT
-    const motId = parseInt(document.getElementById('mot_id').value);
-    if (motId) {
-        const p = TODOS_EFETIVO.find(e => e.id === motId);
-        if (p) { const c = p.oficial ? 'of' : categoriaPosto(p.posto); if (c) contagem[c]++; }
-    }
-    // EQUIPE
-    document.querySelectorAll('#equipe_chips [data-id]').forEach(chip => {
-        const id = parseInt(chip.dataset.id);
-        const p = TODOS_EFETIVO.find(e => e.id === id);
-        if (p) { const c = p.oficial ? 'of' : categoriaPosto(p.posto); if (c) contagem[c]++; }
+    _grupos.forEach(g => {
+        (g.membros || []).forEach(m => {
+            if (m.efetivo_id) {
+                const p = TODOS_EFETIVO.find(e => e.id === m.efetivo_id);
+                if (p) { const c = p.oficial ? 'of' : categoriaPosto(p.posto); if (c) contagem[c]++; }
+            }
+        });
     });
-
     document.getElementById('ef_of').value     = contagem.of;
     document.getElementById('ef_so_sgt').value = contagem.so_sgt;
     document.getElementById('ef_cb').value     = contagem.cb;
@@ -1295,86 +1299,28 @@ function setupPicker(searchId, resultsId, { onSelect }) {
     });
 }
 
-function limparCmt() {
-    document.getElementById('cmt_id').value = '';
-    document.getElementById('cmt_chip').innerHTML = '';
-    recalcularEfetivo();
-}
-function limparMot() {
-    document.getElementById('mot_id').value = '';
-    document.getElementById('mot_chip').innerHTML = '';
-    recalcularEfetivo();
-}
-
-const equipeIds = new Set();
-
-function removerEquipe(btn, id) {
-    equipeIds.delete(id);
-    btn.closest('[data-id]').remove();
-    recalcularEfetivo();
-}
-
 document.addEventListener('DOMContentLoaded', () => {
-    // Inicializa equipeIds com membros já carregados (edição)
-    document.querySelectorAll('#equipe_chips [data-id]').forEach(chip => {
-        equipeIds.add(parseInt(chip.dataset.id));
-        if (!chip.querySelector('input[type=hidden]')) {
-            const inp = document.createElement('input');
-            inp.type = 'hidden'; inp.name = 'equipe_ids[]'; inp.value = chip.dataset.id;
-            chip.appendChild(inp);
-        }
-    });
+    // Inicializa grupos e renderiza
+    renderGrupos();
 
-    /* — CMT — */
-    setupPicker('cmt_search', 'cmt_results', {
-        onSelect(pessoa) {
-            verificarConflitos(pessoa, p => {
-                document.getElementById('cmt_id').value = p.id;
-                document.getElementById('cmt_chip').innerHTML = `
-                    <div class="pessoa-selecionada">
-                        <span>${p.label}</span>
-                        <button type="button" onclick="limparCmt()">×</button>
-                    </div>`;
-                document.getElementById('cmt_search').value = '';
-                recalcularEfetivo();
-            });
-        }
-    });
-
-    /* — MOT — */
-    setupPicker('mot_search', 'mot_results', {
-        onSelect(pessoa) {
-            verificarConflitos(pessoa, p => {
-                document.getElementById('mot_id').value = p.id;
-                document.getElementById('mot_chip').innerHTML = `
-                    <div class="pessoa-selecionada">
-                        <span>${p.label}</span>
-                        <button type="button" onclick="limparMot()">×</button>
-                    </div>`;
-                document.getElementById('mot_search').value = '';
-                recalcularEfetivo();
-            });
-        }
-    });
-
-    /* — EQUIPE — */
-    setupPicker('equipe_search', 'equipe_results', {
-        onSelect(pessoa) {
-            if (equipeIds.has(pessoa.id)) return;
-            verificarConflitos(pessoa, p => {
-                equipeIds.add(p.id);
-                const chip = document.createElement('span');
-                chip.className = 'pessoa-chip';
-                chip.dataset.id = p.id;
-                chip.innerHTML = `${p.label} <button type="button" onclick="removerEquipe(this, ${p.id})">×</button>`;
-                const inp = document.createElement('input');
-                inp.type = 'hidden'; inp.name = 'equipe_ids[]'; inp.value = p.id; inp.id = `eq_hid_${p.id}`;
-                chip.appendChild(inp);
-                document.getElementById('equipe_chips').appendChild(chip);
-                document.getElementById('equipe_search').value = '';
-                recalcularEfetivo();
-            });
-        }
+    // Serializa grupos no campo hidden antes do submit
+    document.getElementById('missao-form').addEventListener('submit', () => {
+        // Sincroniza labels editáveis
+        document.querySelectorAll('.grupo-ef-label-input').forEach(inp => {
+            const gi = parseInt(inp.dataset.gi);
+            if (_grupos[gi]) _grupos[gi].label = inp.value;
+        });
+        // Sincroniza campo "a cargo de" por grupo
+        _grupos.forEach((g, gi) => {
+            const inp = document.getElementById(`acargo-input-${gi}`);
+            if (inp && g.acargo != null) g.acargo = inp.value;
+        });
+        // Sincroniza anotações de chips que estejam com input aberto
+        document.querySelectorAll('.chip-anotacao-input').forEach(inp => {
+            const gi = parseInt(inp.dataset.gi), mi = parseInt(inp.dataset.mi);
+            if (_grupos[gi] && _grupos[gi].membros[mi]) _grupos[gi].membros[mi].texto = inp.value;
+        });
+        document.getElementById('grupos_efetivo_input').value = JSON.stringify(_grupos);
     });
 });
 

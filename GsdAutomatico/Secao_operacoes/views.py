@@ -17,8 +17,8 @@ STD_HORARIOS = [
     ('chamada',     'horario_chamada',     'CHAMADA'),
     ('armamento',   'horario_armamento',   'ARMAMENTO'),
     ('alimentacao', 'horario_alimentacao', 'ALIMENTAÇÃO'),
-    ('sala_sgt',    'horario_sala_sgt',    'HORÁRIO NA SALA SGT DE DIA AO GSD GL'),
-    ('saida',       'horario_saida',       'SAÍDA DO GSD GL'),
+    ('sala_sgt',    'horario_sala_sgt',    'HORÁRIO NA SALA SGT DE DIA AO BINFAE GL'),
+    ('saida',       'horario_saida',       'SAÍDA DO BINFAE GL'),
     ('pronto',      'horario_pronto',      'PRONTO NO OBJETIVO'),
 ]
 _STD_MAP = {k: (f, l) for k, f, l in STD_HORARIOS}
@@ -250,7 +250,7 @@ def _notificar_esi_sobre_missao(missao):
         if not usuarios_esi.exists():
             return
         url_escala = reverse('ESI:missao_escala', args=[missao.pk])
-        titulo = f"Nova missão ESI: OMIS N° {missao.numero}/SOPGSDGL/GSD GL"
+        titulo = f"Nova missão ESI: OMIS N° {missao.numero}/SOPBINFAEGL/BINFAE GL"
         corpo = f"{missao.nome_missao} — {missao.data_missao.strftime('%d/%m/%Y')}"
         # Sino de notificações
         notificar(usuarios_esi, titulo=titulo, corpo=corpo, url=url_escala, tipo='sistema')
@@ -786,6 +786,12 @@ def missao_create(request):
     diretrizes_iniciais = [{'texto': t, 'is_padrao': True} for t in diretrizes_padrao]
     if origem:
         diretrizes_iniciais = _get_diretrizes_missao(origem)
+    if origem and origem.efetivo_grupos_json:
+        grupos_iniciais = json.loads(origem.efetivo_grupos_json)
+    elif origem:
+        grupos_iniciais = _build_grupos_from_old_fields(origem)
+    else:
+        grupos_iniciais = [{'label': 'CMT', 'membros': []}, {'label': 'MOT', 'membros': []}, {'label': 'EQUIPE', 'membros': []}]
     return render(request, 'Secao_operacoes/missao_form.html', {
         'form': form,
         'title': f'Copiar OMIS Nº {origem.numero}' if origem else 'Nova Missão (OMIS)',
@@ -797,6 +803,7 @@ def missao_create(request):
         'std_horarios_disponiveis': STD_HORARIOS,
         'efetivo_ref': efetivo_ref,
         'acarga_opcoes_json': json.dumps(list(ACargaOpcao.objects.values('id', 'nome')), ensure_ascii=False),
+        'grupos_iniciais_json': json.dumps(grupos_iniciais, ensure_ascii=False),
     })
 
 
@@ -825,6 +832,10 @@ def missao_edit(request, pk):
             return redirect('Secao_operacoes:missao_detail', pk=missao.pk)
     else:
         form = MissaoForm(instance=missao)
+    if missao.efetivo_grupos_json:
+        grupos_iniciais = json.loads(missao.efetivo_grupos_json)
+    else:
+        grupos_iniciais = _build_grupos_from_old_fields(missao)
     cfg = ConfiguracaoOperacoes.get_instance()
     diretrizes_padrao = _get_diretrizes_padrao(cfg)
     return render(request, 'Secao_operacoes/missao_form.html', {
@@ -837,6 +848,7 @@ def missao_edit(request, pk):
         'std_horarios_disponiveis': STD_HORARIOS,
         'efetivo_ref': efetivo_ref,
         'acarga_opcoes_json': json.dumps(list(ACargaOpcao.objects.values('id', 'nome')), ensure_ascii=False),
+        'grupos_iniciais_json': json.dumps(grupos_iniciais, ensure_ascii=False),
     })
 
 
@@ -846,10 +858,12 @@ def missao_detail(request, pk):
     config = ConfiguracaoOperacoes.get_instance()
     from informatica.models import ConfiguracaoComandantes
     config_cmds = ConfiguracaoComandantes.get_instance()
+    grupos_efetivo = _grupos_efetivo_para_pdf(missao)
     return render(request, 'Secao_operacoes/missao_detail.html', {
         'missao': missao,
         'config': config,
         'config_cmds': config_cmds,
+        'grupos_efetivo': grupos_efetivo,
     })
 
 
@@ -962,9 +976,101 @@ def painel_missoes(request):
     })
 
 
+def _grupos_efetivo_para_pdf(missao):
+    """Retorna lista de grupos com nomes resolvidos para o PDF."""
+    # Pre-carrega militares da ESI (se existir escala)
+    esi_militares = []
+    try:
+        esi_militares = list(missao.escala_esi.militares.order_by('posto', 'nome_guerra'))
+    except Exception:
+        pass
+
+    # Lê grupos por função da escala ESI (se existir)
+    esi_grupos_map = {}  # {label_upper: {'militares': [Efetivo], 'modo': str}}
+    try:
+        if missao.escala_esi.grupos_json:
+            for g in json.loads(missao.escala_esi.grupos_json):
+                ids = g.get('militares', [])
+                efs = list(Efetivo.objects.filter(pk__in=ids).order_by('posto', 'nome_guerra'))
+                esi_grupos_map[g['label'].upper()] = {
+                    'militares': efs,
+                    'modo': g.get('modo', 'anexo'),
+                }
+    except Exception:
+        pass
+
+    def _membros_da_secao(acargo, label):
+        if not acargo:
+            return None
+        ac = acargo.lower()
+        if 'esi' in ac:
+            per_grupo = esi_grupos_map.get(label.upper())
+            if per_grupo is not None:
+                # modo "omis" → expõe militares direto na OMIS
+                # modo "anexo" → só no Anexo ESI, OMIS mostra só texto "a cargo de"
+                if per_grupo['modo'] == 'omis':
+                    return [{'efetivo': e, 'nome': f"{e.posto} {e.nome_guerra}".strip(), 'texto': ''} for e in per_grupo['militares']]
+                else:
+                    return []
+            # Sem grupos específicos: usa todos da ESI (comportamento legado)
+            return [{'efetivo': e, 'nome': f"{e.posto} {e.nome_guerra}".strip(), 'texto': ''} for e in esi_militares]
+        return []  # seção sem sistema de escala — mostra só texto acargo
+
+    if missao.efetivo_grupos_json:
+        try:
+            grupos_raw = json.loads(missao.efetivo_grupos_json)
+        except (json.JSONDecodeError, ValueError):
+            grupos_raw = []
+        todos_ids = [m['efetivo_id'] for g in grupos_raw for m in g.get('membros', []) if m.get('efetivo_id')]
+        ef_map = {e.pk: e for e in Efetivo.objects.filter(pk__in=todos_ids)}
+        grupos = []
+        for g in grupos_raw:
+            acargo = g.get('acargo', '')
+            secao_membros = _membros_da_secao(acargo, g.get('label', '')) if acargo else None
+            if secao_membros is not None:
+                # Grupo a cargo de uma seção: mostra os militares que ELA escalou
+                membros = secao_membros
+            else:
+                # Sem acargo: mostra os membros manuais
+                membros = []
+                for m in g.get('membros', []):
+                    ef = ef_map.get(m.get('efetivo_id')) if m.get('efetivo_id') else None
+                    membros.append({
+                        'efetivo': ef,
+                        'nome': f"{ef.posto} {ef.nome_guerra}".strip() if ef else '',
+                        'texto': m.get('texto', ''),
+                    })
+            grupos.append({'label': g.get('label', ''), 'membros': membros, 'acargo': acargo})
+        return grupos
+    # Fallback para campos antigos
+    grupos = _build_grupos_from_old_fields_pdf(missao)
+    for g in grupos:
+        if g.get('acargo'):
+            secao_membros = _membros_da_secao(g['acargo'], g.get('label', ''))
+            if secao_membros is not None:
+                g['membros'] = secao_membros
+    return grupos
+
+
+def _build_grupos_from_old_fields_pdf(missao):
+    grupos = []
+    cmt_membros = []
+    if missao.cmt_missao:
+        cmt_membros.append({'efetivo': missao.cmt_missao, 'nome': f"{missao.cmt_missao.posto} {missao.cmt_missao.nome_guerra}", 'texto': ''})
+    grupos.append({'label': 'CMT', 'membros': cmt_membros, 'acargo': missao.cmt_a_cargo or ''})
+
+    mot_membros = []
+    if missao.motorista:
+        mot_membros.append({'efetivo': missao.motorista, 'nome': f"{missao.motorista.posto} {missao.motorista.nome_guerra}", 'texto': ''})
+    grupos.append({'label': 'MOT', 'membros': mot_membros, 'acargo': missao.mot_a_cargo or ''})
+
+    eq_membros = [{'efetivo': e, 'nome': f"{e.posto} {e.nome_guerra}", 'texto': ''} for e in missao.equipe.all().order_by('posto', 'nome_guerra')]
+    grupos.append({'label': 'EQUIPE', 'membros': eq_membros, 'acargo': missao.equipe_a_cargo or ''})
+    return grupos
+
+
 def _missao_pdf_context(missao, request):
     """Retorna o contexto necessário para renderizar o PDF de uma missão."""
-    from collections import defaultdict
     armas = list(missao.armamentos.all())
     equips = list(missao.equipamentos.all())
     max_linhas = max(len(armas), (len(equips) + 1) // 2, 4)
@@ -975,19 +1081,15 @@ def _missao_pdf_context(missao, request):
             'eq1':  equips[i * 2]     if i * 2 < len(equips) else None,
             'eq2':  equips[i * 2 + 1] if i * 2 + 1 < len(equips) else None,
         })
-    todos = []
-    if missao.cmt_missao:
-        todos.append(('CMT', missao.cmt_missao))
-    for p in missao.equipe.all().order_by('posto', 'nome_guerra'):
-        todos.append(('equipe', p))
-    if missao.motorista:
-        todos.append(('MOT', missao.motorista))
+    grupos_efetivo = _grupos_efetivo_para_pdf(missao)
+    # Mantém equipe_por_posto para backward compat com template antigo
+    from collections import defaultdict
     grupos_equipe = defaultdict(list)
     ordem_postos = []
-    for _, p in [(r, p) for r, p in todos if r == 'equipe']:
-        if p.posto not in grupos_equipe:
-            ordem_postos.append(p.posto)
-        grupos_equipe[p.posto].append(p.nome_guerra)
+    for e in missao.equipe.all().order_by('posto', 'nome_guerra'):
+        if e.posto not in grupos_equipe:
+            ordem_postos.append(e.posto)
+        grupos_equipe[e.posto].append(e.nome_guerra)
     equipe_por_posto = [(posto, grupos_equipe[posto]) for posto in ordem_postos]
     try:
         from ESI.models import EscalaMissaoESI  # noqa
@@ -1007,6 +1109,7 @@ def _missao_pdf_context(missao, request):
         'config': config,
         'config_cmds': config_cmds,
         'linhas_arma_equip': linhas_arma_equip,
+        'grupos_efetivo': grupos_efetivo,
         'equipe_por_posto': equipe_por_posto,
         'horarios_ordenados': _horarios_pdf_ctx(missao),
         'diretrizes': _get_diretrizes_missao(missao),
@@ -1220,6 +1323,7 @@ def missao_busca_json(request):
             'efetivo_s1': m.efetivo_s1,
             'efetivo_s2': m.efetivo_s2,
             'efetivo_rec': m.efetivo_rec,
+            'grupos_efetivo': json.loads(m.efetivo_grupos_json) if m.efetivo_grupos_json else _build_grupos_from_old_fields(m),
             'armamentos': [{'arma': a.arma, 'quantidade': a.quantidade, 'carregadores': a.carregadores, 'cartuchos': a.cartuchos} for a in m.armamentos.all()],
             'equipamentos': [{'equipamento': e.equipamento, 'quantidade': e.quantidade} for e in m.equipamentos.all()],
         })
@@ -1364,6 +1468,29 @@ def _efetivo_json_ctx():
     } for e in qs])
 
 
+def _build_grupos_from_old_fields(missao):
+    """Constrói lista de grupos a partir dos campos antigos de missão (backward compat)."""
+    grupos = []
+    cmt_membros = [{'efetivo_id': missao.cmt_missao.pk, 'texto': ''}] if missao.cmt_missao else []
+    cmt = {'label': 'CMT', 'membros': cmt_membros}
+    if missao.cmt_a_cargo:
+        cmt['acargo'] = missao.cmt_a_cargo
+    grupos.append(cmt)
+
+    mot_membros = [{'efetivo_id': missao.motorista.pk, 'texto': ''}] if missao.motorista else []
+    mot = {'label': 'MOT', 'membros': mot_membros}
+    if missao.mot_a_cargo:
+        mot['acargo'] = missao.mot_a_cargo
+    grupos.append(mot)
+
+    eq_membros = [{'efetivo_id': e.pk, 'texto': ''} for e in missao.equipe.all().order_by('posto', 'nome_guerra')]
+    equipe = {'label': 'EQUIPE', 'membros': eq_membros}
+    if missao.equipe_a_cargo:
+        equipe['acargo'] = missao.equipe_a_cargo
+    grupos.append(equipe)
+    return grupos
+
+
 def _salvar_efetivo_post(request, missao):
     missao.efetivo_of     = int(request.POST.get('efetivo_of', 0) or 0)
     missao.efetivo_so_sgt = int(request.POST.get('efetivo_so_sgt', 0) or 0)
@@ -1371,18 +1498,51 @@ def _salvar_efetivo_post(request, missao):
     missao.efetivo_s1     = int(request.POST.get('efetivo_s1', 0) or 0)
     missao.efetivo_s2     = int(request.POST.get('efetivo_s2', 0) or 0)
     missao.efetivo_rec    = int(request.POST.get('efetivo_rec', 0) or 0)
-    missao.cmt_a_cargo    = request.POST.get('cmt_a_cargo', '').strip()
-    missao.mot_a_cargo    = request.POST.get('mot_a_cargo', '').strip()
-    missao.equipe_a_cargo = request.POST.get('equipe_a_cargo', '').strip()
-    cmt_id = request.POST.get('cmt_missao_id')
-    missao.cmt_missao = Efetivo.objects.filter(pk=cmt_id).first() if cmt_id else None
-    mot_id = request.POST.get('motorista_id')
-    missao.motorista = Efetivo.objects.filter(pk=mot_id).first() if mot_id else None
+
+    # Novo sistema: grupos dinâmicos via JSON
+    grupos_raw = request.POST.get('grupos_efetivo_json', '').strip()
+    if grupos_raw:
+        try:
+            grupos = json.loads(grupos_raw)
+        except (json.JSONDecodeError, ValueError):
+            grupos = []
+        missao.efetivo_grupos_json = grupos_raw
+
+        # Backward compat: atualiza campos antigos a partir dos grupos
+        cmt_grupo  = next((g for g in grupos if g.get('label', '').upper() == 'CMT'), None)
+        mot_grupo  = next((g for g in grupos if g.get('label', '').upper() == 'MOT'), None)
+        eq_grupo   = next((g for g in grupos if g.get('label', '').upper() == 'EQUIPE'), None)
+        missao.cmt_a_cargo    = cmt_grupo.get('acargo', '')  if cmt_grupo  else ''
+        missao.mot_a_cargo    = mot_grupo.get('acargo', '')  if mot_grupo  else ''
+        missao.equipe_a_cargo = eq_grupo.get('acargo', '')   if eq_grupo   else ''
+        cmt_id = next((m['efetivo_id'] for g in grupos if g.get('label', '').upper() == 'CMT' for m in g.get('membros', []) if m.get('efetivo_id')), None)
+        mot_id = next((m['efetivo_id'] for g in grupos if g.get('label', '').upper() == 'MOT' for m in g.get('membros', []) if m.get('efetivo_id')), None)
+        missao.cmt_missao = Efetivo.objects.filter(pk=cmt_id).first() if cmt_id else None
+        missao.motorista  = Efetivo.objects.filter(pk=mot_id).first() if mot_id else None
+    else:
+        # Fallback para o sistema antigo
+        missao.cmt_a_cargo    = request.POST.get('cmt_a_cargo', '').strip()
+        missao.mot_a_cargo    = request.POST.get('mot_a_cargo', '').strip()
+        missao.equipe_a_cargo = request.POST.get('equipe_a_cargo', '').strip()
+        cmt_id = request.POST.get('cmt_missao_id')
+        missao.cmt_missao = Efetivo.objects.filter(pk=cmt_id).first() if cmt_id else None
+        mot_id = request.POST.get('motorista_id')
+        missao.motorista = Efetivo.objects.filter(pk=mot_id).first() if mot_id else None
 
 
 def _salvar_equipe_post(request, missao):
-    ids = request.POST.getlist('equipe_ids[]')
-    missao.equipe.set(Efetivo.objects.filter(pk__in=ids))
+    grupos_raw = request.POST.get('grupos_efetivo_json', '').strip()
+    if grupos_raw:
+        try:
+            grupos = json.loads(grupos_raw)
+        except (json.JSONDecodeError, ValueError):
+            grupos = []
+        # Todos os efetivo_ids de todos os grupos
+        todos_ids = [m['efetivo_id'] for g in grupos for m in g.get('membros', []) if m.get('efetivo_id')]
+        missao.equipe.set(Efetivo.objects.filter(pk__in=todos_ids))
+    else:
+        ids = request.POST.getlist('equipe_ids[]')
+        missao.equipe.set(Efetivo.objects.filter(pk__in=ids))
 
 
 def _salvar_horarios(request, missao):

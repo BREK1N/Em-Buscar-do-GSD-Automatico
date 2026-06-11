@@ -148,6 +148,34 @@
 /* ── Empty states ───────────────────────── */
 .empty-msg { text-align: center; padding: 28px 16px; color: var(--text-muted); font-size: .85rem; }
 .empty-msg i { display: block; font-size: 1.6rem; margin-bottom: 8px; opacity: .4; }
+
+/* ── Grupos ESI ─────────────────────────── */
+.grupo-tabs { display:flex; gap:6px; margin-bottom:12px; flex-wrap:wrap; }
+.grupo-tab {
+    padding:5px 14px; border-radius:20px; font-size:.8rem; font-weight:700;
+    border:1.5px solid var(--border-color); background:var(--bg-main);
+    color:var(--text-secondary); cursor:pointer; transition:all .15s;
+    text-transform:uppercase; letter-spacing:.04em;
+}
+.grupo-tab:hover { border-color:var(--accent-color); color:var(--accent-color); }
+.grupo-tab.active { background:var(--accent-color); border-color:var(--accent-color); color:#fff; }
+.grupo-section { display:none; }
+.grupo-section.active { display:block; }
+.grupo-escalado-row {
+    display:flex; align-items:center; gap:8px;
+    padding:6px 10px; border-radius:8px;
+    background:rgba(59,130,246,.07); border:1px solid rgba(59,130,246,.2);
+    margin-bottom:5px;
+}
+.grupo-escalado-row .name { flex:1; font-size:.83rem; font-weight:600; color:var(--text-primary); }
+.mil-row.in-grupo { border-color:var(--accent-color); background:rgba(59,130,246,.06); }
+.mil-row.in-outro-grupo { border-color:#16a34a; background:rgba(34,197,94,.05); }
+.grupo-badge { font-size:.65rem; font-weight:700; padding:1px 6px; border-radius:10px; background:#16a34a; color:#fff; margin-left:4px; }
+.grupo-add-hint { font-size:.75rem; color:var(--text-muted); text-align:center; padding:8px; }
+.modo-toggle { display:flex; gap:4px; background:var(--bg-main); border-radius:8px; padding:3px; margin-bottom:10px; }
+.modo-btn { flex:1; padding:5px 8px; border-radius:6px; font-size:.75rem; font-weight:700; border:none; background:transparent; color:var(--text-secondary); cursor:pointer; transition:all .15s; text-align:center; }
+.modo-btn.active-anexo { background:#d97706; color:#fff; }
+.modo-btn.active-omis  { background:#16a34a; color:#fff; }
 </style>
 {% endblock %}
 
@@ -224,13 +252,15 @@
             <!-- Lista -->
             <div id="lista-militares" style="max-height:520px;overflow-y:auto;padding-right:2px;">
             {% for mil in efetivo_esi %}
-                <div class="mil-row {% if mil.id in militares_escalados_ids %}selected{% endif %}"
+                <div class="mil-row {% if not tem_grupos and mil.id in militares_escalados_ids %}selected{% endif %}"
                      data-id="{{ mil.id }}"
                      data-nome="{{ mil.posto }} {{ mil.nome_guerra }}"
                      data-saram="{{ mil.saram|default:'' }}"
-                     onclick="toggleMilitar(this)">
+                     onclick="{% if tem_grupos %}toggleMilitarGrupo(this){% else %}toggleMilitar(this){% endif %}">
+                    {% if not tem_grupos %}
                     <input type="checkbox" name="militares" value="{{ mil.id }}"
                            {% if mil.id in militares_escalados_ids %}checked{% endif %}>
+                    {% endif %}
                     <div class="mil-info">
                         <div class="mil-name">{{ mil.posto }} {{ mil.nome_guerra }}</div>
                         <div class="mil-sub">{{ mil.nome_completo }}{% if mil.saram %} · SARAM: {{ mil.saram }}{% endif %}{% if mil.setor %} · {{ mil.setor }}{% endif %}</div>
@@ -264,17 +294,24 @@
                 <span class="cnt-badge" id="badge-escalados" style="background:#16a34a;">0</span>
             </div>
             <div class="panel-body" style="padding:10px 12px;">
+{% if tem_grupos %}
+                <!-- Abas por grupo -->
+                <div class="grupo-tabs" id="grupo-tabs"></div>
+                <div id="grupo-sections" style="max-height:400px;overflow-y:auto;"></div>
+                <p class="grupo-add-hint"><i class="fas fa-info-circle"></i> Selecione a aba do grupo e clique no militar ao lado.</p>
+{% else %}
                 <!-- Busca nos escalados -->
                 <div class="search-bar" style="margin-bottom:8px;padding:6px 12px;">
                     <i class="fas fa-search"></i>
                     <input type="text" id="busca-escalados" placeholder="Filtrar escalados...">
                 </div>
-                <div id="lista-escalados" style="max-height:280px;overflow-y:auto;">
+                <div id="lista-escalados" style="max-height:400px;overflow-y:auto;">
                     <div class="empty-msg" id="msg-vazio-escalados">
                         <i class="fas fa-user-plus"></i>
                         Selecione militares ao lado.
                     </div>
                 </div>
+{% endif %}
             </div>
         </div>
 
@@ -329,14 +366,134 @@
 
 <script>
 const MISSAO_ID = {{ missao.id }};
+const TEM_GRUPOS = {{ tem_grupos|yesno:"true,false" }};
 const conflitosCache = {};
 let searchMode = 'nome';
 
-/* ── Estado: mapa id → {posto, nome_guerra} ── */
+/* ── Estado: mapa id → nome ── */
 const todosMap = {};
 document.querySelectorAll('.mil-row').forEach(row => {
     todosMap[row.dataset.id] = row.dataset.nome;
 });
+
+/* ══════════════════════════════════════════
+   MODO GRUPOS
+   ══════════════════════════════════════════ */
+{% if tem_grupos %}
+let _grupos = {{ esi_grupos_json|safe }};
+// garante campo modo em todos os grupos
+_grupos.forEach(g => { if (!g.modo) g.modo = 'anexo'; });
+let _grupoAtivo = 0;
+
+function _renderGrupos() {
+    const tabsEl = document.getElementById('grupo-tabs');
+    const secsEl = document.getElementById('grupo-sections');
+    tabsEl.innerHTML = _grupos.map((g, i) => `
+        <button type="button" class="grupo-tab${i === _grupoAtivo ? ' active' : ''}"
+                onclick="_ativarGrupo(${i})">${g.label}
+            <span class="cnt-badge" style="font-size:.65rem;padding:1px 6px;background:${i===_grupoAtivo?'rgba(255,255,255,.3)':'var(--accent-color)'};">${(g.militares||[]).length}</span>
+        </button>
+    `).join('');
+
+    secsEl.innerHTML = _grupos.map((g, i) => {
+        const modo = g.modo || 'anexo';
+        const modoToggle = `
+            <div class="modo-toggle">
+                <button type="button" class="modo-btn${modo==='anexo'?' active-anexo':''}"
+                        onclick="_setModo(${i},'anexo')">
+                    <i class="fas fa-file-pdf"></i> Anexo ESI
+                </button>
+                <button type="button" class="modo-btn${modo==='omis'?' active-omis':''}"
+                        onclick="_setModo(${i},'omis')">
+                    <i class="fas fa-file-alt"></i> Na OMIS
+                </button>
+            </div>
+            <div style="font-size:.72rem;color:var(--text-muted);margin-bottom:8px;">
+                ${modo==='omis'
+                    ? '<i class="fas fa-check-circle" style="color:#16a34a;"></i> Nomes aparecerão direto na OMIS'
+                    : '<i class="fas fa-info-circle"></i> Nomes aparecem só no Anexo ESI'}
+            </div>`;
+        const rows = (g.militares || []).map(id => {
+            const nome = todosMap[id] || id;
+            return `<div class="grupo-escalado-row">
+                <span class="name">${nome}</span>
+                <button type="button" class="btn-remove" onclick="_removerDoGrupo(${id},${i})" title="Remover"><i class="fas fa-times"></i></button>
+            </div>`;
+        }).join('') || `<div class="empty-msg"><i class="fas fa-user-plus"></i>Nenhum escalado para ${g.label}.</div>`;
+        return `<div class="grupo-section${i===_grupoAtivo?' active':''}" id="grupo-sec-${i}">${modoToggle}${rows}</div>`;
+    }).join('');
+
+    // Atualiza visual das linhas
+    _atualizarVisuaisFileiras();
+    // Badge total
+    const total = _grupos.reduce((s,g) => s + (g.militares||[]).length, 0);
+    document.getElementById('badge-escalados').textContent = total;
+    document.getElementById('label-selecionados').textContent = total + ' selecionado' + (total !== 1 ? 's' : '');
+}
+
+function _ativarGrupo(i) {
+    _grupoAtivo = i;
+    _renderGrupos();
+}
+
+function _atualizarVisuaisFileiras() {
+    const ativos = new Set((_grupos[_grupoAtivo].militares || []));
+    const outros = new Set();
+    _grupos.forEach((g, i) => { if (i !== _grupoAtivo) (g.militares||[]).forEach(id => outros.add(id)); });
+    document.querySelectorAll('.mil-row').forEach(row => {
+        const id = parseInt(row.dataset.id);
+        row.classList.toggle('in-grupo', ativos.has(id));
+        row.classList.toggle('in-outro-grupo', !ativos.has(id) && outros.has(id));
+    });
+}
+
+function toggleMilitarGrupo(row) {
+    if (event && event.target.closest('.conflict-icon')) return;
+    const id = parseInt(row.dataset.id);
+    const g = _grupos[_grupoAtivo];
+    if (!g.militares) g.militares = [];
+    const idx = g.militares.indexOf(id);
+    if (idx >= 0) {
+        g.militares.splice(idx, 1);
+    } else {
+        g.militares.push(id);
+        verificarConflito(row.dataset.id);
+    }
+    _renderGrupos();
+}
+
+function _removerDoGrupo(id, gi) {
+    const g = _grupos[gi];
+    if (!g.militares) return;
+    const idx = g.militares.indexOf(id);
+    if (idx >= 0) { g.militares.splice(idx, 1); _renderGrupos(); }
+}
+
+function _setModo(gi, modo) {
+    _grupos[gi].modo = modo;
+    _renderGrupos();
+}
+
+document.getElementById('form-escala').addEventListener('submit', () => {
+    const inp = document.createElement('input');
+    inp.type = 'hidden'; inp.name = 'grupos_json';
+    inp.value = JSON.stringify(_grupos);
+    document.getElementById('form-escala').appendChild(inp);
+});
+
+document.addEventListener('DOMContentLoaded', () => {
+    _renderGrupos();
+    filtrarLista();
+    document.querySelectorAll('.mil-row').forEach(row => {
+        const id = parseInt(row.dataset.id);
+        const inAny = _grupos.some(g => (g.militares||[]).includes(id));
+        if (inAny) verificarConflito(row.dataset.id);
+    });
+    document.getElementById('modal-conflitos').addEventListener('click', function(e) {
+        if (e.target === this) this.style.display = 'none';
+    });
+});
+{% endif %}
 
 /* ── Toggle de modo de busca ── */
 document.querySelectorAll('.search-mode-btn').forEach(btn => {
@@ -432,7 +589,8 @@ function removerEscalado(id) {
 }
 
 /* ── Busca nos escalados ── */
-document.getElementById('busca-escalados').addEventListener('input', filtrarEscalados);
+const _buscaEscaladosEl = document.getElementById('busca-escalados');
+if (_buscaEscaladosEl) _buscaEscaladosEl.addEventListener('input', filtrarEscalados);
 function filtrarEscalados() {
     const q = document.getElementById('busca-escalados').value.toLowerCase();
     document.querySelectorAll('.escalado-row').forEach(r => {

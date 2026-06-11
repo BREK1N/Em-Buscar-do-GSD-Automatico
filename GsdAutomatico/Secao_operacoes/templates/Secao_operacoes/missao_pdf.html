@@ -70,10 +70,10 @@
     <!-- ══ CABEÇALHO DO DOCUMENTO (1ª linha da tabela) ══ -->
     <tr>
         <td colspan="3" class="bold center" style="font-size:8pt; white-space:nowrap;">
-            OMIS Nº {{ missao.numero }}/SOPGSDGL/GSD GL
+            OMIS Nº {{ missao.numero }}/SOPBINFAEGL/BINFAE GL
         </td>
         <td colspan="3" class="center bold" style="font-size:9pt; line-height:1.6;">
-            COMANDO DA AERONÁUTICA<br>BAGL<br>GSD GL
+            COMANDO DA AERONÁUTICA<br>BAGL<br>BINFAE GL
         </td>
         <td colspan="2" class="right" style="font-size:8pt;">
             Galeão, {{ missao.data_emissao|date:"d" }} de {{ missao.data_emissao|date:"F" }} de {{ missao.data_emissao|date:"Y" }}.
@@ -194,26 +194,16 @@
     <tr>
         <td colspan="8" style="border-bottom:1px solid #000;">{% if missao.efetivo_of %}OF: {{ missao.efetivo_of }} – {% endif %}SO/SGT: {{ missao.efetivo_so_sgt }} – CB: {{ missao.efetivo_cb }} – S1: {{ missao.efetivo_s1 }} – S2: {{ missao.efetivo_s2 }}{% if missao.efetivo_rec %} – REC: {{ missao.efetivo_rec }}{% endif %}</td>
     </tr>
+    {% for grupo in grupos_efetivo %}
     <tr>
-        <td colspan="8" style="border-top:none; border-bottom:none;">
-            <strong>CMT:</strong> {% if missao.cmt_a_cargo %}{{ missao.cmt_a_cargo }}{% elif missao.cmt_missao %}{{ missao.cmt_missao.posto }} {{ missao.cmt_missao.nome_guerra }}{% else %}—{% endif %}.
+        <td colspan="8" style="border-top:none;{% if not forloop.last %}border-bottom:none;{% endif %}">
+            <strong>{{ grupo.label|upper }}:</strong>
+            {% if grupo.membros %}{% for m in grupo.membros %}{% if m.nome %}{{ m.nome }}{% if m.texto %} ({{ m.texto }}){% endif %}{% elif m.texto %}{{ m.texto }}{% endif %}{% if not forloop.last %}, {% endif %}{% endfor %}{% elif grupo.acargo %}{{ grupo.acargo }}{% else %}—{% endif %}.
         </td>
     </tr>
-    <tr>
-        <td colspan="8" style="border-top:none; border-bottom:none;">
-            <strong>EQUIPE:</strong>
-            {% if missao.equipe_a_cargo %}{{ missao.equipe_a_cargo }}{% else %}{% for posto, nomes in equipe_por_posto %}{{ posto }}: {% for n in nomes %}{{ n }}{% if not forloop.last %}, {% endif %}{% endfor %}{% if not forloop.last %} – {% endif %}{% empty %}—{% endfor %}{% endif %}.
-        </td>
-    </tr>
-    {% if missao.motorista or missao.mot_a_cargo %}
-    <tr>
-        <td colspan="8" style="border-top:none;">
-            <strong>MOT:</strong> {% if missao.mot_a_cargo %}{{ missao.mot_a_cargo }}{% else %}{{ missao.motorista.posto }} {{ missao.motorista.nome_guerra }}{% endif %}.
-        </td>
-    </tr>
-    {% else %}
+    {% empty %}
     <tr><td colspan="8" style="border-top:none;"></td></tr>
-    {% endif %}
+    {% endfor %}
 
 </table>
 
@@ -241,7 +231,7 @@
                         &nbsp;
                     {% endif %}
                 </strong>
-                <span style="font-size:8pt;">Comandante do GSD GL</span>
+                <span style="font-size:8pt;">Comandante do BINFAE GL</span>
             </div>
         </td>
     </tr>

@@ -168,18 +168,19 @@ table.data-table { width:100%; border-collapse:collapse; }
         {% if missao.efetivo_rec %}<div class="efetivo-badge"><div class="val">{{ missao.efetivo_rec }}</div><div class="lbl">REC</div></div>{% endif %}
     </div>
     <div class="info-grid">
-        <div class="info-item">
-            <label>CMT da Missão</label>
-            <span>{% if missao.cmt_missao %}{{ missao.cmt_missao.posto }} {{ missao.cmt_missao.nome_guerra }}{% else %}—{% endif %}</span>
-        </div>
-        <div class="info-item">
-            <label>Motorista (MOT)</label>
-            <span>{% if missao.motorista %}{{ missao.motorista.posto }} {{ missao.motorista.nome_guerra }}{% else %}—{% endif %}</span>
-        </div>
+        {% for grupo in grupos_efetivo %}
         <div class="info-item" style="grid-column:1/-1">
-            <label>Equipe</label>
-            <span>{% for e in missao.equipe.all %}{{ e.posto }} {{ e.nome_guerra }}{% if not forloop.last %}; {% endif %}{% empty %}—{% endfor %}</span>
+            <label>{{ grupo.label|upper }}</label>
+            <span>
+                {% if grupo.membros %}
+                    {% for m in grupo.membros %}{% if m.nome %}{{ m.nome }}{% if m.texto %} <em style="color:var(--text-muted);font-size:12px;">({{ m.texto }})</em>{% endif %}{% elif m.texto %}{{ m.texto }}{% endif %}{% if not forloop.last %};  {% endif %}{% endfor %}
+                {% elif grupo.acargo %}<em style="color:var(--text-muted);">{{ grupo.acargo }}</em>
+                {% else %}—{% endif %}
+            </span>
         </div>
+        {% empty %}
+        <div class="info-item" style="grid-column:1/-1"><label>Efetivo</label><span>—</span></div>
+        {% endfor %}
     </div>
 </div>
 
@@ -205,7 +206,7 @@ table.data-table { width:100%; border-collapse:collapse; }
                     <em style="color:var(--text-muted);">Comandante GSD não configurado</em>
                 {% endif %}
             </div>
-            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Comandante do GSD GL</div>
+            <div style="font-size:11px; color:var(--text-muted); margin-top:2px;">Comandante do BINFAE GL</div>
         </div>
     </div>
 </div>

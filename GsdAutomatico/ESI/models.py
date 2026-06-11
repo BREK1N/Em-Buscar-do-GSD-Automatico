@@ -19,6 +19,7 @@ class EscalaMissaoESI(models.Model):
         max_length=100, blank=True, default='',
         verbose_name="Identificação do Pelotão/Seção (ex: 3º/5º ESI)"
     )
+    grupos_json = models.TextField(blank=True, default='', verbose_name="Grupos por Função (JSON)")
     observacoes = models.TextField(blank=True, verbose_name="Observações")
     criado_em = models.DateTimeField(auto_now_add=True)
     atualizado_em = models.DateTimeField(auto_now=True)
