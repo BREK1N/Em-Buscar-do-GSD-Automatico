@@ -22,7 +22,7 @@ from docx.enum.text import WD_BREAK
 from bs4 import BeautifulSoup, NavigableString
 import fitz
 
-from ..models import PATD, Configuracao, Anexo
+from ..models import PATD, Configuracao, Anexo, AlegacaoDefesaLog
 from Secao_pessoal.models import Efetivo
 from .decorators import ouvidoria_required, oficial_responsavel_required, comandante_redirect
 from .helpers import (
@@ -84,6 +84,39 @@ def salvar_alegacao_defesa(request, pk):
     except Exception as e:
         logger.error(f"Erro ao salvar alegação de defesa da PATD {pk}: {e}")
         return JsonResponse({'status': 'error', 'message': 'Ocorreu um erro interno.'}, status=500)
+
+
+@login_required
+def editar_alegacao_defesa(request, pk):
+    """Permite que qualquer membro da ouvidoria edite a alegação de defesa e registra o log."""
+    if request.method != 'POST':
+        return JsonResponse({'status': 'error', 'message': 'Método não permitido.'}, status=405)
+    from ..permissions import has_ouvidoria_access
+    if not has_ouvidoria_access(request.user):
+        return JsonResponse({'status': 'error', 'message': 'Sem permissão.'}, status=403)
+
+    patd = get_object_or_404(PATD.all_objects, pk=pk)
+    novo_texto = request.POST.get('alegacao_defesa', '').strip()
+
+    if not novo_texto:
+        return JsonResponse({'status': 'error', 'message': 'O texto não pode ser vazio.'}, status=400)
+
+    texto_original = patd.alegacao_defesa or ''
+    if texto_original == novo_texto:
+        return JsonResponse({'status': 'error', 'message': 'O texto não foi alterado.'}, status=400)
+
+    AlegacaoDefesaLog.objects.create(
+        patd=patd,
+        usuario=request.user,
+        texto_original=texto_original,
+        texto_novo=novo_texto,
+    )
+
+    patd.alegacao_defesa = novo_texto
+    patd.documento_html = []
+    patd.save(update_fields=['alegacao_defesa', 'documento_html'])
+
+    return JsonResponse({'status': 'success', 'message': 'Alegação de defesa atualizada com sucesso.'})
 
 
 @login_required
@@ -157,10 +190,13 @@ def salvar_documento_patd(request, pk):
     # Este bloco impede qualquer edição (Texto, Datas ou Localidade) se estiver finalizado.
     if patd.status == 'finalizado':
         return JsonResponse({
-            'status': 'error', 
+            'status': 'error',
             'message': 'Este processo está finalizado e não permite mais edições no documento.'
         }, status=403)
-        
+
+    patd_org_original = patd.organizacao
+    patd_ano_original = patd.data_inicio.year if patd.data_inicio else None
+
     try:
         try:
             data = json.loads(request.body)
@@ -232,24 +268,56 @@ def salvar_documento_patd(request, pk):
         patd.datas_documentos = datas_documentos
 
         # Invalida o cache se datas de modelo mudaram OU se a data do PATD_Coringa mudou
-        # (data_inicio no PATD_Coringa controla a seleção de template gsdgl/binfaegl)
         model_dates_changed = any(not k.startswith('doc:') for k in dates.keys())
         patd_coringa_date_changed = 'doc:PATD_Coringa' in dates
         if model_dates_changed or patd_coringa_date_changed:
             patd.documento_html = []
 
+        # Resolve conflito de numero_patd ao mudar de organização ou de ano
+        numero_patd_alterado = False
+        if 'data_inicio' in dates and patd.data_inicio and patd.numero_patd:
+            from datetime import date as _date_cls
+            _BINFAE_START = _date_cls(2026, 6, 1)
+            _new_d = patd.data_inicio.date() if hasattr(patd.data_inicio, 'date') else patd.data_inicio
+            _nova_org = 'BINFAE' if _new_d >= _BINFAE_START else 'GSD'
+            _novo_ano = _new_d.year
+            if _nova_org != patd_org_original or _novo_ano != patd_ano_original:
+                conflito = PATD.objects.filter(
+                    numero_patd=patd.numero_patd,
+                    data_inicio__year=_novo_ano,
+                    organizacao=_nova_org,
+                ).exclude(pk=patd.pk).exists()
+                if conflito:
+                    _numeros = sorted(list(
+                        PATD.objects.filter(
+                            numero_patd__gt=0,
+                            data_inicio__year=_novo_ano,
+                            organizacao=_nova_org,
+                        ).exclude(pk=patd.pk).values_list('numero_patd', flat=True)
+                    ))
+                    _esperado = 1
+                    for _n in _numeros:
+                        if _n > _esperado:
+                            break
+                        _esperado = _n + 1
+                    patd.numero_patd = _esperado
+                    numero_patd_alterado = True
+
         patd.save()
 
         # Relê do banco para confirmar o que foi salvo
         patd.refresh_from_db()
+        org_mudou = patd.organizacao != patd_org_original
         saved_data_inicio = patd.data_inicio.strftime('%Y-%m-%d') if patd.data_inicio else None
-        logger.info(f"[salvar_documento_patd] PATD {pk} salvo. data_inicio no banco: {saved_data_inicio} | dates recebidos: {dates}")
+        logger.info(f"[salvar_documento_patd] PATD {pk} salvo. data_inicio={saved_data_inicio} org={patd.organizacao} numero={patd.numero_patd}")
 
         return JsonResponse({
             'status': 'success',
             'message': 'Documento, datas e localidade salvos com sucesso.',
             'debug_data_inicio': saved_data_inicio,
-            'debug_dates_received': dates,
+            'org_mudou': org_mudou,
+            'nova_organizacao': patd.organizacao if org_mudou else None,
+            'novo_numero_patd': patd.numero_patd if (org_mudou or numero_patd_alterado) else None,
         })
         
     except json.JSONDecodeError:

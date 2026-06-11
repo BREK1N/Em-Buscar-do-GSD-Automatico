@@ -1,0 +1,129 @@
+{% extends 'informatica/base.html' %}
+{% block title %}Logs – Alegação de Defesa{% endblock %}
+{% block header_eyebrow %}Seção de Informática / Ouvidoria{% endblock %}
+{% block header_title %}Histórico de Alterações da Alegação de Defesa{% endblock %}
+
+{% block extra_head %}
+<style>
+    .log-table-wrapper {
+        background: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        overflow: hidden;
+        margin-top: 20px;
+    }
+    .log-table-header {
+        padding: 14px 20px;
+        border-bottom: 1px solid var(--border-color);
+        background: var(--bg-main);
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        gap: 12px;
+        flex-wrap: wrap;
+    }
+    .log-table-title { font-weight: 600; font-size: 1.05rem; color: var(--text-primary); display: flex; align-items: center; gap: 8px; }
+    .log-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+    .log-table th { padding: 10px 14px; text-align: left; background: var(--sidebar-bg); color: var(--text-secondary); font-weight: 600; font-size: .8rem; text-transform: uppercase; letter-spacing: .04em; border-bottom: 2px solid var(--border-color); }
+    .log-table td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); vertical-align: top; color: var(--text-primary); }
+    .log-table tr:last-child td { border-bottom: none; }
+    .log-table tr:hover td { background: var(--sidebar-bg); }
+    .patd-link { font-weight: 600; color: var(--primary-color); text-decoration: none; }
+    .patd-link:hover { text-decoration: underline; }
+    .text-muted { color: var(--text-secondary); font-size: .85rem; }
+    .texto-col { max-width: 340px; }
+    .texto-original-cell { font-size: .85rem; color: var(--text-secondary); white-space: pre-wrap; word-break: break-word; }
+    .expand-btn { background: none; border: none; cursor: pointer; color: var(--primary-color); font-size: .8rem; padding: 2px 4px; }
+    .badge-warning { display: inline-block; padding: 2px 8px; border-radius: 20px; background: #fef3c7; color: #92400e; font-size: .75rem; font-weight: 600; }
+    .empty-state { text-align: center; padding: 60px 20px; color: var(--text-secondary); }
+    .filter-form { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+    .filter-form input { padding: 6px 10px; border: 1px solid var(--border-color); border-radius: 6px; font-size: .9rem; background: var(--bg-content); color: var(--text-primary); }
+    .filter-form button { padding: 6px 14px; border-radius: 6px; border: none; background: var(--primary-color); color: #fff; font-weight: 600; cursor: pointer; font-size: .9rem; }
+    .filter-form a { padding: 6px 12px; border-radius: 6px; border: 1px solid var(--border-color); color: var(--text-secondary); font-size: .9rem; text-decoration: none; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="log-table-wrapper">
+    <div class="log-table-header">
+        <span class="log-table-title">
+            <i class="fas fa-history"></i>
+            Alterações registradas
+            {% if logs %}<span class="badge-warning">{{ logs|length }}</span>{% endif %}
+        </span>
+        <form method="get" class="filter-form">
+            <input type="number" name="patd" placeholder="Nº PATD (pk)" value="{{ patd_pk_filtro }}" min="1">
+            <button type="submit"><i class="fas fa-search"></i> Filtrar</button>
+            {% if patd_pk_filtro %}<a href="{% url 'informatica:logs_alegacao_defesa' %}">Limpar</a>{% endif %}
+        </form>
+    </div>
+
+    {% if logs %}
+    <div style="overflow-x:auto;">
+        <table class="log-table">
+            <thead>
+                <tr>
+                    <th>Data / Hora</th>
+                    <th>PATD</th>
+                    <th>Militar</th>
+                    <th>Usuário</th>
+                    <th class="texto-col">Texto Original</th>
+                    <th class="texto-col">Texto Novo</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for log in logs %}
+                <tr>
+                    <td style="white-space:nowrap;">{{ log.data_alteracao|date:"d/m/Y" }}<br><span class="text-muted">{{ log.data_alteracao|date:"H:i" }}</span></td>
+                    <td>
+                        <a class="patd-link" href="{% url 'Ouvidoria:patd_detail' log.patd.pk %}" target="_blank">
+                            PATD {{ log.patd.numero_patd|default:"—" }}
+                        </a>
+                    </td>
+                    <td>{{ log.patd.militar.nome_guerra|default:"—" }}</td>
+                    <td>
+                        {% if log.usuario %}
+                            {{ log.usuario.get_full_name|default:log.usuario.username }}
+                            <br><span class="text-muted">@{{ log.usuario.username }}</span>
+                        {% else %}
+                            <span class="text-muted">—</span>
+                        {% endif %}
+                    </td>
+                    <td class="texto-col">
+                        <div class="texto-original-cell" style="max-height:80px;overflow:hidden;" id="orig-{{ log.pk }}">{{ log.texto_original|truncatechars:200 }}</div>
+                        {% if log.texto_original|length > 200 %}
+                        <button class="expand-btn" onclick="toggleTexto('orig-{{ log.pk }}', this)">ver mais</button>
+                        {% endif %}
+                    </td>
+                    <td class="texto-col">
+                        <div class="texto-original-cell" style="max-height:80px;overflow:hidden;" id="novo-{{ log.pk }}">{{ log.texto_novo|truncatechars:200 }}</div>
+                        {% if log.texto_novo|length > 200 %}
+                        <button class="expand-btn" onclick="toggleTexto('novo-{{ log.pk }}', this)">ver mais</button>
+                        {% endif %}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+    {% else %}
+    <div class="empty-state">
+        <i class="fas fa-check-circle" style="font-size:2rem;color:var(--success-color,#22c55e);margin-bottom:12px;display:block;"></i>
+        Nenhuma alteração registrada{% if patd_pk_filtro %} para este filtro{% endif %}.
+    </div>
+    {% endif %}
+</div>
+
+<script>
+function toggleTexto(id, btn) {
+    var el = document.getElementById(id);
+    if (el.style.maxHeight === 'none') {
+        el.style.maxHeight = '80px';
+        btn.textContent = 'ver mais';
+    } else {
+        el.style.maxHeight = 'none';
+        btn.textContent = 'ver menos';
+    }
+}
+</script>
+{% endblock %}

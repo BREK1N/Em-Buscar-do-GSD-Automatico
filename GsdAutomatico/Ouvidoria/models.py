@@ -7,6 +7,7 @@ import re
 from num2words import num2words
 from Secao_pessoal.models import Efetivo
 from django.core.exceptions import ValidationError
+from django.conf import settings
 
 def patd_anexo_path(instance, filename):
     patd_pk = instance.patd.pk
@@ -234,6 +235,13 @@ class PATD(models.Model):
     motivo_arquivamento = models.TextField(blank=True, null=True, verbose_name="Motivo do Arquivamento")
     justificativa_texto = models.TextField(blank=True, null=True, verbose_name="Texto da Justificativa")
     oficial_assinou_analise = models.BooleanField(default=False, verbose_name="Oficial assinou análise")
+    organizacao = models.CharField(
+        max_length=10,
+        choices=[('GSD', 'GSD'), ('BINFAE', 'BINFAE')],
+        default='BINFAE',
+        db_index=True,
+        verbose_name="Organização",
+    )
     deleted = models.BooleanField(default=False, db_index=True, verbose_name="Excluído")
     deleted_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Exclusão")
     restored_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Restauração")
@@ -369,6 +377,11 @@ class PATD(models.Model):
         return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"
 
     def save(self, *args, **kwargs):
+        from datetime import date as _date
+        _BINFAE_START = _date(2026, 6, 1)
+        _d = self.data_inicio.date() if hasattr(self.data_inicio, 'date') else self.data_inicio
+        self.organizacao = 'BINFAE' if _d >= _BINFAE_START else 'GSD'
+
         is_new = self.pk is None
         if not is_new:
             # CORREÇÃO: Usar all_objects em vez de objects para não dar erro ao restaurar
@@ -404,8 +417,34 @@ class PATD(models.Model):
         ]
         constraints = [
             models.UniqueConstraint(
-                ExtractYear('data_inicio'), 'numero_patd',
-                name='unique_patd_numero_por_ano',
+                ExtractYear('data_inicio'), 'numero_patd', 'organizacao',
+                name='unique_patd_numero_por_ano_org',
                 condition=models.Q(numero_patd__isnull=False),
             )
         ]
+
+
+class AlegacaoDefesaLog(models.Model):
+    patd = models.ForeignKey(
+        PATD,
+        on_delete=models.CASCADE,
+        related_name='logs_alegacao_defesa',
+        verbose_name="PATD"
+    )
+    usuario = models.ForeignKey(
+        settings.AUTH_USER_MODEL,
+        on_delete=models.SET_NULL,
+        null=True,
+        verbose_name="Usuário"
+    )
+    texto_original = models.TextField(verbose_name="Texto Original")
+    texto_novo = models.TextField(verbose_name="Texto Novo")
+    data_alteracao = models.DateTimeField(auto_now_add=True, verbose_name="Data da Alteração")
+
+    class Meta:
+        verbose_name = "Log de Alteração da Alegação de Defesa"
+        verbose_name_plural = "Logs de Alteração da Alegação de Defesa"
+        ordering = ['-data_alteracao']
+
+    def __str__(self):
+        return f"PATD {self.patd.numero_patd} – alterado em {self.data_alteracao.strftime('%d/%m/%Y %H:%M')}"

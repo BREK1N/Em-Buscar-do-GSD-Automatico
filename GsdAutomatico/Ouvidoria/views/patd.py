@@ -640,25 +640,38 @@ class PATDListView(ListView):
 
     def get_queryset(self):
         from django.utils import timezone as _tz
+        from datetime import date as _date
+        _BINFAE_START = _date(2026, 6, 1)
         query = self.request.GET.get('q')
         status_filter = self.request.GET.get('status')
         fase_key = self.request.GET.get('fase')
-        ano = self.request.GET.get('ano', str(_tz.now().year))
+        ano_str = self.request.GET.get('ano', str(_tz.now().year))
 
         # --- Sorting Logic ---
-        sort_by = self.request.GET.get('sort', '-numero_patd') # Default sort by PATD number descending
+        sort_by = self.request.GET.get('sort', '-numero_patd')
         valid_sort_fields = ['numero_patd', '-numero_patd', 'data_inicio', '-data_inicio']
         if sort_by not in valid_sort_fields:
-            sort_by = '-numero_patd' # Fallback to default if invalid sort is provided
+            sort_by = '-numero_patd'
 
         qs = super().get_queryset().exclude(status='finalizado').exclude(arquivado=True).select_related('militar', 'oficial_responsavel').order_by(sort_by)
 
         # Filtro de ano
         try:
-            qs = qs.filter(data_inicio__year=int(ano))
+            ano_int = int(ano_str)
+            qs = qs.filter(data_inicio__year=ano_int)
         except (ValueError, TypeError):
-            pass
+            ano_int = _tz.now().year
 
+        # Filtro de organização
+        if ano_int == 2026:
+            org = self.request.GET.get('org', 'BINFAE')
+            if org not in ('GSD', 'BINFAE'):
+                org = 'BINFAE'
+            qs = qs.filter(organizacao=org)
+        elif ano_int < 2026:
+            qs = qs.filter(organizacao='GSD')
+        else:
+            qs = qs.filter(organizacao='BINFAE')
 
         if query:
             qs = qs.filter(
@@ -702,12 +715,25 @@ class PATDListView(ListView):
 
         # Phase tab counts (base queryset without phase/status filter)
         from django.utils import timezone as _tz
-        _ano = self.request.GET.get('ano', str(_tz.now().year))
-        base_qs = PATD.objects.exclude(status='finalizado').exclude(arquivado=True)
+        from datetime import date as _date
+        _BINFAE_START = _date(2026, 6, 1)
+        _ano_str = self.request.GET.get('ano', str(_tz.now().year))
         try:
-            base_qs = base_qs.filter(data_inicio__year=int(_ano))
+            _ano_int = int(_ano_str)
         except (ValueError, TypeError):
-            pass
+            _ano_int = _tz.now().year
+        base_qs = PATD.objects.exclude(status='finalizado').exclude(arquivado=True)
+        base_qs = base_qs.filter(data_inicio__year=_ano_int)
+        # aplica filtro de org no base_qs também
+        if _ano_int == 2026:
+            _org = self.request.GET.get('org', 'BINFAE')
+            if _org not in ('GSD', 'BINFAE'):
+                _org = 'BINFAE'
+            base_qs = base_qs.filter(organizacao=_org)
+        elif _ano_int < 2026:
+            base_qs = base_qs.filter(organizacao='GSD')
+        else:
+            base_qs = base_qs.filter(organizacao='BINFAE')
         _q = self.request.GET.get('q')
         if _q:
             base_qs = base_qs.filter(
@@ -723,8 +749,18 @@ class PATDListView(ListView):
         context['phase_groups'] = phases_with_counts
 
         # Ano selecionado
-        from django.utils import timezone as _tz
-        context['ano'] = self.request.GET.get('ano', str(_tz.now().year))
+        context['ano'] = _ano_str
+        context['ano_int'] = _ano_int
+        # Organização selecionada (só relevante em 2026)
+        if _ano_int == 2026:
+            _org_ctx = self.request.GET.get('org', 'BINFAE')
+            if _org_ctx not in ('GSD', 'BINFAE'):
+                _org_ctx = 'BINFAE'
+            context['org_atual'] = _org_ctx
+            context['mostrar_tabs_org'] = True
+        else:
+            context['org_atual'] = 'BINFAE' if _ano_int >= 2026 else 'GSD'
+            context['mostrar_tabs_org'] = False
         from Ouvidoria.models import PATD as _PATD
         context['anos_disponiveis'] = sorted(set(
             _PATD.objects.dates('data_inicio', 'year').values_list('data_inicio__year', flat=True)
@@ -1015,6 +1051,8 @@ class PATDDetailView(DetailView):
         # --- FIM DA MODIFICAÇÃO ---
 
         context['user_is_apurador'] = is_apurador(self.request.user)
+        from ..permissions import has_ouvidoria_access
+        context['user_can_edit_alegacao'] = has_ouvidoria_access(self.request.user)
 
         return context
 
@@ -1098,12 +1136,33 @@ class PATDDeleteView(UserPassesTestMixin, DeleteView):
 @require_POST
 def prosseguir_sem_alegacao(request, pk):
     try:
+        from datetime import timedelta
         patd = get_object_or_404(PATD, pk=pk)
-        if patd.status != 'prazo_expirado':
+
+        if patd.status == 'aguardando_justificativa':
+            # Status ainda não foi sincronizado — verifica se o prazo realmente passou
+            config = Configuracao.load()
+            deadline = None
+            if patd.prazo_override:
+                deadline = patd.prazo_override
+            elif patd.data_ciencia:
+                data_final = patd.data_ciencia
+                dias_adicionados = 0
+                while dias_adicionados < config.prazo_defesa_dias:
+                    data_final += timedelta(days=1)
+                    if data_final.weekday() < 5:
+                        dias_adicionados += 1
+                deadline = (data_final + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+            if deadline and timezone.now() > deadline:
+                patd.status = 'prazo_expirado'
+                patd.save(update_fields=['status'])
+            else:
+                return JsonResponse({'status': 'error', 'message': 'O prazo ainda não expirou.'}, status=400)
+
+        elif patd.status != 'prazo_expirado':
             return JsonResponse({'status': 'error', 'message': 'Ação permitida apenas para PATDs com prazo expirado.'}, status=400)
 
-        # Avança para 'definicao_oficial' para atribuir o oficial apurador
-        # antes de abrir o Termo de Preclusão.
         patd.status = 'definicao_oficial'
         patd.save(update_fields=['status'])
         return JsonResponse({'status': 'success', 'message': 'Prazo encerrado sem defesa. Atribua o oficial apurador para prosseguir.'})

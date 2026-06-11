@@ -210,6 +210,14 @@
             {% endif %}
         </div>
         {% endif %}
+        {% if mostrar_tabs_org %}
+        <div class="ano-tabs">
+            <a class="ano-tab {% if org_atual == 'GSD' %}active{% endif %}"
+               href="?ano={{ ano }}&org=GSD{% if current_status %}&status={{ current_status }}{% endif %}">GSD</a>
+            <a class="ano-tab {% if org_atual == 'BINFAE' %}active{% endif %}"
+               href="?ano={{ ano }}&org=BINFAE{% if current_status %}&status={{ current_status }}{% endif %}">BINFAE</a>
+        </div>
+        {% endif %}
     </div>
     <div class="patd-header-right">
         <a href="{% url 'Ouvidoria:patd_arquivado_list' %}" class="btn btn-secondary" style="font-size:13px;padding:7px 14px;">
@@ -228,12 +236,12 @@
 <!-- Guias de Fase -->
 <div class="fase-tabs">
     <a class="fase-tab fase-tab-all {% if not current_fase %}active{% endif %}"
-       href="?ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">
+       href="?ano={{ ano }}{% if mostrar_tabs_org %}&org={{ org_atual }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">
         Todas
     </a>
     {% for phase in phase_groups %}
     <a class="fase-tab {% if current_fase == phase.key %}active{% endif %}"
-       href="?ano={{ ano }}&fase={{ phase.key }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+       href="?ano={{ ano }}{% if mostrar_tabs_org %}&org={{ org_atual }}{% endif %}&fase={{ phase.key }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
         {{ phase.label }}
         <span class="fase-count">{{ phase.count }}</span>
     </a>
@@ -243,6 +251,7 @@
 <!-- Barra de filtros -->
 <form method="get" class="patd-filters" id="filter-form-patd">
     <input type="hidden" name="ano" value="{{ ano }}">
+    {% if mostrar_tabs_org %}<input type="hidden" name="org" value="{{ org_atual }}">{% endif %}
     {% if current_fase %}<input type="hidden" name="fase" value="{{ current_fase }}">{% endif %}
     <div class="search-wrap">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>

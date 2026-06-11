@@ -73,6 +73,7 @@ urlpatterns = [
     # ===============================================
     # PAINEL ADMIN OUVIDORIA
     # ===============================================
+    path('ouvidoria/logs-alegacao/', views.logs_alegacao_defesa, name='logs_alegacao_defesa'),
     path('api/ouvidoria/search/', views.ouvidoria_admin_search, name='ouvidoria_admin_search'),
     path('api/ouvidoria/patd/<int:pk>/', views.ouvidoria_admin_patd_detail, name='ouvidoria_admin_patd_detail'),
     path('api/ouvidoria/patd/<int:pk>/update/', views.ouvidoria_admin_update, name='ouvidoria_admin_update'),

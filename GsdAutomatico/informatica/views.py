@@ -5,7 +5,7 @@ from django.contrib.admin.views.decorators import staff_member_required
 from django.apps import apps
 from django.urls import reverse, NoReverseMatch, reverse_lazy
 from django.contrib.auth.models import User, Group
-from Ouvidoria.models import PATD, Anexo, Configuracao
+from Ouvidoria.models import PATD, Anexo, Configuracao, AlegacaoDefesaLog
 from Secao_pessoal.models import Efetivo, Setor # ATUALIZADO
 from login.models import UserProfile
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView, DetailView
@@ -1480,3 +1480,27 @@ def ouvidoria_lixeira_esvaziar(request):
     patds.delete()
     logger.info(f"[LIXEIRA] {count} PATD(s) excluídas por {request.user.username}")
     return JsonResponse({'status': 'success', 'count': count, 'message': f'{count} PATD(s) excluídas permanentemente.'})
+
+
+# ==========================================
+# LOGS DE ALTERAÇÃO DA ALEGAÇÃO DE DEFESA
+# ==========================================
+
+@login_required
+def logs_alegacao_defesa(request):
+    """Lista todos os logs de alteração da alegação de defesa para o painel informatica."""
+    if not is_informatica_admin(request.user):
+        return redirect('home:index')
+
+    qs = AlegacaoDefesaLog.objects.select_related(
+        'patd', 'patd__militar', 'usuario'
+    ).order_by('-data_alteracao')
+
+    patd_pk = request.GET.get('patd')
+    if patd_pk:
+        qs = qs.filter(patd__pk=patd_pk)
+
+    return render(request, 'informatica/logs_alegacao_defesa.html', {
+        'logs': qs[:200],
+        'patd_pk_filtro': patd_pk or '',
+    })

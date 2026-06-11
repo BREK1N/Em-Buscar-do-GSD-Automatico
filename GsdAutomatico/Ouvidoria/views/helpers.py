@@ -48,13 +48,25 @@ def get_template_subfolder(patd):
         logger.exception(f"[subfolder] Erro ao determinar subfolder para PATD {getattr(patd, 'pk', '?')}")
         return 'gsdgl'
 
-def get_next_patd_number():
-    """Gera o próximo número de PATD do ano corrente (reseta em 1 a cada virada)."""
+def get_next_patd_number(data_inicio=None):
+    """Gera o próximo número de PATD para o ano/organização de data_inicio (padrão: agora)."""
     from django.utils import timezone
-    ano_atual = timezone.now().year
+    from datetime import date as _date
+    _BINFAE_START = _date(2026, 6, 1)
+
+    if data_inicio is None:
+        data_inicio = timezone.now()
+
+    d = data_inicio.date() if hasattr(data_inicio, 'date') else data_inicio
+    organizacao = 'BINFAE' if d >= _BINFAE_START else 'GSD'
+    ano = d.year
+
     numeros_usados = sorted(list(
-        PATD.objects.filter(numero_patd__gt=0, data_inicio__year=ano_atual)
-        .values_list('numero_patd', flat=True)
+        PATD.objects.filter(
+            numero_patd__gt=0,
+            data_inicio__year=ano,
+            organizacao=organizacao,
+        ).values_list('numero_patd', flat=True)
     ))
 
     if not numeros_usados:

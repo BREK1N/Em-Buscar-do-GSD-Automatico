@@ -778,7 +778,14 @@
                  {% if patd.alegacao_defesa %}
                 <div class="detail-item full-width">
                     <strong>Alegação de Defesa:</strong>
-                    <p>{{ patd.alegacao_defesa|linebreaks }}</p>
+                    <p id="alegacao-defesa-display">{{ patd.alegacao_defesa|linebreaks }}</p>
+                    {% if user_can_edit_alegacao %}
+                    <button type="button" class="btn btn-sm btn-warning" id="btn-editar-alegacao"
+                            data-url="{% url 'Ouvidoria:editar_alegacao_defesa' patd.pk %}"
+                            style="margin-top:6px;">
+                        <i class="fas fa-edit"></i> Editar Alegação
+                    </button>
+                    {% endif %}
                 </div>
                 {% endif %}
                  <div class="detail-item">
@@ -1587,6 +1594,23 @@
     </div>
 </div>
 
+{% if user_can_edit_alegacao %}
+<div class="modal-overlay" id="editar-alegacao-modal">
+    <div class="modal-content" style="max-width:600px;">
+        <h3>Editar Alegação de Defesa</h3>
+        <p style="font-size:.85rem;color:var(--text-secondary);margin-bottom:12px;">Esta ação é registrada no log do sistema. O texto original será preservado no histórico.</p>
+        <div class="form-item">
+            <label style="font-weight:600;font-size:.85rem;text-transform:uppercase;letter-spacing:.04em;display:block;margin-bottom:6px;">Novo Texto da Alegação</label>
+            <textarea id="editar-alegacao-texto" style="width:100%;min-height:160px;padding:10px 12px;border:1px solid var(--border-color);border-radius:8px;font-size:.95rem;resize:vertical;background:var(--sidebar-bg);color:var(--text-primary);font-family:inherit;box-sizing:border-box;"></textarea>
+        </div>
+        <div class="form-actions" style="justify-content:flex-end;margin-top:12px;">
+            <button type="button" class="btn btn-secondary" id="cancel-editar-alegacao-btn">Cancelar</button>
+            <button type="button" class="btn btn-warning" id="confirm-editar-alegacao-btn">Salvar Alteração</button>
+        </div>
+    </div>
+</div>
+{% endif %}
+
 <div class="modal-overlay" id="extender-prazo-modal">
     <div class="modal-content">
         <h3>Extender Prazo de Defesa</h3>
@@ -1822,6 +1846,7 @@ const PATD_CONFIG = {
         salvarAssinaturaReconsideracao: "{% url 'Ouvidoria:salvar_assinatura_reconsideracao' patd.pk %}",
         removerAssinatura:            "{% url 'Ouvidoria:remover_assinatura' patd.pk %}",
         salvarAlegacaoDefesa:         "{% url 'Ouvidoria:salvar_alegacao_defesa' patd.pk %}",
+        editarAlegacaoDefesa:         "{% url 'Ouvidoria:editar_alegacao_defesa' patd.pk %}",
         adicionarAnexosDefesa:        "{% url 'Ouvidoria:adicionar_anexos_defesa' patd.pk %}",
         salvarDefesa:                 "{% url 'Ouvidoria:salvar_assinatura_defesa' patd.pk %}",
         prosseguirSemAlegacao:        "{% url 'Ouvidoria:prosseguir_sem_alegacao' patd.pk %}",
@@ -2026,8 +2051,22 @@ const PATD_CONFIG = {
             body: JSON.stringify({ texto_documento: '', dates: dates, texts: {} })
         }).then(function(r){ return r.json(); }).then(function(data){
             if (data.status === 'success') {
-                showToast('Data salva! Banco: ' + (data.debug_data_inicio || '?'), true);
+                // Monta mensagem: mostra a data que foi enviada (formato DD/MM/YYYY)
+                var dateKeys = Object.keys(dates).filter(function(k){ return !k.startsWith('doc:'); });
+                var msg = 'Data salva com sucesso!';
+                if (dateKeys.length === 1) {
+                    var parts = dates[dateKeys[0]] ? dates[dateKeys[0]].split('-') : null;
+                    if (parts && parts.length === 3) {
+                        msg = 'Data salva: ' + parts[2] + '/' + parts[1] + '/' + parts[0];
+                    }
+                }
+                showToast(msg, true);
                 console.log('[DateSave] OK. Enviado:', dates, '| Banco após save:', data.debug_data_inicio);
+                // Se a organização ou número mudou, recarrega a página para refletir as alterações
+                if (data.org_mudou || data.novo_numero_patd) {
+                    showToast('Organização atualizada para ' + data.nova_organizacao + '. Recarregando...', true);
+                    setTimeout(function(){ location.reload(); }, 1800);
+                }
             } else {
                 showToast('Erro: ' + data.message, false);
                 console.warn('[DateSave] Erro:', data.message);
@@ -2096,6 +2135,65 @@ const PATD_CONFIG = {
                 }
             }, true);
         }
+    });
+})();
+
+// Modal de edição da alegação de defesa
+(function() {
+    var btnEditar = document.getElementById('btn-editar-alegacao');
+    if (!btnEditar) return;
+
+    var modal     = document.getElementById('editar-alegacao-modal');
+    var textarea  = document.getElementById('editar-alegacao-texto');
+    var btnCancel = document.getElementById('cancel-editar-alegacao-btn');
+    var btnSalvar = document.getElementById('confirm-editar-alegacao-btn');
+    var display   = document.getElementById('alegacao-defesa-display');
+    var url       = btnEditar.dataset.url;
+    var csrfToken = '{{ csrf_token }}';
+
+    function fechar() { modal.classList.remove('active'); }
+
+    btnEditar.addEventListener('click', function() {
+        var raw = display ? display.innerText.trim() : '';
+        textarea.value = raw;
+        modal.classList.add('active');
+        textarea.focus();
+    });
+
+    btnCancel.addEventListener('click', fechar);
+    modal.addEventListener('click', function(e) { if (e.target === modal) fechar(); });
+
+    btnSalvar.addEventListener('click', function() {
+        var novoTexto = textarea.value.trim();
+        if (!novoTexto) { alert('O texto não pode ser vazio.'); return; }
+
+        btnSalvar.disabled = true;
+        btnSalvar.textContent = 'Salvando...';
+
+        var formData = new FormData();
+        formData.append('alegacao_defesa', novoTexto);
+        formData.append('csrfmiddlewaretoken', csrfToken);
+
+        fetch(url, { method: 'POST', body: formData })
+            .then(function(r) {
+                if (!r.ok) {
+                    return r.text().then(function(t) { throw new Error('HTTP ' + r.status + ': ' + t.substring(0, 200)); });
+                }
+                return r.json();
+            })
+            .then(function(data) {
+                if (data.status === 'success') {
+                    fechar();
+                    window.location.reload();
+                } else {
+                    alert('Erro: ' + (data.message || 'Ocorreu um erro.'));
+                }
+            })
+            .catch(function(err) { alert('Erro ao salvar: ' + (err.message || err)); })
+            .finally(function() {
+                btnSalvar.disabled = false;
+                btnSalvar.textContent = 'Salvar Alteração';
+            });
     });
 })();
 
