@@ -1,0 +1,188 @@
+{% extends "Secao_operacoes/base.html" %}
+
+{% block title %}Relsisam — Efetivo Diário{% endblock %}
+
+{% block content %}
+<style>
+.rel-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;}
+.rel-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:2rem;}
+.kpi-card{background:var(--bg-card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:.9rem 1rem;}
+.kpi-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:.3rem;}
+.kpi-val{font-size:1.7rem;font-weight:700;font-family:'Rajdhani',sans-serif;line-height:1;}
+
+.setor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem;}
+.setor-card{background:var(--bg-card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden;}
+.setor-head{padding:.85rem 1.1rem;border-bottom:1px solid var(--border,#e5e7eb);display:flex;align-items:center;justify-content:space-between;}
+.setor-nome{font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;}
+.setor-total{font-size:.75rem;color:#6b7280;}
+.setor-bars{display:flex;gap:.6rem;padding:.85rem 1.1rem;flex-wrap:wrap;}
+.sit-pill{flex:1;min-width:80px;text-align:center;padding:.5rem .4rem;border-radius:8px;cursor:default;}
+.sit-num{font-size:1.5rem;font-weight:700;font-family:'Rajdhani',sans-serif;line-height:1;}
+.sit-lbl{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
+.pill-livre{background:rgba(22,163,74,.1);color:#16a34a;}
+.pill-servico{background:rgba(37,99,235,.1);color:#2563eb;}
+.pill-missao{background:rgba(245,158,11,.1);color:#d97706;}
+.pill-especial{background:rgba(107,114,128,.1);color:#4b5563;}
+
+.detail-section{border-top:1px solid var(--border,#e5e7eb);}
+details>summary{padding:.5rem 1.1rem;font-size:.75rem;font-weight:600;cursor:pointer;list-style:none;display:flex;align-items:center;gap:.4rem;color:#6b7280;}
+details>summary::-webkit-details-marker{display:none;}
+details>summary::before{content:'▶';font-size:.55rem;transition:transform .2s;}
+details[open]>summary::before{transform:rotate(90deg);}
+.mil-list{padding:.4rem 1.1rem .8rem;display:flex;flex-wrap:wrap;gap:.3rem;}
+.mil-tag{padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:500;}
+.tag-livre{background:rgba(22,163,74,.12);color:#16a34a;}
+.tag-servico{background:rgba(37,99,235,.12);color:#2563eb;}
+.tag-missao{background:rgba(245,158,11,.12);color:#d97706;}
+.tag-especial{background:rgba(107,114,128,.12);color:#374151;}
+
+.btn-lancar{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border-radius:8px;border:1px solid var(--border,#e5e7eb);background:none;font-size:.8rem;font-weight:600;color:#374151;text-decoration:none;cursor:pointer;}
+.btn-atualizar{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border-radius:8px;border:1px solid var(--border,#e5e7eb);background:none;font-size:.8rem;font-weight:600;color:#6b7280;cursor:pointer;}
+</style>
+
+<div class="rel-header">
+    <div>
+        <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;margin:0;">Relsisam</h1>
+        <p style="color:#6b7280;font-size:.875rem;margin:.2rem 0 0;">Efetivo diário por setor — <strong>{{ hoje|date:"d/m/Y" }}</strong></p>
+    </div>
+    <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
+        <a href="{% url 'Secao_operacoes:situacao_especial_create' %}" class="btn-lancar">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            Lançar situação
+        </a>
+        <button onclick="location.reload()" class="btn-atualizar">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="23 4 23 10 17 10"/><path d="M20.49 15a9 9 0 1 1-2.12-9.36L23 10"/></svg>
+            Atualizar
+        </button>
+    </div>
+</div>
+
+<!-- KPIs globais -->
+<div class="rel-kpis">
+    <div class="kpi-card">
+        <div class="kpi-label">Efetivo Total</div>
+        <div class="kpi-val">{{ total_efetivo }}</div>
+    </div>
+    <div class="kpi-card" style="border-color:rgba(22,163,74,.4);">
+        <div class="kpi-label" style="color:#16a34a;">Livres</div>
+        <div class="kpi-val" style="color:#16a34a;">{{ total_efetivo|add:"-"|add:total_missao|add:"-"|add:total_servico|add:"-"|add:total_especial }}</div>
+    </div>
+    <div class="kpi-card" style="border-color:rgba(37,99,235,.4);">
+        <div class="kpi-label" style="color:#2563eb;">De Serviço</div>
+        <div class="kpi-val" style="color:#2563eb;">{{ total_servico }}</div>
+    </div>
+    <div class="kpi-card" style="border-color:rgba(245,158,11,.4);">
+        <div class="kpi-label" style="color:#d97706;">De Missão</div>
+        <div class="kpi-val" style="color:#d97706;">{{ total_missao }}</div>
+    </div>
+    <div class="kpi-card" style="border-color:rgba(107,114,128,.4);">
+        <div class="kpi-label" style="color:#4b5563;">Situação Especial</div>
+        <div class="kpi-val" style="color:#4b5563;">{{ total_especial }}</div>
+    </div>
+    <div class="kpi-card">
+        <div class="kpi-label">Missões Hoje</div>
+        <div class="kpi-val">{{ missoes_hoje }}</div>
+    </div>
+</div>
+
+{% if setores %}
+<div class="setor-grid">
+{% for s in setores %}
+<div class="setor-card">
+    <div class="setor-head">
+        <span class="setor-nome">{{ s.nome }}</span>
+        <span class="setor-total">{{ s.total }} militar{% if s.total != 1 %}es{% endif %}</span>
+    </div>
+    <div class="setor-bars">
+        <div class="sit-pill pill-livre">
+            <div class="sit-num">{{ s.livre|length }}</div>
+            <div class="sit-lbl">Livres</div>
+        </div>
+        <div class="sit-pill pill-servico">
+            <div class="sit-num">{{ s.de_servico|length }}</div>
+            <div class="sit-lbl">Serviço</div>
+        </div>
+        <div class="sit-pill pill-missao">
+            <div class="sit-num">{{ s.de_missao|length }}</div>
+            <div class="sit-lbl">Missão</div>
+        </div>
+        {% with esp=s.licenca|length|add:s.afastamento|length|add:s.tdo|length|add:s.outro|length %}
+        {% if esp %}
+        <div class="sit-pill pill-especial">
+            <div class="sit-num">{{ esp }}</div>
+            <div class="sit-lbl">Outros</div>
+        </div>
+        {% endif %}
+        {% endwith %}
+    </div>
+
+    <!-- Detalhes expansíveis -->
+    <div class="detail-section">
+        {% if s.livre %}
+        <details>
+            <summary><span class="mil-tag tag-livre">{{ s.livre|length }} livres</span></summary>
+            <div class="mil-list">
+                {% for m in s.livre %}<span class="mil-tag tag-livre">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        {% if s.de_servico %}
+        <details>
+            <summary><span class="mil-tag tag-servico">{{ s.de_servico|length }} de serviço</span></summary>
+            <div class="mil-list">
+                {% for m in s.de_servico %}<span class="mil-tag tag-servico">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        {% if s.de_missao %}
+        <details>
+            <summary><span class="mil-tag tag-missao">{{ s.de_missao|length }} de missão</span></summary>
+            <div class="mil-list">
+                {% for m in s.de_missao %}<span class="mil-tag tag-missao">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        {% if s.licenca %}
+        <details>
+            <summary><span class="mil-tag tag-especial">{{ s.licenca|length }} licença/férias</span></summary>
+            <div class="mil-list">
+                {% for m in s.licenca %}<span class="mil-tag tag-especial">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        {% if s.afastamento %}
+        <details>
+            <summary><span class="mil-tag tag-especial">{{ s.afastamento|length }} afastamento médico</span></summary>
+            <div class="mil-list">
+                {% for m in s.afastamento %}<span class="mil-tag tag-especial">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        {% if s.tdo %}
+        <details>
+            <summary><span class="mil-tag tag-especial">{{ s.tdo|length }} TDO/Curso</span></summary>
+            <div class="mil-list">
+                {% for m in s.tdo %}<span class="mil-tag tag-especial">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        {% if s.outro %}
+        <details>
+            <summary><span class="mil-tag tag-especial">{{ s.outro|length }} outro</span></summary>
+            <div class="mil-list">
+                {% for m in s.outro %}<span class="mil-tag tag-especial">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+            </div>
+        </details>
+        {% endif %}
+    </div>
+</div>
+{% endfor %}
+</div>
+{% else %}
+<div style="background:var(--bg-card,#fff);border-radius:12px;padding:3rem;text-align:center;border:1px solid var(--border,#e5e7eb);">
+    <p style="color:#6b7280;">Nenhum efetivo ativo cadastrado.</p>
+</div>
+{% endif %}
+
+<script>setTimeout(() => location.reload(), 60000);</script>
+{% endblock %}

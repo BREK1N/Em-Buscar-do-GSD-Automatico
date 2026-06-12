@@ -1,0 +1,131 @@
+{% extends "Secao_operacoes/base.html" %}
+
+{% block title %}Situações Especiais{% endblock %}
+
+{% block content %}
+<style>
+.page-header{display:flex;align-items:center;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;}
+.btn-primary{display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:8px;background:#2563eb;color:#fff;font-size:.85rem;font-weight:600;text-decoration:none;}
+.btn-sm{padding:.3rem .7rem;border-radius:6px;font-size:.75rem;font-weight:600;border:none;cursor:pointer;text-decoration:none;display:inline-flex;align-items:center;gap:.3rem;}
+.btn-encerrar{background:rgba(22,163,74,.1);color:#16a34a;}
+.btn-excluir{background:rgba(239,68,68,.1);color:#dc2626;}
+.section-title{font-family:'Rajdhani',sans-serif;font-size:1rem;font-weight:700;margin:0 0 .75rem;color:#374151;}
+.sit-table{width:100%;border-collapse:collapse;font-size:.85rem;}
+.sit-table th{text-align:left;padding:.5rem .75rem;font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:#6b7280;border-bottom:2px solid #e5e7eb;}
+.sit-table td{padding:.6rem .75rem;border-bottom:1px solid #f3f4f6;vertical-align:middle;}
+.sit-table tr:last-child td{border-bottom:none;}
+.badge{padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:600;}
+.badge-licenca{background:rgba(99,102,241,.1);color:#4f46e5;}
+.badge-afastamento{background:rgba(239,68,68,.1);color:#dc2626;}
+.badge-tdo{background:rgba(245,158,11,.1);color:#d97706;}
+.badge-outro{background:rgba(107,114,128,.1);color:#374151;}
+.card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.25rem;margin-bottom:1.5rem;overflow-x:auto;}
+</style>
+
+<div class="page-header">
+    <div>
+        <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.5rem;font-weight:700;margin:0;">Situações Especiais</h1>
+        <p style="color:#6b7280;font-size:.85rem;margin:.2rem 0 0;">Licenças, afastamentos, TDO e outros — hoje: <strong>{{ hoje|date:"d/m/Y" }}</strong></p>
+    </div>
+    <div style="display:flex;gap:.5rem;">
+        <a href="{% url 'Secao_operacoes:relsisam' %}" style="display:inline-flex;align-items:center;gap:.4rem;padding:.5rem 1rem;border-radius:8px;border:1px solid #e5e7eb;font-size:.85rem;font-weight:600;color:#374151;text-decoration:none;">
+            ← Relsisam
+        </a>
+        <a href="{% url 'Secao_operacoes:situacao_especial_create' %}" class="btn-primary">
+            <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M12 5v14M5 12h14"/></svg>
+            Nova situação
+        </a>
+    </div>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div style="padding:.6rem 1rem;border-radius:8px;margin-bottom:1rem;background:{% if msg.tags == 'error' %}rgba(239,68,68,.1){% else %}rgba(22,163,74,.1){% endif %};color:{% if msg.tags == 'error' %}#dc2626{% else %}#16a34a{% endif %};font-size:.85rem;">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<!-- Ativas -->
+<div class="card">
+    <p class="section-title">Situações ativas ({{ ativas|length }})</p>
+    {% if ativas %}
+    <table class="sit-table">
+        <thead>
+            <tr>
+                <th>Militar</th>
+                <th>Setor</th>
+                <th>Situação</th>
+                <th>Início</th>
+                <th>Fim previsto</th>
+                <th>Observação</th>
+                <th>Registrado por</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for s in ativas %}
+        <tr>
+            <td><strong>{{ s.efetivo.posto }} {{ s.efetivo.nome_guerra }}</strong></td>
+            <td style="color:#6b7280;">{{ s.efetivo.setor|default:"—" }}</td>
+            <td>
+                <span class="badge badge-{{ s.tipo }}">{{ s.get_tipo_display }}</span>
+            </td>
+            <td>{{ s.data_inicio|date:"d/m/Y" }}</td>
+            <td>{% if s.data_fim %}{{ s.data_fim|date:"d/m/Y" }}{% else %}<span style="color:#6b7280;">Em aberto</span>{% endif %}</td>
+            <td style="color:#6b7280;max-width:180px;">{{ s.observacao|default:"—" }}</td>
+            <td style="color:#6b7280;font-size:.78rem;">{{ s.registrado_por|default:"—" }}</td>
+            <td style="white-space:nowrap;">
+                <form method="post" action="{% url 'Secao_operacoes:situacao_especial_encerrar' s.pk %}" style="display:inline;">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-sm btn-encerrar" title="Encerrar hoje">
+                        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M20 6L9 17l-5-5"/></svg>
+                        Encerrar
+                    </button>
+                </form>
+                <form method="post" action="{% url 'Secao_operacoes:situacao_especial_delete' s.pk %}" style="display:inline;margin-left:.3rem;" onsubmit="return confirm('Excluir este registro?')">
+                    {% csrf_token %}
+                    <button type="submit" class="btn-sm btn-excluir">
+                        <svg width="11" height="11" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14H6L5 6"/></svg>
+                        Excluir
+                    </button>
+                </form>
+            </td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+    {% else %}
+    <p style="color:#6b7280;font-size:.85rem;margin:0;">Nenhuma situação especial ativa no momento.</p>
+    {% endif %}
+</div>
+
+<!-- Encerradas recentes -->
+{% if encerradas %}
+<div class="card">
+    <p class="section-title">Encerradas recentemente (últimas 30)</p>
+    <table class="sit-table">
+        <thead>
+            <tr>
+                <th>Militar</th>
+                <th>Setor</th>
+                <th>Situação</th>
+                <th>Início</th>
+                <th>Fim</th>
+                <th>Observação</th>
+            </tr>
+        </thead>
+        <tbody>
+        {% for s in encerradas %}
+        <tr style="opacity:.7;">
+            <td>{{ s.efetivo.posto }} {{ s.efetivo.nome_guerra }}</td>
+            <td style="color:#6b7280;">{{ s.efetivo.setor|default:"—" }}</td>
+            <td><span class="badge badge-{{ s.tipo }}">{{ s.get_tipo_display }}</span></td>
+            <td>{{ s.data_inicio|date:"d/m/Y" }}</td>
+            <td>{{ s.data_fim|date:"d/m/Y" }}</td>
+            <td style="color:#6b7280;">{{ s.observacao|default:"—" }}</td>
+        </tr>
+        {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+{% endblock %}

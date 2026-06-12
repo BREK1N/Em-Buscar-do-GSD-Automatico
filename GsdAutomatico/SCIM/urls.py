@@ -14,6 +14,5 @@ urlpatterns = [
     path('tipos/', views.TipoCursoListView.as_view(), name='tipo_list'),
     path('tipos/novo/', views.TipoCursoCreateView.as_view(), name='tipo_create'),
     path('tipos/<int:pk>/editar/', views.TipoCursoUpdateView.as_view(), name='tipo_update'),
-    path('relsisam/', views.RelsisamView.as_view(), name='relsisam'),
     path('api/efetivos/', views.buscar_efetivos, name='api_efetivos'),
 ]

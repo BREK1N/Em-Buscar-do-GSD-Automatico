@@ -1,13 +1,15 @@
 from django.shortcuts import render, redirect, get_object_or_404
 from django.db import models
 from django.contrib.auth.decorators import login_required
+from django.utils.decorators import method_decorator
+from django.views.generic import TemplateView
 from django.contrib import messages
 from django.http import JsonResponse, HttpResponse
 from datetime import date
 import json
 import os
 from django.conf import settings
-from .models import Escala, TurnoEscala, PostoEscala, Missao, ItemArmamento, ItemEquipamento, ItemHorario, ConfiguracaoOperacoes, EquipamentoCatalogo, RadioCatalogo, UniformeCatalogo, ArmamentoCatalogo, ACargaOpcao
+from .models import Escala, TurnoEscala, PostoEscala, Missao, ItemArmamento, ItemEquipamento, ItemHorario, ConfiguracaoOperacoes, EquipamentoCatalogo, RadioCatalogo, UniformeCatalogo, ArmamentoCatalogo, ACargaOpcao, SituacaoEspecialEfetivo
 from .forms import EscalaForm, TurnoEscalaForm, PostoEscalaForm, MissaoForm
 from Secao_pessoal.models import Efetivo
 from django.contrib.auth import get_user_model
@@ -1654,3 +1656,148 @@ def api_acarga_opcao_delete(request, pk):
         return JsonResponse({'status': 'error'}, status=405)
     ACargaOpcao.objects.filter(pk=pk).delete()
     return JsonResponse({'status': 'ok'})
+
+
+@method_decorator(login_required, name='dispatch')
+class RelsisamView(TemplateView):
+    template_name = 'Secao_operacoes/relsisam.html'
+
+    def get_context_data(self, **kwargs):
+        from ESI.models import EscalaMissaoESI
+        ctx = super().get_context_data(**kwargs)
+        hoje = date.today()
+
+        # De missão — SOP (OMIS)
+        missoes_hoje = Missao.objects.filter(data_missao=hoje)
+        de_missao_ids = set()
+        for m in missoes_hoje.prefetch_related('equipe'):
+            de_missao_ids.update(m.equipe.values_list('id', flat=True))
+            if m.cmt_missao_id:
+                de_missao_ids.add(m.cmt_missao_id)
+            if m.motorista_id:
+                de_missao_ids.add(m.motorista_id)
+
+        # De missão — ESI
+        de_missao_ids.update(
+            EscalaMissaoESI.objects.filter(missao__data_missao=hoje)
+            .values_list('militares__id', flat=True)
+        )
+        de_missao_ids.discard(None)
+
+        # De serviço — TurnoEscala
+        de_servico_ids = set(
+            TurnoEscala.objects.filter(data=hoje).values_list('militar_id', flat=True)
+        )
+
+        # Situações especiais ativas hoje
+        situacoes_qs = SituacaoEspecialEfetivo.objects.filter(
+            data_inicio__lte=hoje
+        ).filter(
+            models.Q(data_fim__gte=hoje) | models.Q(data_fim__isnull=True)
+        )
+        especial_map = {s.efetivo_id: s.tipo for s in situacoes_qs}
+
+        # Agrupar efetivos ativos por setor
+        efetivos = (
+            Efetivo.objects
+            .filter(situacao='Ativo')
+            .values('id', 'setor', 'posto', 'nome_guerra')
+            .order_by('setor', 'posto', 'nome_guerra')
+        )
+
+        setores = {}
+        for ef in efetivos:
+            s = ef['setor'] or 'Sem setor'
+            if s not in setores:
+                setores[s] = {
+                    'nome': s, 'total': 0,
+                    'de_missao': [], 'de_servico': [],
+                    'licenca': [], 'afastamento': [], 'tdo': [], 'outro': [],
+                    'livre': [],
+                }
+            eid = ef['id']
+            entrada = {'posto': ef['posto'], 'nome_guerra': ef['nome_guerra']}
+            if eid in de_missao_ids:
+                setores[s]['de_missao'].append(entrada)
+            elif eid in de_servico_ids:
+                setores[s]['de_servico'].append(entrada)
+            elif eid in especial_map:
+                setores[s][especial_map[eid]].append(entrada)
+            else:
+                setores[s]['livre'].append(entrada)
+            setores[s]['total'] += 1
+
+        ctx['setores'] = sorted(setores.values(), key=lambda x: x['nome'])
+        ctx['hoje'] = hoje
+        ctx['total_efetivo'] = sum(s['total'] for s in setores.values())
+        ctx['total_missao'] = len(de_missao_ids)
+        ctx['total_servico'] = len(de_servico_ids)
+        ctx['total_especial'] = len(especial_map)
+        ctx['missoes_hoje'] = missoes_hoje.count()
+        return ctx
+
+
+@login_required
+def situacao_especial_list(request):
+
+    hoje = date.today()
+    ativas = SituacaoEspecialEfetivo.objects.filter(
+        models.Q(data_fim__gte=hoje) | models.Q(data_fim__isnull=True)
+    ).select_related('efetivo', 'registrado_por').order_by('tipo', 'data_inicio')
+    encerradas = SituacaoEspecialEfetivo.objects.filter(
+        data_fim__lt=hoje
+    ).select_related('efetivo').order_by('-data_fim')[:30]
+    return render(request, 'Secao_operacoes/situacao_especial_list.html', {
+        'ativas': ativas,
+        'encerradas': encerradas,
+        'hoje': hoje,
+    })
+
+
+@login_required
+def situacao_especial_create(request):
+
+    TIPO_CHOICES = SituacaoEspecialEfetivo.TIPO_CHOICES
+    if request.method == 'POST':
+        efetivo_id = request.POST.get('efetivo_id')
+        tipo = request.POST.get('tipo')
+        data_inicio = request.POST.get('data_inicio')
+        data_fim = request.POST.get('data_fim') or None
+        observacao = request.POST.get('observacao', '')
+        if efetivo_id and tipo and data_inicio:
+            SituacaoEspecialEfetivo.objects.create(
+                efetivo_id=efetivo_id,
+                tipo=tipo,
+                data_inicio=data_inicio,
+                data_fim=data_fim,
+                observacao=observacao,
+                registrado_por=request.user,
+            )
+            messages.success(request, 'Situação registrada com sucesso.')
+            return redirect('Secao_operacoes:situacao_especial_list')
+        messages.error(request, 'Preencha todos os campos obrigatórios.')
+    return render(request, 'Secao_operacoes/situacao_especial_form.html', {
+        'tipo_choices': TIPO_CHOICES,
+        'hoje': date.today(),
+    })
+
+
+@login_required
+def situacao_especial_encerrar(request, pk):
+
+    sit = get_object_or_404(SituacaoEspecialEfetivo, pk=pk)
+    if request.method == 'POST':
+        sit.data_fim = date.today()
+        sit.save(update_fields=['data_fim'])
+        messages.success(request, f'Situação de {sit.efetivo} encerrada.')
+    return redirect('Secao_operacoes:situacao_especial_list')
+
+
+@login_required
+def situacao_especial_delete(request, pk):
+
+    sit = get_object_or_404(SituacaoEspecialEfetivo, pk=pk)
+    if request.method == 'POST':
+        sit.delete()
+        messages.success(request, 'Registro excluído.')
+    return redirect('Secao_operacoes:situacao_especial_list')

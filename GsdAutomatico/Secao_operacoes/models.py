@@ -298,3 +298,35 @@ class ACargaOpcao(models.Model):
 
     def __str__(self):
         return self.nome
+
+
+class SituacaoEspecialEfetivo(models.Model):
+    TIPO_CHOICES = [
+        ('licenca',     'Licença / Férias'),
+        ('afastamento', 'Afastamento Médico'),
+        ('tdo',         'TDO / Curso'),
+        ('outro',       'Outro'),
+    ]
+
+    efetivo = models.ForeignKey(
+        Efetivo, on_delete=models.CASCADE,
+        related_name='situacoes_especiais', verbose_name='Militar'
+    )
+    tipo = models.CharField(max_length=20, choices=TIPO_CHOICES, verbose_name='Situação')
+    data_inicio = models.DateField(verbose_name='Data início')
+    data_fim = models.DateField(null=True, blank=True, verbose_name='Data fim')
+    observacao = models.CharField(max_length=200, blank=True, verbose_name='Observação')
+    registrado_por = models.ForeignKey(
+        User, on_delete=models.SET_NULL, null=True, blank=True,
+        verbose_name='Registrado por'
+    )
+    criado_em = models.DateTimeField(auto_now_add=True)
+
+    class Meta:
+        ordering = ['-data_inicio']
+        verbose_name = 'Situação Especial'
+        verbose_name_plural = 'Situações Especiais'
+
+    def __str__(self):
+        fim = f' até {self.data_fim}' if self.data_fim else ' (em aberto)'
+        return f'{self.efetivo} — {self.get_tipo_display()} desde {self.data_inicio}{fim}'

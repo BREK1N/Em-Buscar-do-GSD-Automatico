@@ -64,6 +64,13 @@ urlpatterns = [
     # Configuração (admin)
     path('configuracao/', views.config_operacoes, name='config_operacoes'),
 
+    # Relsisam — efetivo diário por setor
+    path('relsisam/', views.RelsisamView.as_view(), name='relsisam'),
+    path('situacoes-especiais/', views.situacao_especial_list, name='situacao_especial_list'),
+    path('situacoes-especiais/nova/', views.situacao_especial_create, name='situacao_especial_create'),
+    path('situacoes-especiais/<int:pk>/encerrar/', views.situacao_especial_encerrar, name='situacao_especial_encerrar'),
+    path('situacoes-especiais/<int:pk>/excluir/', views.situacao_especial_delete, name='situacao_especial_delete'),
+
     # A Cargo — opções
     path('api/acarga-opcoes/', views.api_acarga_opcoes, name='api_acarga_opcoes'),
     path('api/acarga-opcoes/<int:pk>/delete/', views.api_acarga_opcao_delete, name='api_acarga_opcao_delete'),

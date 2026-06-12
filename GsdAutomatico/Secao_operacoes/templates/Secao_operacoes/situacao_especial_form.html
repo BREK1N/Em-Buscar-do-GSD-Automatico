@@ -1,0 +1,114 @@
+{% extends "Secao_operacoes/base.html" %}
+
+{% block title %}Nova Situação Especial{% endblock %}
+
+{% block content %}
+<style>
+.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;max-width:560px;}
+.form-group{margin-bottom:1.1rem;}
+.form-label{display:block;font-size:.8rem;font-weight:600;color:#374151;margin-bottom:.35rem;}
+.form-label span{color:#dc2626;}
+.form-control{width:100%;padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.875rem;color:#111827;background:#fff;box-sizing:border-box;}
+.form-control:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1);}
+.form-hint{font-size:.72rem;color:#6b7280;margin-top:.25rem;}
+.btn-submit{padding:.55rem 1.2rem;border-radius:8px;background:#2563eb;color:#fff;border:none;font-size:.875rem;font-weight:600;cursor:pointer;}
+.btn-cancel{padding:.55rem 1rem;border-radius:8px;background:none;border:1px solid #d1d5db;font-size:.875rem;font-weight:600;color:#374151;text-decoration:none;display:inline-flex;align-items:center;}
+#efetivo-suggestions{position:absolute;z-index:100;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);max-height:200px;overflow-y:auto;width:100%;}
+.sug-item{padding:.5rem .75rem;cursor:pointer;font-size:.85rem;}
+.sug-item:hover{background:#f3f4f6;}
+</style>
+
+<div style="margin-bottom:1.25rem;">
+    <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;margin:0;">Nova Situação Especial</h1>
+    <p style="color:#6b7280;font-size:.85rem;margin:.2rem 0 0;">Registre licença, afastamento, TDO ou outra situação de um militar.</p>
+</div>
+
+{% if messages %}
+{% for msg in messages %}
+<div style="padding:.6rem 1rem;border-radius:8px;margin-bottom:1rem;background:rgba(239,68,68,.1);color:#dc2626;font-size:.85rem;">{{ msg }}</div>
+{% endfor %}
+{% endif %}
+
+<div class="form-card">
+    <form method="post">
+        {% csrf_token %}
+        <input type="hidden" name="efetivo_id" id="efetivo_id">
+
+        <div class="form-group" style="position:relative;">
+            <label class="form-label">Militar <span>*</span></label>
+            <input type="text" id="efetivo-search" class="form-control" placeholder="Digite o nome ou posto..." autocomplete="off">
+            <div id="efetivo-suggestions" style="display:none;"></div>
+            <p class="form-hint">Pesquise pelo nome de guerra ou nome completo.</p>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="tipo">Situação <span>*</span></label>
+            <select name="tipo" id="tipo" class="form-control" required>
+                <option value="">Selecione...</option>
+                {% for val, lbl in tipo_choices %}
+                <option value="{{ val }}">{{ lbl }}</option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:1rem;">
+            <div class="form-group">
+                <label class="form-label" for="data_inicio">Data início <span>*</span></label>
+                <input type="date" name="data_inicio" id="data_inicio" class="form-control" value="{{ hoje|date:'Y-m-d' }}" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label" for="data_fim">Data fim</label>
+                <input type="date" name="data_fim" id="data_fim" class="form-control">
+                <p class="form-hint">Deixe em branco se a situação não tem prazo definido.</p>
+            </div>
+        </div>
+
+        <div class="form-group">
+            <label class="form-label" for="observacao">Observação</label>
+            <input type="text" name="observacao" id="observacao" class="form-control" placeholder="Ex: Licença médica — cirurgia" maxlength="200">
+        </div>
+
+        <div style="display:flex;gap:.75rem;align-items:center;margin-top:1.5rem;">
+            <button type="submit" class="btn-submit">Registrar situação</button>
+            <a href="{% url 'Secao_operacoes:situacao_especial_list' %}" class="btn-cancel">Cancelar</a>
+        </div>
+    </form>
+</div>
+
+<script>
+const searchInput = document.getElementById('efetivo-search');
+const hiddenId    = document.getElementById('efetivo_id');
+const suggestions = document.getElementById('efetivo-suggestions');
+let debounce;
+
+searchInput.addEventListener('input', () => {
+    clearTimeout(debounce);
+    const q = searchInput.value.trim();
+    if (q.length < 2) { suggestions.style.display = 'none'; return; }
+    debounce = setTimeout(() => {
+        fetch(`/secao_operacoes/api/efetivo/?q=${encodeURIComponent(q)}`)
+            .then(r => r.json())
+            .then(data => {
+                suggestions.innerHTML = '';
+                if (!data.length) { suggestions.style.display = 'none'; return; }
+                data.forEach(ef => {
+                    const div = document.createElement('div');
+                    div.className = 'sug-item';
+                    div.textContent = ef.label;
+                    div.addEventListener('click', () => {
+                        searchInput.value = `${ef.posto} ${ef.nome_guerra}`;
+                        hiddenId.value = ef.id;
+                        suggestions.style.display = 'none';
+                    });
+                    suggestions.appendChild(div);
+                });
+                suggestions.style.display = 'block';
+            });
+    }, 280);
+});
+
+document.addEventListener('click', e => {
+    if (!searchInput.contains(e.target)) suggestions.style.display = 'none';
+});
+</script>
+{% endblock %}
