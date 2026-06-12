@@ -4,28 +4,44 @@
 
 {% block content %}
 <style>
-.form-card{background:#fff;border:1px solid #e5e7eb;border-radius:12px;padding:1.5rem;max-width:560px;}
+.form-card{background:var(--bg-card);border:1px solid var(--border-strong);border-radius:12px;padding:1.5rem;max-width:560px;}
 .form-group{margin-bottom:1.1rem;}
-.form-label{display:block;font-size:.8rem;font-weight:600;color:#374151;margin-bottom:.35rem;}
-.form-label span{color:#dc2626;}
-.form-control{width:100%;padding:.5rem .75rem;border:1px solid #d1d5db;border-radius:8px;font-size:.875rem;color:#111827;background:#fff;box-sizing:border-box;}
-.form-control:focus{outline:none;border-color:#2563eb;box-shadow:0 0 0 3px rgba(37,99,235,.1);}
-.form-hint{font-size:.72rem;color:#6b7280;margin-top:.25rem;}
-.btn-submit{padding:.55rem 1.2rem;border-radius:8px;background:#2563eb;color:#fff;border:none;font-size:.875rem;font-weight:600;cursor:pointer;}
-.btn-cancel{padding:.55rem 1rem;border-radius:8px;background:none;border:1px solid #d1d5db;font-size:.875rem;font-weight:600;color:#374151;text-decoration:none;display:inline-flex;align-items:center;}
-#efetivo-suggestions{position:absolute;z-index:100;background:#fff;border:1px solid #d1d5db;border-radius:8px;box-shadow:0 4px 12px rgba(0,0,0,.1);max-height:200px;overflow-y:auto;width:100%;}
-.sug-item{padding:.5rem .75rem;cursor:pointer;font-size:.85rem;}
-.sug-item:hover{background:#f3f4f6;}
+.form-label{display:block;font-size:.8rem;font-weight:600;color:var(--text-primary);margin-bottom:.35rem;}
+.form-label span{color:var(--danger);}
+.form-control{
+    width:100%;padding:.5rem .75rem;
+    border:1px solid var(--border-strong);border-radius:8px;
+    font-size:.875rem;color:var(--text-primary);
+    background:var(--bg-input);
+    box-sizing:border-box;
+    transition:border-color .15s,box-shadow .15s;
+}
+.form-control:focus{outline:none;border-color:var(--accent);box-shadow:0 0 0 3px var(--accent-glow);}
+.form-hint{font-size:.72rem;color:var(--text-muted);margin-top:.25rem;}
+.btn-submit{padding:.55rem 1.2rem;border-radius:8px;background:var(--accent);color:#fff;border:none;font-size:.875rem;font-weight:600;cursor:pointer;}
+.btn-submit:hover{opacity:.9;}
+.btn-cancel{padding:.55rem 1rem;border-radius:8px;background:none;border:1px solid var(--border-strong);font-size:.875rem;font-weight:600;color:var(--text-primary);text-decoration:none;display:inline-flex;align-items:center;}
+#efetivo-suggestions{
+    position:absolute;z-index:200;
+    background:var(--bg-card);
+    border:1px solid var(--border-strong);
+    border-radius:8px;
+    box-shadow:0 4px 16px rgba(0,0,0,.15);
+    max-height:200px;overflow-y:auto;
+    width:100%;
+}
+.sug-item{padding:.5rem .75rem;cursor:pointer;font-size:.85rem;color:var(--text-primary);}
+.sug-item:hover{background:var(--badge-bg);}
 </style>
 
 <div style="margin-bottom:1.25rem;">
-    <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;margin:0;">Nova Situação Especial</h1>
-    <p style="color:#6b7280;font-size:.85rem;margin:.2rem 0 0;">Registre licença, afastamento, TDO ou outra situação de um militar.</p>
+    <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.4rem;font-weight:700;margin:0;color:var(--text-primary);">Nova Situação Especial</h1>
+    <p style="color:var(--text-secondary);font-size:.85rem;margin:.2rem 0 0;">Registre licença, afastamento, TDO ou outra situação de um militar.</p>
 </div>
 
 {% if messages %}
 {% for msg in messages %}
-<div style="padding:.6rem 1rem;border-radius:8px;margin-bottom:1rem;background:rgba(239,68,68,.1);color:#dc2626;font-size:.85rem;">{{ msg }}</div>
+<div style="padding:.6rem 1rem;border-radius:8px;margin-bottom:1rem;background:var(--danger-dim);color:var(--danger);font-size:.85rem;border:1px solid rgba(239,68,68,.2);">{{ msg }}</div>
 {% endfor %}
 {% endif %}
 
@@ -59,7 +75,7 @@
             <div class="form-group">
                 <label class="form-label" for="data_fim">Data fim</label>
                 <input type="date" name="data_fim" id="data_fim" class="form-control">
-                <p class="form-hint">Deixe em branco se a situação não tem prazo definido.</p>
+                <p class="form-hint">Deixe em branco se não tem prazo definido.</p>
             </div>
         </div>
 
@@ -108,7 +124,9 @@ searchInput.addEventListener('input', () => {
 });
 
 document.addEventListener('click', e => {
-    if (!searchInput.contains(e.target)) suggestions.style.display = 'none';
+    if (!searchInput.contains(e.target) && !suggestions.contains(e.target)) {
+        suggestions.style.display = 'none';
+    }
 });
 </script>
 {% endblock %}

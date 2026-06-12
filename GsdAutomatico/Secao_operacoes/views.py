@@ -861,11 +861,24 @@ def missao_detail(request, pk):
     from informatica.models import ConfiguracaoComandantes
     config_cmds = ConfiguracaoComandantes.get_instance()
     grupos_efetivo = _grupos_efetivo_para_pdf(missao)
+
+    # Badge ESI só aparece se a OMIS ainda tem grupos com acargo='ESI'
+    tem_grupos_esi = False
+    if missao.efetivo_grupos_json:
+        try:
+            for _g in json.loads(missao.efetivo_grupos_json):
+                if 'esi' in (_g.get('acargo') or '').lower():
+                    tem_grupos_esi = True
+                    break
+        except Exception:
+            pass
+
     return render(request, 'Secao_operacoes/missao_detail.html', {
         'missao': missao,
         'config': config,
         'config_cmds': config_cmds,
         'grupos_efetivo': grupos_efetivo,
+        'tem_grupos_esi': tem_grupos_esi,
     })
 
 
@@ -1001,6 +1014,24 @@ def _grupos_efetivo_para_pdf(missao):
     except Exception:
         pass
 
+    # Pre-carrega militares da EPA (se existir escala)
+    epa_militares = []
+    try:
+        epa_militares = list(missao.escala_epa.militares.order_by('posto', 'nome_guerra'))
+    except Exception:
+        pass
+
+    # Lê grupos por função da escala EPA (se existir)
+    epa_grupos_map = {}  # {label_upper: {'militares': [Efetivo]}}
+    try:
+        if missao.escala_epa.grupos_json:
+            for g in json.loads(missao.escala_epa.grupos_json):
+                ids = g.get('militares', [])
+                efs = list(Efetivo.objects.filter(pk__in=ids).order_by('posto', 'nome_guerra'))
+                epa_grupos_map[g['label'].upper()] = {'militares': efs}
+    except Exception:
+        pass
+
     def _membros_da_secao(acargo, label):
         if not acargo:
             return None
@@ -1014,8 +1045,18 @@ def _grupos_efetivo_para_pdf(missao):
                     return [{'efetivo': e, 'nome': f"{e.posto} {e.nome_guerra}".strip(), 'texto': ''} for e in per_grupo['militares']]
                 else:
                     return []
-            # Sem grupos específicos: usa todos da ESI (comportamento legado)
-            return [{'efetivo': e, 'nome': f"{e.posto} {e.nome_guerra}".strip(), 'texto': ''} for e in esi_militares]
+            # Legado (sem grupos_json): usa todos da ESI; com grupos_json grupo sem match = vazio
+            if not esi_grupos_map:
+                return [{'efetivo': e, 'nome': f"{e.posto} {e.nome_guerra}".strip(), 'texto': ''} for e in esi_militares]
+            return []
+        if 'epa' in ac:
+            per_grupo = epa_grupos_map.get(label.upper())
+            if per_grupo is not None:
+                return [{'efetivo': e, 'nome': f"{e.posto} {e.nome_guerra}".strip(), 'texto': ''} for e in per_grupo['militares']]
+            # Legado: usa todos da EPA apenas se não há grupos_json
+            if not epa_grupos_map:
+                return [{'efetivo': e, 'nome': f"{e.posto} {e.nome_guerra}".strip(), 'texto': ''} for e in epa_militares]
+            return []
         return []  # seção sem sistema de escala — mostra só texto acargo
 
     if missao.efetivo_grupos_json:
@@ -1093,16 +1134,41 @@ def _missao_pdf_context(missao, request):
             ordem_postos.append(e.posto)
         grupos_equipe[e.posto].append(e.nome_guerra)
     equipe_por_posto = [(posto, grupos_equipe[posto]) for posto in ordem_postos]
+    # Verifica se a OMIS ainda tem grupos com acargo='ESI' (anexo só incluído se existirem)
+    _esi_labels_omis = set()
+    if missao.efetivo_grupos_json:
+        try:
+            for _g in json.loads(missao.efetivo_grupos_json):
+                if 'esi' in (_g.get('acargo') or '').lower():
+                    _esi_labels_omis.add(_g.get('label', '').upper())
+        except Exception:
+            pass
+
     try:
         from ESI.models import EscalaMissaoESI  # noqa
         from ESI.views import _build_paginas
-        escala_esi = missao.escala_esi
-        militares_esi = list(escala_esi.militares.order_by('posto', 'nome_guerra'))
+        if _esi_labels_omis:
+            escala_esi = missao.escala_esi
+            # Apenas militares cujo grupo ainda existe na OMIS e está em modo 'anexo'
+            if escala_esi.grupos_json:
+                _active_ids = set()
+                for _g in json.loads(escala_esi.grupos_json):
+                    if (_g.get('label', '').upper() in _esi_labels_omis
+                            and _g.get('modo', 'anexo') == 'anexo'):
+                        _active_ids.update(_g.get('militares', []))
+                militares_esi = list(Efetivo.objects.filter(pk__in=_active_ids).order_by('posto', 'nome_guerra'))
+            else:
+                militares_esi = list(escala_esi.militares.order_by('posto', 'nome_guerra'))
+            if not militares_esi:
+                escala_esi = None
+        else:
+            escala_esi = None
+            militares_esi = []
     except Exception:
         escala_esi = None
         militares_esi = []
         _build_paginas = None
-    esi_paginas, esi_num_paginas = _build_paginas(militares_esi) if _build_paginas else ([], 0)
+    esi_paginas, esi_num_paginas = _build_paginas(militares_esi) if (_build_paginas and militares_esi) else ([], 0)
     config = ConfiguracaoOperacoes.get_instance()
     from informatica.models import ConfiguracaoComandantes
     config_cmds = ConfiguracaoComandantes.get_instance()
@@ -1664,25 +1730,53 @@ class RelsisamView(TemplateView):
 
     def get_context_data(self, **kwargs):
         from ESI.models import EscalaMissaoESI
+        from EPA.models import EscalaMissaoEPA
         ctx = super().get_context_data(**kwargs)
         hoje = date.today()
 
-        # De missão — SOP (OMIS)
         missoes_hoje = Missao.objects.filter(data_missao=hoje)
-        de_missao_ids = set()
+
+        # mapa: efetivo_id → lista de missões [{tipo, numero, nome}]
+        militar_missao_info = {}
+
+        # De missão — OMIS direto (cmt, motorista, equipe)
+        omis_ids = set()
         for m in missoes_hoje.prefetch_related('equipe'):
-            de_missao_ids.update(m.equipe.values_list('id', flat=True))
+            info = {'tipo': 'OMIS', 'numero': str(m.numero), 'nome': m.nome_missao or ''}
+            for mid in m.equipe.values_list('id', flat=True):
+                if mid:
+                    omis_ids.add(mid)
+                    militar_missao_info.setdefault(mid, []).append(info)
             if m.cmt_missao_id:
-                de_missao_ids.add(m.cmt_missao_id)
+                omis_ids.add(m.cmt_missao_id)
+                militar_missao_info.setdefault(m.cmt_missao_id, []).append(info)
             if m.motorista_id:
-                de_missao_ids.add(m.motorista_id)
+                omis_ids.add(m.motorista_id)
+                militar_missao_info.setdefault(m.motorista_id, []).append(info)
 
         # De missão — ESI
-        de_missao_ids.update(
-            EscalaMissaoESI.objects.filter(missao__data_missao=hoje)
-            .values_list('militares__id', flat=True)
-        )
-        de_missao_ids.discard(None)
+        esi_ids = set()
+        for esc in (EscalaMissaoESI.objects
+                    .filter(missao__data_missao=hoje)
+                    .select_related('missao')
+                    .prefetch_related('militares')):
+            info = {'tipo': 'ESI', 'numero': str(esc.missao.numero), 'nome': esc.missao.nome_missao or ''}
+            for mil in esc.militares.all():
+                esi_ids.add(mil.id)
+                militar_missao_info.setdefault(mil.id, []).append(info)
+
+        # De missão — EPA
+        epa_ids = set()
+        for esc in (EscalaMissaoEPA.objects
+                    .filter(missao__data_missao=hoje)
+                    .select_related('missao')
+                    .prefetch_related('militares')):
+            info = {'tipo': 'EPA', 'numero': str(esc.missao.numero), 'nome': esc.missao.nome_missao or ''}
+            for mil in esc.militares.all():
+                epa_ids.add(mil.id)
+                militar_missao_info.setdefault(mil.id, []).append(info)
+
+        de_missao_ids = omis_ids | esi_ids | epa_ids
 
         # De serviço — TurnoEscala
         de_servico_ids = set(
@@ -1697,43 +1791,63 @@ class RelsisamView(TemplateView):
         )
         especial_map = {s.efetivo_id: s.tipo for s in situacoes_qs}
 
-        # Agrupar efetivos ativos por setor
+        # Agrupar efetivos ativos por setor (EfetivoManager já exclui deleted=True)
         efetivos = (
             Efetivo.objects
-            .filter(situacao='Ativo')
             .values('id', 'setor', 'posto', 'nome_guerra')
             .order_by('setor', 'posto', 'nome_guerra')
         )
 
         setores = {}
+        livres_lista = []
+        missao_lista = []
+
         for ef in efetivos:
             s = ef['setor'] or 'Sem setor'
             if s not in setores:
                 setores[s] = {
                     'nome': s, 'total': 0,
-                    'de_missao': [], 'de_servico': [],
+                    'de_missao': [], 'de_missao_esi': [], 'de_missao_epa': [], 'de_missao_omis': [],
+                    'de_servico': [],
                     'licenca': [], 'afastamento': [], 'tdo': [], 'outro': [],
                     'livre': [],
                 }
             eid = ef['id']
-            entrada = {'posto': ef['posto'], 'nome_guerra': ef['nome_guerra']}
+            base = {'posto': ef['posto'], 'nome_guerra': ef['nome_guerra']}
             if eid in de_missao_ids:
+                missoes_info = militar_missao_info.get(eid, [])
+                entrada = {**base, 'missoes': missoes_info}
                 setores[s]['de_missao'].append(entrada)
+                if eid in esi_ids:
+                    setores[s]['de_missao_esi'].append(entrada)
+                elif eid in epa_ids:
+                    setores[s]['de_missao_epa'].append(entrada)
+                else:
+                    setores[s]['de_missao_omis'].append(entrada)
+                missao_lista.append({'setor': s, **entrada})
             elif eid in de_servico_ids:
-                setores[s]['de_servico'].append(entrada)
+                setores[s]['de_servico'].append(base)
             elif eid in especial_map:
-                setores[s][especial_map[eid]].append(entrada)
+                setores[s][especial_map[eid]].append(base)
             else:
-                setores[s]['livre'].append(entrada)
+                setores[s]['livre'].append(base)
+                livres_lista.append({'setor': s, **base})
             setores[s]['total'] += 1
 
-        ctx['setores'] = sorted(setores.values(), key=lambda x: x['nome'])
+        lista_setores = sorted(setores.values(), key=lambda x: x['nome'])
+        ctx['setores'] = lista_setores
         ctx['hoje'] = hoje
-        ctx['total_efetivo'] = sum(s['total'] for s in setores.values())
-        ctx['total_missao'] = len(de_missao_ids)
+        ctx['total_efetivo'] = sum(s['total'] for s in lista_setores)
+        ctx['total_missao'] = sum(len(s['de_missao']) for s in lista_setores)
+        ctx['total_missao_omis'] = sum(len(s['de_missao_omis']) for s in lista_setores)
+        ctx['total_missao_esi'] = sum(len(s['de_missao_esi']) for s in lista_setores)
+        ctx['total_missao_epa'] = sum(len(s['de_missao_epa']) for s in lista_setores)
         ctx['total_servico'] = len(de_servico_ids)
         ctx['total_especial'] = len(especial_map)
         ctx['missoes_hoje'] = missoes_hoje.count()
+        ctx['total_livre'] = len(livres_lista)
+        ctx['livres_lista'] = livres_lista
+        ctx['missao_lista'] = sorted(missao_lista, key=lambda x: (x['setor'], x['posto'], x['nome_guerra']))
         return ctx
 
 

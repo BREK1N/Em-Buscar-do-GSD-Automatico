@@ -5,45 +5,99 @@
 {% block content %}
 <style>
 .rel-header{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:1.5rem;flex-wrap:wrap;gap:1rem;}
-.rel-kpis{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:2rem;}
-.kpi-card{background:var(--bg-card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:.9rem 1rem;}
-.kpi-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:#6b7280;margin-bottom:.3rem;}
-.kpi-val{font-size:1.7rem;font-weight:700;font-family:'Rajdhani',sans-serif;line-height:1;}
 
+/* KPI cards */
+.rel-kpis{display:flex;gap:.75rem;margin-bottom:1rem;flex-wrap:wrap;}
+.kpi-card{background:var(--bg-card);border:1px solid var(--border);border-radius:10px;padding:.9rem 1.1rem;min-width:110px;}
+.kpi-label{font-size:.65rem;font-weight:700;text-transform:uppercase;letter-spacing:.08em;color:var(--text-secondary);margin-bottom:.3rem;}
+.kpi-val{font-size:1.7rem;font-weight:700;font-family:'Rajdhani',sans-serif;line-height:1;}
+.kpi-sub{font-size:.62rem;color:var(--text-muted);margin-top:.35rem;line-height:1.3;}
+.kpi-clickable{cursor:pointer;transition:box-shadow .15s,opacity .1s;user-select:none;}
+.kpi-clickable:hover{opacity:.85;}
+.kpi-clickable.active{box-shadow:0 0 0 2px var(--kpi-accent);}
+
+/* Filter pills */
+.filter-bar{display:flex;gap:.5rem;margin-bottom:.75rem;flex-wrap:wrap;align-items:center;}
+.filter-pill{padding:.3rem .8rem;border-radius:20px;font-size:.75rem;font-weight:600;cursor:pointer;border:1.5px solid var(--border-strong);background:var(--bg-card);color:var(--text-secondary);transition:all .15s;user-select:none;}
+.filter-pill:hover{border-color:currentColor;}
+.fp-all.active   {background:var(--badge-bg);color:var(--text-primary);border-color:var(--border-strong);}
+.fp-livre.active {background:rgba(22,163,74,.12);color:#16a34a;border-color:#16a34a;}
+.fp-servico.active{background:rgba(37,99,235,.12);color:#2563eb;border-color:#2563eb;}
+.fp-esi.active   {background:rgba(124,58,237,.12);color:#7c3aed;border-color:#7c3aed;}
+.fp-epa.active   {background:rgba(8,145,178,.12);color:#0891b2;border-color:#0891b2;}
+.fp-missao.active{background:rgba(245,158,11,.12);color:#d97706;border-color:#d97706;}
+
+/* Search bar */
+.search-bar{display:flex;gap:.5rem;margin-bottom:1.25rem;flex-wrap:wrap;align-items:center;}
+.search-input{
+    padding:.4rem .8rem;border-radius:8px;
+    border:1px solid var(--border-strong);
+    background:var(--bg-input);color:var(--text-primary);
+    font-size:.8rem;width:210px;
+    transition:border-color .15s;
+}
+.search-input:focus{outline:none;border-color:var(--accent);}
+.search-input::placeholder{color:var(--text-muted);}
+
+/* Global panels */
+.global-panel{border-radius:12px;padding:1.25rem;margin-bottom:1.25rem;}
+.panel-livre{background:var(--bg-card);border:1px solid rgba(22,163,74,.3);}
+.panel-missao{background:var(--bg-card);border:1px solid rgba(245,158,11,.3);}
+.panel-title{font-size:.82rem;font-weight:700;margin-bottom:.75rem;}
+.panel-title-livre{color:#16a34a;}
+.panel-title-missao{color:#d97706;}
+.panel-by-setor{display:flex;flex-wrap:wrap;gap:.75rem;}
+.panel-setor-group{border-radius:8px;padding:.55rem .8rem;min-width:160px;}
+.group-livre{background:rgba(22,163,74,.07);}
+.group-missao{background:rgba(245,158,11,.07);}
+.panel-setor-label{font-size:.62rem;font-weight:700;text-transform:uppercase;margin-bottom:.35rem;}
+.label-livre{color:#16a34a;}
+.label-missao{color:#d97706;}
+.panel-names{display:flex;flex-wrap:wrap;gap:.3rem;}
+
+/* Missão info badge */
+.missao-info{font-size:.6rem;opacity:.72;font-weight:600;margin-left:3px;}
+
+/* Setor grid */
 .setor-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:1.25rem;}
-.setor-card{background:var(--bg-card,#fff);border:1px solid var(--border,#e5e7eb);border-radius:12px;overflow:hidden;}
-.setor-head{padding:.85rem 1.1rem;border-bottom:1px solid var(--border,#e5e7eb);display:flex;align-items:center;justify-content:space-between;}
+.setor-card{background:var(--bg-card);border:1px solid var(--border);border-radius:12px;overflow:hidden;transition:opacity .2s;}
+.setor-head{padding:.85rem 1.1rem;border-bottom:1px solid var(--border);display:flex;align-items:center;justify-content:space-between;}
 .setor-nome{font-family:'Rajdhani',sans-serif;font-size:1.05rem;font-weight:700;}
-.setor-total{font-size:.75rem;color:#6b7280;}
+.setor-total{font-size:.75rem;color:var(--text-secondary);}
 .setor-bars{display:flex;gap:.6rem;padding:.85rem 1.1rem;flex-wrap:wrap;}
-.sit-pill{flex:1;min-width:80px;text-align:center;padding:.5rem .4rem;border-radius:8px;cursor:default;}
+.sit-pill{flex:1;min-width:68px;text-align:center;padding:.5rem .4rem;border-radius:8px;}
 .sit-num{font-size:1.5rem;font-weight:700;font-family:'Rajdhani',sans-serif;line-height:1;}
 .sit-lbl{font-size:.6rem;font-weight:700;text-transform:uppercase;letter-spacing:.06em;margin-top:2px;}
-.pill-livre{background:rgba(22,163,74,.1);color:#16a34a;}
-.pill-servico{background:rgba(37,99,235,.1);color:#2563eb;}
-.pill-missao{background:rgba(245,158,11,.1);color:#d97706;}
+.pill-livre   {background:rgba(22,163,74,.1);color:#16a34a;}
+.pill-servico {background:rgba(37,99,235,.1);color:#2563eb;}
+.pill-missao  {background:rgba(245,158,11,.1);color:#d97706;}
+.pill-esi     {background:rgba(124,58,237,.1);color:#7c3aed;}
+.pill-epa     {background:rgba(8,145,178,.1);color:#0891b2;}
 .pill-especial{background:rgba(107,114,128,.1);color:#4b5563;}
 
-.detail-section{border-top:1px solid var(--border,#e5e7eb);}
-details>summary{padding:.5rem 1.1rem;font-size:.75rem;font-weight:600;cursor:pointer;list-style:none;display:flex;align-items:center;gap:.4rem;color:#6b7280;}
+.detail-section{border-top:1px solid var(--border);}
+details>summary{padding:.5rem 1.1rem;font-size:.75rem;font-weight:600;cursor:pointer;list-style:none;display:flex;align-items:center;gap:.4rem;color:var(--text-secondary);}
 details>summary::-webkit-details-marker{display:none;}
 details>summary::before{content:'▶';font-size:.55rem;transition:transform .2s;}
 details[open]>summary::before{transform:rotate(90deg);}
 .mil-list{padding:.4rem 1.1rem .8rem;display:flex;flex-wrap:wrap;gap:.3rem;}
-.mil-tag{padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:500;}
-.tag-livre{background:rgba(22,163,74,.12);color:#16a34a;}
-.tag-servico{background:rgba(37,99,235,.12);color:#2563eb;}
-.tag-missao{background:rgba(245,158,11,.12);color:#d97706;}
+.mil-tag{padding:2px 8px;border-radius:20px;font-size:.72rem;font-weight:500;display:inline-flex;align-items:center;gap:2px;}
+.tag-livre   {background:rgba(22,163,74,.12);color:#16a34a;}
+.tag-servico {background:rgba(37,99,235,.12);color:#2563eb;}
+.tag-missao  {background:rgba(245,158,11,.12);color:#d97706;}
+.tag-esi     {background:rgba(124,58,237,.12);color:#7c3aed;}
+.tag-epa     {background:rgba(8,145,178,.12);color:#0891b2;}
 .tag-especial{background:rgba(107,114,128,.12);color:#374151;}
+.mil-tag.hidden-by-search{display:none!important;}
 
-.btn-lancar{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border-radius:8px;border:1px solid var(--border,#e5e7eb);background:none;font-size:.8rem;font-weight:600;color:#374151;text-decoration:none;cursor:pointer;}
-.btn-atualizar{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border-radius:8px;border:1px solid var(--border,#e5e7eb);background:none;font-size:.8rem;font-weight:600;color:#6b7280;cursor:pointer;}
+.btn-lancar{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border-radius:8px;border:1px solid var(--border);background:none;font-size:.8rem;font-weight:600;color:var(--text-primary);text-decoration:none;cursor:pointer;}
+.btn-atualizar{display:inline-flex;align-items:center;gap:.4rem;padding:.45rem .9rem;border-radius:8px;border:1px solid var(--border);background:none;font-size:.8rem;font-weight:600;color:var(--text-secondary);cursor:pointer;}
 </style>
 
 <div class="rel-header">
     <div>
         <h1 style="font-family:'Rajdhani',sans-serif;font-size:1.6rem;font-weight:700;margin:0;">Relsisam</h1>
-        <p style="color:#6b7280;font-size:.875rem;margin:.2rem 0 0;">Efetivo diário por setor — <strong>{{ hoje|date:"d/m/Y" }}</strong></p>
+        <p style="color:var(--text-secondary);font-size:.875rem;margin:.2rem 0 0;">Efetivo diário por setor — <strong>{{ hoje|date:"d/m/Y" }}</strong></p>
     </div>
     <div style="display:flex;gap:.5rem;flex-wrap:wrap;">
         <a href="{% url 'Secao_operacoes:situacao_especial_create' %}" class="btn-lancar">
@@ -57,27 +111,40 @@ details[open]>summary::before{transform:rotate(90deg);}
     </div>
 </div>
 
-<!-- KPIs globais -->
+<!-- KPIs -->
 <div class="rel-kpis">
     <div class="kpi-card">
         <div class="kpi-label">Efetivo Total</div>
         <div class="kpi-val">{{ total_efetivo }}</div>
     </div>
-    <div class="kpi-card" style="border-color:rgba(22,163,74,.4);">
+    <div class="kpi-card kpi-clickable" id="kpi-livre" onclick="setFilter('livre')" style="border-color:rgba(22,163,74,.35);--kpi-accent:#16a34a;">
         <div class="kpi-label" style="color:#16a34a;">Livres</div>
-        <div class="kpi-val" style="color:#16a34a;">{{ total_efetivo|add:"-"|add:total_missao|add:"-"|add:total_servico|add:"-"|add:total_especial }}</div>
+        <div class="kpi-val" style="color:#16a34a;">{{ total_livre }}</div>
+        <div class="kpi-sub">Sem escalamento hoje</div>
     </div>
-    <div class="kpi-card" style="border-color:rgba(37,99,235,.4);">
+    <div class="kpi-card kpi-clickable" id="kpi-servico" onclick="setFilter('servico')" style="border-color:rgba(37,99,235,.35);--kpi-accent:#2563eb;">
         <div class="kpi-label" style="color:#2563eb;">De Serviço</div>
         <div class="kpi-val" style="color:#2563eb;">{{ total_servico }}</div>
+        <div class="kpi-sub">Escala geral (TurnoEscala)</div>
     </div>
-    <div class="kpi-card" style="border-color:rgba(245,158,11,.4);">
+    <div class="kpi-card kpi-clickable" id="kpi-esi" onclick="setFilter('esi')" style="border-color:rgba(124,58,237,.35);--kpi-accent:#7c3aed;">
+        <div class="kpi-label" style="color:#7c3aed;">ESI</div>
+        <div class="kpi-val" style="color:#7c3aed;">{{ total_missao_esi }}</div>
+        <div class="kpi-sub">Escalados ESI hoje</div>
+    </div>
+    <div class="kpi-card kpi-clickable" id="kpi-epa" onclick="setFilter('epa')" style="border-color:rgba(8,145,178,.35);--kpi-accent:#0891b2;">
+        <div class="kpi-label" style="color:#0891b2;">EPA</div>
+        <div class="kpi-val" style="color:#0891b2;">{{ total_missao_epa }}</div>
+        <div class="kpi-sub">Escalados EPA hoje</div>
+    </div>
+    <div class="kpi-card kpi-clickable" id="kpi-missao" onclick="setFilter('missao')" style="border-color:rgba(245,158,11,.35);--kpi-accent:#d97706;">
         <div class="kpi-label" style="color:#d97706;">De Missão</div>
         <div class="kpi-val" style="color:#d97706;">{{ total_missao }}</div>
+        <div class="kpi-sub">OMIS: {{ total_missao_omis }} · ESI: {{ total_missao_esi }} · EPA: {{ total_missao_epa }}</div>
     </div>
-    <div class="kpi-card" style="border-color:rgba(107,114,128,.4);">
-        <div class="kpi-label" style="color:#4b5563;">Situação Especial</div>
-        <div class="kpi-val" style="color:#4b5563;">{{ total_especial }}</div>
+    <div class="kpi-card">
+        <div class="kpi-label">Sit. Especial</div>
+        <div class="kpi-val">{{ total_especial }}</div>
     </div>
     <div class="kpi-card">
         <div class="kpi-label">Missões Hoje</div>
@@ -85,44 +152,140 @@ details[open]>summary::before{transform:rotate(90deg);}
     </div>
 </div>
 
+<!-- Filtros -->
+<div class="filter-bar">
+    <span style="font-size:.72rem;color:var(--text-muted);font-weight:700;letter-spacing:.05em;text-transform:uppercase;">Filtrar:</span>
+    <span class="filter-pill fp-all active"    id="pill-all"     onclick="setFilter('all')"    >Todos ({{ total_efetivo }})</span>
+    <span class="filter-pill fp-livre"         id="pill-livre"   onclick="setFilter('livre')"  >Livres ({{ total_livre }})</span>
+    <span class="filter-pill fp-servico"       id="pill-servico" onclick="setFilter('servico')">Serviço ({{ total_servico }})</span>
+    <span class="filter-pill fp-esi"           id="pill-esi"     onclick="setFilter('esi')"    >ESI ({{ total_missao_esi }})</span>
+    <span class="filter-pill fp-epa"           id="pill-epa"     onclick="setFilter('epa')"    >EPA ({{ total_missao_epa }})</span>
+    <span class="filter-pill fp-missao"        id="pill-missao"  onclick="setFilter('missao')" >Missão ({{ total_missao }})</span>
+</div>
+
+<!-- Barra de pesquisa -->
+<div class="search-bar">
+    <svg width="13" height="13" fill="none" stroke="var(--text-muted)" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="m21 21-4.35-4.35"/></svg>
+    <input type="text" id="search-militar" class="search-input" placeholder="Pesquisar militar..." oninput="applySearch()">
+    <input type="text" id="search-setor"   class="search-input" placeholder="Pesquisar setor..."   oninput="applySearch()">
+    <button onclick="clearSearch()" class="btn-atualizar" id="btn-clear-search" style="display:none;">
+        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M18 6 6 18M6 6l12 12"/></svg>
+        Limpar
+    </button>
+</div>
+
+<!-- Painel de Livres -->
+{% if livres_lista %}
+<div id="livres-panel" class="global-panel panel-livre" style="display:none;">
+    <div class="panel-title panel-title-livre">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:4px;vertical-align:middle;"><circle cx="12" cy="12" r="10"/><polyline points="12 8 8 12 12 16"/><line x1="16" y1="12" x2="8" y2="12"/></svg>
+        Militares Livres — {{ total_livre }} militar{% if total_livre != 1 %}es{% endif %} sem escalamento hoje
+    </div>
+    <div class="panel-by-setor">
+        {% regroup livres_lista by setor as livres_por_setor %}
+        {% for grp in livres_por_setor %}
+        <div class="panel-setor-group group-livre">
+            <div class="panel-setor-label label-livre">{{ grp.grouper }} ({{ grp.list|length }})</div>
+            <div class="panel-names">
+                {% for m in grp.list %}
+                <span class="mil-tag tag-livre" data-nome="{{ m.posto }} {{ m.nome_guerra }}">{{ m.posto }} {{ m.nome_guerra }}</span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
+<!-- Painel De Missão -->
+{% if missao_lista %}
+<div id="missao-panel" class="global-panel panel-missao" style="display:none;">
+    <div class="panel-title panel-title-missao">
+        <svg width="13" height="13" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24" style="margin-right:4px;vertical-align:middle;"><polygon points="3 11 22 2 13 21 11 13 3 11"/></svg>
+        Militares De Missão — {{ total_missao }} militar{% if total_missao != 1 %}es{% endif %} escalados hoje
+    </div>
+    <div class="panel-by-setor">
+        {% regroup missao_lista by setor as missao_por_setor %}
+        {% for grp in missao_por_setor %}
+        <div class="panel-setor-group group-missao">
+            <div class="panel-setor-label label-missao">{{ grp.grouper }} ({{ grp.list|length }})</div>
+            <div class="panel-names">
+                {% for m in grp.list %}
+                <span class="mil-tag tag-missao" data-nome="{{ m.posto }} {{ m.nome_guerra }}" title="{% for mis in m.missoes %}{{ mis.tipo }} {{ mis.numero }}{% if mis.nome %} — {{ mis.nome }}{% endif %}{% if not forloop.last %} | {% endif %}{% endfor %}">
+                    {{ m.posto }} {{ m.nome_guerra }}
+                    {% if m.missoes %}<span class="missao-info">[{% for mis in m.missoes %}{{ mis.tipo }} {{ mis.numero }}{% if not forloop.last %}, {% endif %}{% endfor %}]</span>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+{% endif %}
+
 {% if setores %}
-<div class="setor-grid">
+<div class="setor-grid" id="setor-grid">
 {% for s in setores %}
-<div class="setor-card">
+<div class="setor-card"
+    data-setor="{{ s.nome|lower }}"
+    data-livre="{{ s.livre|length }}"
+    data-servico="{{ s.de_servico|length }}"
+    data-missao="{{ s.de_missao|length }}"
+    data-esi="{{ s.de_missao_esi|length }}"
+    data-epa="{{ s.de_missao_epa|length }}">
     <div class="setor-head">
         <span class="setor-nome">{{ s.nome }}</span>
         <span class="setor-total">{{ s.total }} militar{% if s.total != 1 %}es{% endif %}</span>
     </div>
     <div class="setor-bars">
+        {% if s.livre %}
         <div class="sit-pill pill-livre">
             <div class="sit-num">{{ s.livre|length }}</div>
             <div class="sit-lbl">Livres</div>
         </div>
+        {% endif %}
+        {% if s.de_servico %}
         <div class="sit-pill pill-servico">
             <div class="sit-num">{{ s.de_servico|length }}</div>
             <div class="sit-lbl">Serviço</div>
         </div>
+        {% endif %}
+        {% if s.de_missao_esi %}
+        <div class="sit-pill pill-esi">
+            <div class="sit-num">{{ s.de_missao_esi|length }}</div>
+            <div class="sit-lbl">ESI</div>
+        </div>
+        {% endif %}
+        {% if s.de_missao_epa %}
+        <div class="sit-pill pill-epa">
+            <div class="sit-num">{{ s.de_missao_epa|length }}</div>
+            <div class="sit-lbl">EPA</div>
+        </div>
+        {% endif %}
+        {% if s.de_missao_omis %}
         <div class="sit-pill pill-missao">
-            <div class="sit-num">{{ s.de_missao|length }}</div>
+            <div class="sit-num">{{ s.de_missao_omis|length }}</div>
             <div class="sit-lbl">Missão</div>
         </div>
+        {% endif %}
         {% with esp=s.licenca|length|add:s.afastamento|length|add:s.tdo|length|add:s.outro|length %}
         {% if esp %}
         <div class="sit-pill pill-especial">
             <div class="sit-num">{{ esp }}</div>
-            <div class="sit-lbl">Outros</div>
+            <div class="sit-lbl">Especial</div>
         </div>
         {% endif %}
         {% endwith %}
     </div>
 
-    <!-- Detalhes expansíveis -->
     <div class="detail-section">
         {% if s.livre %}
         <details>
             <summary><span class="mil-tag tag-livre">{{ s.livre|length }} livres</span></summary>
             <div class="mil-list">
-                {% for m in s.livre %}<span class="mil-tag tag-livre">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+                {% for m in s.livre %}
+                <span class="mil-tag tag-livre" data-nome="{{ m.posto }} {{ m.nome_guerra }}">{{ m.posto }} {{ m.nome_guerra }}</span>
+                {% endfor %}
             </div>
         </details>
         {% endif %}
@@ -130,15 +293,48 @@ details[open]>summary::before{transform:rotate(90deg);}
         <details>
             <summary><span class="mil-tag tag-servico">{{ s.de_servico|length }} de serviço</span></summary>
             <div class="mil-list">
-                {% for m in s.de_servico %}<span class="mil-tag tag-servico">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+                {% for m in s.de_servico %}
+                <span class="mil-tag tag-servico" data-nome="{{ m.posto }} {{ m.nome_guerra }}">{{ m.posto }} {{ m.nome_guerra }}</span>
+                {% endfor %}
             </div>
         </details>
         {% endif %}
-        {% if s.de_missao %}
+        {% if s.de_missao_esi %}
         <details>
-            <summary><span class="mil-tag tag-missao">{{ s.de_missao|length }} de missão</span></summary>
+            <summary><span class="mil-tag tag-esi">{{ s.de_missao_esi|length }} ESI</span></summary>
             <div class="mil-list">
-                {% for m in s.de_missao %}<span class="mil-tag tag-missao">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+                {% for m in s.de_missao_esi %}
+                <span class="mil-tag tag-esi" data-nome="{{ m.posto }} {{ m.nome_guerra }}" title="{% for mis in m.missoes %}{{ mis.tipo }} {{ mis.numero }}{% if mis.nome %} — {{ mis.nome }}{% endif %}{% if not forloop.last %} | {% endif %}{% endfor %}">
+                    {{ m.posto }} {{ m.nome_guerra }}
+                    {% if m.missoes %}<span class="missao-info">[{% for mis in m.missoes %}{{ mis.tipo }} {{ mis.numero }}{% if not forloop.last %}, {% endif %}{% endfor %}]</span>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        {% if s.de_missao_epa %}
+        <details>
+            <summary><span class="mil-tag tag-epa">{{ s.de_missao_epa|length }} EPA</span></summary>
+            <div class="mil-list">
+                {% for m in s.de_missao_epa %}
+                <span class="mil-tag tag-epa" data-nome="{{ m.posto }} {{ m.nome_guerra }}" title="{% for mis in m.missoes %}{{ mis.tipo }} {{ mis.numero }}{% if mis.nome %} — {{ mis.nome }}{% endif %}{% if not forloop.last %} | {% endif %}{% endfor %}">
+                    {{ m.posto }} {{ m.nome_guerra }}
+                    {% if m.missoes %}<span class="missao-info">[{% for mis in m.missoes %}{{ mis.tipo }} {{ mis.numero }}{% if not forloop.last %}, {% endif %}{% endfor %}]</span>{% endif %}
+                </span>
+                {% endfor %}
+            </div>
+        </details>
+        {% endif %}
+        {% if s.de_missao_omis %}
+        <details>
+            <summary><span class="mil-tag tag-missao">{{ s.de_missao_omis|length }} de missão (OMIS)</span></summary>
+            <div class="mil-list">
+                {% for m in s.de_missao_omis %}
+                <span class="mil-tag tag-missao" data-nome="{{ m.posto }} {{ m.nome_guerra }}" title="{% for mis in m.missoes %}{{ mis.tipo }} {{ mis.numero }}{% if mis.nome %} — {{ mis.nome }}{% endif %}{% if not forloop.last %} | {% endif %}{% endfor %}">
+                    {{ m.posto }} {{ m.nome_guerra }}
+                    {% if m.missoes %}<span class="missao-info">[{% for mis in m.missoes %}{{ mis.tipo }} {{ mis.numero }}{% if not forloop.last %}, {% endif %}{% endfor %}]</span>{% endif %}
+                </span>
+                {% endfor %}
             </div>
         </details>
         {% endif %}
@@ -146,7 +342,9 @@ details[open]>summary::before{transform:rotate(90deg);}
         <details>
             <summary><span class="mil-tag tag-especial">{{ s.licenca|length }} licença/férias</span></summary>
             <div class="mil-list">
-                {% for m in s.licenca %}<span class="mil-tag tag-especial">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+                {% for m in s.licenca %}
+                <span class="mil-tag tag-especial" data-nome="{{ m.posto }} {{ m.nome_guerra }}">{{ m.posto }} {{ m.nome_guerra }}</span>
+                {% endfor %}
             </div>
         </details>
         {% endif %}
@@ -154,7 +352,9 @@ details[open]>summary::before{transform:rotate(90deg);}
         <details>
             <summary><span class="mil-tag tag-especial">{{ s.afastamento|length }} afastamento médico</span></summary>
             <div class="mil-list">
-                {% for m in s.afastamento %}<span class="mil-tag tag-especial">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+                {% for m in s.afastamento %}
+                <span class="mil-tag tag-especial" data-nome="{{ m.posto }} {{ m.nome_guerra }}">{{ m.posto }} {{ m.nome_guerra }}</span>
+                {% endfor %}
             </div>
         </details>
         {% endif %}
@@ -162,7 +362,9 @@ details[open]>summary::before{transform:rotate(90deg);}
         <details>
             <summary><span class="mil-tag tag-especial">{{ s.tdo|length }} TDO/Curso</span></summary>
             <div class="mil-list">
-                {% for m in s.tdo %}<span class="mil-tag tag-especial">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+                {% for m in s.tdo %}
+                <span class="mil-tag tag-especial" data-nome="{{ m.posto }} {{ m.nome_guerra }}">{{ m.posto }} {{ m.nome_guerra }}</span>
+                {% endfor %}
             </div>
         </details>
         {% endif %}
@@ -170,7 +372,9 @@ details[open]>summary::before{transform:rotate(90deg);}
         <details>
             <summary><span class="mil-tag tag-especial">{{ s.outro|length }} outro</span></summary>
             <div class="mil-list">
-                {% for m in s.outro %}<span class="mil-tag tag-especial">{{ m.posto }} {{ m.nome_guerra }}</span>{% endfor %}
+                {% for m in s.outro %}
+                <span class="mil-tag tag-especial" data-nome="{{ m.posto }} {{ m.nome_guerra }}">{{ m.posto }} {{ m.nome_guerra }}</span>
+                {% endfor %}
             </div>
         </details>
         {% endif %}
@@ -179,10 +383,106 @@ details[open]>summary::before{transform:rotate(90deg);}
 {% endfor %}
 </div>
 {% else %}
-<div style="background:var(--bg-card,#fff);border-radius:12px;padding:3rem;text-align:center;border:1px solid var(--border,#e5e7eb);">
-    <p style="color:#6b7280;">Nenhum efetivo ativo cadastrado.</p>
+<div style="background:var(--bg-card);border-radius:12px;padding:3rem;text-align:center;border:1px solid var(--border);">
+    <p style="color:var(--text-secondary);">Nenhum efetivo ativo cadastrado.</p>
 </div>
 {% endif %}
 
-<script>setTimeout(() => location.reload(), 60000);</script>
+<script>
+const PILLS = ['all','livre','servico','esi','epa','missao'];
+let activeFilter = 'all';
+
+function setFilter(f) {
+    activeFilter = f;
+
+    PILLS.forEach(k => {
+        const pill = document.getElementById('pill-' + k);
+        if (!pill) return;
+        pill.classList.toggle('active', k === f);
+    });
+
+    ['livre','servico','esi','epa','missao'].forEach(k => {
+        document.getElementById('kpi-' + k)?.classList.toggle('active', k === f);
+    });
+
+    const lp = document.getElementById('livres-panel');
+    if (lp) lp.style.display = (f === 'livre') ? '' : 'none';
+    const mp = document.getElementById('missao-panel');
+    if (mp) mp.style.display = (f === 'missao') ? '' : 'none';
+
+    applySearch();
+}
+
+function applySearch() {
+    const milQ  = document.getElementById('search-militar').value.toLowerCase().trim();
+    const setorQ = document.getElementById('search-setor').value.toLowerCase().trim();
+    const hasSearch = milQ || setorQ;
+
+    const btnClear = document.getElementById('btn-clear-search');
+    if (btnClear) btnClear.style.display = hasSearch ? '' : 'none';
+
+    document.querySelectorAll('.setor-card').forEach(card => {
+        // Filtro por nome do setor
+        if (setorQ) {
+            const sNome = (card.dataset.setor || '');
+            if (!sNome.includes(setorQ)) { card.style.display = 'none'; return; }
+        }
+
+        // Filtro por categoria (pills)
+        if (activeFilter !== 'all') {
+            const cnt = parseInt(card.dataset[activeFilter] || '0', 10);
+            if (cnt === 0) { card.style.display = 'none'; return; }
+        }
+
+        // Pesquisa por militar
+        if (milQ) {
+            let hasMatch = false;
+            card.querySelectorAll('.mil-tag[data-nome]').forEach(tag => {
+                const nome = (tag.dataset.nome || '').toLowerCase();
+                const match = nome.includes(milQ);
+                tag.classList.toggle('hidden-by-search', !match);
+                if (match) hasMatch = true;
+            });
+            // Expandir details se houver match dentro deles
+            if (hasMatch) {
+                card.querySelectorAll('details').forEach(det => {
+                    const hasMil = [...det.querySelectorAll('.mil-tag[data-nome]')]
+                        .some(t => !t.classList.contains('hidden-by-search'));
+                    if (hasMil) det.open = true;
+                });
+            }
+            card.style.display = hasMatch ? '' : 'none';
+        } else {
+            card.querySelectorAll('.mil-tag[data-nome]').forEach(t => t.classList.remove('hidden-by-search'));
+            card.style.display = '';
+        }
+    });
+
+    // Painéis globais
+    ['livres-panel', 'missao-panel'].forEach(panelId => {
+        const panel = document.getElementById(panelId);
+        if (!panel || panel.style.display === 'none') return;
+        if (milQ) {
+            panel.querySelectorAll('.mil-tag[data-nome]').forEach(tag => {
+                tag.classList.toggle('hidden-by-search', !(tag.dataset.nome || '').toLowerCase().includes(milQ));
+            });
+        } else {
+            panel.querySelectorAll('.mil-tag[data-nome]').forEach(t => t.classList.remove('hidden-by-search'));
+        }
+    });
+}
+
+function clearSearch() {
+    document.getElementById('search-militar').value = '';
+    document.getElementById('search-setor').value = '';
+    applySearch();
+}
+
+// Auto-refresh a cada 60s (cancela se há pesquisa ativa)
+setTimeout(() => {
+    const m = document.getElementById('search-militar').value.trim();
+    const s = document.getElementById('search-setor').value.trim();
+    if (!m && !s) location.reload();
+}, 60000);
+</script>
 {% endblock %}

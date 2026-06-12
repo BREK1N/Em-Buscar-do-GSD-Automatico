@@ -9,6 +9,9 @@ TODOS_OS_GRUPOS = [
     'ESI',
     'ESI-Missões',
 
+    # EPA
+    'EPA - Missões',
+
     # Seção de Operações
     'SOP - Operações',
     'SOP- Escalas',

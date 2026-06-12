@@ -53,7 +53,7 @@ table.data-table { width:100%; border-collapse:collapse; }
     <div>
         <h1 class="detail-title">{{ missao.numero|omis_numero }} — {{ missao.nome_missao }}</h1>
         <div style="font-size:13px; color:var(--text-muted); margin-top:2px;">Emitida em {{ missao.data_emissao|date:"d/m/Y" }} · Missão em {{ missao.data_missao|date:"d/m/Y" }}</div>
-        {% if missao.escala_esi.militares.count > 0 %}
+        {% if tem_grupos_esi and missao.escala_esi.militares.count > 0 %}
         <div title="{{ missao.escala_esi.militares.count }} militar(es) da ESI escalado(s)"
              data-bs-toggle="tooltip"
              style="display:inline-flex;align-items:center;gap:6px;

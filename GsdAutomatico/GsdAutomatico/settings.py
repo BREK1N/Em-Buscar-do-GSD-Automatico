@@ -60,6 +60,7 @@ INSTALLED_APPS = [
     'notificacoes',
     'chamada.apps.ChamadaConfig',
     'ESI.apps.EsiConfig',
+    'EPA.apps.EpaConfig',
     'SCIM.apps.ScimConfig',
 ]
 

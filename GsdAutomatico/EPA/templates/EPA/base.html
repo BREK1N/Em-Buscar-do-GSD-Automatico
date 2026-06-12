@@ -1,0 +1,557 @@
+{% load static %}
+{% load static %}
+
+<!DOCTYPE html>
+<html lang="pt-br">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}EPA{% endblock %}</title>
+
+    <link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+
+    <style>
+        /* ── Design Tokens ─────────────────────────────────────────── */
+        :root {
+            --accent:          #3b82f6;
+            --accent-glow:     rgba(59,130,246,0.25);
+            --accent-dim:      rgba(59,130,246,0.12);
+            --danger:          #ef4444;
+            --danger-dim:      rgba(239,68,68,0.12);
+            --success:         #22c55e;
+            --success-dim:     rgba(34,197,94,0.12);
+            --warning:         #f59e0b;
+
+            --bg-page:         #f0f4f8;
+            --bg-card:         #ffffff;
+            --bg-card-header:  #1e293b;
+            --bg-sidebar:      #0f172a;
+            --bg-sidebar-item: rgba(255,255,255,0.05);
+            --bg-input:        #ffffff;
+            --border:          rgba(0,0,0,0.07);
+            --border-strong:   rgba(0,0,0,0.13);
+            --text-primary:    #0f172a;
+            --text-secondary:  #64748b;
+            --text-muted:      #94a3b8;
+            --badge-bg:        #e2e8f0;
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.06), 0 4px 16px rgba(0,0,0,0.06);
+            --divider:         rgba(0,0,0,0.06);
+
+            --bg-content:      var(--bg-card);
+            --bg-main:         var(--bg-page);
+            --border-color:    var(--border-strong);
+            --accent-color:    var(--accent);
+            --success-color:   var(--success);
+            --danger-color:    var(--danger);
+            --text-inverse:    #ffffff;
+
+            --bg-primary:      var(--bg-card);
+            --bg-secondary:    var(--bg-page);
+
+            --sidebar-w: 240px;
+            --header-h:  56px;
+        }
+
+        body.dark-theme {
+            --bg-page:         #0d1117;
+            --bg-card:         #161b22;
+            --bg-card-header:  #0d1117;
+            --bg-sidebar:      #010409;
+            --bg-sidebar-item: rgba(255,255,255,0.06);
+            --bg-input:        #0d1117;
+            --border:          rgba(255,255,255,0.06);
+            --border-strong:   rgba(255,255,255,0.11);
+            --text-primary:    #e6edf3;
+            --text-secondary:  #8b949e;
+            --text-muted:      #6e7681;
+            --badge-bg:        rgba(255,255,255,0.08);
+            --shadow-card:     0 1px 3px rgba(0,0,0,0.4), 0 4px 16px rgba(0,0,0,0.3);
+            --divider:         rgba(255,255,255,0.06);
+
+            --bg-content:      var(--bg-card);
+            --bg-main:         var(--bg-page);
+            --border-color:    var(--border-strong);
+            --bg-primary:      var(--bg-card);
+            --bg-secondary:    var(--bg-page);
+        }
+
+        *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+        body {
+            font-family: 'Inter', sans-serif;
+            background: var(--bg-page);
+            color: var(--text-primary);
+            transition: background 0.3s, color 0.3s;
+            overflow-x: hidden;
+        }
+
+        .sidebar {
+            position: fixed;
+            top: 0; left: 0;
+            width: var(--sidebar-w);
+            height: 100vh;
+            background: var(--bg-sidebar);
+            display: flex;
+            flex-direction: column;
+            z-index: 1000;
+            transition: transform 0.28s cubic-bezier(.4,0,.2,1);
+            border-right: 1px solid rgba(255,255,255,0.04);
+        }
+
+        .sidebar-brand {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 1.1rem 1.25rem 1rem;
+            border-bottom: 1px solid rgba(255,255,255,0.06);
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand-icon {
+            width: 32px; height: 32px;
+            background: var(--accent);
+            border-radius: 8px;
+            display: flex; align-items: center; justify-content: center;
+            flex-shrink: 0;
+        }
+
+        .sidebar-brand-name {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 1.05rem;
+            font-weight: 700;
+            color: #e6edf3;
+            letter-spacing: 0.06em;
+            text-transform: uppercase;
+            line-height: 1;
+        }
+
+        .sidebar-section-label {
+            font-family: 'Rajdhani', sans-serif;
+            font-size: 0.65rem;
+            font-weight: 700;
+            letter-spacing: 0.18em;
+            text-transform: uppercase;
+            color: #4b5563;
+            padding: 1rem 1.25rem 0.35rem;
+        }
+
+        .sidebar-nav {
+            flex: 1;
+            overflow-y: auto;
+            padding: 0.5rem 0.65rem 1rem;
+            scrollbar-width: none;
+        }
+        .sidebar-nav::-webkit-scrollbar { display: none; }
+
+        .sidebar-nav ul { list-style: none; display: flex; flex-direction: column; gap: 2px; }
+
+        .sidebar-nav a {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 0.85rem;
+            border-radius: 8px;
+            color: #8b949e;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.16s;
+            position: relative;
+        }
+        .sidebar-nav a:hover { background: var(--bg-sidebar-item); color: #e6edf3; }
+        .sidebar-nav a.active { background: rgba(59,130,246,0.18); color: #60a5fa; }
+        .sidebar-nav a.active::before {
+            content: '';
+            position: absolute;
+            left: 0; top: 20%; bottom: 20%;
+            width: 3px;
+            background: var(--accent);
+            border-radius: 0 3px 3px 0;
+        }
+        .sidebar-nav a svg { flex-shrink: 0; opacity: 0.75; }
+        .sidebar-nav a.active svg, .sidebar-nav a:hover svg { opacity: 1; }
+
+        .sidebar-footer {
+            padding: 0.75rem 0.65rem;
+            border-top: 1px solid rgba(255,255,255,0.06);
+            flex-shrink: 0;
+        }
+        .sidebar-footer a {
+            display: flex;
+            align-items: center;
+            gap: 0.65rem;
+            padding: 0.55rem 0.85rem;
+            border-radius: 8px;
+            color: #6e7681;
+            text-decoration: none;
+            font-size: 0.875rem;
+            font-weight: 500;
+            transition: all 0.16s;
+        }
+        .sidebar-footer a:hover { background: rgba(239,68,68,0.1); color: #ef4444; }
+
+        .main-header {
+            position: fixed;
+            top: 0;
+            left: var(--sidebar-w);
+            right: 0;
+            height: var(--header-h);
+            background: var(--bg-card);
+            border-bottom: 1px solid var(--border-strong);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 0 1.5rem;
+            z-index: 900;
+            transition: background 0.3s, border-color 0.3s, left 0.28s;
+            gap: 16px;
+        }
+
+        .header-left { display: flex; align-items: center; gap: 0.75rem; flex-shrink: 0; }
+        .header-title-group { display: flex; flex-direction: column; gap: 1px; }
+        .header-eyebrow {
+            font-family: 'Rajdhani', sans-serif; font-size: 10px; font-weight: 700;
+            letter-spacing: 0.18em; text-transform: uppercase; color: var(--text-muted); line-height: 1;
+        }
+        .header-h1 { font-size: 17px; font-weight: 600; line-height: 1.2; margin: 2px 0 0; color: var(--text-primary); }
+
+        .mobile-nav-toggle {
+            display: none;
+            background: none;
+            border: none;
+            color: var(--text-secondary);
+            cursor: pointer;
+            padding: 0.35rem;
+            border-radius: 6px;
+            transition: background 0.15s;
+        }
+        .mobile-nav-toggle:hover { background: var(--badge-bg); }
+
+        .header-right { display: flex; align-items: center; gap: 0.5rem; }
+
+        .header-btn {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 36px; height: 36px;
+            background: var(--bg-card);
+            border: 1px solid var(--border-strong);
+            border-radius: 8px;
+            color: var(--text-secondary);
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.16s;
+            flex-shrink: 0;
+            position: relative;
+        }
+        .header-btn:hover { background: var(--bg-page); color: var(--accent); }
+
+        .user-chip {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            padding: 4px 10px 4px 4px;
+            background: var(--bg-page);
+            border-radius: 9999px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            color: var(--text-secondary);
+        }
+
+        .user-avatar {
+            width: 28px; height: 28px;
+            background: var(--accent);
+            border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            color: #fff;
+            font-size: 11px;
+            font-weight: 700;
+            font-family: 'Rajdhani', sans-serif;
+            flex-shrink: 0;
+            overflow: hidden;
+        }
+        .user-avatar img { width: 100%; height: 100%; object-fit: cover; }
+
+        .main-wrapper {
+            margin-left: var(--sidebar-w);
+            padding-top: var(--header-h);
+            min-height: 100vh;
+            transition: margin-left 0.28s;
+        }
+
+        .main-container { padding: 2rem 1.75rem 4rem; }
+
+        .alert {
+            border-radius: 10px;
+            padding: 0.75rem 1rem;
+            margin-bottom: 1rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            border: 1px solid transparent;
+        }
+        .alert-success  { background: var(--success-dim); color: var(--success);  border-color: rgba(34,197,94,0.25); }
+        .alert-error,
+        .alert-danger   { background: var(--danger-dim);  color: var(--danger);   border-color: rgba(239,68,68,0.25); }
+        .alert-warning  { background: rgba(245,158,11,.1); color: var(--warning); border-color: rgba(245,158,11,.25); }
+        .alert-info     { background: var(--accent-dim);  color: var(--accent);   border-color: rgba(59,130,246,0.25); }
+
+        ::-webkit-scrollbar { width: 5px; height: 5px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: var(--border-strong); border-radius: 4px; }
+
+        @media (max-width: 768px) {
+            .sidebar { transform: translateX(-100%); }
+            .sidebar.active { transform: translateX(0); box-shadow: 4px 0 24px rgba(0,0,0,0.4); }
+            .main-wrapper { margin-left: 0; }
+            .main-header { left: 0; }
+            .mobile-nav-toggle { display: flex; }
+            .main-container { padding: 1.25rem 1rem 3rem; }
+            .user-chip span { display: none; }
+        }
+
+        body.dark-theme .text-muted, body.dark-theme .text-secondary { color: var(--text-secondary) !important; }
+        body.dark-theme .text-dark, body.dark-theme .text-black, body.dark-theme .text-body { color: var(--text-primary) !important; }
+        body.dark-theme label, body.dark-theme p, body.dark-theme small,
+        body.dark-theme dt, body.dark-theme dd, body.dark-theme td,
+        body.dark-theme th, body.dark-theme li { color: inherit; }
+        body.dark-theme .table, body.dark-theme .table td, body.dark-theme .table th {
+            color: var(--text-primary); border-color: var(--border-strong);
+        }
+        body.dark-theme .table > :not(caption) > * > * { background-color: transparent; color: var(--text-primary); }
+        body.dark-theme .form-control, body.dark-theme .form-select,
+        body.dark-theme input[type="text"], body.dark-theme input[type="email"],
+        body.dark-theme input[type="password"], body.dark-theme input[type="number"],
+        body.dark-theme input[type="search"], body.dark-theme input[type="date"],
+        body.dark-theme textarea, body.dark-theme select {
+            background-color: var(--bg-input) !important;
+            color: var(--text-primary) !important;
+            border-color: var(--border-strong) !important;
+        }
+        body.dark-theme input::placeholder, body.dark-theme textarea::placeholder { color: var(--text-secondary) !important; }
+        body.dark-theme .form-check-label { color: var(--text-secondary); }
+        body.dark-theme .form-select option, body.dark-theme select option { background-color: var(--bg-card); color: var(--text-primary); }
+        body.dark-theme .input-group-text { background-color: var(--bg-input); border-color: var(--border-strong); color: var(--text-secondary); }
+        body.dark-theme h1, body.dark-theme h2, body.dark-theme h3,
+        body.dark-theme h4, body.dark-theme h5, body.dark-theme h6,
+        body.dark-theme strong, body.dark-theme b { color: var(--text-primary); }
+        body.dark-theme .card, body.dark-theme .modal-content { background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-strong); }
+        body.dark-theme .bg-light, body.dark-theme .bg-white { background-color: var(--bg-card) !important; color: var(--text-primary) !important; }
+        body.dark-theme .border, body.dark-theme .border-top, body.dark-theme .border-bottom,
+        body.dark-theme .border-start, body.dark-theme .border-end { border-color: var(--border-strong) !important; }
+        body.dark-theme hr { border-color: var(--border-strong); opacity: 1; }
+        body.dark-theme .btn-light { background-color: var(--bg-page); color: var(--text-primary); border-color: var(--border-strong); }
+        body.dark-theme .btn-outline-secondary { color: var(--text-secondary); border-color: var(--border-strong); }
+        body.dark-theme .dropdown-menu { background-color: var(--bg-card); border-color: var(--border-strong); }
+        body.dark-theme .dropdown-item { color: var(--text-primary); }
+        body.dark-theme .dropdown-item:hover { background-color: var(--bg-page); }
+        body.dark-theme .list-group-item { background-color: var(--bg-card); color: var(--text-primary); border-color: var(--border-strong); }
+        body.dark-theme .page-link { background-color: var(--bg-card); border-color: var(--border-strong); color: var(--text-secondary); }
+        body.dark-theme .page-item.active .page-link { background-color: var(--accent); border-color: var(--accent); color: #fff; }
+        body.dark-theme .badge.bg-secondary { background-color: var(--border-strong) !important; color: var(--text-primary) !important; }
+        body.dark-theme .badge.bg-light { background-color: var(--bg-page) !important; color: var(--text-primary) !important; }
+    </style>
+
+    {% block extra_head %}{% endblock %}
+</head>
+
+<body>
+<script>
+    (function() {
+        var t = localStorage.getItem('theme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
+        document.body.classList.add(t);
+    })();
+</script>
+
+<!-- ── Sidebar ── -->
+<aside class="sidebar" id="sidebar">
+    <div class="sidebar-brand">
+        <div class="sidebar-brand-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" width="17" height="17" fill="#fff" viewBox="0 0 16 16">
+                <path d="M5.338 1.59a61.44 61.44 0 0 0-2.837.856.481.481 0 0 0-.328.39c-.554 4.157.726 7.19 2.253 9.188a10.725 10.725 0 0 0 2.287 2.233c.346.244.652.42.893.533.12.057.218.095.293.118a.55.55 0 0 0 .101.025.615.615 0 0 0 .1-.025c.076-.023.174-.061.294-.118.24-.113.547-.29.893-.533a10.726 10.726 0 0 0 2.287-2.233c1.527-1.997 2.807-5.031 2.253-9.188a.48.48 0 0 0-.328-.39c-.651-.213-1.75-.56-2.837-.855C9.552 1.29 8.531 1.067 8 1.067c-.53 0-1.552.223-2.662.524zM5.072.56C6.157.265 7.31 0 8 0s1.843.265 2.928.56c1.11.3 2.229.655 2.887.87a1.54 1.54 0 0 1 1.044 1.262c.596 4.477-.787 7.795-2.465 9.99a11.775 11.775 0 0 1-2.517 2.453 7.159 7.159 0 0 1-1.048.625c-.28.132-.581.24-.829.24s-.548-.108-.829-.24a7.158 7.158 0 0 1-1.048-.625 11.777 11.777 0 0 1-2.517-2.453C1.928 10.487.545 7.169 1.141 2.692A1.54 1.54 0 0 1 2.185 1.43 62.456 62.456 0 0 1 5.072.56z"/>
+            </svg>
+        </div>
+        <span class="sidebar-brand-name">EPA</span>
+    </div>
+
+    <nav class="sidebar-nav">
+        <ul>
+            <li style="padding: 8px 10px 2px;">
+                <span class="sidebar-section-label" style="padding:0">EPA</span>
+            </li>
+            <li>
+                <a href="{% url 'EPA:dashboard' %}" class="{% if request.resolver_match.url_name == 'dashboard' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M8 4a.5.5 0 0 1 .5.5V6a.5.5 0 0 1-1 0V4.5A.5.5 0 0 1 8 4zM3.732 5.732a.5.5 0 0 1 .707 0l.915.914a.5.5 0 1 1-.708.708l-.914-.915a.5.5 0 0 1 0-.707zM2 10a.5.5 0 0 1 .5-.5h1.586a.5.5 0 0 1 0 1H2.5A.5.5 0 0 1 2 10zm9.5 0a.5.5 0 0 1 .5-.5h1.5a.5.5 0 0 1 0 1H12a.5.5 0 0 1-.5-.5zm.754-4.246a.389.389 0 0 0-.527-.02L7.547 9.31a.91.91 0 1 0 1.302 1.258l3.434-4.297a.389.389 0 0 0-.029-.518z"/>
+                        <path fill-rule="evenodd" d="M0 10a8 8 0 1 1 15.547 2.661c-.442 1.253-1.845 1.602-2.932 1.25C11.309 13.488 9.475 13 8 13c-1.474 0-3.31.488-4.615.911-1.087.352-2.49.003-2.932-1.25A7.988 7.988 0 0 1 0 10zm8-7a7 7 0 0 0-6.603 9.329c.203.575.923.876 1.68.63C4.397 12.533 6.358 12 8 12s3.604.532 4.923.96c.757.245 1.477-.056 1.68-.631A7 7 0 0 0 8 3z"/>
+                    </svg>
+                    <span>Dashboard</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'EPA:painel_missoes' %}" class="{% if 'missao' in request.resolver_match.url_name or request.resolver_match.url_name == 'painel_missoes' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M14 1a1 1 0 0 1 1 1v8a1 1 0 0 1-1 1H4.414A2 2 0 0 0 3 11.586l-2 2V2a1 1 0 0 1 1-1h12zM2 0a2 2 0 0 0-2 2v12.793a.5.5 0 0 0 .854.353l2.853-2.853A1 1 0 0 1 4.414 12H14a2 2 0 0 0 2-2V2a2 2 0 0 0-2-2H2z"/>
+                        <path d="M3 3.5a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9a.5.5 0 0 1-.5-.5zM3 6a.5.5 0 0 1 .5-.5h9a.5.5 0 0 1 0 1h-9A.5.5 0 0 1 3 6zm0 2.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5z"/>
+                    </svg>
+                    <span>Painel de Missões</span>
+                </a>
+            </li>
+        </ul>
+    </nav>
+
+    <div class="sidebar-footer">
+        <a href="{% url 'login:logout' %}">
+            <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                <path fill-rule="evenodd" d="M10 12.5a.5.5 0 0 1-.5.5h-8a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h8a.5.5 0 0 1 .5.5v2a.5.5 0 0 0 1 0v-2A1.5 1.5 0 0 0 9.5 2h-8A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h8a1.5 1.5 0 0 0 1.5-1.5v-2a.5.5 0 0 0-1 0v2z"/>
+                <path fill-rule="evenodd" d="M15.854 8.354a.5.5 0 0 0 0-.708l-3-3a.5.5 0 0 0-.708.708L14.293 7.5H5.5a.5.5 0 0 0 0 1h8.793l-2.147 2.146a.5.5 0 0 0 .708.708l3-3z"/>
+            </svg>
+            <span>Sair</span>
+        </a>
+    </div>
+</aside>
+
+<!-- ── Main ── -->
+<div class="main-wrapper">
+
+    <header class="main-header">
+        <div class="header-left">
+            <button class="mobile-nav-toggle" id="mobile-nav-toggle" aria-label="Menu">
+                <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+                </svg>
+            </button>
+            <div class="header-title-group">
+                <div class="header-eyebrow">{% block header_eyebrow %}EPA{% endblock %}</div>
+                <div class="header-h1">{% block header_title %}Dashboard{% endblock %}</div>
+            </div>
+        </div>
+
+        <div class="header-right">
+            <a href="{% url 'login:go_home' %}" class="header-btn" title="Página Inicial">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8.707 1.5a1 1 0 0 0-1.414 0L.646 8.146a.5.5 0 0 0 .708.708L2 8.207V13.5A1.5 1.5 0 0 0 3.5 15h9a1.5 1.5 0 0 0 1.5-1.5V8.207l.646.647a.5.5 0 0 0 .708-.708L13 5.793V2.5a.5.5 0 0 0-.5-.5h-1a.5.5 0 0 0-.5.5v1.293L8.707 1.5ZM13 7.207V13.5a.5.5 0 0 1-.5.5h-9a.5.5 0 0 1-.5-.5V7.207l5-5 5 5Z"/>
+                </svg>
+            </a>
+
+            <a href="{% url 'caixa_entrada:comunicacoes' %}?secao=epa" class="header-btn" title="Comunicações">
+                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M0 4a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v8a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V4Zm2-1a1 1 0 0 0-1 1v.217l7 4.2 7-4.2V4a1 1 0 0 0-1-1H2Zm13 2.383-4.708 2.825L15 11.105V5.383Zm-.034 6.876-5.64-3.471L8 9.583l-1.326-.795-5.64 3.47A1 1 0 0 0 2 13h12a1 1 0 0 0 .966-.741ZM1 11.105l4.708-2.897L1 5.383v5.722Z"/>
+                </svg>
+                <span id="email-badge" style="display:none;position:absolute;top:-4px;right:-4px;min-width:16px;height:16px;border-radius:8px;background:var(--danger);color:#fff;font-size:10px;font-weight:700;line-height:16px;text-align:center;padding:0 3px;"></span>
+            </a>
+
+            {% include 'notificacoes/panel_include.html' %}
+
+            <button class="header-btn" id="theme-toggle" title="Alternar tema">
+                <svg id="theme-icon-sun" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                    <path d="M8 11a3 3 0 1 1 0-6 3 3 0 0 1 0 6zm0 1a4 4 0 1 0 0-8 4 4 0 0 0 0 8zM8 0a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 0zm0 13a.5.5 0 0 1 .5.5v2a.5.5 0 0 1-1 0v-2A.5.5 0 0 1 8 13zm8-5a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2a.5.5 0 0 1 .5.5zM3 8a.5.5 0 0 1-.5.5h-2a.5.5 0 0 1 0-1h2A.5.5 0 0 1 3 8zm10.657-5.657a.5.5 0 0 1 0 .707l-1.414 1.415a.5.5 0 1 1-.707-.708l1.414-1.414a.5.5 0 0 1 .707 0zm-9.193 9.193a.5.5 0 0 1 0 .707L3.05 13.657a.5.5 0 0 1-.707-.707l1.414-1.414a.5.5 0 0 1 .707 0zm9.193 2.121a.5.5 0 0 1-.707 0l-1.414-1.414a.5.5 0 0 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .707zM4.464 4.465a.5.5 0 0 1-.707 0L2.343 3.05a.5.5 0 1 1 .707-.707l1.414 1.414a.5.5 0 0 1 0 .708z"/>
+                </svg>
+                <svg id="theme-icon-moon" xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16" style="display:none;">
+                    <path d="M6 .278a.768.768 0 0 1 .08.858 7.208 7.208 0 0 0-.878 3.46c0 4.021 3.278 7.277 7.318 7.277.527 0 1.04-.055 1.533-.16a.787.787 0 0 1 .81.316.733.733 0 0 1-.031.893A8.349 8.349 0 0 1 8.344 16C3.734 16 0 12.286 0 7.71 0 4.266 2.114 1.312 5.124.06A.752.752 0 0 1 6 .278z"/>
+                </svg>
+            </button>
+
+            {% if user.is_authenticated %}
+            <div style="position:relative;" id="user-dropdown-wrap-epa">
+                <div class="user-chip" id="user-chip-toggle-epa" style="cursor:pointer;">
+                    <div class="user-avatar">
+                        {% if user.profile.foto %}<img src="{{ user.profile.foto.url }}" alt="">{% else %}{{ user.username|slice:":2"|upper }}{% endif %}
+                    </div>
+                    <span>{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</span>
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:11px;height:11px;opacity:0.6;margin-left:2px;"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/></svg>
+                </div>
+                <div id="user-dropdown-menu-epa" style="display:none;position:absolute;top:calc(100% + 8px);right:0;min-width:190px;background:var(--bg-card,#1e2235);border:1px solid var(--border-color,#2a2a4a);border-radius:10px;box-shadow:0 8px 24px rgba(0,0,0,.35);z-index:200;overflow:hidden;">
+                    <div style="padding:10px 14px;border-bottom:1px solid var(--border-color,#2a2a4a);font-size:11.5px;color:var(--text-secondary,#888);">{% if user.profile.militar %}{{ user.profile.militar.posto }} {{ user.profile.militar.nome_guerra }}{% else %}{{ user.get_full_name|default:user.username }}{% endif %}</div>
+                    <a href="{% url 'home:profile_edit' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:var(--text-primary,#e0e0ff);text-decoration:none;" onmouseenter="this.style.background='rgba(255,255,255,0.05)'" onmouseleave="this.style.background='transparent'">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/></svg>
+                        Editar Perfil
+                    </a>
+                    <a href="{% url 'login:logout' %}" style="display:flex;align-items:center;gap:8px;padding:10px 14px;font-size:13px;color:#ef4444;text-decoration:none;" onmouseenter="this.style.background='rgba(239,68,68,0.08)'" onmouseleave="this.style.background='transparent'">
+                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:14px;height:14px;"><path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15m3 0l3-3m0 0l-3-3m3 3H9"/></svg>
+                        Sair
+                    </a>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </header>
+
+    <div class="main-container">
+        {% if messages %}
+            {% for message in messages %}
+                <div class="alert alert-{{ message.tags|lower }}">{{ message }}</div>
+            {% endfor %}
+        {% endif %}
+
+        {% block content %}{% endblock %}
+    </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        const body = document.body;
+
+        const userChipEpa = document.getElementById('user-chip-toggle-epa');
+        const userMenuEpa = document.getElementById('user-dropdown-menu-epa');
+        if (userChipEpa && userMenuEpa) {
+            userChipEpa.addEventListener('click', e => {
+                e.stopPropagation();
+                userMenuEpa.style.display = userMenuEpa.style.display === 'none' ? 'block' : 'none';
+            });
+            document.addEventListener('click', () => { userMenuEpa.style.display = 'none'; });
+        }
+
+        const themeToggle = document.getElementById('theme-toggle');
+        const sunIcon     = document.getElementById('theme-icon-sun');
+        const moonIcon    = document.getElementById('theme-icon-moon');
+
+        function applyTheme(theme) {
+            body.className = theme;
+            localStorage.setItem('theme', theme);
+            if (sunIcon && moonIcon) {
+                sunIcon.style.display  = theme === 'dark-theme' ? 'none'  : 'block';
+                moonIcon.style.display = theme === 'dark-theme' ? 'block' : 'none';
+            }
+        }
+
+        const saved = localStorage.getItem('theme') ||
+            (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark-theme' : 'light-theme');
+        applyTheme(saved);
+
+        if (themeToggle) {
+            themeToggle.addEventListener('click', () => {
+                applyTheme(body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme');
+            });
+        }
+
+        const toggle  = document.getElementById('mobile-nav-toggle');
+        const sidebar = document.getElementById('sidebar');
+        if (toggle && sidebar) {
+            toggle.addEventListener('click', e => { e.stopPropagation(); sidebar.classList.toggle('active'); });
+            document.addEventListener('click', e => {
+                if (sidebar.classList.contains('active') && !sidebar.contains(e.target) && !toggle.contains(e.target))
+                    sidebar.classList.remove('active');
+            });
+        }
+
+        (async function() {
+            try {
+                const resp = await fetch("{% url 'caixa_entrada:api_check' %}");
+                if (!resp.ok) return;
+                const data = await resp.json();
+                const badge = document.getElementById('email-badge');
+                if (badge && data.unread_mensagens > 0) {
+                    badge.textContent = data.unread_mensagens > 99 ? '99+' : data.unread_mensagens;
+                    badge.style.display = 'block';
+                }
+            } catch(e) {}
+        })();
+    });
+</script>
+{% block extra_js %}{% endblock %}
+</body>
+</html>

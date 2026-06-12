@@ -521,6 +521,14 @@ def importar_excel(request):
             criados = 0
             atualizados = 0
 
+            # Coleta valores únicos para criar no controle geral ao final
+            postos_excel = set()
+            quads_excel = set()
+            especs_excel = set()
+            oms_excel = set()
+            setores_excel = set()
+            subsetores_excel = set()
+
             for index, row in df.iterrows():
                 # Pega valores essenciais
                 saram_valor = str(row.get('SARAM', '')).strip()
@@ -535,7 +543,7 @@ def importar_excel(request):
                 if saram_valor:
                     try:
                         # Converte de "12345.0" para 12345 caso o pandas tenha lido como float
-                        saram_db = int(float(saram_valor)) 
+                        saram_db = int(float(saram_valor))
                     except ValueError:
                         saram_db = None
 
@@ -551,8 +559,22 @@ def importar_excel(request):
                     'situacao': row.get('SITUAÇÃO', '').strip(),
                     'om': row.get('OM', '').strip(),
                     'setor': row.get('SETOR', '').strip(),
-                    'subsetor': row.get('SUBSETOR', '').strip(),                
+                    'subsetor': row.get('SUBSETOR', '').strip(),
                         }
+
+                # Acumula valores não-vazios para criar no controle geral
+                if dados_militar['posto']:
+                    postos_excel.add(dados_militar['posto'])
+                if dados_militar['quad']:
+                    quads_excel.add(dados_militar['quad'])
+                if dados_militar['especializacao']:
+                    especs_excel.add(dados_militar['especializacao'])
+                if dados_militar['om']:
+                    oms_excel.add(dados_militar['om'])
+                if dados_militar['setor']:
+                    setores_excel.add(dados_militar['setor'])
+                if dados_militar['subsetor']:
+                    subsetores_excel.add(dados_militar['subsetor'])
 
                 # LÓGICA DE SALVAMENTO INTELIGENTE:
                 if saram_db:
@@ -572,6 +594,20 @@ def importar_excel(request):
                     criados += 1
                 else:
                     atualizados += 1
+
+            # Cria opções do controle geral sem duplicar (get_or_create é idempotente)
+            for v in postos_excel:
+                Posto.objects.get_or_create(nome=v)
+            for v in quads_excel:
+                Quad.objects.get_or_create(nome=v)
+            for v in especs_excel:
+                Especializacao.objects.get_or_create(nome=v)
+            for v in oms_excel:
+                OM.objects.get_or_create(nome=v)
+            for v in setores_excel:
+                Setor.objects.get_or_create(nome=v)
+            for v in subsetores_excel:
+                Subsetor.objects.get_or_create(nome=v)
 
             messages.success(request, f'Sucesso! {criados} militares criados e {atualizados} atualizados.')
             return redirect('Secao_pessoal:militar_list') # Verifique o nome da sua rota de listagem
