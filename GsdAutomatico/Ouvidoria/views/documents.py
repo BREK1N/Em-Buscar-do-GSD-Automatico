@@ -145,6 +145,26 @@ def adicionar_anexos_defesa(request, pk):
 def extender_prazo(request, pk):
     try:
         patd = get_object_or_404(PATD, pk=pk)
+
+        if patd.status == 'aguardando_justificativa':
+            # Status ainda não foi sincronizado — verifica se o prazo realmente passou
+            config_check = Configuracao.load()
+            deadline = None
+            if patd.prazo_override:
+                deadline = patd.prazo_override
+            elif patd.data_ciencia:
+                data_final = patd.data_ciencia
+                dias_adicionados = 0
+                while dias_adicionados < config_check.prazo_defesa_dias:
+                    data_final += timedelta(days=1)
+                    if data_final.weekday() < 5:
+                        dias_adicionados += 1
+                deadline = (data_final + timedelta(days=1)).replace(hour=0, minute=0, second=0, microsecond=0)
+
+            if deadline and timezone.now() > deadline:
+                patd.status = 'prazo_expirado'
+                patd.save(update_fields=['status'])
+
         if patd.status != 'prazo_expirado':
             return JsonResponse({'status': 'error', 'message': 'O prazo só pode ser estendido se estiver expirado.'}, status=400)
 

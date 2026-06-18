@@ -26,7 +26,7 @@ let signatureIndex = 0;
 
 function createSignatureHtml(signatureUrl, altText, signatureType, signatureIndex) {
     let html = `<img class="signature-image-embedded" src="${signatureUrl}" alt="${altText}">`;
-    if (isSuperuser && !isFinalized) {
+    if ((isSuperuser || PATD_CONFIG.isOuvidoria) && !isFinalized) {
         html += ` <button contenteditable="false" class="btn btn-sm btn-danger remove-signature-btn" data-signature-type="${signatureType}"`;
         if (signatureIndex !== undefined) {
             html += ` data-signature-index="${signatureIndex}"`;

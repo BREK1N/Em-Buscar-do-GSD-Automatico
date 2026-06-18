@@ -62,6 +62,12 @@
                 <label for="excel_file">Ficheiro Excel (.xlsx):</label>
                 <input type="file" name="excel_file" id="excel_file" accept=".xlsx, .xls" required style="width: 100%; padding: 10px; margin-top: 8px;">
             </p>
+            <p style="margin-top: 15px; display: flex; align-items: flex-start; gap: 8px;">
+                <input type="checkbox" name="sincronizar" id="sincronizar" value="1" style="margin-top: 4px;">
+                <label for="sincronizar" style="font-weight: normal;">
+                    Importar e sincronizar: além de criar e atualizar quem estiver na planilha, remove (envia para a lixeira) os militares que estão cadastrados no sistema mas não constam mais nesta planilha.
+                </label>
+            </p>
             <button type="submit" id="submit-btn" style="margin-top: 15px;">
                 <span class="spinner"></span>
                 <span class="button-text">Enviar e Importar</span>
@@ -97,10 +103,19 @@ document.addEventListener('DOMContentLoaded', function() {
     const statusBox = document.getElementById('status-box');
 
     if (importForm) {
-        importForm.addEventListener('submit', function() {
+        importForm.addEventListener('submit', function(e) {
             const fileInput = document.getElementById('excel_file');
             if (!fileInput.files || fileInput.files.length === 0) {
                 return;
+            }
+
+            const sincronizarCheckbox = document.getElementById('sincronizar');
+            if (sincronizarCheckbox && sincronizarCheckbox.checked) {
+                const confirmado = confirm('Tem certeza? Militares cadastrados que não estiverem nesta planilha serão movidos para a lixeira.');
+                if (!confirmado) {
+                    e.preventDefault();
+                    return;
+                }
             }
 
             const spinner = submitButton.querySelector('.spinner');

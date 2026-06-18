@@ -1,4 +1,7 @@
 from django.db import models
+from django.utils import timezone
+
+DIAS_RETENCAO_LIXEIRA_EFETIVO = 30
 
 class EfetivoManager(models.Manager):
     def get_queryset(self):
@@ -71,6 +74,13 @@ class Efetivo(models.Model):
 
     def __str__(self):
         return f"{self.posto} {self.nome_guerra}"
+
+    @property
+    def dias_para_exclusao(self):
+        if self.deleted and self.deleted_at:
+            delta = timezone.now() - self.deleted_at
+            return max(DIAS_RETENCAO_LIXEIRA_EFETIVO - delta.days, 0)
+        return None
 
     class Meta:
         db_table = 'Efetivo'

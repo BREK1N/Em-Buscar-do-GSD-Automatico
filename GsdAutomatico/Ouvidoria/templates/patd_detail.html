@@ -1806,7 +1806,7 @@ const PATD_CONFIG = {
     assinaturasMilitar: {{ assinaturas_militar_json|default:'[]'|safe }},
     documentPages:  {{ documento_texto_json|default:'[]'|safe }},
     isSuperuser:    {{ request.user.is_superuser|yesno:"true,false" }},
-    isOuvidoria:    true,
+    isOuvidoria:    {{ user_can_edit_alegacao|yesno:"true,false" }},
     isFinalized:    '{{ patd.status }}' === 'finalizado',
     patdStatus:     '{{ patd.status }}',
     patdPk:         {{ patd.pk }},

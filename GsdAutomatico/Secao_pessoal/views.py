@@ -470,6 +470,48 @@ class MilitarDeleteView(DeleteView):
         return redirect(self.get_success_url())
 
 @method_decorator(s1_required, name='dispatch')
+class MilitarTrashListView(ListView):
+    model = Efetivo
+    template_name = 'Secao_pessoal/militar_trash_list.html'
+    context_object_name = 'militares'
+    paginate_by = 20
+
+    def get_queryset(self):
+        return Efetivo.all_objects.filter(deleted=True).order_by('-deleted_at')
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        ctx['total_lixeira'] = Efetivo.all_objects.filter(deleted=True).count()
+        return ctx
+
+@s1_required
+@require_POST
+def militar_restore(request, pk):
+    militar = get_object_or_404(Efetivo.all_objects, pk=pk, deleted=True)
+    militar.deleted = False
+    militar.deleted_at = None
+    militar.save(update_fields=['deleted', 'deleted_at'])
+    messages.success(request, f"Militar {militar.nome_guerra or militar.nome_completo} foi restaurado com sucesso.")
+    return redirect('Secao_pessoal:militar_trash_list')
+
+@s1_required
+@require_POST
+def militar_permanently_delete(request, pk):
+    militar = get_object_or_404(Efetivo.all_objects, pk=pk, deleted=True)
+    nome = militar.nome_guerra or militar.nome_completo
+    militar.delete()
+    messages.success(request, f"Militar {nome} foi excluído permanentemente.")
+    return redirect('Secao_pessoal:militar_trash_list')
+
+@s1_required
+@require_POST
+def militar_lixeira_esvaziar(request):
+    count = Efetivo.all_objects.filter(deleted=True).count()
+    Efetivo.all_objects.filter(deleted=True).delete()
+    messages.success(request, f'{count} militar(es) excluído(s) permanentemente da lixeira.')
+    return redirect('Secao_pessoal:militar_trash_list')
+
+@method_decorator(s1_required, name='dispatch')
 class MilitarBaixadoListView(ListView):
     model = Efetivo
     template_name = 'Secao_pessoal/militar_baixado_list.html'
@@ -507,7 +549,8 @@ class MilitarBaixadoListView(ListView):
 def importar_excel(request):
     if request.method == 'POST' and request.FILES.get('excel_file'):
         excel_file = request.FILES['excel_file']
-        
+        sincronizar = request.POST.get('sincronizar') == '1'
+
         try:
             # Lê o arquivo Excel e converte tudo para string para evitar erros de tipo
             df = pd.read_excel(excel_file, dtype=str)
@@ -528,6 +571,20 @@ def importar_excel(request):
             oms_excel = set()
             setores_excel = set()
             subsetores_excel = set()
+
+            # Mapa de militares já existentes sem SARAM confiável, indexado pelo nome
+            # normalizado (sem acentos, maiúsculas, espaços colapsados), para evitar
+            # criar registros duplicados quando o nome da planilha não é idêntico
+            # byte-a-byte ao nome já salvo no banco.
+            existentes_por_nome = {}
+            for efetivo_existente in Efetivo.all_objects.all():
+                chave = normalize_name(efetivo_existente.nome_completo).strip()
+                if chave:
+                    existentes_por_nome[chave] = efetivo_existente
+
+            # IDs dos militares encontrados/criados nesta planilha, usados pelo modo
+            # "importar e sincronizar" para saber quem NÃO está na planilha.
+            pks_na_planilha = set()
 
             for index, row in df.iterrows():
                 # Pega valores essenciais
@@ -584,16 +641,33 @@ def importar_excel(request):
                         defaults=dados_militar
                     )
                 else:
-                    # Se é um recruta sem SARAM, a chave principal para não duplicar é o Nome Completo
-                    obj, created = Efetivo.all_objects.update_or_create(
-                        nome_completo=nome_completo_valor,
-                        defaults=dados_militar
-                    )
+                    # Se é um recruta sem SARAM, casa pelo nome normalizado (ignora
+                    # acentos/maiúsculas/espaços) para não criar duplicado quando o
+                    # nome da planilha não é idêntico ao já salvo no banco.
+                    chave_nome = normalize_name(nome_completo_valor).strip()
+                    existente = existentes_por_nome.get(chave_nome)
+                    if existente:
+                        for campo, valor in dados_militar.items():
+                            setattr(existente, campo, valor)
+                        existente.save()
+                        obj, created = existente, False
+                    else:
+                        obj = Efetivo.all_objects.create(**dados_militar)
+                        created = True
+                        existentes_por_nome[chave_nome] = obj
 
                 if created:
                     criados += 1
                 else:
                     atualizados += 1
+
+                pks_na_planilha.add(obj.pk)
+
+            removidos = 0
+            if sincronizar:
+                agora = timezone.now()
+                nao_encontrados = Efetivo.objects.exclude(pk__in=pks_na_planilha)
+                removidos = nao_encontrados.update(deleted=True, deleted_at=agora)
 
             # Cria opções do controle geral sem duplicar (get_or_create é idempotente)
             for v in postos_excel:
@@ -609,7 +683,10 @@ def importar_excel(request):
             for v in subsetores_excel:
                 Subsetor.objects.get_or_create(nome=v)
 
-            messages.success(request, f'Sucesso! {criados} militares criados e {atualizados} atualizados.')
+            if sincronizar:
+                messages.success(request, f'Sucesso! {criados} militares criados, {atualizados} atualizados e {removidos} removidos (enviados para a lixeira) por não constarem na planilha.')
+            else:
+                messages.success(request, f'Sucesso! {criados} militares criados e {atualizados} atualizados.')
             return redirect('Secao_pessoal:militar_list') # Verifique o nome da sua rota de listagem
 
         except Exception as e:
