@@ -1,0 +1,65 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Gerenciar Lotações (TLP){% endblock %}
+
+{% block content %}
+<div class="table-header">
+    <h1>Gerenciar Lotações (TLP)</h1>
+    <div class="filter-bar">
+        <a href="{% url 'Secao_pessoal:relatorio_tlp' %}" class="btn btn-secondary">Ver Relatório TLP</a>
+        <a href="{% url 'Secao_pessoal:lotacao_create' %}" class="btn btn-primary">Adicionar Lotação</a>
+    </div>
+</div>
+
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Posto/Grad</th>
+                <th>Quadro</th>
+                <th>Especialidade</th>
+                <th>OM</th>
+                <th>Vagas Previstas</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for lotacao in lotacoes %}
+            <tr>
+                <td>{{ lotacao.posto|default:"-" }}</td>
+                <td>{{ lotacao.quad|default:"-" }}</td>
+                <td>{{ lotacao.especializacao|default:"-" }}</td>
+                <td>{{ lotacao.om|default:"-" }}</td>
+                <td>{{ lotacao.vagas_previstas }}</td>
+                <td>
+                    <div class="actions-cell">
+                        <a href="{% url 'Secao_pessoal:lotacao_update' lotacao.pk %}" class="btn btn-sm btn-edit">Editar</a>
+                        <a href="{% url 'Secao_pessoal:lotacao_delete' lotacao.pk %}" class="btn btn-sm btn-delete">Excluir</a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="6" style="text-align: center; padding: 20px;">Nenhuma lotação cadastrada.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+{% if is_paginated %}
+<div class="pagination">
+    <span class="step-links">
+        {% if page_obj.has_previous %}
+            <a href="?page=1">&laquo; primeira</a>
+            <a href="?page={{ page_obj.previous_page_number }}">anterior</a>
+        {% endif %}
+        <span class="current">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.</span>
+        {% if page_obj.has_next %}
+            <a href="?page={{ page_obj.next_page_number }}">próxima</a>
+            <a href="?page={{ page_obj.paginator.num_pages }}">última &raquo;</a>
+        {% endif %}
+    </span>
+</div>
+{% endif %}
+{% endblock %}

@@ -17,7 +17,10 @@ from django.views.decorators.clickjacking import xframe_options_sameorigin
 from django.views.decorators.http import require_POST
 from django.views.decorators.http import require_GET
 from django.contrib.auth.models import Group
-from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, SolicitacaoTrocaSetor, HistoricoInspsau
+from Secao_pessoal.models import (
+    Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, SolicitacaoTrocaSetor,
+    HistoricoInspsau, MovimentacaoEfetivo, LotacaoPessoal,
+)
 from django.contrib.auth import get_user_model as _get_user_model
 from caixa_entrada.models import Notificacao, Mensagem as _Mensagem
 
@@ -34,7 +37,10 @@ def _enviar_mensagem_sistema(remetente_militar, destinatario_militar, assunto, c
             msg.destinatarios.add(dest)
     except Exception:
         pass
-from .forms import MilitarForm
+from .forms import MilitarForm, LotacaoPessoalForm
+import docx
+from docx.shared import Pt
+from docx.enum.text import WD_ALIGN_PARAGRAPH
 from django.contrib import messages
 from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
 from difflib import SequenceMatcher
@@ -544,6 +550,142 @@ class MilitarBaixadoListView(ListView):
             qs = qs.filter(q_objects)
         return qs
 
+@s1_required
+def movimentar_militar(request):
+    rank_order = Case(
+        When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+        When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+        When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+        When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+        default=Value(99), output_field=IntegerField(),
+    )
+    militares = Efetivo.objects.exclude(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+
+    if request.method == 'POST':
+        militar_id = request.POST.get('militar_movimentacao')
+        data_movimentacao = request.POST.get('data_movimentacao')
+        om_destino = request.POST.get('om_destino')
+        sigad_movimentacao = request.POST.get('sigad_movimentacao')
+        boletim_movimentacao = request.POST.get('boletim_movimentacao')
+        observacao = request.POST.get('observacao')
+
+        if militar_id and data_movimentacao:
+            try:
+                militar = Efetivo.objects.get(id=militar_id)
+                try:
+                    data_mov = datetime.strptime(data_movimentacao, '%Y-%m-%d').date()
+                except ValueError:
+                    messages.error(request, 'Data da movimentação inválida.')
+                    return redirect('Secao_pessoal:movimentar_militar')
+
+                MovimentacaoEfetivo.objects.create(
+                    militar=militar,
+                    data_movimentacao=data_mov,
+                    om_destino=om_destino or '',
+                    sigad_movimentacao=sigad_movimentacao or '',
+                    boletim_movimentacao=boletim_movimentacao or '',
+                    observacao=observacao or '',
+                )
+                militar.situacao = 'Movimentado'
+                militar.save()
+                messages.success(request, f'Militar {militar.posto} {militar.nome_guerra} movimentado com sucesso.')
+            except Efetivo.DoesNotExist:
+                messages.error(request, 'Erro: Militar não encontrado.')
+        else:
+            messages.error(request, 'Selecione o militar e informe a data da movimentação.')
+
+        return redirect('Secao_pessoal:movimentar_militar')
+
+    context = {
+        'militares': militares
+    }
+    return render(request, 'Secao_pessoal/movimentar_militar.html', context)
+
+@method_decorator(s1_required, name='dispatch')
+class MilitarMovimentadoListView(ListView):
+    model = Efetivo
+    template_name = 'Secao_pessoal/militar_movimentado_list.html'
+    context_object_name = 'militares'
+    paginate_by = 20
+
+    def get_template_names(self):
+        if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return ['Secao_pessoal/militar_movimentado_list_partial.html']
+        return ['Secao_pessoal/militar_movimentado_list.html']
+
+    def get_queryset(self):
+        query = self.request.GET.get('q')
+        rank_order = Case(
+            When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+            When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+            default=Value(99), output_field=IntegerField(),
+        )
+        qs = super().get_queryset().filter(situacao__iexact='Movimentado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        if query:
+            q_objects = Q(nome_completo__icontains=query) | \
+                        Q(nome_guerra__icontains=query) | \
+                        Q(posto__icontains=query)
+            if query.isdigit():
+                q_objects |= Q(saram__icontains=query)
+            qs = qs.filter(q_objects)
+        return qs
+
+    def get_context_data(self, **kwargs):
+        ctx = super().get_context_data(**kwargs)
+        militares = ctx.get('militares') or []
+        militares_ids = [m.pk for m in militares]
+        ultimas = {}
+        for mov in MovimentacaoEfetivo.objects.filter(militar_id__in=militares_ids).order_by('militar_id', '-data_movimentacao'):
+            ultimas.setdefault(mov.militar_id, mov)
+        for militar in militares:
+            militar.ultima_movimentacao = ultimas.get(militar.pk)
+        return ctx
+
+@s1_required
+def gerar_ficha_desimpedimento(request, pk):
+    militar = get_object_or_404(Efetivo.all_objects, pk=pk)
+
+    document = docx.Document()
+    section = document.sections[0]
+
+    def add_centered(text, bold=False, size=12):
+        p = document.add_paragraph()
+        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
+        run = p.add_run(text)
+        run.bold = bold
+        run.font.size = Pt(size)
+        return p
+
+    add_centered('MINISTÉRIO DA DEFESA', bold=True)
+    add_centered('COMANDO DA AERONÁUTICA', bold=True)
+    add_centered(militar.om or '', bold=True)
+    add_centered('ESQUADRÃO DE PESSOAL', bold=True)
+    add_centered('FICHA DE DESIMPEDIMENTO', bold=True, size=14)
+    document.add_paragraph('')
+
+    def add_field(label, valor):
+        p = document.add_paragraph()
+        run_label = p.add_run(f'{label}: ')
+        run_label.bold = True
+        p.add_run(str(valor) if valor else '—')
+
+    add_field('Nome do Militar', militar.nome_completo)
+    add_field('Posto/Grad', militar.posto)
+    add_field('Documento de Publicação', militar.documento_desligamento)
+    add_field('OM', militar.om)
+    add_field('Motivo do Desligamento', militar.motivo_desligamento)
+    add_field('SARAM', militar.saram)
+    add_field('Função (conforme publicado)', militar.funcao_desligamento)
+    add_field('Setor', militar.setor)
+
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.wordprocessingml.document')
+    nome_arquivo = f"ficha_desimpedimento_{militar.nome_guerra or militar.pk}.docx".replace(' ', '_')
+    response['Content-Disposition'] = f'attachment; filename="{nome_arquivo}"'
+    document.save(response)
+    return response
+
 #EFETIVO IMPORT EXCEL
 @s1_required
 def importar_excel(request):
@@ -664,10 +806,16 @@ def importar_excel(request):
                 pks_na_planilha.add(obj.pk)
 
             removidos = 0
+            sincronizar_abortada = False
             if sincronizar:
-                agora = timezone.now()
-                nao_encontrados = Efetivo.objects.exclude(pk__in=pks_na_planilha)
-                removidos = nao_encontrados.update(deleted=True, deleted_at=agora)
+                if criados == 0 and atualizados == 0:
+                    # Nenhuma linha da planilha foi reconhecida (provável incompatibilidade
+                    # de colunas) — não sincroniza para não apagar todo o efetivo existente.
+                    sincronizar_abortada = True
+                else:
+                    agora = timezone.now()
+                    nao_encontrados = Efetivo.objects.exclude(pk__in=pks_na_planilha)
+                    removidos = nao_encontrados.update(deleted=True, deleted_at=agora)
 
             # Cria opções do controle geral sem duplicar (get_or_create é idempotente)
             for v in postos_excel:
@@ -683,7 +831,9 @@ def importar_excel(request):
             for v in subsetores_excel:
                 Subsetor.objects.get_or_create(nome=v)
 
-            if sincronizar:
+            if sincronizar_abortada:
+                messages.error(request, 'Nenhum militar foi reconhecido na planilha (verifique se as colunas "SARAM" e "NOME COMPLETO" estão corretas). A sincronização foi cancelada para evitar apagar o efetivo existente.')
+            elif sincronizar:
                 messages.success(request, f'Sucesso! {criados} militares criados, {atualizados} atualizados e {removidos} removidos (enviados para a lixeira) por não constarem na planilha.')
             else:
                 messages.success(request, f'Sucesso! {criados} militares criados e {atualizados} atualizados.')
@@ -1037,6 +1187,12 @@ def baixa(request):
                 militar = Efetivo.objects.get(id=militar_id) # type: ignore
                 militar.situacao = 'De Junta' # Ao invés de deletar, apenas altera a situação
                 militar.observacao = motivo_baixa # Salva o motivo da baixa
+                militar.motivo_desligamento = motivo_baixa
+                if data_baixa:
+                    try:
+                        militar.data_desligamento = datetime.strptime(data_baixa, '%Y-%m-%d').date()
+                    except ValueError:
+                        pass
                 militar.save()
                 messages.success(request, f'Militar {militar.posto} {militar.nome_guerra} desligado do efetivo com sucesso.')
             except Efetivo.DoesNotExist:
@@ -1097,6 +1253,63 @@ def reintegrar_militar(request, pk):
             messages.error(request, 'Erro: Militar não encontrado.')
             
     return redirect(request.META.get('HTTP_REFERER', 'Secao_pessoal:militar_list'))
+
+@method_decorator(s1_required, name='dispatch')
+class LotacaoPessoalListView(ListView):
+    model = LotacaoPessoal
+    template_name = 'Secao_pessoal/lotacao_list.html'
+    context_object_name = 'lotacoes'
+    paginate_by = 50
+
+@method_decorator(s1_required, name='dispatch')
+class LotacaoPessoalCreateView(CreateView):
+    model = LotacaoPessoal
+    form_class = LotacaoPessoalForm
+    template_name = 'Secao_pessoal/lotacao_form.html'
+    success_url = reverse_lazy('Secao_pessoal:lotacao_list')
+
+@method_decorator(s1_required, name='dispatch')
+class LotacaoPessoalUpdateView(UpdateView):
+    model = LotacaoPessoal
+    form_class = LotacaoPessoalForm
+    template_name = 'Secao_pessoal/lotacao_form.html'
+    success_url = reverse_lazy('Secao_pessoal:lotacao_list')
+
+@method_decorator(s1_required, name='dispatch')
+class LotacaoPessoalDeleteView(DeleteView):
+    model = LotacaoPessoal
+    template_name = 'Secao_pessoal/lotacao_confirm_delete.html'
+    success_url = reverse_lazy('Secao_pessoal:lotacao_list')
+
+@s1_required
+def relatorio_tlp(request):
+    existente_qs = Efetivo.objects.exclude(situacao__iexact='Baixado') \
+        .values('posto', 'quad', 'especializacao', 'om').annotate(existente=Count('id'))
+    existente_map = {
+        (r['posto'], r['quad'], r['especializacao'], r['om']): r['existente']
+        for r in existente_qs
+    }
+
+    linhas = []
+    vistos = set()
+    for lot in LotacaoPessoal.objects.all():
+        chave = (lot.posto, lot.quad, lot.especializacao, lot.om)
+        existente = existente_map.get(chave, 0)
+        linhas.append({
+            'posto': lot.posto, 'quad': lot.quad, 'especializacao': lot.especializacao,
+            'om': lot.om, 'vagas_previstas': lot.vagas_previstas,
+            'existente': existente, 'saldo': existente - lot.vagas_previstas,
+        })
+        vistos.add(chave)
+
+    for chave, existente in existente_map.items():
+        if chave not in vistos and any(chave):
+            linhas.append({
+                'posto': chave[0], 'quad': chave[1], 'especializacao': chave[2],
+                'om': chave[3], 'vagas_previstas': 0, 'existente': existente, 'saldo': existente,
+            })
+
+    return render(request, 'Secao_pessoal/relatorio_tlp.html', {'linhas': linhas})
 
 @s1_required
 def gerenciar_opcoes(request):

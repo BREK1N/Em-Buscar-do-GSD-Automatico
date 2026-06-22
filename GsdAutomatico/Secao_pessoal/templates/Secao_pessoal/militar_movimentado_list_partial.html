@@ -1,0 +1,62 @@
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Posto</th>
+                <th>Nome de Guerra</th>
+                <th>Nome Completo</th>
+                <th>SARAM</th>
+                <th>OM Destino</th>
+                <th>Data Movimentação</th>
+                <th>SIGAD / Boletim</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="militar-table-body">
+            {% for militar in militares %}
+            <tr>
+                <td>{{ militar.posto }}</td>
+                <td>{{ militar.nome_guerra }}</td>
+                <td>{{ militar.nome_completo }}</td>
+                <td>{{ militar.saram|default:"-" }}</td>
+                <td>{{ militar.ultima_movimentacao.om_destino|default:"-" }}</td>
+                <td>{{ militar.ultima_movimentacao.data_movimentacao|date:"d/m/Y"|default:"-" }}</td>
+                <td>
+                    {{ militar.ultima_movimentacao.sigad_movimentacao|default:"-" }}
+                    {% if militar.ultima_movimentacao.boletim_movimentacao %} / {{ militar.ultima_movimentacao.boletim_movimentacao }}{% endif %}
+                </td>
+                <td>
+                    <div class="actions-cell">
+                        <a href="{% url 'Secao_pessoal:militar_update' militar.pk %}" class="btn btn-sm btn-edit">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
+                            Editar
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="8" style="text-align: center; padding: 20px;">Nenhum militar movimentado encontrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div id="pagination-container">
+    {% if is_paginated %}
+    <div class="pagination">
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">&laquo; primeira</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">anterior</a>
+            {% endif %}
+            <span class="current">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">próxima</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">última &raquo;</a>
+            {% endif %}
+        </span>
+    </div>
+    {% endif %}
+</div>

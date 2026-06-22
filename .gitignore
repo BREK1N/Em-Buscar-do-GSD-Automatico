@@ -183,4 +183,5 @@ GsdAutomatico/logs/sistema.log.*
 GsdAutomatico/staticfiles/staticfiles.json
 GsdAutomatico/staticfiles/
 media/
+backups/
 

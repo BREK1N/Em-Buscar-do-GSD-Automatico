@@ -1,0 +1,80 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}{% if form.instance.pk %}Editar Lotação{% else %}Adicionar Lotação{% endif %}{% endblock %}
+
+{% block content %}
+<style>
+    .form-card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: var(--box-shadow);
+    }
+    .form-card-body .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(220px, 1fr));
+        gap: 20px;
+    }
+    .form-card-body .form-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .form-card-body .form-item label {
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+    .form-card-body .form-item input,
+    .form-card-body .form-item select {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        box-sizing: border-box;
+    }
+</style>
+
+<h1>{% if form.instance.pk %}Editar Lotação{% else %}Adicionar Lotação{% endif %}</h1>
+<p>Cadastre a quantidade de vagas previstas (TLP) para uma combinação de Posto/Quadro/Especialidade/OM.</p>
+
+<form method="post" class="model-form">
+    {% csrf_token %}
+    <div class="form-card">
+        <div class="form-card-body">
+            <div class="form-grid">
+                <div class="form-item">
+                    <label for="{{ form.posto.id_for_label }}">{{ form.posto.label }}:</label>
+                    {{ form.posto }}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.quad.id_for_label }}">{{ form.quad.label }}:</label>
+                    {{ form.quad }}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.especializacao.id_for_label }}">{{ form.especializacao.label }}:</label>
+                    {{ form.especializacao }}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.om.id_for_label }}">{{ form.om.label }}:</label>
+                    {{ form.om }}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.vagas_previstas.id_for_label }}">{{ form.vagas_previstas.label }}:</label>
+                    {{ form.vagas_previstas }}
+                </div>
+            </div>
+            {% if form.non_field_errors %}
+            <p style="color: var(--danger-color); margin-top: 15px;">{{ form.non_field_errors }}</p>
+            {% endif %}
+        </div>
+    </div>
+    <div class="form-actions">
+        <button type="submit" class="btn btn-primary">Salvar</button>
+        <a href="{% url 'Secao_pessoal:lotacao_list' %}" class="btn btn-secondary">Cancelar</a>
+    </div>
+</form>
+{% endblock %}

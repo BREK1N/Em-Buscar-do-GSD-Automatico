@@ -39,6 +39,33 @@ class Efetivo(models.Model):
     boletim_prestacao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Boletim de Prestação de Serviço")
     data_boletim_prestacao = models.DateField(null=True, blank=True, verbose_name="Data do Boletim")
 
+    # Campos de Desligamento
+    data_desligamento = models.DateField(null=True, blank=True, verbose_name="Data do Desligamento")
+    motivo_desligamento = models.TextField(blank=True, null=True, verbose_name="Motivo do Desligamento")
+    documento_desligamento = models.CharField(max_length=100, blank=True, null=True, verbose_name="Documento de Publicação")
+    funcao_desligamento = models.CharField(max_length=100, blank=True, null=True, verbose_name="Função (conforme publicado)")
+
+    # Informações Pessoais Estendidas
+    identidade_civil = models.CharField(max_length=30, blank=True, null=True, verbose_name="Identidade Civil")
+    identidade_aer = models.CharField(max_length=30, blank=True, null=True, verbose_name="Identidade Aeronáutica")
+    cpf = models.CharField(max_length=14, blank=True, null=True, verbose_name="CPF")
+    data_nascimento = models.DateField(null=True, blank=True, verbose_name="Data de Nascimento")
+    nome_mae = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nome da Mãe")
+    nome_pai = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nome do Pai")
+    conjuge = models.CharField(max_length=255, blank=True, null=True, verbose_name="Cônjuge")
+    ano_praca = models.CharField(max_length=4, blank=True, null=True, verbose_name="Ano de Praça")
+    contato_1 = models.CharField(max_length=20, blank=True, null=True, verbose_name="Nº Contato 1")
+    contato_2 = models.CharField(max_length=20, blank=True, null=True, verbose_name="Nº Contato 2")
+    contato_3 = models.CharField(max_length=20, blank=True, null=True, verbose_name="Nº Contato 3")
+    contato_4 = models.CharField(max_length=20, blank=True, null=True, verbose_name="Nº Contato 4")
+    email_1 = models.EmailField(max_length=254, blank=True, null=True, verbose_name="E-mail 1")
+    email_2 = models.EmailField(max_length=254, blank=True, null=True, verbose_name="E-mail 2")
+    email_3 = models.EmailField(max_length=254, blank=True, null=True, verbose_name="E-mail 3")
+    cep = models.CharField(max_length=9, blank=True, null=True, verbose_name="CEP")
+    endereco = models.CharField(max_length=255, blank=True, null=True, verbose_name="Endereço")
+    complemento = models.CharField(max_length=100, blank=True, null=True, verbose_name="Complemento")
+    bairro = models.CharField(max_length=100, blank=True, null=True, verbose_name="Bairro")
+
     objects = EfetivoManager()
     all_objects = models.Manager()
 
@@ -130,6 +157,24 @@ class Subsetor(models.Model):
     def __str__(self):
         return self.nome
 
+class LotacaoPessoal(models.Model):
+    posto = models.CharField(max_length=50, blank=True, verbose_name="Posto/Grad")
+    quad = models.CharField(max_length=50, blank=True, verbose_name="Quadro")
+    especializacao = models.CharField(max_length=100, blank=True, verbose_name="Especialidade")
+    om = models.CharField(max_length=100, blank=True, verbose_name="OM")
+    vagas_previstas = models.PositiveIntegerField(default=0, verbose_name="TLP (Vagas Previstas)")
+
+    class Meta:
+        ordering = ['posto', 'quad', 'especializacao']
+        verbose_name = "Lotação de Pessoal (TLP)"
+        verbose_name_plural = "Lotações de Pessoal (TLP)"
+        constraints = [
+            models.UniqueConstraint(fields=['posto', 'quad', 'especializacao', 'om'], name='uniq_lotacao_combo')
+        ]
+
+    def __str__(self):
+        return f"{self.posto}/{self.quad}/{self.especializacao} ({self.om}) - {self.vagas_previstas} vagas"
+
 class SolicitacaoTrocaSetor(models.Model):
     militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='solicitacoes_troca', verbose_name="Militar")
     setor_atual = models.CharField(max_length=100, blank=True, verbose_name="Setor Atual")
@@ -164,6 +209,24 @@ class HistoricoInspsau(models.Model):
 
     def __str__(self):
         return f"Histórico {self.finalidade} - {self.militar.nome_guerra}"
+
+
+class MovimentacaoEfetivo(models.Model):
+    militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='movimentacoes', verbose_name="Militar")
+    data_movimentacao = models.DateField(verbose_name="Data da Movimentação")
+    om_destino = models.CharField(max_length=100, blank=True, verbose_name="OM de Destino")
+    sigad_movimentacao = models.CharField(max_length=100, blank=True, verbose_name="SIGAD")
+    boletim_movimentacao = models.CharField(max_length=100, blank=True, verbose_name="Boletim (BCA/Bol. INT)")
+    observacao = models.TextField(blank=True, null=True, verbose_name="Observação")
+    data_registro = models.DateTimeField(auto_now_add=True, verbose_name="Data de Registro")
+
+    class Meta:
+        ordering = ['-data_movimentacao']
+        verbose_name = "Movimentação de Efetivo"
+        verbose_name_plural = "Movimentações de Efetivo"
+
+    def __str__(self):
+        return f"Movimentação {self.militar.nome_guerra} -> {self.om_destino}"
 
 
 class RegistroChamada(models.Model):

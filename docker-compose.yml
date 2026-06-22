@@ -38,6 +38,7 @@ services:
     volumes:
       - static_volume:/app/staticfiles
       - ./media:/app/media
+      - ./backups:/app/backups
       - .:/app
       - /var/run/docker.sock:/var/run/docker.sock
       - ./logs:/app/logs
