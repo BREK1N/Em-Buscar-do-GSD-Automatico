@@ -696,10 +696,40 @@ def importar_excel(request):
         try:
             # Lê o arquivo Excel e converte tudo para string para evitar erros de tipo
             df = pd.read_excel(excel_file, dtype=str)
-            
+
             # Remove espaços em branco dos nomes das colunas
             df.columns = df.columns.str.strip()
-            
+
+            # Renomeia as colunas para os nomes canônicos esperados abaixo, aceitando
+            # variações de acentuação/maiúsculas/abreviação/pontuação no cabeçalho da
+            # planilha (ex.: "Posto", "PST", "Pst." todos casam com "PST."). Sem isso,
+            # um cabeçalho ligeiramente diferente faz todas as linhas serem ignoradas.
+            ALIASES_COLUNAS_EFETIVO = {
+                'SARAM': ['SARAM'],
+                'NOME COMPLETO': ['NOME COMPLETO', 'NOME'],
+                'PST.': ['PST', 'POSTO', 'POSTOGRAD', 'POSTO GRAD'],
+                'QUAD.': ['QUAD', 'QUADRO'],
+                'ESP.': ['ESP', 'ESPECIALIZACAO', 'ESPECIALIDADE'],
+                'NOME DE GUERRA': ['NOME DE GUERRA', 'NOME GUERRA', 'GUERRA'],
+                'TURMA': ['TURMA'],
+                'SITUAÇÃO': ['SITUACAO'],
+                'OM': ['OM'],
+                'SETOR': ['SETOR'],
+                'SUBSETOR': ['SUBSETOR'],
+            }
+            colunas_normalizadas = {
+                re.sub(r'\s+', ' ', re.sub(r'[.\/]', '', normalize_name(str(c)))).strip(): c
+                for c in df.columns
+            }
+            renomear = {}
+            for canonico, aliases in ALIASES_COLUNAS_EFETIVO.items():
+                for alias in aliases:
+                    col_real = colunas_normalizadas.get(alias)
+                    if col_real:
+                        renomear[col_real] = canonico
+                        break
+            df.rename(columns=renomear, inplace=True)
+
             # Substitui valores 'nan' (vazios) do pandas por string vazia
             df.fillna('', inplace=True)
 
@@ -759,6 +789,11 @@ def importar_excel(request):
                     'om': row.get('OM', '').strip(),
                     'setor': row.get('SETOR', '').strip(),
                     'subsetor': row.get('SUBSETOR', '').strip(),
+                    # Se o militar estava na lixeira, reimportá-lo via planilha deve
+                    # restaurá-lo para o efetivo ativo — caso contrário ele continua
+                    # "atualizado" mas invisível na lista geral.
+                    'deleted': False,
+                    'deleted_at': None,
                         }
 
                 # Acumula valores não-vazios para criar no controle geral
