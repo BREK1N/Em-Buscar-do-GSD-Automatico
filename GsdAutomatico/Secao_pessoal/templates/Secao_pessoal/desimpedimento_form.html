@@ -1,0 +1,170 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Desimpedir Ficha - Seção de Pessoal{% endblock %}
+
+{% block content %}
+<style>
+    .form-card {
+        background-color: var(--bg-content);
+        border: 1px solid var(--border-color);
+        border-radius: 12px;
+        padding: 25px;
+        margin-bottom: 25px;
+        box-shadow: var(--box-shadow);
+    }
+    .form-card-header {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        border-bottom: 1px solid var(--border-color);
+        padding-bottom: 15px;
+        margin-bottom: 20px;
+    }
+    .form-card-header svg {
+        width: 24px;
+        height: 24px;
+        color: var(--accent-color);
+    }
+    .form-card-header h2 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
+    .form-card-body .form-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        gap: 20px;
+    }
+    .form-card-body .form-item {
+        display: flex;
+        flex-direction: column;
+    }
+    .form-card-body .form-item.full-width {
+        grid-column: 1 / -1;
+    }
+    .form-card-body .form-item label {
+        margin-bottom: 8px;
+        font-weight: 500;
+        color: var(--text-secondary);
+    }
+    .form-card-body .form-item input:not([type="checkbox"]),
+    .form-card-body .form-item textarea {
+        width: 100%;
+        padding: 10px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-main);
+        color: var(--text-primary);
+        box-sizing: border-box;
+    }
+    .form-card-body .form-item input[readonly] {
+        background-color: var(--bg-content);
+        color: var(--text-secondary);
+    }
+</style>
+
+<h1>Desimpedir Ficha</h1>
+<p>Confira os dados do militar e informe as datas e o motivo do desligamento para gerar a Ficha de Desimpedimento.</p>
+
+<div class="form-card">
+    <div class="form-card-header">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M17.982 18.725A7.488 7.488 0 0012 15.75a7.488 7.488 0 00-5.982 2.975m11.963 0a9 9 0 10-11.963 0m11.963 0A8.966 8.966 0 0112 21a8.966 8.966 0 01-5.982-2.275M15 9.75a3 3 0 11-6 0 3 3 0 016 0z" /></svg>
+        <h2>Dados do Militar</h2>
+    </div>
+    <div class="form-card-body">
+        <div class="form-grid">
+            <div class="form-item">
+                <label>Nome Completo:</label>
+                <input type="text" value="{{ militar.nome_completo }}" readonly>
+            </div>
+            <div class="form-item">
+                <label>Posto/Grad:</label>
+                <input type="text" value="{{ militar.posto }} {{ militar.quad }}" readonly>
+            </div>
+            <div class="form-item">
+                <label>OM:</label>
+                <input type="text" value="{{ militar.om }}" readonly>
+            </div>
+            <div class="form-item">
+                <label>SARAM:</label>
+                <input type="text" value="{{ militar.saram|default:'' }}" readonly>
+            </div>
+            <div class="form-item">
+                <label>Setor:</label>
+                <input type="text" value="{{ militar.setor }}" readonly>
+            </div>
+        </div>
+    </div>
+</div>
+
+<form method="post" action="{% url 'Secao_pessoal:desimpedimento_gerar_pdf' militar.pk %}" target="_blank" class="model-form" id="desimpedimentoForm">
+    {% csrf_token %}
+    <input type="hidden" name="salvar_no_cadastro" id="salvar_no_cadastro" value="1">
+    <div class="form-card">
+        <div class="form-card-header">
+            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3-15H6a2.25 2.25 0 00-2.25 2.25v15A2.25 2.25 0 006 21.75h12a2.25 2.25 0 002.25-2.25V8.25L15 3z" /></svg>
+            <h2>Desligamento</h2>
+        </div>
+        <div class="form-card-body">
+            <div class="form-grid">
+                <div class="form-item">
+                    <label for="documento_desligamento">Documento de Publicação:</label>
+                    <input type="text" name="documento_desligamento" id="documento_desligamento" value="{{ militar.documento_desligamento|default:'' }}" placeholder="Ex: Bol O nº 123 de 01/01/2026">
+                </div>
+                <div class="form-item">
+                    <label for="data_desligamento">Data do Desligamento:</label>
+                    <input type="date" name="data_desligamento" id="data_desligamento" value="{{ militar.data_desligamento|date:'Y-m-d'|default:'' }}" required>
+                </div>
+                <div class="form-item full-width">
+                    <label for="motivo_desligamento">Motivo do Desligamento:</label>
+                    <textarea name="motivo_desligamento" id="motivo_desligamento" rows="3" placeholder="Ex: Licenciamento à Pedido">{{ militar.motivo_desligamento|default:'' }}</textarea>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div class="form-actions">
+        <a href="{% url 'Secao_pessoal:desimpedimento_busca' %}" class="btn btn-secondary">Voltar</a>
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#confirmSalvarModal">Avançar</button>
+    </div>
+</form>
+
+<div class="modal fade" id="confirmSalvarModal" tabindex="-1" aria-labelledby="confirmSalvarModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="confirmSalvarModalLabel">Confirmar</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body">
+        Deseja por na ficha desse militar a data e o motivo do desligamento?
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn" id="btnConfirmarNao" style="background-color: var(--danger-color); color: #fff;">Não</button>
+        <button type="button" class="btn" id="btnConfirmarSim" style="background-color: var(--success-color); color: #fff;">Sim</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const form = document.getElementById('desimpedimentoForm');
+    const flag = document.getElementById('salvar_no_cadastro');
+    const modalEl = document.getElementById('confirmSalvarModal');
+    const modal = new bootstrap.Modal(modalEl);
+
+    document.getElementById('btnConfirmarSim').addEventListener('click', function() {
+        flag.value = '1';
+        modal.hide();
+        form.submit();
+    });
+    document.getElementById('btnConfirmarNao').addEventListener('click', function() {
+        flag.value = '0';
+        modal.hide();
+        form.submit();
+    });
+});
+</script>
+{% endblock %}

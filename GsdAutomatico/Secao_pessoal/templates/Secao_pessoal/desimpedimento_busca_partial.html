@@ -1,0 +1,67 @@
+<div class="table-responsive">
+    <table class="data-table">
+        <thead>
+            <tr>
+                <th>Posto</th>
+                <th>Nome de Guerra</th>
+                <th>Nome Completo</th>
+                <th>SARAM</th>
+                <th>Especialização</th>
+                <th>Situação</th>
+                <th>Observação</th>
+                <th>OM</th>
+                <th>Ações</th>
+            </tr>
+        </thead>
+        <tbody id="militar-table-body">
+            {% for militar in militares %}
+            <tr>
+                <td>{{ militar.posto }}</td>
+                <td>{{ militar.nome_guerra }}</td>
+                <td>{{ militar.nome_completo }}</td>
+                <td>{{ militar.saram|default:"-" }}</td>
+                <td>{{ militar.especializacao }}</td>
+                <td>
+                    {% if militar.situacao|lower == 'de junta' %}
+                        <span style="background-color: var(--danger-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;">JUNTA DE SAÚDE</span>
+                    {% else %}
+                        <span style="background-color: var(--success-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;">{{ militar.situacao|default:"Ativo" }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ militar.observacao|default:"" }}</td>
+                <td>{{ militar.om }}</td>
+                <td>
+                    <div class="actions-cell">
+                        <a href="{% url 'Secao_pessoal:desimpedimento_form' militar.pk %}" class="btn btn-sm btn-delete">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3-15H6a2.25 2.25 0 00-2.25 2.25v15A2.25 2.25 0 006 21.75h12a2.25 2.25 0 002.25-2.25V8.25L15 3z" /></svg>
+                            Desimpedir Ficha
+                        </a>
+                    </div>
+                </td>
+            </tr>
+            {% empty %}
+            <tr>
+                <td colspan="9" style="text-align: center; padding: 20px;">Nenhum militar encontrado.</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+
+<div id="pagination-container">
+    {% if is_paginated %}
+    <div class="pagination">
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}&tab={{ tab }}">&laquo; primeira</a>
+                <a href="?page={{ page_obj.previous_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}&tab={{ tab }}">anterior</a>
+            {% endif %}
+            <span class="current">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}&tab={{ tab }}">próxima</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}&tab={{ tab }}">última &raquo;</a>
+            {% endif %}
+        </span>
+    </div>
+    {% endif %}
+</div>

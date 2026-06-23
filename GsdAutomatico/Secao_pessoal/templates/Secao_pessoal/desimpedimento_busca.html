@@ -1,0 +1,92 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Desimpedimento de Ficha - Seção de Pessoal{% endblock %}
+
+{% block content %}
+<style>
+    #militar-list-container .data-table { width: auto; min-width: 1100px; }
+    .desimpedimento-tabs { display: flex; gap: 10px; margin-right: 15px; }
+    .desimpedimento-tabs button {
+        padding: 8px 16px;
+        border-radius: 6px;
+        border: 1px solid var(--border-color);
+        background-color: var(--bg-content);
+        color: var(--text-primary);
+        cursor: pointer;
+        font-weight: 500;
+    }
+    .desimpedimento-tabs button.active {
+        background-color: var(--accent-color);
+        color: #fff;
+        border-color: var(--accent-color);
+    }
+</style>
+<div class="table-header">
+    <h1>Desimpedimento de Ficha</h1>
+    <div class="filter-bar">
+        <div class="desimpedimento-tabs" id="desimpedimento-tabs">
+            <button type="button" data-tab="praca" class="{% if tab == 'praca' %}active{% endif %}">Desimpedimento de Praça</button>
+            <button type="button" data-tab="graduado" class="{% if tab == 'graduado' %}active{% endif %}">Desimpedimento de Graduado/OF</button>
+        </div>
+        <div class="search-group">
+            <form method="get" id="search-form" onsubmit="return false;">
+                <input type="text" name="q" id="search-input" placeholder="Pesquisar por nome, posto, SARAM..." value="{{ request.GET.q }}">
+                <button type="button" class="search-btn" aria-label="Pesquisar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="militar-list-container">
+    {% include 'Secao_pessoal/desimpedimento_busca_partial.html' %}
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const searchInput = document.getElementById('search-input');
+    const container = document.getElementById('militar-list-container');
+    const tabsContainer = document.getElementById('desimpedimento-tabs');
+    let searchTimeout;
+    let currentTab = '{{ tab }}';
+
+    function loadResults() {
+        const query = searchInput.value;
+        const url = `?q=${encodeURIComponent(query)}&tab=${encodeURIComponent(currentTab)}`;
+
+        history.pushState(null, '', url);
+
+        fetch(url, {
+            headers: {
+                'X-Requested-With': 'XMLHttpRequest'
+            }
+        })
+        .then(response => response.text())
+        .then(html => {
+            container.innerHTML = html;
+        })
+        .catch(error => console.error('Erro ao realizar a pesquisa:', error));
+    }
+
+    searchInput.addEventListener('input', function() {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(loadResults, 300);
+    });
+
+    tabsContainer.addEventListener('click', function(e) {
+        const btn = e.target.closest('button[data-tab]');
+        if (!btn) return;
+        currentTab = btn.dataset.tab;
+        tabsContainer.querySelectorAll('button').forEach(b => b.classList.toggle('active', b === btn));
+        loadResults();
+    });
+});
+
+document.getElementById('search-form').addEventListener('submit', function(e) {
+    e.preventDefault();
+});
+</script>
+{% endblock %}

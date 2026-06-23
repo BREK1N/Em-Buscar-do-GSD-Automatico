@@ -28,6 +28,7 @@ RUN apt-get update && apt-get install -y \
     libffi-dev \
     shared-mime-info \
     fonts-liberation \
+    libreoffice-calc \
     && apt-get clean && rm -rf /var/lib/apt/lists/*
 
 COPY requirements.txt /app/

@@ -9,6 +9,7 @@ import unicodedata
 from django.http import HttpResponse, JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.urls import reverse_lazy
+from django.core.paginator import Paginator
 from django.views.generic import ListView, CreateView, UpdateView, DeleteView
 from django.contrib.auth.decorators import login_required, user_passes_test
 from django.utils.decorators import method_decorator
@@ -1177,8 +1178,12 @@ def responder_troca_setor(request, solicitacao_id, acao):
             
     return redirect(request.META.get('HTTP_REFERER', 'caixa_entrada:comunicacoes'))
 
+POSTOS_DESIMPEDIMENTO_PRACA = ['CB', 'S1', 'S2']
+POSTOS_DESIMPEDIMENTO_GRADUADO_OF = ['TC', 'MJ', 'CP', '1T', '2T', 'ASP', 'SO', '1S', '2S', '3S']
+
+
 @s1_required
-def ata(request):
+def desimpedimento_busca(request):
     rank_order = Case(
         When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
         When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
@@ -1186,20 +1191,129 @@ def ata(request):
         When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
         default=Value(99), output_field=IntegerField(),
     )
-    militares = Efetivo.objects.exclude(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
-    
-    if request.method == 'POST':
-        militar_substituido_id = request.POST.get('militar_substituido')
-        militar_substituto_id = request.POST.get('militar_substituto')
-        
-        # Aqui você pode implementar a lógica de geração de arquivo no futuro (ex: reportlab, docx)
-        messages.success(request, 'ATA gerada com sucesso! (Geração de arquivo a implementar)')
-        return redirect('Secao_pessoal:ata')
+    query = request.GET.get('q')
+    tab = request.GET.get('tab') if request.GET.get('tab') in ('praca', 'graduado') else 'praca'
+    postos = POSTOS_DESIMPEDIMENTO_GRADUADO_OF if tab == 'graduado' else POSTOS_DESIMPEDIMENTO_PRACA
 
-    context = {
-        'militares': militares
-    }
-    return render(request, 'Secao_pessoal/ata.html', context)
+    militares = Efetivo.objects.filter(posto__in=postos).annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+    if query:
+        q_objects = Q(nome_completo__icontains=query) | Q(nome_guerra__icontains=query) | Q(posto__icontains=query)
+        if query.isdigit():
+            q_objects |= Q(saram__icontains=query)
+        militares = militares.filter(q_objects)
+
+    paginator = Paginator(militares, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    template_name = 'Secao_pessoal/desimpedimento_busca_partial.html' if request.headers.get('x-requested-with') == 'XMLHttpRequest' else 'Secao_pessoal/desimpedimento_busca.html'
+    return render(request, template_name, {
+        'militares': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
+        'tab': tab,
+    })
+
+
+@s1_required
+def desimpedimento_form(request, pk):
+    militar = get_object_or_404(Efetivo, pk=pk)
+    return render(request, 'Secao_pessoal/desimpedimento_form.html', {'militar': militar})
+
+
+@s1_required
+@require_POST
+def desimpedimento_gerar_pdf(request, pk):
+    from django.contrib.staticfiles import finders
+    import shutil
+    import subprocess
+
+    militar = get_object_or_404(Efetivo, pk=pk)
+
+    documento_desligamento = request.POST.get('documento_desligamento', '')
+    motivo_desligamento = request.POST.get('motivo_desligamento', '')
+    data_desligamento_str = request.POST.get('data_desligamento', '')
+    salvar_no_cadastro = request.POST.get('salvar_no_cadastro') == '1'
+
+    data_desligamento = None
+    if data_desligamento_str:
+        try:
+            data_desligamento = datetime.strptime(data_desligamento_str, '%Y-%m-%d').date()
+        except ValueError:
+            pass
+
+    if salvar_no_cadastro:
+        militar.documento_desligamento = documento_desligamento
+        militar.motivo_desligamento = motivo_desligamento
+        militar.data_desligamento = data_desligamento
+        militar.save()
+
+    if militar.posto in POSTOS_DESIMPEDIMENTO_GRADUADO_OF:
+        template_filename = 'ficha_desimpedimento_graduado_of_template.xlsx'
+        print_area_last_row = 35
+        image_offset_emu = 26543
+    else:
+        template_filename = 'ficha_desimpedimento_template.xlsx'
+        print_area_last_row = 31
+        image_offset_emu = 156210
+
+    template_path = finders.find(f'Secao_pessoal/templates_pdf/{template_filename}')
+    if not template_path:
+        messages.error(request, 'Modelo de Ficha de Desimpedimento não encontrado.')
+        return redirect('Secao_pessoal:desimpedimento_form', pk=pk)
+
+    tmp_dir = tempfile.mkdtemp()
+    xlsx_path = os.path.join(tmp_dir, 'ficha_preenchida.xlsx')
+    pdf_path = os.path.join(tmp_dir, 'ficha_preenchida.pdf')
+    shutil.copyfile(template_path, xlsx_path)
+
+    wb = openpyxl.load_workbook(xlsx_path)
+    ws = wb.worksheets[0]
+    ws['C11'] = militar.nome_completo or ''
+    ws['F11'] = f"{militar.posto or ''} {militar.quad or ''}".strip()
+    ws['C12'] = documento_desligamento
+    ws['F12'] = militar.om or ''
+    ws['C13'] = motivo_desligamento
+    ws['F13'] = militar.saram or ''
+    ws['C14'] = militar.setor or ''
+    ws['F14'] = militar.setor or ''
+    ws['F15'] = data_desligamento.strftime('%d/%m/%Y') if data_desligamento else ''
+
+    # Limita a área de impressão à tabela real (até a coluna F, alinhada com a logo
+    # BINFAE-GL) e desliga a impressão das linhas de grade, já que a planilha tem
+    # preenchimento branco em células vazias até a coluna R que expandia a página
+    # impressa muito além da tabela.
+    ws.print_area = f'A1:F{print_area_last_row}'
+    ws.print_options.gridLines = False
+    ws.page_setup.fitToWidth = 1
+    ws.page_setup.fitToHeight = 1
+
+    # Sobe o documento na folha: reduz a margem superior (a logo fica rente à borda
+    # de impressão) e soma a diferença na margem inferior, mantendo a altura
+    # impressa igual e deixando a sobra de espaço no fim da página.
+    ws.page_margins.top = 0.15
+    ws.page_margins.bottom = 1.35
+
+    # Move a logo do brasão um pouco para a direita para centralizá-la com a
+    # frase "MINISTÉRIO DA DEFESA".
+    if ws._images:
+        ws._images[0].anchor._from.colOff += image_offset_emu
+
+    wb.save(xlsx_path)
+
+    try:
+        subprocess.run(
+            ['soffice', '--headless', '--norestore', '--convert-to', 'pdf', '--outdir', tmp_dir, xlsx_path],
+            check=True, timeout=60, capture_output=True,
+        )
+        with open(pdf_path, 'rb') as f:
+            pdf_bytes = f.read()
+    finally:
+        shutil.rmtree(tmp_dir, ignore_errors=True)
+
+    nome_arquivo = f"ficha_desimpedimento_{militar.nome_guerra or militar.pk}.pdf".replace(' ', '_')
+    response = HttpResponse(pdf_bytes, content_type='application/pdf')
+    response['Content-Disposition'] = f'inline; filename="{nome_arquivo}"'
+    return response
 
 @s1_required
 def baixa(request):
