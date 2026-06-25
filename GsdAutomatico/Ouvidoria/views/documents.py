@@ -376,10 +376,18 @@ def upload_ficha_individual(request, pk):
         tipo='ficha_individual'
     )
 
+    avancou = False
     if patd.status == 'confeccao_fr_ficha':
-        _try_advance_from_confeccao(patd)
+        avancou = _try_advance_from_confeccao(patd)
 
-    messages.success(request, "Ficha individual atualizada com sucesso.")
+    if avancou:
+        messages.success(
+            request,
+            "Ficha individual atualizada. Como a Ficha Individual e o Formulário de Resumo já foram "
+            "anexados, o processo avançou automaticamente para a Fase 2 – Ciência do Militar e Defesa."
+        )
+    else:
+        messages.success(request, "Ficha individual atualizada com sucesso.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
 
 
@@ -396,10 +404,18 @@ def upload_formulario_resumo(request, pk):
     patd.anexos.filter(tipo='formulario_resumo').delete()
     Anexo.objects.create(patd=patd, arquivo=request.FILES['formulario_resumo'], tipo='formulario_resumo')
 
+    avancou = False
     if patd.status == 'confeccao_fr_ficha':
-        _try_advance_from_confeccao(patd)
+        avancou = _try_advance_from_confeccao(patd)
 
-    messages.success(request, "Formulário de resumo anexado com sucesso.")
+    if avancou:
+        messages.success(
+            request,
+            "Formulário de resumo anexado. Como a Ficha Individual e o Formulário de Resumo já foram "
+            "anexados, o processo avançou automaticamente para a Fase 2 – Ciência do Militar e Defesa."
+        )
+    else:
+        messages.success(request, "Formulário de resumo anexado com sucesso.")
     return redirect('Ouvidoria:patd_detail', pk=pk)
 
 
@@ -409,6 +425,8 @@ def _try_advance_from_confeccao(patd):
     if tem_ficha and tem_resumo:
         patd.status = 'ciencia_militar'
         patd.save(update_fields=['status'])
+        return True
+    return False
 
 
 def _append_anexo_content(document, anexo):

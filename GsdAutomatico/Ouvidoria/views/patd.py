@@ -155,7 +155,6 @@ STATUS_GROUPS = {
     "6 – Ciência da Condenação / NPD": {
         'periodo_reconsideracao': 'Período de Reconsideração',
         'em_reconsideracao': 'Em Reconsideração',
-        'aguardando_preenchimento_npd_reconsideracao': 'Aguardando preenchimento NPD Reconsideração',
         'aguardando_publicacao': 'Aguardando publicação',
         'finalizado': 'Finalizado',
     },
@@ -713,10 +712,11 @@ class PATDListView(ListView):
         context['current_status'] = self.request.GET.get('status', '')
         context['current_fase'] = self.request.GET.get('fase', '')
 
-        # Phase tab counts (base queryset without phase/status filter)
+        # Phase tab counts (base queryset without phase filter, but respecting the active status filter)
         from django.utils import timezone as _tz
         from datetime import date as _date
         _BINFAE_START = _date(2026, 6, 1)
+        status_filter = self.request.GET.get('status')
         _ano_str = self.request.GET.get('ano', str(_tz.now().year))
         try:
             _ano_int = int(_ano_str)
@@ -742,6 +742,11 @@ class PATDListView(ListView):
                 Q(militar__nome_guerra__icontains=_q) |
                 Q(militar__saram__icontains=_q)
             )
+        if status_filter:
+            if status_filter in STATUS_GROUPS:
+                base_qs = base_qs.filter(status__in=list(STATUS_GROUPS[status_filter].keys()))
+            else:
+                base_qs = base_qs.filter(status=status_filter)
         phases_with_counts = []
         for phase in PHASE_GROUPS:
             count = base_qs.filter(status__in=phase['statuses']).count()

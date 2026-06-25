@@ -241,7 +241,7 @@
     </a>
     {% for phase in phase_groups %}
     <a class="fase-tab {% if current_fase == phase.key %}active{% endif %}"
-       href="?ano={{ ano }}{% if mostrar_tabs_org %}&org={{ org_atual }}{% endif %}&fase={{ phase.key }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+       href="?ano={{ ano }}{% if mostrar_tabs_org %}&org={{ org_atual }}{% endif %}&fase={{ phase.key }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">
         {{ phase.label }}
         <span class="fase-count">{{ phase.count }}</span>
     </a>
