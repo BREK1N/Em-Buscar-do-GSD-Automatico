@@ -108,3 +108,7 @@ django-ratelimit==4.1.0
 celery[redis]==5.4.0
 redis==5.0.8
 django-redis==5.4.0
+
+# Backup remoto (Fase 2)
+paramiko==3.5.0
+cryptography>=49,<50

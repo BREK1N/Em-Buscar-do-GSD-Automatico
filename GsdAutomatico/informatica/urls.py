@@ -67,8 +67,13 @@ urlpatterns = [
     # INFRAESTRUTURA E LOGS
     # ===============================================
     path('api/logs/', views.system_logs_api, name='system_logs_api'),
-    path('monitoramento/', views.monitoramento_backup, name='monitoramento_backup'),
-    path('logs-backup/', views.visualizar_logs_backup, name='logs_backup'),
+
+    # Backup remoto (Fase 2)
+    path('backup/destino/', views.BackupDestinoUpdateView.as_view(), name='backup_destino_config'),
+    path('backup/historico/', views.BackupHistoricoListView.as_view(), name='backup_historico'),
+    path('backup/executar-agora/', views.backup_executar_agora, name='backup_executar_agora'),
+    path('backup/<int:pk>/explorar/', views.backup_explorar, name='backup_explorar'),
+    path('backup/<int:pk>/restaurar-registro/', views.backup_restaurar_registro, name='backup_restaurar_registro'),
 
     # ===============================================
     # PAINEL ADMIN OUVIDORIA

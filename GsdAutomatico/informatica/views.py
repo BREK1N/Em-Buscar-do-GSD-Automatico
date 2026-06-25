@@ -12,9 +12,12 @@ from django.views.generic import ListView, CreateView, UpdateView, DeleteView, D
 from django.contrib.auth.mixins import LoginRequiredMixin, UserPassesTestMixin
 from .forms import (
     InformaticaUserCreationForm, InformaticaUserChangeForm,
-    GroupForm, ConfiguracaoForm
+    GroupForm, ConfiguracaoForm, BackupDestinoForm
 )
-from .models import GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem, Armario, Prateleira, GroupProfile, SECAO_CHOICES, ConfiguracaoComandantes
+from .models import (
+    GrupoMaterial, SubgrupoMaterial, Material, Cautela, CautelaItem, Armario, Prateleira,
+    GroupProfile, SECAO_CHOICES, ConfiguracaoComandantes, BackupDestino, BackupExecucao,
+)
 from django.db import transaction
 from django.db.models import Q, ProtectedError
 import logging
@@ -26,7 +29,6 @@ from django.core.cache import cache
 import json
 import datetime
 import docker
-import requests
 import os
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth import authenticate # Importação para validar senha
@@ -424,33 +426,137 @@ def system_logs_api(request):
         logs_data = [{'container': 'system', 'text': 'Coletando logs em background, tente novamente em instantes...'}]
     return JsonResponse({'logs': logs_data})
 
-URL_MONITOR = os.getenv('URL_MONITOR', 'http://10.52.18.29:5000')
-LOG_FILE_PATH = os.getenv('LOG_FILE_PATH', '/logs_do_host/backup_sender.log')
+# ==========================================
+# BACKUP (Fase 2) — substitui o antigo monitoramento_backup/visualizar_logs_backup
+# ==========================================
+class BackupDestinoUpdateView(StaffRequiredMixin, UpdateView):
+    model = BackupDestino
+    form_class = BackupDestinoForm
+    template_name = 'informatica/backup_destino_form.html'
+    success_url = reverse_lazy('informatica:backup_destino_config')
+
+    def get_object(self, queryset=None):
+        return BackupDestino.get_instance()
+
+    def form_valid(self, form):
+        messages.success(self.request, 'Configuração do servidor reserva salva com sucesso.')
+        return super().form_valid(form)
+
+
+class BackupHistoricoListView(InformaticaAdminMixin, ListView):
+    model = BackupExecucao
+    template_name = 'informatica/backup_historico.html'
+    context_object_name = 'execucoes'
+    paginate_by = 30
+
 
 @login_required
-def monitoramento_backup(request):
+def backup_executar_agora(request):
     if not is_informatica_admin(request.user):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden()
-    context = cache.get('monitor_data')
-    if context is None:
-        from .tasks import fetch_monitor_task
-        fetch_monitor_task.delay()
-        context = {'online': False, 'erro': 'Coletando dados em background, recarregue em alguns instantes.'}
-    return render(request, 'informatica/monitoramento.html', context)
+    from .tasks import executar_backup_manual_task
+    executar_backup_manual_task.delay()
+    messages.info(request, 'Backup disparado em background. Atualize a página em alguns instantes.')
+    return redirect('informatica:backup_historico')
+
 
 @login_required
-def visualizar_logs_backup(request):
+def backup_explorar(request, pk):
+    """Busca um registro específico (PATD, Efetivo, etc.) dentro de um backup antigo e
+    compara campo a campo com o registro atual — sem alterar nada até confirmar a restauração."""
     if not is_informatica_admin(request.user):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden()
-    logs = []
+    from .backup_diff import MODELOS_DIFF, restaurar_dump_temp, dropar_temp, buscar_registro_temp, montar_diff, buscar_registro_atual
+
+    execucao = get_object_or_404(BackupExecucao, pk=pk)
+    modelo_key = request.GET.get('modelo', '')
+    valor = request.GET.get('valor', '').strip()
+    diffs = None
+    registro_pk = None
+    erro = None
+
+    if modelo_key and valor and modelo_key in MODELOS_DIFF:
+        config = MODELOS_DIFF[modelo_key]
+        model = config['model']
+        live_obj = buscar_registro_atual(model, config['busca_campo'], valor)
+        if not live_obj:
+            erro = 'Nenhum registro atual encontrado com esse valor.'
+        elif not execucao.arquivo_db or not os.path.exists(execucao.arquivo_db):
+            erro = 'Arquivo de backup não encontrado em disco (pode já ter sido removido pela retenção local).'
+        else:
+            tempdb = None
+            try:
+                tempdb = restaurar_dump_temp(execucao.arquivo_db)
+                old_dict = buscar_registro_temp(tempdb, model, live_obj.pk)
+                if old_dict is None:
+                    erro = 'Este registro ainda não existia nesse backup.'
+                else:
+                    diffs = montar_diff(old_dict, live_obj)
+                    registro_pk = live_obj.pk
+            except Exception as exc:
+                erro = f'Erro ao restaurar/ler o backup: {exc}'
+            finally:
+                if tempdb:
+                    dropar_temp(tempdb)
+
+    return render(request, 'informatica/backup_explorar.html', {
+        'execucao': execucao,
+        'modelos': MODELOS_DIFF,
+        'modelo_key': modelo_key,
+        'valor': valor,
+        'diffs': diffs,
+        'registro_pk': registro_pk,
+        'erro': erro,
+    })
+
+
+@login_required
+@require_POST
+def backup_restaurar_registro(request, pk):
+    if not is_informatica_admin(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+    from .backup_diff import MODELOS_DIFF, restaurar_dump_temp, dropar_temp, buscar_registro_temp, aplicar_restore
+
+    execucao = get_object_or_404(BackupExecucao, pk=pk)
+    modelo_key = request.POST.get('modelo', '')
+    valor = request.POST.get('valor', '')
+    registro_pk = request.POST.get('registro_pk')
+    campos_selecionados = request.POST.getlist('campos')
+    redirect_url = f"{reverse('informatica:backup_explorar', args=[pk])}?modelo={modelo_key}&valor={valor}"
+
+    if modelo_key not in MODELOS_DIFF or not registro_pk or not campos_selecionados:
+        messages.error(request, 'Selecione ao menos um campo para restaurar.')
+        return redirect(redirect_url)
+
+    model = MODELOS_DIFF[modelo_key]['model']
+    live_obj = get_object_or_404(model, pk=registro_pk)
+
+    tempdb = None
     try:
-        if os.path.exists(LOG_FILE_PATH):
-            with open(LOG_FILE_PATH, 'r') as f: logs = f.readlines()[-100:]
-        else: logs = [f"Arquivo não encontrado: {LOG_FILE_PATH}"]
-    except Exception as e: logs = [str(e)]
-    return render(request, 'informatica/logs_backup.html', {'logs': logs})
+        tempdb = restaurar_dump_temp(execucao.arquivo_db)
+        old_dict = buscar_registro_temp(tempdb, model, live_obj.pk)
+        if old_dict is None:
+            messages.error(request, 'Registro não encontrado no backup.')
+        else:
+            alterados = aplicar_restore(live_obj, old_dict, campos_selecionados)
+            if alterados:
+                logger.info(
+                    "[BACKUP RESTORE] %s restaurou campos %s do registro %s (%s) a partir do backup #%s",
+                    request.user.username, alterados, model.__name__, live_obj.pk, execucao.pk,
+                )
+                messages.success(request, f"Campos restaurados: {', '.join(alterados)}.")
+            else:
+                messages.info(request, 'Nenhuma alteração necessária — os valores já eram iguais.')
+    except Exception as exc:
+        messages.error(request, f'Erro ao restaurar: {exc}')
+    finally:
+        if tempdb:
+            dropar_temp(tempdb)
+
+    return redirect(redirect_url)
 
 
 # ==========================================

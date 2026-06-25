@@ -68,20 +68,153 @@ def fetch_docker_logs_task():
     return len(logs_api)
 
 
-@shared_task(bind=True, max_retries=1, default_retry_delay=5)
-def fetch_monitor_task(self):
-    """Coleta dados do servidor de backup/monitoramento e armazena em cache."""
-    import os
-    import requests as req_lib
+@shared_task(bind=True, max_retries=1, default_retry_delay=30)
+def executar_backup_task(self):
+    """
+    Checagem periódica (a cada 30 min, via Celery Beat): só executa o backup
+    de fato quando o relógio estiver dentro da janela configurada em
+    BackupDestino.horario_execucao e ainda não tiver rodado com sucesso hoje.
+    """
+    from django.utils import timezone
 
-    url = os.getenv('URL_MONITOR', 'http://10.52.18.29:5000')
+    from .models import BackupDestino, BackupExecucao
+
+    destino_check = BackupDestino.get_instance()
+    agora = timezone.localtime()
+    horario = destino_check.horario_execucao
+    dentro_da_janela = (
+        agora.hour == horario.hour
+        and abs(agora.minute - horario.minute) <= 15
+    )
+    ja_rodou_hoje = BackupExecucao.objects.filter(
+        iniciado_em__date=agora.date(),
+        status__in=['sucesso_local', 'sucesso_remoto'],
+    ).exists()
+    if not dentro_da_janela or ja_rodou_hoje:
+        return None
+
+    return _executar_backup()
+
+
+@shared_task(bind=True, max_retries=1, default_retry_delay=30)
+def executar_backup_manual_task(self):
+    """Backup disparado manualmente por um admin da Informática, sem checar a janela de horário."""
+    return _executar_backup()
+
+
+def _executar_backup():
+    """
+    Backup diário (banco via pg_dump -F c + mídia via tar.gz) salvo em /app/backups,
+    com envio opcional via SFTP para o servidor reserva configurado em BackupDestino.
+    """
+    import os
+    import subprocess
+    import tarfile
+
+    from django.conf import settings
+    from django.utils import timezone
+
+    from .models import BackupDestino, BackupExecucao
+
+    backups_dir = os.path.join(settings.BASE_DIR.parent, 'backups')
+    os.makedirs(backups_dir, exist_ok=True)
+
+    ts = timezone.now().strftime('%Y%m%d_%H%M%S')
+    db_conf = settings.DATABASES['default']
+
+    execucao = BackupExecucao.objects.create()
+
+    arquivo_db = os.path.join(backups_dir, f'backup_db_{ts}.dump')
+    arquivo_media = os.path.join(backups_dir, f'backup_media_{ts}.tar.gz')
+
     try:
-        response = req_lib.get(url, timeout=5)
-        if response.status_code == 200:
-            data = {'online': True, 'dados': response.json()}
+        env = os.environ.copy()
+        env['PGPASSWORD'] = db_conf['PASSWORD'] or ''
+        subprocess.run(
+            [
+                'pg_dump', '-h', db_conf['HOST'], '-p', str(db_conf['PORT']),
+                '-U', db_conf['USER'], '-d', db_conf['NAME'], '-F', 'c', '-f', arquivo_db,
+            ],
+            env=env, check=True, capture_output=True, text=True, timeout=270,
+        )
+
+        media_root = settings.MEDIA_ROOT
+        if os.path.isdir(media_root):
+            with tarfile.open(arquivo_media, 'w:gz') as tar:
+                tar.add(media_root, arcname='media')
         else:
-            data = {'online': False, 'erro': f'Erro HTTP: {response.status_code}'}
+            arquivo_media = ''
+
+        execucao.arquivo_db = arquivo_db
+        execucao.arquivo_media = arquivo_media
+        execucao.tamanho_db_bytes = os.path.getsize(arquivo_db)
+        execucao.tamanho_media_bytes = os.path.getsize(arquivo_media) if arquivo_media else 0
+        execucao.status = 'sucesso_local'
+
+        destino = BackupDestino.get_instance()
+        if destino.ativo and destino.host:
+            _enviar_sftp(destino, [arquivo_db] + ([arquivo_media] if arquivo_media else []))
+            execucao.enviado_remoto = True
+            execucao.status = 'sucesso_remoto'
+
+        execucao.finalizado_em = timezone.now()
+        execucao.save()
+
+        _limpar_backups_antigos(backups_dir, destino.dias_retencao_local if destino else 30)
+        return execucao.id
+
+    except subprocess.CalledProcessError as exc:
+        execucao.status = 'erro'
+        execucao.erro_detalhe = exc.stderr or str(exc)
+        execucao.finalizado_em = timezone.now()
+        execucao.save()
+        logger.error("executar_backup_task: pg_dump falhou: %s", execucao.erro_detalhe)
+        raise
     except Exception as exc:
-        data = {'online': False, 'erro': str(exc)}
-    cache.set('monitor_data', data, timeout=120)
-    return data['online']
+        execucao.status = 'erro'
+        execucao.erro_detalhe = str(exc)
+        execucao.finalizado_em = timezone.now()
+        execucao.save()
+        logger.error("executar_backup_task: erro inesperado: %s", exc)
+        raise
+
+
+def _enviar_sftp(destino, arquivos_locais):
+    import paramiko
+
+    transport = paramiko.Transport((destino.host, destino.porta))
+    try:
+        transport.connect(username=destino.usuario, password=destino.get_senha())
+        sftp = paramiko.SFTPClient.from_transport(transport)
+        try:
+            _sftp_mkdir_p(sftp, destino.diretorio_destino)
+            for caminho_local in arquivos_locais:
+                nome = caminho_local.replace('\\', '/').rsplit('/', 1)[-1]
+                destino_remoto = f"{destino.diretorio_destino.rstrip('/')}/{nome}"
+                sftp.put(caminho_local, destino_remoto)
+        finally:
+            sftp.close()
+    finally:
+        transport.close()
+
+
+def _sftp_mkdir_p(sftp, remote_dir):
+    partes = [p for p in remote_dir.split('/') if p]
+    caminho = ''
+    for parte in partes:
+        caminho += f'/{parte}'
+        try:
+            sftp.stat(caminho)
+        except FileNotFoundError:
+            sftp.mkdir(caminho)
+
+
+def _limpar_backups_antigos(backups_dir, dias_retencao):
+    import os
+    import time
+
+    cutoff = time.time() - dias_retencao * 86400
+    for nome in os.listdir(backups_dir):
+        caminho = os.path.join(backups_dir, nome)
+        if os.path.isfile(caminho) and os.path.getmtime(caminho) < cutoff:
+            os.remove(caminho)

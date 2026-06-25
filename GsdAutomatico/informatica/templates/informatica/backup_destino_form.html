@@ -1,0 +1,55 @@
+{% extends 'informatica/base.html' %}
+{% block title %}Backup — Servidor Reserva{% endblock %}
+{% block header_eyebrow %}Seção de Informática{% endblock %}
+{% block header_title %}Configuração do Backup Remoto{% endblock %}
+
+{% block extra_head %}
+<style>
+    .form-card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px 30px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .form-card-header { border-bottom: 1px solid var(--bg-main); padding-bottom: 15px; margin-bottom: 20px; display: flex; align-items: center; gap: 10px;}
+    .form-card-header h2 { margin: 0; font-size: 1.25rem; color: var(--text-primary); }
+    .form-item label { font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block; font-size: 0.9rem;}
+    .form-item input[type="text"], .form-item input[type="password"], .form-item input[type="number"], .form-item input[type="time"] {
+        width: 100%; padding: 12px 15px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary);
+    }
+    .form-check-input { width: 20px; height: 20px; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <h1 style="margin-bottom: 5px;"><i class="fas fa-server me-2" style="color: var(--accent-color);"></i> Servidor Reserva (SFTP)</h1>
+    <p style="color: var(--text-secondary);">Funciona apenas em produção, onde o servidor local de backup está acessível na rede.</p>
+</div>
+
+<form method="post">
+    {% csrf_token %}
+    {{ form.non_field_errors }}
+    <div class="form-card">
+        <div class="form-card-header">
+            <i class="fas fa-cogs" style="color: var(--accent-color);"></i>
+            <h2>Conexão</h2>
+        </div>
+        <div class="row g-4">
+            <div class="col-md-12 form-item form-check">
+                <label>{{ form.ativo }} Envio remoto ativo</label>
+                {% for error in form.ativo.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+            </div>
+            {% for field in form %}
+                {% if field.name != 'ativo' %}
+                <div class="col-md-6 form-item">
+                    <label for="{{ field.id_for_label }}">{{ field.label }}:</label>
+                    {{ field }}
+                    {% if field.help_text %}<div class="form-help-text">{{ field.help_text|safe }}</div>{% endif %}
+                    {% for error in field.errors %}<div class="alert-error">{{ error }}</div>{% endfor %}
+                </div>
+                {% endif %}
+            {% endfor %}
+        </div>
+    </div>
+    <div class="d-flex gap-3 mb-5">
+        <button type="submit" class="btn btn-primary px-4 py-2"><i class="fas fa-save me-2"></i> Salvar</button>
+        <a href="{% url 'informatica:backup_historico' %}" class="btn btn-secondary px-4 py-2">Ver histórico de backups</a>
+    </div>
+</form>
+{% endblock %}

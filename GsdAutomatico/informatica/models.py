@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import Group
 from Secao_pessoal.models import Efetivo
+from .crypto import encrypt_text, decrypt_text
 
 
 class ConfiguracaoComandantes(models.Model):
@@ -153,6 +154,83 @@ class Cautela(models.Model):
     # Quem recebeu a devolução da Cautela inteira
     recebedor_devolucao = models.ForeignKey(Efetivo, on_delete=models.PROTECT, related_name='devolucoes_gerais', null=True, blank=True)
     assinatura_devolucao = models.TextField(null=True, blank=True)
+
+
+# ==========================================
+# BACKUP (Fase 2)
+# ==========================================
+class BackupDestino(models.Model):
+    """Configuração (singleton) do servidor reserva onde os backups são enviados via SFTP."""
+
+    ativo = models.BooleanField(default=False, verbose_name="Envio remoto ativo")
+    host = models.CharField(max_length=255, blank=True, verbose_name="Host/IP do servidor reserva")
+    porta = models.PositiveIntegerField(default=22, verbose_name="Porta SSH")
+    usuario = models.CharField(max_length=150, blank=True, verbose_name="Usuário SSH")
+    senha_criptografada = models.TextField(blank=True, verbose_name="Senha (armazenada criptografada)")
+    diretorio_destino = models.CharField(
+        max_length=500, blank=True, default='/backups/gsd-automatico',
+        verbose_name="Diretório de destino no servidor reserva"
+    )
+    horario_execucao = models.TimeField(
+        default='03:00', verbose_name="Horário diário de execução do backup"
+    )
+    dias_retencao_local = models.PositiveIntegerField(
+        default=30, verbose_name="Dias de retenção dos backups locais"
+    )
+    atualizado_em = models.DateTimeField(auto_now=True)
+
+    def save(self, *args, **kwargs):
+        self.pk = 1
+        super().save(*args, **kwargs)
+
+    @classmethod
+    def get_instance(cls):
+        obj, _ = cls.objects.get_or_create(pk=1)
+        return obj
+
+    def set_senha(self, senha_plana: str):
+        self.senha_criptografada = encrypt_text(senha_plana)
+
+    def get_senha(self) -> str:
+        return decrypt_text(self.senha_criptografada)
+
+    def __str__(self):
+        return f"Servidor reserva ({self.host or 'não configurado'})"
+
+    class Meta:
+        verbose_name = "Configuração de Backup Remoto"
+        verbose_name_plural = "Configuração de Backup Remoto"
+
+
+class BackupExecucao(models.Model):
+    """Histórico de cada execução de backup (banco + mídia)."""
+
+    STATUS_CHOICES = [
+        ('em_andamento', 'Em andamento'),
+        ('sucesso_local', 'Sucesso (apenas local)'),
+        ('sucesso_remoto', 'Sucesso (local + enviado ao servidor reserva)'),
+        ('erro', 'Erro'),
+    ]
+
+    iniciado_em = models.DateTimeField(auto_now_add=True)
+    finalizado_em = models.DateTimeField(null=True, blank=True)
+    status = models.CharField(max_length=20, choices=STATUS_CHOICES, default='em_andamento')
+
+    arquivo_db = models.CharField(max_length=500, blank=True, verbose_name="Arquivo local do dump do banco")
+    arquivo_media = models.CharField(max_length=500, blank=True, verbose_name="Arquivo local do tar de mídia")
+    tamanho_db_bytes = models.BigIntegerField(default=0)
+    tamanho_media_bytes = models.BigIntegerField(default=0)
+
+    enviado_remoto = models.BooleanField(default=False)
+    erro_detalhe = models.TextField(blank=True)
+
+    class Meta:
+        verbose_name = "Execução de Backup"
+        verbose_name_plural = "Execuções de Backup"
+        ordering = ['-iniciado_em']
+
+    def __str__(self):
+        return f"Backup {self.iniciado_em:%d/%m/%Y %H:%M} ({self.get_status_display()})"
 
 
 class CautelaItem(models.Model):

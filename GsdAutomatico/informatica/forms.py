@@ -9,6 +9,7 @@ from django.contrib.auth.models import User, Group
 from Ouvidoria.models import Configuracao
 from Secao_pessoal.models import Efetivo
 from login.models import UserProfile # Modelo do Login
+from .models import BackupDestino
 
 
 class InformaticaUserCreationForm(forms.ModelForm):
@@ -139,3 +140,28 @@ class ConfiguracaoForm(forms.ModelForm):
     class Meta:
         model = Configuracao
         fields = ('prazo_defesa_dias', 'prazo_defesa_minutos')
+
+
+class BackupDestinoForm(forms.ModelForm):
+    """ Formulário para configurar o servidor reserva de backup (visível só p/ admin Informática) """
+    senha = forms.CharField(
+        required=False, label="Senha SSH",
+        widget=forms.PasswordInput(render_value=False, attrs={'placeholder': 'Deixe em branco para manter a senha atual'})
+    )
+
+    class Meta:
+        model = BackupDestino
+        fields = ('ativo', 'host', 'porta', 'usuario', 'diretorio_destino',
+                  'horario_execucao', 'dias_retencao_local')
+        widgets = {
+            'horario_execucao': forms.TimeInput(attrs={'type': 'time'}),
+        }
+
+    def save(self, commit=True):
+        instance = super().save(commit=False)
+        senha = self.cleaned_data.get('senha')
+        if senha:
+            instance.set_senha(senha)
+        if commit:
+            instance.save()
+        return instance

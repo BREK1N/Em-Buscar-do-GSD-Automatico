@@ -1,0 +1,75 @@
+{% extends 'informatica/base.html' %}
+{% block title %}Histórico de Backups — Informática{% endblock %}
+{% block header_eyebrow %}Seção de Informática{% endblock %}
+{% block header_title %}Histórico de Backups{% endblock %}
+
+{% block extra_head %}
+<style>
+    .card-pro { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
+    .table-pro { width: 100%; border-collapse: collapse; }
+    .table-pro th { text-align: left; padding: 12px 20px; font-size: 0.85rem; color: var(--text-secondary); font-weight: 600; border-bottom: 1px solid var(--border-color); }
+    .table-pro td { padding: 15px 20px; color: var(--text-primary); border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .table-pro tbody tr:hover { background-color: var(--bg-main); }
+    .badge-pro { padding: 4px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 600; }
+    .badge-success { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
+    .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
+    .badge-secondary { background: var(--bg-main); color: var(--text-secondary); border: 1px solid var(--border-color); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <div>
+        <h1 style="margin-bottom: 5px;"><i class="fas fa-archive me-2" style="color: var(--accent-color);"></i> Execuções de Backup</h1>
+        <p style="color: var(--text-secondary); margin: 0;">Banco de dados + mídia, local e envio ao servidor reserva.</p>
+    </div>
+    <a href="{% url 'informatica:backup_destino_config' %}" class="btn btn-secondary"><i class="fas fa-cog me-2"></i> Configurar servidor reserva</a>
+</div>
+
+<div class="card-pro">
+    <table class="table-pro">
+        <thead>
+            <tr>
+                <th>Iniciado em</th>
+                <th>Status</th>
+                <th>Tamanho (banco)</th>
+                <th>Tamanho (mídia)</th>
+                <th>Enviado ao reserva?</th>
+                <th></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for exec in execucoes %}
+            <tr>
+                <td>{{ exec.iniciado_em|date:"d/m/Y H:i" }}</td>
+                <td>
+                    {% if exec.status == 'erro' %}
+                        <span class="badge-pro badge-danger" title="{{ exec.erro_detalhe }}">Erro</span>
+                    {% elif exec.status == 'em_andamento' %}
+                        <span class="badge-pro badge-secondary">Em andamento</span>
+                    {% else %}
+                        <span class="badge-pro badge-success">{{ exec.get_status_display }}</span>
+                    {% endif %}
+                </td>
+                <td>{{ exec.tamanho_db_bytes|filesizeformat }}</td>
+                <td>{{ exec.tamanho_media_bytes|filesizeformat }}</td>
+                <td>
+                    {% if exec.enviado_remoto %}
+                        <span class="badge-pro badge-success">Sim</span>
+                    {% else %}
+                        <span class="badge-pro badge-secondary">Não</span>
+                    {% endif %}
+                </td>
+                <td>
+                    {% if exec.status != 'erro' %}
+                    <a href="{% url 'informatica:backup_explorar' exec.pk %}" class="btn btn-sm btn-primary"><i class="fas fa-search me-1"></i> Explorar / Restaurar</a>
+                    {% endif %}
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="6" class="text-center" style="color: var(--text-secondary);">Nenhum backup executado ainda.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endblock %}

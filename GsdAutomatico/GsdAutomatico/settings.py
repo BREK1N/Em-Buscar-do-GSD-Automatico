@@ -133,6 +133,10 @@ CELERY_BEAT_SCHEDULE = {
         'task': 'informatica.tasks.fetch_docker_logs_task',
         'schedule': 30.0,
     },
+    'executar-backup-diario': {
+        'task': 'informatica.tasks.executar_backup_task',
+        'schedule': 1800.0,  # checagem a cada 30 min; a task só executa no horário configurado em BackupDestino
+    },
 }
 
 MIDDLEWARE = [
