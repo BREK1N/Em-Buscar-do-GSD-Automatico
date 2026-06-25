@@ -177,6 +177,10 @@ class BackupDestino(models.Model):
     dias_retencao_local = models.PositiveIntegerField(
         default=30, verbose_name="Dias de retenção dos backups locais"
     )
+    host_key_fingerprint = models.CharField(
+        max_length=200, blank=True, editable=False,
+        verbose_name="Impressão digital da chave SSH (fixada na primeira conexão)"
+    )
     atualizado_em = models.DateTimeField(auto_now=True)
 
     def save(self, *args, **kwargs):

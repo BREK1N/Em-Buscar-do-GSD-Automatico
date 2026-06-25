@@ -47,6 +47,8 @@
                         <span class="badge-pro badge-danger" title="{{ exec.erro_detalhe }}">Erro</span>
                     {% elif exec.status == 'em_andamento' %}
                         <span class="badge-pro badge-secondary">Em andamento</span>
+                    {% elif exec.status == 'sucesso_local' and exec.erro_detalhe %}
+                        <span class="badge-pro badge-danger" title="{{ exec.erro_detalhe }}">Local ok, envio remoto falhou</span>
                     {% else %}
                         <span class="badge-pro badge-success">{{ exec.get_status_display }}</span>
                     {% endif %}
@@ -61,7 +63,7 @@
                     {% endif %}
                 </td>
                 <td>
-                    {% if exec.status != 'erro' %}
+                    {% if exec.arquivo_db %}
                     <a href="{% url 'informatica:backup_explorar' exec.pk %}" class="btn btn-sm btn-primary"><i class="fas fa-search me-1"></i> Explorar / Restaurar</a>
                     {% endif %}
                 </td>

@@ -150,19 +150,6 @@ def _executar_backup():
         execucao.tamanho_db_bytes = os.path.getsize(arquivo_db)
         execucao.tamanho_media_bytes = os.path.getsize(arquivo_media) if arquivo_media else 0
         execucao.status = 'sucesso_local'
-
-        destino = BackupDestino.get_instance()
-        if destino.ativo and destino.host:
-            _enviar_sftp(destino, [arquivo_db] + ([arquivo_media] if arquivo_media else []))
-            execucao.enviado_remoto = True
-            execucao.status = 'sucesso_remoto'
-
-        execucao.finalizado_em = timezone.now()
-        execucao.save()
-
-        _limpar_backups_antigos(backups_dir, destino.dias_retencao_local if destino else 30)
-        return execucao.id
-
     except subprocess.CalledProcessError as exc:
         execucao.status = 'erro'
         execucao.erro_detalhe = exc.stderr or str(exc)
@@ -178,13 +165,52 @@ def _executar_backup():
         logger.error("executar_backup_task: erro inesperado: %s", exc)
         raise
 
+    # O backup local já está garantido a partir daqui — uma falha no envio remoto
+    # (rede, credencial errada etc.) não pode apagar o sucesso do backup local.
+    destino = BackupDestino.get_instance()
+    if destino.ativo and destino.host:
+        try:
+            _enviar_sftp(destino, [arquivo_db] + ([arquivo_media] if arquivo_media else []))
+            execucao.enviado_remoto = True
+            execucao.status = 'sucesso_remoto'
+        except Exception as exc:
+            execucao.erro_detalhe = f'Backup local ok, mas envio remoto falhou: {exc}'
+            logger.error("executar_backup_task: envio SFTP falhou: %s", exc)
+
+    execucao.finalizado_em = timezone.now()
+    execucao.save()
+
+    _limpar_backups_antigos(backups_dir, destino.dias_retencao_local)
+    return execucao.id
+
 
 def _enviar_sftp(destino, arquivos_locais):
+    """
+    Envia os arquivos via SFTP. A chave do host é fixada na primeira conexão
+    (modelo "trust on first use", como o known_hosts do SSH) e validada nas
+    conexões seguintes — sem isso, paramiko aceitaria qualquer chave e o
+    envio (incluindo a senha) ficaria vulnerável a man-in-the-middle.
+    """
     import paramiko
 
     transport = paramiko.Transport((destino.host, destino.porta))
     try:
         transport.connect(username=destino.usuario, password=destino.get_senha())
+
+        host_key = transport.get_remote_server_key()
+        fingerprint = f"{host_key.get_name()}:{host_key.get_fingerprint().hex()}"
+        if destino.host_key_fingerprint:
+            if fingerprint != destino.host_key_fingerprint:
+                raise ValueError(
+                    "A chave SSH do servidor reserva mudou desde a última conexão "
+                    "(possível troca de servidor ou ataque man-in-the-middle). "
+                    "Envio cancelado. Se a troca foi esperada, limpe "
+                    "BackupDestino.host_key_fingerprint para confiar na nova chave."
+                )
+        else:
+            destino.host_key_fingerprint = fingerprint
+            destino.save(update_fields=['host_key_fingerprint'])
+
         sftp = paramiko.SFTPClient.from_transport(transport)
         try:
             _sftp_mkdir_p(sftp, destino.diretorio_destino)

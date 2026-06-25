@@ -12,6 +12,7 @@ https://docs.djangoproject.com/en/5.2/ref/settings/
 
 from pathlib import Path
 from dotenv import load_dotenv
+from celery.schedules import crontab
 import os
 import mimetypes
 
@@ -135,7 +136,10 @@ CELERY_BEAT_SCHEDULE = {
     },
     'executar-backup-diario': {
         'task': 'informatica.tasks.executar_backup_task',
-        'schedule': 1800.0,  # checagem a cada 30 min; a task só executa no horário configurado em BackupDestino
+        # crontab (alinhado ao relógio) — schedule por intervalo simples (run_every)
+        # não é alinhado à hora cheia e pode nunca cair dentro da janela configurada
+        # em BackupDestino.horario_execucao, dependendo de quando o beat iniciou.
+        'schedule': crontab(minute='*/10'),
     },
 }
 

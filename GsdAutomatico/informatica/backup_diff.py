@@ -65,8 +65,9 @@ MODELOS_DIFF = {
     },
 }
 
-# Campos que nunca devem ser comparados/restaurados (chave técnica, não é "dado").
-CAMPOS_IGNORADOS = {'id'}
+# Campos que nunca devem ser comparados/restaurados: chave técnica ou dado sensível
+# (credencial/segredo) que não deve aparecer em texto puro numa tela de diff.
+CAMPOS_IGNORADOS = {'id', 'senha_unica', 'senha_criptografada', 'password'}
 
 
 def _db_conf():
