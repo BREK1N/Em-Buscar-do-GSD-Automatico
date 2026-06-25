@@ -6,6 +6,8 @@ class EpaConfig(AppConfig):
     name = 'EPA'
 
     def ready(self):
+        import EPA.signals  # noqa
+
         from django.db.models.signals import post_migrate
         post_migrate.connect(_criar_grupo_epa, sender=self)
 

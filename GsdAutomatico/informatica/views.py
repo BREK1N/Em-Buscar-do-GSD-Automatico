@@ -32,8 +32,14 @@ import docker
 import os
 from django.contrib.auth.decorators import login_required, permission_required
 from django.contrib.auth import authenticate # Importação para validar senha
+from auditoria.utils import registrar, resolver_label
 
 logger = logging.getLogger(__name__)
+
+_INFORMATICA_PERMISSAO_MAP = {
+    'informatica-admin': 'Admin- Informática',
+    'informatica-secao': 'Seção- Informática',
+}
 
 def is_informatica_admin(user):
     return user.is_superuser or user.groups.filter(name='informatica-admin').exists()
@@ -1496,6 +1502,11 @@ def ouvidoria_admin_update(request, pk):
         return JsonResponse({'status': 'error', 'message': 'Ação desconhecida.'}, status=400)
 
     logger.info(f"[ADMIN OUVIDORIA] PATD {patd.numero_patd} — {'; '.join(changes)} por {request.user.username}")
+    registrar(
+        request.user, secao='ouvidoria', permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+        acao='editou', descricao=f"editou a PATD {patd.numero_patd} via painel admin ({'; '.join(changes)})",
+        objeto_tipo='PATD', objeto_id=patd.numero_patd,
+    )
     return JsonResponse({'status': 'success', 'changes': changes})
 
 
@@ -1512,6 +1523,11 @@ def ouvidoria_admin_delete_anexo(request, patd_pk, anexo_pk):
         pass
     anexo.delete()
     logger.info(f"[ADMIN OUVIDORIA] Anexo '{nome}' removido da PATD {patd.numero_patd} por {request.user.username}")
+    registrar(
+        request.user, secao='ouvidoria', permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+        acao='excluiu', descricao=f"removeu o anexo '{nome}' da PATD {patd.numero_patd}",
+        objeto_tipo='PATD', objeto_id=patd.numero_patd,
+    )
     return JsonResponse({'status': 'success', 'message': f'Anexo "{nome}" removido.'})
 
 
@@ -1533,6 +1549,11 @@ def ouvidoria_lixeira_config(request):
     config.dias_retencao_lixeira = dias
     config.save(update_fields=['dias_retencao_lixeira'])
     logger.info(f"[LIXEIRA] Retenção alterada para {dias} dias por {request.user.username}")
+    registrar(
+        request.user, secao='ouvidoria', permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+        acao='configurou', descricao=f"alterou a retenção da lixeira de PATD para {dias} dias",
+        objeto_tipo='Configuração',
+    )
     return JsonResponse({'status': 'success', 'dias': dias})
 
 
@@ -1546,6 +1567,11 @@ def ouvidoria_lixeira_restore(request, pk):
     patd.deleted_at = None
     patd.save(update_fields=['deleted', 'deleted_at'])
     logger.info(f"[LIXEIRA] PATD {numero} restaurada por {request.user.username}")
+    registrar(
+        request.user, secao='ouvidoria', permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+        acao='restaurou', descricao=f"restaurou a PATD {numero} da lixeira",
+        objeto_tipo='PATD', objeto_id=numero,
+    )
     return JsonResponse({'status': 'success', 'message': f'PATD {numero} restaurada.'})
 
 
@@ -1557,6 +1583,11 @@ def ouvidoria_lixeira_delete(request, pk):
     numero = patd.numero_patd
     patd.delete()
     logger.info(f"[LIXEIRA] PATD {numero} excluída permanentemente por {request.user.username}")
+    registrar(
+        request.user, secao='ouvidoria', permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+        acao='excluiu', descricao=f"excluiu permanentemente a PATD {numero} da lixeira",
+        objeto_tipo='PATD', objeto_id=numero,
+    )
     return JsonResponse({'status': 'success', 'message': f'PATD {numero} excluída permanentemente.'})
 
 
@@ -1574,6 +1605,11 @@ def ouvidoria_lixeira_set_deleted_at(request, pk):
     patd.deleted_at = nova_data
     patd.save(update_fields=['deleted_at'])
     logger.info(f"[LIXEIRA] deleted_at de PATD {patd.numero_patd} alterado para {nova_data} por {request.user.username}")
+    registrar(
+        request.user, secao='ouvidoria', permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+        acao='editou', descricao=f"alterou a data de entrada na lixeira da PATD {patd.numero_patd} para {nova_data.strftime('%d/%m/%Y %H:%M')}",
+        objeto_tipo='PATD', objeto_id=patd.numero_patd,
+    )
     return JsonResponse({'status': 'success', 'message': f'Data atualizada para {nova_data.strftime("%d/%m/%Y %H:%M")}.'})
 
 
@@ -1585,6 +1621,11 @@ def ouvidoria_lixeira_esvaziar(request):
     count = patds.count()
     patds.delete()
     logger.info(f"[LIXEIRA] {count} PATD(s) excluídas por {request.user.username}")
+    registrar(
+        request.user, secao='ouvidoria', permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+        acao='excluiu', descricao=f"esvaziou a lixeira de PATD ({count} excluída(s) permanentemente)",
+        objeto_tipo='PATD',
+    )
     return JsonResponse({'status': 'success', 'count': count, 'message': f'{count} PATD(s) excluídas permanentemente.'})
 
 
@@ -1610,3 +1651,70 @@ def logs_alegacao_defesa(request):
         'logs': qs[:200],
         'patd_pk_filtro': patd_pk or '',
     })
+
+
+# ==========================================
+# AUDITORIA (Fase 3) — API consumida pela aba "Auditoria" em configuracao_form.html
+# ==========================================
+@login_required
+def auditoria_search(request):
+    if not is_informatica_secao(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    from auditoria.models import LogAuditoria
+
+    qs = LogAuditoria.objects.all()
+    usuario = request.GET.get('usuario', '').strip()
+    secao = request.GET.get('secao', '').strip()
+    acao = request.GET.get('acao', '').strip()
+    busca = request.GET.get('busca', '').strip()
+    data_inicio = request.GET.get('data_inicio', '').strip()
+    data_fim = request.GET.get('data_fim', '').strip()
+
+    if usuario:
+        qs = qs.filter(Q(username__icontains=usuario) | Q(nome_guerra__icontains=usuario))
+    if secao:
+        qs = qs.filter(secao=secao)
+    if acao:
+        qs = qs.filter(acao=acao)
+    if busca:
+        qs = qs.filter(Q(descricao__icontains=busca) | Q(objeto_tipo__icontains=busca) | Q(objeto_id__icontains=busca))
+    if data_inicio:
+        qs = qs.filter(criado_em__date__gte=data_inicio)
+    if data_fim:
+        qs = qs.filter(criado_em__date__lte=data_fim)
+
+    from django.core.paginator import Paginator
+    paginator = Paginator(qs, 50)
+    page_obj = paginator.get_page(request.GET.get('page'))
+
+    return JsonResponse({
+        'results': [{
+            'id': log.id,
+            'linha': log.linha_formatada,
+            'secao': log.secao,
+            'acao': log.acao,
+            'objeto_tipo': log.objeto_tipo,
+            'objeto_id': log.objeto_id,
+            'criado_em': log.criado_em.isoformat(),
+        } for log in page_obj],
+        'has_next': page_obj.has_next(),
+        'has_previous': page_obj.has_previous(),
+        'page': page_obj.number,
+        'num_pages': page_obj.paginator.num_pages,
+        'count': page_obj.paginator.count,
+    })
+
+
+@login_required
+def auditoria_filtros(request):
+    """Opções disponíveis pra montar os selects de filtro (seção/ação) na aba Auditoria."""
+    if not is_informatica_secao(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    from auditoria.models import LogAuditoria
+    secoes = list(LogAuditoria.objects.exclude(secao='').values_list('secao', flat=True).distinct().order_by('secao'))
+    acoes = list(LogAuditoria.objects.exclude(acao='').values_list('acao', flat=True).distinct().order_by('acao'))
+    return JsonResponse({'secoes': secoes, 'acoes': acoes})

@@ -13,12 +13,23 @@ from django.core.files.base import ContentFile
 
 from ..models import PATD, Configuracao, Anexo
 from Secao_pessoal.models import Efetivo
-from ..permissions import can_change_patd_date
+from ..permissions import (
+    can_change_patd_date, OUVIDORIA_CHEFE, OUVIDORIA_APURADOR, OUVIDORIA_ADJUNTO, OUVIDORIA_CB, OUVIDORIA_S2,
+)
 from .decorators import ouvidoria_required, oficial_responsavel_required
 from .helpers import get_document_pages, _try_advance_status_from_justificativa
 from .commander import _check_and_finalize_patd, _check_and_advance_reconsideracao_status
+from auditoria.utils import registrar, resolver_label
 
 logger = logging.getLogger(__name__)
+
+_PATD_PERMISSAO_MAP = {
+    OUVIDORIA_CHEFE: 'Chefe- Ouvidoria',
+    OUVIDORIA_APURADOR: 'Apurador- Ouvidoria',
+    OUVIDORIA_ADJUNTO: 'Adjunto- Ouvidoria',
+    OUVIDORIA_CB: 'CB- Ouvidoria',
+    OUVIDORIA_S2: 'S2- Ouvidoria',
+}
 
 def _check_preclusao_signatures(patd):
     if patd.testemunha1 and not patd.assinatura_testemunha1:
@@ -55,6 +66,11 @@ def salvar_assinatura(request, pk):
             # Garante que a referência do ficheiro seja salva na base de dados explicitamente
             patd.assinatura_oficial.save(file_content.name, file_content, save=False)
             patd.save(update_fields=['assinatura_oficial'])
+            registrar(
+                request.user, secao='ouvidoria', permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+                acao='assinou', descricao=f"registrou a assinatura do oficial na PATD {patd.numero_patd}",
+                objeto_tipo='PATD', objeto_id=patd.numero_patd,
+            )
         except Exception as e:
             logger.error(f"Erro ao converter Base64 para ficheiro para PATD {pk}: {e}")
             return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)
@@ -118,6 +134,12 @@ def salvar_assinatura_ciencia(request, pk):
 
         patd.save()
 
+        registrar(
+            request.user, secao='ouvidoria', permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+            acao='assinou', descricao=f"registrou a assinatura {assinatura_index + 1} de ciência da PATD {patd.numero_patd}",
+            objeto_tipo='PATD', objeto_id=patd.numero_patd,
+        )
+
         return JsonResponse({'status': 'success', 'message': 'Assinatura registrada com sucesso.'})
     except Exception as e:
         logger.error(f"Erro ao salvar assinatura de ciência da PATD {pk}: {e}")
@@ -148,6 +170,11 @@ def salvar_assinatura_defesa(request, pk):
                 patd.assinatura_alegacao_defesa.delete(save=False)
 
             patd.assinatura_alegacao_defesa.save(file_content.name, file_content, save=True)
+            registrar(
+                request.user, secao='ouvidoria', permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+                acao='assinou', descricao=f"registrou a assinatura da alegação de defesa da PATD {patd.numero_patd}",
+                objeto_tipo='PATD', objeto_id=patd.numero_patd,
+            )
         except Exception as e:
             logger.error(f"Erro ao converter Base64 para ficheiro para PATD {pk}: {e}")
             return JsonResponse({'status': 'error', 'message': 'Erro ao processar a imagem da assinatura.'}, status=500)

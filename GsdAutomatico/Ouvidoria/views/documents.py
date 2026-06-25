@@ -32,8 +32,18 @@ from .helpers import (
     get_template_subfolder,
 )
 from ..analise_transgressao import analisar_e_resumir_defesa, reescrever_ocorrencia
+from ..permissions import OUVIDORIA_CHEFE, OUVIDORIA_APURADOR, OUVIDORIA_ADJUNTO, OUVIDORIA_CB, OUVIDORIA_S2
+from auditoria.utils import registrar, resolver_label
 
 logger = logging.getLogger(__name__)
+
+_PATD_PERMISSAO_MAP = {
+    OUVIDORIA_CHEFE: 'Chefe- Ouvidoria',
+    OUVIDORIA_APURADOR: 'Apurador- Ouvidoria',
+    OUVIDORIA_ADJUNTO: 'Adjunto- Ouvidoria',
+    OUVIDORIA_CB: 'CB- Ouvidoria',
+    OUVIDORIA_S2: 'S2- Ouvidoria',
+}
 
 @login_required
 @ouvidoria_required
@@ -375,6 +385,11 @@ def upload_ficha_individual(request, pk):
         arquivo=ficha_individual_file,
         tipo='ficha_individual'
     )
+    registrar(
+        request.user, secao='ouvidoria', permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+        acao='anexou', descricao=f"anexou a ficha individual da PATD {patd.numero_patd}",
+        objeto_tipo='PATD', objeto_id=patd.numero_patd,
+    )
 
     avancou = False
     if patd.status == 'confeccao_fr_ficha':
@@ -403,6 +418,11 @@ def upload_formulario_resumo(request, pk):
         return redirect('Ouvidoria:patd_detail', pk=pk)
     patd.anexos.filter(tipo='formulario_resumo').delete()
     Anexo.objects.create(patd=patd, arquivo=request.FILES['formulario_resumo'], tipo='formulario_resumo')
+    registrar(
+        request.user, secao='ouvidoria', permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+        acao='anexou', descricao=f"anexou o formulário de resumo da PATD {patd.numero_patd}",
+        objeto_tipo='PATD', objeto_id=patd.numero_patd,
+    )
 
     avancou = False
     if patd.status == 'confeccao_fr_ficha':

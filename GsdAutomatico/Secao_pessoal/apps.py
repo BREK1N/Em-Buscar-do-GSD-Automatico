@@ -31,6 +31,8 @@ class SecaoPessoalConfig(AppConfig):
     name = 'Secao_pessoal'
 
     def ready(self):
+        import Secao_pessoal.signals  # noqa
+
         from django.db.models.signals import post_migrate
         post_migrate.connect(_criar_grupos_s1, sender=self)
 

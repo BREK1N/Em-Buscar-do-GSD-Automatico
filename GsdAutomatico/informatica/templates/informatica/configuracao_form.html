@@ -78,6 +78,9 @@
     <a href="#" class="tab-link" data-target="tab-admin-ouvidoria">
         <i class="fas fa-tools me-2"></i> Admin Ouvidoria
     </a>
+    <a href="#" class="tab-link" data-target="tab-auditoria">
+        <i class="fas fa-history me-2"></i> Auditoria
+    </a>
 </nav>
 
 <!-- ABA CONFIGURAÇÕES GERAIS -->
@@ -336,6 +339,59 @@
     </div>
 </div>
 
+<!-- ABA AUDITORIA -->
+<div id="tab-auditoria" class="tab-panel">
+    <div class="form-card" style="margin-bottom:16px;">
+        <div class="form-card-header">
+            <i class="fas fa-filter" style="color:var(--accent-color);font-size:1.2rem;"></i>
+            <h2>Filtros</h2>
+        </div>
+        <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px;margin-bottom:12px;">
+            <div class="form-item">
+                <label>Usuário / Nome de guerra</label>
+                <input type="text" id="aud-filtro-usuario" placeholder="ex: dpaulalfp ou D. Paula" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);">
+            </div>
+            <div class="form-item">
+                <label>Seção</label>
+                <select id="aud-filtro-secao" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);">
+                    <option value="">— todas —</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label>Ação</label>
+                <select id="aud-filtro-acao" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);">
+                    <option value="">— todas —</option>
+                </select>
+            </div>
+            <div class="form-item">
+                <label>De</label>
+                <input type="date" id="aud-filtro-data-inicio" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);">
+            </div>
+            <div class="form-item">
+                <label>Até</label>
+                <input type="date" id="aud-filtro-data-fim" style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);">
+            </div>
+            <div class="form-item">
+                <label>Buscar na descrição</label>
+                <input type="text" id="aud-filtro-busca" placeholder="ex: omis 1587, PATD 1589..." style="width:100%;padding:8px 10px;border-radius:8px;border:1px solid var(--border-color);background:var(--bg-main);color:var(--text-primary);">
+            </div>
+        </div>
+        <button id="aud-btn-buscar" class="btn btn-primary" style="border-radius:8px;padding:8px 18px;"><i class="fas fa-search me-1"></i> Buscar</button>
+        <span id="aud-contador" style="margin-left:14px;color:var(--text-secondary);font-size:0.88rem;"></span>
+    </div>
+
+    <div class="form-card">
+        <ul id="aud-resultados" style="list-style:none;padding:0;margin:0;max-height:520px;overflow-y:auto;">
+            <li style="color:var(--text-secondary);padding:8px 0;">Use os filtros acima e clique em Buscar.</li>
+        </ul>
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:14px;">
+            <button id="aud-btn-anterior" class="btn btn-sm btn-secondary" style="border-radius:6px;" disabled>« Anterior</button>
+            <span id="aud-pagina-info" style="color:var(--text-secondary);font-size:0.85rem;"></span>
+            <button id="aud-btn-proxima" class="btn btn-sm btn-secondary" style="border-radius:6px;" disabled>Próxima »</button>
+        </div>
+    </div>
+</div>
+
 <!-- MODAL DE ASSINATURA -->
 <div class="modal-overlay" id="signature-modal-pessoal">
     <div class="modal-content">
@@ -387,6 +443,9 @@ document.addEventListener('DOMContentLoaded', function() {
         }
         if (targetPanelId === 'tab-admin-ouvidoria') {
             document.dispatchEvent(new CustomEvent('admTabOpened'));
+        }
+        if (targetPanelId === 'tab-auditoria') {
+            document.dispatchEvent(new CustomEvent('auditoriaTabOpened'));
         }
     }
 
@@ -1015,6 +1074,89 @@ document.addEventListener('DOMContentLoaded', function() {
             else showAdmFeedback(d.message || 'Erro.', 'error');
         });
     };
+})();
+
+// ======================================================
+// AUDITORIA (escopo global pra reutilizar nos onclick dos botões de paginação)
+// ======================================================
+(function() {
+    const SEARCH_URL  = "{% url 'informatica:auditoria_search' %}";
+    const FILTROS_URL = "{% url 'informatica:auditoria_filtros' %}";
+
+    const resultadosEl   = document.getElementById('aud-resultados');
+    const contadorEl     = document.getElementById('aud-contador');
+    const paginaInfoEl   = document.getElementById('aud-pagina-info');
+    const btnBuscar      = document.getElementById('aud-btn-buscar');
+    const btnAnterior    = document.getElementById('aud-btn-anterior');
+    const btnProxima     = document.getElementById('aud-btn-proxima');
+    const selSecao       = document.getElementById('aud-filtro-secao');
+    const selAcao        = document.getElementById('aud-filtro-acao');
+    if (!resultadosEl) return;
+
+    let paginaAtual = 1;
+    let filtrosCarregados = false;
+
+    function carregarFiltros() {
+        fetch(FILTROS_URL).then(r => r.json()).then(d => {
+            (d.secoes || []).forEach(s => {
+                const opt = document.createElement('option');
+                opt.value = s; opt.textContent = s;
+                selSecao.appendChild(opt);
+            });
+            (d.acoes || []).forEach(a => {
+                const opt = document.createElement('option');
+                opt.value = a; opt.textContent = a;
+                selAcao.appendChild(opt);
+            });
+            filtrosCarregados = true;
+        }).catch(() => {});
+    }
+
+    function buscar(pagina) {
+        paginaAtual = pagina || 1;
+        const params = new URLSearchParams({
+            usuario: document.getElementById('aud-filtro-usuario')?.value?.trim() || '',
+            secao: selSecao?.value || '',
+            acao: selAcao?.value || '',
+            busca: document.getElementById('aud-filtro-busca')?.value?.trim() || '',
+            data_inicio: document.getElementById('aud-filtro-data-inicio')?.value || '',
+            data_fim: document.getElementById('aud-filtro-data-fim')?.value || '',
+            page: paginaAtual,
+        });
+        resultadosEl.innerHTML = '<li style="color:var(--text-secondary);padding:8px 0;"><i class="fas fa-spinner fa-spin me-2"></i>Buscando...</li>';
+        fetch(`${SEARCH_URL}?${params.toString()}`)
+            .then(r => r.json())
+            .then(d => {
+                resultadosEl.innerHTML = '';
+                if (!d.results || !d.results.length) {
+                    resultadosEl.innerHTML = '<li style="color:var(--text-secondary);padding:8px 0;">Nenhum registro encontrado.</li>';
+                } else {
+                    d.results.forEach(item => {
+                        const li = document.createElement('li');
+                        li.style.cssText = 'padding:10px 12px;border-radius:8px;border:1px solid var(--border-color);margin-bottom:6px;background:var(--bg-main);font-size:0.88rem;';
+                        const data = new Date(item.criado_em).toLocaleString('pt-BR');
+                        li.innerHTML = `<div>${item.linha}</div><div style="color:var(--text-secondary);font-size:0.78rem;margin-top:4px;">${data}</div>`;
+                        resultadosEl.appendChild(li);
+                    });
+                }
+                contadorEl.textContent = `${d.count} registro(s)`;
+                paginaInfoEl.textContent = `Página ${d.page} de ${d.num_pages || 1}`;
+                btnAnterior.disabled = !d.has_previous;
+                btnProxima.disabled = !d.has_next;
+            })
+            .catch(() => { resultadosEl.innerHTML = '<li style="color:#ef4444;padding:8px 0;">Erro ao buscar.</li>'; });
+    }
+
+    btnBuscar?.addEventListener('click', () => buscar(1));
+    btnAnterior?.addEventListener('click', () => buscar(paginaAtual - 1));
+    btnProxima?.addEventListener('click', () => buscar(paginaAtual + 1));
+
+    document.addEventListener('auditoriaTabOpened', () => {
+        if (!filtrosCarregados) carregarFiltros();
+        if (resultadosEl.children.length === 1 && resultadosEl.children[0].textContent.includes('Use os filtros')) {
+            buscar(1);
+        }
+    });
 })();
 </script>
 {% endblock %}

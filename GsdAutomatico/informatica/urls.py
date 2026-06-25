@@ -90,4 +90,10 @@ urlpatterns = [
     path('api/ouvidoria/lixeira/<int:pk>/restore/', views.ouvidoria_lixeira_restore, name='ouvidoria_lixeira_restore'),
     path('api/ouvidoria/lixeira/<int:pk>/delete/', views.ouvidoria_lixeira_delete, name='ouvidoria_lixeira_delete'),
     path('api/ouvidoria/lixeira/<int:pk>/set-deleted-at/', views.ouvidoria_lixeira_set_deleted_at, name='ouvidoria_lixeira_set_deleted_at'),
+
+    # ===============================================
+    # AUDITORIA (Fase 3) — aba dentro de configuracao_form.html
+    # ===============================================
+    path('api/auditoria/search/', views.auditoria_search, name='auditoria_search'),
+    path('api/auditoria/filtros/', views.auditoria_filtros, name='auditoria_filtros'),
 ]

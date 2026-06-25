@@ -63,6 +63,7 @@ INSTALLED_APPS = [
     'ESI.apps.EsiConfig',
     'EPA.apps.EpaConfig',
     'SCIM.apps.ScimConfig',
+    'auditoria',
 ]
 
 # ── Django Channels ───────────────────────────────────────────────────────────
@@ -150,6 +151,7 @@ MIDDLEWARE = [
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
+    'auditoria.middleware.CurrentUserMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
     'GsdAutomatico.middleware.RequestLogMiddleware',

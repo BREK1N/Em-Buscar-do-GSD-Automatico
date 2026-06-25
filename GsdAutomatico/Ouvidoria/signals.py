@@ -5,7 +5,10 @@ from django.db.models.signals import post_save, post_migrate
 from django.dispatch import receiver
 from django.contrib.auth.models import Group
 from .models import Configuracao
-from .permissions import OUVIDORIA_GROUPS, COMANDANTE
+from .permissions import (
+    OUVIDORIA_GROUPS, COMANDANTE, OUVIDORIA_CHEFE, OUVIDORIA_APURADOR,
+    OUVIDORIA_ADJUNTO, OUVIDORIA_CB, OUVIDORIA_S2,
+)
 from informatica.models import ConfiguracaoComandantes
 
 logger = logging.getLogger(__name__)
@@ -64,3 +67,26 @@ def on_commander_change(sender, instance, **kwargs):
 
     except Exception as e:
         logger.error("Erro no signal on_commander_change: %s", e)
+
+
+# ==========================================
+# AUDITORIA (Fase 3)
+# ==========================================
+from auditoria.registry import registrar_modelo
+from auditoria.utils import resolver_label
+from .models import PATD
+
+_PATD_PERMISSAO_MAP = {
+    OUVIDORIA_CHEFE: 'Chefe- Ouvidoria',
+    OUVIDORIA_APURADOR: 'Apurador- Ouvidoria',
+    OUVIDORIA_ADJUNTO: 'Adjunto- Ouvidoria',
+    OUVIDORIA_CB: 'CB- Ouvidoria',
+    OUVIDORIA_S2: 'S2- Ouvidoria',
+}
+
+registrar_modelo(
+    PATD, secao='ouvidoria', objeto_tipo='PATD', label='a PATD',
+    permissao_resolver=lambda user: resolver_label(user, _PATD_PERMISSAO_MAP),
+    campo_id=lambda p: p.numero_patd,
+    campos_monitorados=['status', 'oficial_responsavel_id', 'data_ciencia', 'transgressao_resumida'],
+)

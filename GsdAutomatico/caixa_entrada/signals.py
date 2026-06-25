@@ -126,3 +126,18 @@ def notificar_mudanca_status_chamado(sender, instance, created, **kwargs):
         )
     except Exception:
         pass
+
+
+# ==========================================
+# AUDITORIA (Fase 3)
+# ==========================================
+from auditoria.registry import registrar_modelo
+from auditoria.utils import resolver_label
+from .models import Mensagem
+
+registrar_modelo(
+    Mensagem, secao='caixa_entrada', objeto_tipo='Mensagem/Chamado', label='a mensagem',
+    permissao_resolver=lambda user: resolver_label(user, {}),  # sem grupos dedicados nessa seção hoje
+    campo_id=lambda m: m.pk,
+    campos_monitorados=['assunto', 'status_chamado'],
+)
