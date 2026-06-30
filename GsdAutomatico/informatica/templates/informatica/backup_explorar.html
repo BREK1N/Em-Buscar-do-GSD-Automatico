@@ -5,24 +5,62 @@
 
 {% block extra_head %}
 <style>
-    .form-card { background-color: var(--bg-content); border: 1px solid var(--border-color); border-radius: 16px; padding: 25px 30px; margin-bottom: 25px; box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05); }
-    .form-item label { font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block; font-size: 0.9rem;}
-    .form-item select, .form-item input[type="text"] { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); background-color: var(--bg-main); color: var(--text-primary); }
-    .table-pro { width: 100%; border-collapse: collapse; }
-    .table-pro th { text-align: left; padding: 10px 14px; font-size: 0.85rem; color: var(--text-secondary); border-bottom: 1px solid var(--border-color); }
-    .table-pro td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
-    tr.diferente td { background: rgba(245, 158, 11, 0.08); }
-    .alert-error { background: rgba(239,68,68,0.1); color: var(--danger-color); border: 1px solid var(--danger-color); border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+    .form-card { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 16px; padding: 24px 28px; margin-bottom: 20px; box-shadow: 0 2px 8px rgba(0,0,0,0.06); }
+    .form-item label { font-weight: 600; color: var(--text-secondary); margin-bottom: 6px; display: block; font-size: 0.85rem; text-transform: uppercase; letter-spacing: .04em; }
+    .form-item select, .form-item input[type="text"] { width: 100%; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-primary); font-size: 0.95rem; }
+    .form-item select:focus, .form-item input:focus { outline: none; border-color: var(--primary-color); box-shadow: 0 0 0 3px rgba(var(--primary-rgb), 0.12); }
+
+    /* Tabela de listagem */
+    .lista-card { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+    .lista-header { padding: 16px 20px; border-bottom: 1px solid var(--border-color); display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; }
+    .table-lista { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .table-lista th { padding: 10px 14px; text-align: left; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color); white-space: nowrap; }
+    .table-lista td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .table-lista tr:last-child td { border-bottom: none; }
+    .table-lista tr:hover td { background: rgba(var(--primary-rgb), 0.04); }
+
+    /* Badge de situação */
+    .badge-sit { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: .03em; white-space: nowrap; }
+    .badge-sit.danger    { background: rgba(239,68,68,.15);  color: #ef4444; }
+    .badge-sit.success   { background: rgba(34,197,94,.15);  color: #16a34a; }
+    .badge-sit.secondary { background: rgba(107,114,128,.15);color: #6b7280; }
+    .badge-sit.info      { background: rgba(59,130,246,.12); color: #2563eb; }
+    .badge-sit.warning   { background: rgba(245,158,11,.15); color: #d97706; }
+
+    /* Filtro inline */
+    .filtro-input { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-primary); font-size: 0.88rem; min-width: 220px; }
+
+    /* Card de destaque (campos principais do registro) */
+    .destaque-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
+    .destaque-item { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 10px; padding: 14px 16px; }
+    .destaque-item .lbl { font-size: 0.75rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); margin-bottom: 6px; }
+    .destaque-item .val { font-size: 0.95rem; color: var(--text-primary); white-space: pre-wrap; word-break: break-word; }
+
+    /* Diff table */
+    .diff-card { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+    .table-diff { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .table-diff th { padding: 10px 16px; text-align: left; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .05em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color); }
+    .table-diff td { padding: 10px 16px; border-bottom: 1px solid var(--border-color); vertical-align: top; }
+    .table-diff tr:last-child td { border-bottom: none; }
+    tr.diferente td { background: rgba(245,158,11,.06); }
+    tr.diferente td:nth-child(3) { color: #b45309; font-weight: 600; }
+    tr.diferente td:nth-child(4) { color: var(--text-primary); }
+
+    .alert-error { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+
+    .btn-voltar-lista { font-size: 0.85rem; }
 </style>
 {% endblock %}
 
 {% block content %}
+
+{# ── Formulário de seleção ── #}
 <div class="form-card">
     <form method="get">
         <div class="row g-3 align-items-end">
             <div class="col-md-4 form-item">
                 <label>Tipo de registro</label>
-                <select name="modelo">
+                <select name="modelo" onchange="this.form.submit()">
                     <option value="">— selecione —</option>
                     {% for key, cfg in modelos.items %}
                         <option value="{{ key }}" {% if key == modelo_key %}selected{% endif %}>{{ cfg.label }}</option>
@@ -30,48 +68,72 @@
                 </select>
             </div>
             <div class="col-md-4 form-item">
-                <label>Valor de busca (ex: nº da PATD, nome completo)</label>
-                <input type="text" name="valor" value="{{ valor }}" placeholder="Digite o valor exato...">
+                <label>Buscar por ID ou valor exato (opcional)</label>
+                <input type="text" name="valor" value="{{ valor }}" placeholder="Deixe em branco para listar todos…">
             </div>
-            <div class="col-md-3 form-item">
-                <button type="submit" class="btn btn-primary px-4 py-2 w-100"><i class="fas fa-search me-2"></i> Comparar</button>
+            <div class="col-md-1 form-item">
+                <button type="submit" class="btn btn-primary px-3 py-2 w-100"><i class="fas fa-search"></i></button>
             </div>
+            {% if valor %}
+            <div class="col-md-2 form-item">
+                <a href="?modelo={{ modelo_key }}" class="btn btn-outline-secondary px-3 py-2 w-100 btn-voltar-lista">
+                    <i class="fas fa-list me-1"></i> Ver lista
+                </a>
+            </div>
+            {% endif %}
         </div>
     </form>
 </div>
 
 {% if erro %}
-<div class="alert-error">{{ erro }}</div>
+<div class="alert-error"><i class="fas fa-exclamation-circle me-2"></i>{{ erro }}</div>
 {% endif %}
 
+{# ── Listagem de todos os registros ── #}
 {% if lista_registros is not None %}
-<div class="card-pro mt-3" style="background: var(--bg-content); border:1px solid var(--border-color); border-radius:12px; overflow:hidden;">
-    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
-        <strong>{{ lista_registros|length }} registro(s) encontrado(s) neste backup</strong>
-        <small class="text-muted">Clique em "Ver / Comparar" para pesquisar um registro específico e restaurar campos.</small>
+<div class="lista-card">
+    <div class="lista-header">
+        <div>
+            <strong>{{ lista_registros|length }} registro(s)</strong>
+            <span class="text-muted ms-2" style="font-size:.85rem;">— clique em Ver para comparar e restaurar campos individuais</span>
+        </div>
+        <form method="get" class="d-flex gap-2 align-items-center">
+            <input type="hidden" name="modelo" value="{{ modelo_key }}">
+            <input type="text" name="filtro" value="{{ filtro }}" class="filtro-input" placeholder="Filtrar resultados…">
+            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-filter"></i></button>
+            {% if filtro %}
+            <a href="?modelo={{ modelo_key }}" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></a>
+            {% endif %}
+        </form>
     </div>
     <div style="overflow-x:auto;">
-        <table class="table-pro">
+        <table class="table-lista">
             <thead>
                 <tr>
                     <th>ID</th>
-                    <th>{{ busca_campo }}</th>
-                    <th style="width:140px;"></th>
+                    {% for _, lbl, _ in colunas_lista %}<th>{{ lbl }}</th>{% endfor %}
+                    <th>Situação</th>
+                    <th style="width:110px;"></th>
                 </tr>
             </thead>
             <tbody>
                 {% for reg in lista_registros %}
                 <tr>
-                    <td>{{ reg.id }}</td>
-                    <td>{{ reg._display|default:"—" }}</td>
+                    <td><code>{{ reg.id }}</code></td>
+                    {% for cell in reg.cells %}<td>{{ cell }}</td>{% endfor %}
+                    <td>
+                        {% if reg.badge_txt %}
+                        <span class="badge-sit {{ reg.badge_cls }}">{{ reg.badge_txt }}</span>
+                        {% else %}—{% endif %}
+                    </td>
                     <td>
                         <a href="?modelo={{ modelo_key }}&valor={{ reg.id }}" class="btn btn-sm btn-outline-primary">
-                            <i class="fas fa-search me-1"></i>Ver / Comparar
+                            <i class="fas fa-eye me-1"></i>Ver
                         </a>
                     </td>
                 </tr>
                 {% empty %}
-                <tr><td colspan="3" class="text-center text-muted py-3">Nenhum registro nesta seção neste backup.</td></tr>
+                <tr><td colspan="20" class="text-center text-muted py-4">Nenhum registro encontrado{% if filtro %} para "{{ filtro }}"{% endif %}.</td></tr>
                 {% endfor %}
             </tbody>
         </table>
@@ -79,21 +141,35 @@
 </div>
 {% endif %}
 
+{# ── Detalhe / Diff ── #}
 {% if diffs %}
+
+{# Campos de destaque #}
+{% if campos_destaque %}
+<div class="destaque-grid mt-3">
+    {% for item in campos_destaque %}
+    <div class="destaque-item">
+        <div class="lbl">{{ item.campo }}</div>
+        <div class="val">{{ item.valor }}</div>
+    </div>
+    {% endfor %}
+</div>
+{% endif %}
+
 <form method="post" action="{% url 'informatica:backup_restaurar_registro' execucao.pk %}">
     {% csrf_token %}
     <input type="hidden" name="modelo" value="{{ modelo_key }}">
     <input type="hidden" name="valor" value="{{ valor }}">
     <input type="hidden" name="registro_pk" value="{{ registro_pk }}">
 
-    <div class="card-pro" style="background: var(--bg-content); border:1px solid var(--border-color); border-radius:12px; overflow:hidden;">
-        <table class="table-pro">
+    <div class="diff-card">
+        <table class="table-diff">
             <thead>
                 <tr>
-                    <th style="width:40px;"></th>
+                    <th style="width:36px;"></th>
                     <th>Campo</th>
                     <th>Valor no backup</th>
-                    <th>Valor atual</th>
+                    <th>Valor atual em produção</th>
                 </tr>
             </thead>
             <tbody>
@@ -104,20 +180,25 @@
                         <input type="checkbox" name="campos" value="{{ d.campo }}">
                         {% endif %}
                     </td>
-                    <td>{{ d.label }}</td>
-                    <td>{{ d.antigo|default:"—" }}</td>
-                    <td>{{ d.atual|default:"—" }}</td>
+                    <td style="font-weight:600; white-space:nowrap;">{{ d.label }}</td>
+                    <td style="max-width:340px; white-space:pre-wrap; word-break:break-word;">{{ d.antigo|default:"—" }}</td>
+                    <td style="max-width:340px; white-space:pre-wrap; word-break:break-word;">{{ d.atual|default:"—" }}</td>
                 </tr>
                 {% endfor %}
             </tbody>
         </table>
     </div>
 
-    <div class="d-flex gap-3 mt-3 mb-5">
-        <button type="submit" class="btn btn-warning px-4 py-2" onclick="return confirm('Tem certeza? Os campos marcados serão sobrescritos com os valores do backup.');">
+    <div class="d-flex gap-3 mt-3 mb-5 align-items-center">
+        <button type="submit" class="btn btn-warning px-4 py-2"
+                onclick="return confirm('Os campos marcados serão sobrescritos com os valores do backup. Confirma?');">
             <i class="fas fa-undo me-2"></i> Restaurar campos selecionados
         </button>
+        <a href="?modelo={{ modelo_key }}" class="btn btn-outline-secondary px-4 py-2">
+            <i class="fas fa-list me-2"></i> Voltar à lista
+        </a>
     </div>
 </form>
 {% endif %}
+
 {% endblock %}

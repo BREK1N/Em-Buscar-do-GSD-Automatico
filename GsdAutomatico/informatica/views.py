@@ -529,29 +529,54 @@ def backup_explorar(request, pk):
     if not is_informatica_admin(request.user):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden()
-    from .backup_diff import (MODELOS_DIFF, restaurar_dump_temp, dropar_temp,
+    from .backup_diff import (MODELOS_DIFF, PATD_STATUS_LABELS,
+                               restaurar_dump_temp, dropar_temp,
                                buscar_registro_temp, montar_diff,
                                buscar_registro_atual, listar_todos_temp)
 
     execucao = get_object_or_404(BackupExecucao, pk=pk)
     modelo_key = request.GET.get('modelo', '')
-    valor = request.GET.get('valor', '').strip()
+    valor      = request.GET.get('valor', '').strip()
+    filtro     = request.GET.get('filtro', '').strip().lower()
     diffs = None
     registro_pk = None
+    old_dict_destaque = None
     erro = None
-    lista_registros = None  # todos os registros do backup para a seção escolhida
+    lista_registros = None
+    colunas_lista = []
+    config = MODELOS_DIFF.get(modelo_key)
 
-    if modelo_key and modelo_key in MODELOS_DIFF:
-        config = MODELOS_DIFF[modelo_key]
+    if config:
         model = config['model']
+        colunas_lista = config.get('colunas_lista', [])
 
         if not execucao.arquivo_db or not os.path.exists(execucao.arquivo_db):
             erro = 'Arquivo de backup não encontrado em disco (pode já ter sido removido pela retenção local).'
         elif valor:
-            # Modo busca individual: compara com registro atual
+            # ── Modo detalhe: busca individual e diff ──
             live_obj = buscar_registro_atual(model, config['busca_campo'], valor)
             if not live_obj:
-                erro = 'Nenhum registro atual encontrado com esse valor.'
+                # tenta apenas pelo backup sem registro atual (PATD deletada)
+                tempdb = None
+                try:
+                    tempdb = restaurar_dump_temp(execucao.arquivo_db)
+                    pk_int = int(valor) if valor.isdigit() else None
+                    old_dict_destaque = buscar_registro_temp(tempdb, model, pk_int) if pk_int else None
+                    if old_dict_destaque is None:
+                        erro = 'Registro não encontrado no banco atual nem no backup.'
+                    else:
+                        # Sem live_obj: exibe apenas dados do backup sem diff
+                        diffs = [
+                            {'campo': k, 'label': k, 'antigo': v, 'atual': '—', 'diferente': False}
+                            for k, v in old_dict_destaque.items()
+                            if k not in ('senha_unica', 'senha_criptografada', 'password')
+                        ]
+                        registro_pk = pk_int
+                except Exception as exc:
+                    erro = f'Erro ao ler o backup: {exc}'
+                finally:
+                    if tempdb:
+                        dropar_temp(tempdb)
             else:
                 tempdb = None
                 try:
@@ -561,6 +586,7 @@ def backup_explorar(request, pk):
                         erro = 'Este registro ainda não existia nesse backup.'
                     else:
                         diffs = montar_diff(old_dict, live_obj)
+                        old_dict_destaque = old_dict
                         registro_pk = live_obj.pk
                 except Exception as exc:
                     erro = f'Erro ao restaurar/ler o backup: {exc}'
@@ -568,32 +594,79 @@ def backup_explorar(request, pk):
                     if tempdb:
                         dropar_temp(tempdb)
         else:
-            # Modo listagem: mostra todos os registros da seção no backup
+            # ── Modo listagem ──
             tempdb = None
             try:
                 tempdb = restaurar_dump_temp(execucao.arquivo_db)
-                campo_display = config['busca_campo'].replace('__', '_')
                 raw = listar_todos_temp(tempdb, model)
-                lista_registros = [
-                    {**r, '_display': r.get(campo_display, r.get('id', ''))}
-                    for r in raw
-                ]
+
+                def _cell(row, col, tipo):
+                    v = row.get(col)
+                    if tipo == 'date' and v:
+                        return str(v)[:10]
+                    if tipo == 'bool_sim_nao':
+                        return 'Sim' if v else 'Não'
+                    if tipo == 'bool_lixeira':
+                        return '🗑 Sim' if v else '—'
+                    if tipo == 'status_patd':
+                        return PATD_STATUS_LABELS.get(v, v or '—')
+                    return str(v) if v is not None else '—'
+
+                def _badge(row):
+                    """Retorna (texto, classe_css) para o badge de situação."""
+                    if row.get('deleted'):
+                        return ('Lixeira',   'danger')
+                    if row.get('arquivado'):
+                        return ('Arquivado', 'secondary')
+                    st = row.get('status', '')
+                    if st == 'finalizado':
+                        return ('Finalizado','success')
+                    if st:
+                        return (PATD_STATUS_LABELS.get(st, st), 'info')
+                    if row.get('ativo') is False or row.get('ativa') is False:
+                        return ('Inativo', 'secondary')
+                    return (None, None)
+
+                registros = []
+                for r in raw:
+                    cells = [_cell(r, col, tipo) for col, _, tipo in colunas_lista]
+                    badge_txt, badge_cls = _badge(r)
+                    row_text = ' '.join(str(c) for c in cells).lower()
+                    if filtro and filtro not in row_text:
+                        continue
+                    registros.append({
+                        'id': r.get('id'),
+                        'cells': cells,
+                        'badge_txt': badge_txt,
+                        'badge_cls': badge_cls,
+                    })
+                lista_registros = registros
             except Exception as exc:
                 erro = f'Erro ao ler o backup: {exc}'
             finally:
                 if tempdb:
                     dropar_temp(tempdb)
 
+    # Campos de destaque para a view de detalhe
+    campos_destaque = []
+    if old_dict_destaque and config:
+        for campo in config.get('campos_destaque', []):
+            v = old_dict_destaque.get(campo)
+            if v:
+                campos_destaque.append({'campo': campo, 'valor': v})
+
     return render(request, 'informatica/backup_explorar.html', {
         'execucao': execucao,
         'modelos': MODELOS_DIFF,
         'modelo_key': modelo_key,
         'valor': valor,
+        'filtro': filtro,
         'diffs': diffs,
         'registro_pk': registro_pk,
         'erro': erro,
         'lista_registros': lista_registros,
-        'busca_campo': MODELOS_DIFF[modelo_key]['busca_campo'] if modelo_key in MODELOS_DIFF else '',
+        'colunas_lista': colunas_lista,
+        'campos_destaque': campos_destaque,
     })
 
 

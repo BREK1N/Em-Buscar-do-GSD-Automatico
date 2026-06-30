@@ -20,49 +20,125 @@ from EPA.models import EscalaMissaoEPA
 from caixa_entrada.models import Mensagem
 from .models import Material, Cautela
 
-# Modelos disponíveis para comparação/restauração individual — uma entrada por seção.
-# 'busca_campo' é o campo usado para localizar o registro pelo usuário (além do id).
+# Modelos disponíveis para comparação/restauração individual.
+# 'colunas_lista': colunas exibidas na listagem do backup — (campo_db, label, tipo)
+#   tipo: 'text' | 'date' | 'status_patd' | 'bool_sim_nao' | 'bool_lixeira'
+# 'campos_destaque': campos exibidos em destaque no topo da visualização individual
 MODELOS_DIFF = {
     'patd': {
         'label': 'PATD (Ouvidoria)',
         'model': PATD,
         'busca_campo': 'numero_patd',
+        'colunas_lista': [
+            ('numero_patd',  'Nº PATD',      'text'),
+            ('militar_id',   'Militar (ID)',  'text'),
+            ('status',       'Status',        'status_patd'),
+            ('arquivado',    'Arquivado',     'bool_sim_nao'),
+            ('deleted',      'Lixeira',       'bool_lixeira'),
+            ('data_inicio',  'Abertura',      'date'),
+        ],
+        'campos_destaque': ['transgressao', 'punicao', 'alegacao_defesa', 'comportamento', 'natureza_transgressao'],
     },
     'efetivo': {
         'label': 'Efetivo (Secção de Pessoal)',
         'model': Efetivo,
         'busca_campo': 'nome_completo',
+        'colunas_lista': [
+            ('nome_completo', 'Nome Completo', 'text'),
+            ('nome_guerra',   'Nome de Guerra','text'),
+            ('posto',         'Posto/Grad.',   'text'),
+            ('situacao',      'Situação',      'text'),
+            ('om',            'OM',            'text'),
+            ('deleted',       'Lixeira',       'bool_lixeira'),
+        ],
+        'campos_destaque': ['posto', 'nome_guerra', 'situacao', 'setor', 'om'],
     },
     'missao': {
         'label': 'Missão / OMIS (Secção de Operações)',
         'model': Missao,
         'busca_campo': 'numero',
+        'colunas_lista': [
+            ('numero',      'Número',   'text'),
+            ('nome_missao', 'Nome',     'text'),
+            ('data_missao', 'Data',     'date'),
+            ('local',       'Local',    'text'),
+        ],
+        'campos_destaque': ['nome_missao', 'local', 'data_missao'],
     },
     'escala_servico': {
         'label': 'Escala de Serviço (Secção de Operações)',
         'model': Escala,
-        'busca_campo': 'nome',
+        'busca_campo': 'tipo',
+        'colunas_lista': [
+            ('tipo',    'Tipo',   'text'),
+            ('ativo',   'Ativo',  'bool_sim_nao'),
+        ],
+        'campos_destaque': ['tipo', 'duracao_horas'],
     },
     'escala_epa': {
         'label': 'Escala EPA (Esquadrão de Polícia da Aeronáutica)',
         'model': EscalaMissaoEPA,
-        'busca_campo': 'missao__numero',
+        'busca_campo': 'identificacao_pelotao',
+        'colunas_lista': [
+            ('identificacao_pelotao', 'Pelotão', 'text'),
+            ('observacoes',           'Obs.',    'text'),
+        ],
+        'campos_destaque': ['identificacao_pelotao', 'observacoes'],
     },
     'mensagem': {
         'label': 'Mensagem / Chamado (Caixa de Entrada)',
         'model': Mensagem,
         'busca_campo': 'assunto',
+        'colunas_lista': [
+            ('assunto',        'Assunto',       'text'),
+            ('status_chamado', 'Status',        'text'),
+        ],
+        'campos_destaque': ['assunto', 'status_chamado'],
     },
     'material': {
         'label': 'Material (Informática)',
         'model': Material,
         'busca_campo': 'nome',
+        'colunas_lista': [
+            ('nome',                  'Nome',        'text'),
+            ('quantidade',            'Qtd.',        'text'),
+            ('funcionando',           'Funcionando', 'bool_sim_nao'),
+        ],
+        'campos_destaque': ['nome', 'quantidade', 'funcionando'],
     },
     'cautela': {
         'label': 'Cautela (Informática)',
         'model': Cautela,
         'busca_campo': 'nome_missao',
+        'colunas_lista': [
+            ('nome_missao', 'Missão',  'text'),
+            ('ativa',       'Ativa',   'bool_sim_nao'),
+        ],
+        'campos_destaque': ['nome_missao', 'ativa'],
     },
+}
+
+# Labels legíveis para os status da PATD
+PATD_STATUS_LABELS = {
+    'definicao_oficial':              'Aguardando Oficial',
+    'aguardando_aprovacao_atribuicao':'Aguardando Aprovação',
+    'confeccao_fr_ficha':             'Confecção FR/Ficha',
+    'ciencia_militar':                'Aguardando Ciência',
+    'aguardando_justificativa':       'Aguardando Justificativa',
+    'prazo_expirado':                 'Prazo Expirado',
+    'preclusao':                      'Preclusão',
+    'em_apuracao':                    'Em Apuração',
+    'apuracao_preclusao':             'Apuração (Preclusão)',
+    'aguardando_punicao':             'Aguardando Punição',
+    'aguardando_punicao_alterar':     'Aguardando Punição (alterar)',
+    'analise_oficial_apurador':       'Análise Oficial Apurador',
+    'analise_comandante':             'Análise Comandante',
+    'aguardando_assinatura_npd':      'Aguardando Assinatura NPD',
+    'periodo_reconsideracao':         'Período de Reconsideração',
+    'em_reconsideracao':              'Em Reconsideração',
+    'aguardando_nova_punicao':        'Aguardando Nova Punição',
+    'aguardando_publicacao':          'Aguardando Publicação',
+    'finalizado':                     'Finalizado',
 }
 
 # Campos que nunca devem ser comparados/restaurados: chave técnica ou dado sensível
