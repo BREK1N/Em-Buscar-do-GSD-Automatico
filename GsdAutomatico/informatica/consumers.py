@@ -1,11 +1,17 @@
 """
 WebSocket consumer para o terminal SSH interativo do servidor de backup.
 
+A sessão roda dentro de um `tmux` no servidor remoto (uma sessão fixa por
+usuário: gsd-web-<username>). Isso faz o terminal sobreviver a reload de
+página, queda de WiFi, etc. — ao reconectar, o consumer só re-anexa
+(`tmux new-session -A -s ...`) na mesma sessão em vez de abrir um shell novo.
+
 paramiko é bloqueante (sync), então a leitura contínua do shell remoto roda
 numa thread separada que empurra cada chunk de volta pro browser via
-async_to_sync(self.send). O fechamento da conexão (WS ou SSH) encerra a
-thread e libera o canal SSH.
+self.send(). Fechar a aba NÃO mata a sessão tmux — ela continua rodando no
+servidor até alguém encerrá-la explicitamente (Ctrl+B, ou `tmux kill-session`).
 """
+import re
 import threading
 
 import paramiko
@@ -37,7 +43,12 @@ class BackupTerminalConsumer(WebsocketConsumer):
                 hostname=destino.host, port=destino.porta, username=destino.usuario,
                 password=destino.get_senha(), timeout=15,
             )
-            self.channel_ssh = self.ssh.invoke_shell(term='xterm-256color', width=120, height=32)
+            # Sessão tmux fixa por usuário: -A (re)anexa se já existir, cria se não existir.
+            sessao = re.sub(r'[^a-zA-Z0-9_-]', '_', user.username) or 'anon'
+            self.channel_ssh = self.ssh.get_transport().open_session()
+            self.channel_ssh.get_pty(term='xterm-256color', width=120, height=32)
+            self.channel_ssh.invoke_shell()
+            self.channel_ssh.send(f"tmux new-session -A -s gsd-web-{sessao}\n")
         except Exception as exc:
             self.accept()
             self.send(text_data=f'\r\n\x1b[31mFalha ao conectar: {exc}\x1b[0m\r\n')
@@ -60,11 +71,16 @@ class BackupTerminalConsumer(WebsocketConsumer):
 
     def receive(self, text_data=None, bytes_data=None):
         ch = getattr(self, 'channel_ssh', None)
-        if not ch:
+        if not ch or text_data is None:
             return
         try:
-            if text_data is not None:
-                ch.send(text_data)
+            # Mensagens de resize chegam como JSON: {"resize":[cols,rows]}
+            if text_data.startswith('{"resize"'):
+                import json
+                cols, rows = json.loads(text_data)['resize']
+                ch.resize_pty(width=int(cols), height=int(rows))
+                return
+            ch.send(text_data)
         except Exception:
             self.close()
 

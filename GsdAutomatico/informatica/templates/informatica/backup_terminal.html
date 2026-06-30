@@ -44,7 +44,6 @@
     term.loadAddon(fitAddon);
     term.open(document.getElementById('terminal'));
     fitAddon.fit();
-    window.addEventListener('resize', () => fitAddon.fit());
 
     const statusEl = document.getElementById('term-status');
     const setStatus = (cls, html) => {
@@ -52,13 +51,23 @@
         statusEl.innerHTML = html;
     };
 
+    const sendResize = () => {
+        if (ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ resize: [term.cols, term.rows] }));
+        }
+    };
+    window.addEventListener('resize', () => { fitAddon.fit(); sendResize(); });
+
     const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
     const ws = new WebSocket(scheme + '://' + window.location.host + '/ws/informatica/backup-terminal/');
 
-    ws.onopen = () => setStatus('connected', '<i class="fas fa-circle me-1"></i> Conectado');
+    ws.onopen = () => {
+        setStatus('connected', '<i class="fas fa-circle me-1"></i> Conectado (sessão persistente — fechar a aba não encerra o terminal)');
+        sendResize();
+    };
     ws.onclose = () => {
         setStatus('disconnected', '<i class="fas fa-circle me-1"></i> Desconectado');
-        term.write('\r\n\x1b[31m[conexão encerrada]\x1b[0m\r\n');
+        term.write('\r\n\x1b[31m[conexão encerrada — a sessão tmux continua ativa, recarregue a página para reconectar]\x1b[0m\r\n');
     };
     ws.onerror = () => setStatus('disconnected', '<i class="fas fa-circle me-1"></i> Erro de conexão');
     ws.onmessage = (ev) => term.write(ev.data);
