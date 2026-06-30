@@ -2,14 +2,39 @@
     <table class="data-table">
         <thead>
             <tr>
-                <th>Posto</th>
+                <th>
+                    <button class="col-filter-btn" data-filter-col="posto" type="button">
+                        Posto
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13" style="vertical-align:middle;margin-left:3px;flex-shrink:0;"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 012 4.629V2.34a.75.75 0 01.628-.74z" clip-rule="evenodd" /></svg>
+                    </button>
+                </th>
                 <th>Nome de Guerra</th>
                 <th>Nome Completo</th>
                 <th>SARAM</th>
-                <th>Especialização</th>
-                <th>Situação</th>
-                <th>Observação</th>
-                <th>OM</th>
+                <th>
+                    <button class="col-filter-btn" data-filter-col="especializacao" type="button">
+                        Especialização
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13" style="vertical-align:middle;margin-left:3px;flex-shrink:0;"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 012 4.629V2.34a.75.75 0 01.628-.74z" clip-rule="evenodd" /></svg>
+                    </button>
+                </th>
+                <th>
+                    <button class="col-filter-btn" data-filter-col="situacao" type="button">
+                        Situação
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13" style="vertical-align:middle;margin-left:3px;flex-shrink:0;"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 012 4.629V2.34a.75.75 0 01.628-.74z" clip-rule="evenodd" /></svg>
+                    </button>
+                </th>
+                <th>
+                    <button class="col-filter-btn" data-filter-col="observacao" type="button">
+                        Observação
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13" style="vertical-align:middle;margin-left:3px;flex-shrink:0;"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 012 4.629V2.34a.75.75 0 01.628-.74z" clip-rule="evenodd" /></svg>
+                    </button>
+                </th>
+                <th>
+                    <button class="col-filter-btn" data-filter-col="setor" type="button">
+                        Setor / Subsetor
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" width="13" height="13" style="vertical-align:middle;margin-left:3px;flex-shrink:0;"><path fill-rule="evenodd" d="M2.628 1.601C5.028 1.206 7.49 1 10 1s4.973.206 7.372.601a.75.75 0 01.628.74v2.288a2.25 2.25 0 01-.659 1.59l-4.682 4.683a2.25 2.25 0 00-.659 1.59v3.037c0 .684-.31 1.33-.844 1.757l-1.937 1.55A.75.75 0 018 18.25v-5.757a2.25 2.25 0 00-.659-1.591L2.659 6.22A2.25 2.25 0 012 4.629V2.34a.75.75 0 01.628-.74z" clip-rule="evenodd" /></svg>
+                    </button>
+                </th>
                 <th>Ações</th>
             </tr>
         </thead>
@@ -21,19 +46,36 @@
                 <td>{{ militar.nome_completo }}</td>
                 <td>{{ militar.saram|default:"-" }}</td>
                 <td>{{ militar.especializacao }}</td>
-                <td>
-                    {% if militar.situacao|lower == 'de junta' %}
-                        <span style="background-color: var(--danger-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;">JUNTA DE SAÚDE</span>
+                <td>{% with sit=militar.situacao|lower|default:"ativo" %}
+                    {% if sit == 'ativo' or sit == 'ativa' %}
+                        <span class="sit-badge sit-ativo">ATIVA</span>
+                    {% elif sit == 'psv gsd-gl' %}
+                        <span class="sit-badge sit-psv-gsd">PSV GSD-GL</span>
+                    {% elif 'psv' in sit %}
+                        <span class="sit-badge sit-psv">{{ militar.situacao }}</span>
+                    {% elif sit == 'movimentado' %}
+                        <span class="sit-badge sit-movimentado">MOVIMENTADO</span>
+                    {% elif 'junta' in sit or sit == 'de junta' or sit == 'junta médica' %}
+                        <span class="sit-badge sit-junta">JUNTA MÉDICA</span>
+                    {% elif 'justi' in sit %}
+                        <span class="sit-badge sit-justica">JUSTIÇA</span>
+                    {% elif 'desligamento' in sit or 'agd' in sit %}
+                        <span class="sit-badge sit-desligamento">AGD. DESLIGAMENTO</span>
+                    {% elif sit == 'baixado' %}
+                        <span class="sit-badge sit-desligamento">DESLIGADO</span>
                     {% else %}
-                        <span style="background-color: var(--success-color); color: #fff; padding: 4px 8px; border-radius: 20px; font-size: 0.85em; font-weight: 700; white-space: nowrap;">{{ militar.situacao|default:"Ativo" }}</span>
+                        <span class="sit-badge sit-ativo">{{ militar.situacao }}</span>
                     {% endif %}
-                </td>
+                {% endwith %}</td>
                 <td>{{ militar.observacao|default:"" }}</td>
-                <td>{{ militar.om }}</td>
+                <td>
+                    <span style="display:block;font-weight:600;line-height:1.3;">{{ militar.setor|default:"-" }}</span>
+                    {% if militar.subsetor %}<span style="display:block;font-size:0.85em;color:var(--text-secondary);line-height:1.3;">{{ militar.subsetor }}</span>{% endif %}
+                </td>
                 <td>
                     <div class="actions-cell">
-                        {% if 'baixados' not in request.path %}
-                        <a href="{% url 'Secao_pessoal:militar_update' militar.pk %}" class="btn btn-sm btn-edit">
+                        {% if 'desligados' not in request.path %}
+                        <a href="{% url 'Secao_pessoal:militar_update' militar.pk %}?next={{ request.path }}" class="btn btn-sm btn-edit">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
                             Editar
                         </a>
@@ -68,7 +110,7 @@
     </table>
 </div>
 
-{% if 'baixados' in request.path %}
+{% if 'desligados' in request.path %}
 <!-- Modais Renderizados FORA da tabela para evitar quebra de layout no CSS -->
 {% for militar in militares %}
 <!-- Modal para Motivo da Baixa -->

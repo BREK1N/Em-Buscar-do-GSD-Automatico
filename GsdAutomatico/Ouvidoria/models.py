@@ -382,6 +382,18 @@ class PATD(models.Model):
         _d = self.data_inicio.date() if hasattr(self.data_inicio, 'date') else self.data_inicio
         self.organizacao = 'BINFAE' if _d >= _BINFAE_START else 'GSD'
 
+        # Garante estrutura correta dos JSONFields antes de salvar
+        if self.itens_enquadrados is not None:
+            if not isinstance(self.itens_enquadrados, list):
+                self.itens_enquadrados = None
+            else:
+                self.itens_enquadrados = [
+                    item if isinstance(item, dict) else {'numero': str(item), 'descricao': ''}
+                    for item in self.itens_enquadrados
+                ]
+        if self.circunstancias is not None and not isinstance(self.circunstancias, dict):
+            self.circunstancias = None
+
         is_new = self.pk is None
         if not is_new:
             # CORREÇÃO: Usar all_objects em vez de objects para não dar erro ao restaurar

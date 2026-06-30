@@ -58,12 +58,12 @@ def on_commander_change(sender, instance, **kwargs):
                 # O comandante definido ainda não tem um usuário associado.
                 pass
         
-        # Remove a permissão de 'Comandante' de todos os usuários, EXCETO o novo comandante.
-        comandante_group.user_set.exclude(pk=getattr(new_commander_user, 'pk', None)).clear()
-        
-        # Se o novo usuário comandante existe e ainda não está no grupo, adiciona-o.
-        if new_commander_user and not new_commander_user.groups.filter(name=COMANDANTE).exists():
-            new_commander_user.groups.add(comandante_group)
+        # Só redistribui o grupo quando um usuário válido é identificado.
+        # exclude(pk=None) removeria TODOS os membros (pk IS NULL não bate em ninguém).
+        if new_commander_user is not None:
+            comandante_group.user_set.exclude(pk=new_commander_user.pk).clear()
+            if not new_commander_user.groups.filter(name=COMANDANTE).exists():
+                new_commander_user.groups.add(comandante_group)
 
     except Exception as e:
         logger.error("Erro no signal on_commander_change: %s", e)
@@ -82,11 +82,12 @@ _PATD_PERMISSAO_MAP = {
     OUVIDORIA_ADJUNTO: 'Adjunto- Ouvidoria',
     OUVIDORIA_CB: 'CB- Ouvidoria',
     OUVIDORIA_S2: 'S2- Ouvidoria',
+    COMANDANTE: 'Comandante',
 }
 
 registrar_modelo(
     PATD, secao='ouvidoria', objeto_tipo='PATD', label='a PATD',
     permissao_resolver=lambda user: resolver_label(user, _PATD_PERMISSAO_MAP),
     campo_id=lambda p: p.numero_patd,
-    campos_monitorados=['status', 'oficial_responsavel_id', 'data_ciencia', 'transgressao_resumida'],
+    campos_monitorados=['status', 'oficial_responsavel_id', 'data_ciencia'],
 )

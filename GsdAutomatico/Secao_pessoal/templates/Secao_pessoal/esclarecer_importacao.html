@@ -1,0 +1,66 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Esclarecer Posto — TEN/TENENTE{% endblock %}
+
+{% block content %}
+<div class="content-column">
+    <div class="table-header">
+        <h1>Esclarecer Posto — TEN / TENENTE</h1>
+    </div>
+
+    <div class="card" style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:12px;padding:24px;">
+        <p style="color:var(--text-secondary);margin-bottom:20px;">
+            Os militares abaixo possuem <strong>TEN</strong> ou <strong>TENENTE</strong> como posto na planilha.
+            Por favor, especifique o posto correto para cada um antes de concluir a importação.
+        </p>
+        <form method="post">
+            {% csrf_token %}
+            <div class="table-responsive">
+                <table class="data-table">
+                    <thead>
+                        <tr>
+                            <th>Nome Completo</th>
+                            <th>Nome de Guerra</th>
+                            <th>SARAM</th>
+                            <th>Posto na Planilha</th>
+                            <th style="min-width:200px;">Posto Correto</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for r in ambiguous %}
+                        <tr>
+                            <td>{{ r.nome_completo }}</td>
+                            <td>{{ r.nome_guerra }}</td>
+                            <td>{{ r.saram }}</td>
+                            <td><span style="color:var(--text-secondary);">{{ r.posto_raw }}</span></td>
+                            <td>
+                                <div style="display:flex;gap:10px;align-items:center;">
+                                    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                                        <input type="radio" name="posto_{{ forloop.counter0 }}" value="ASP" required> ASP
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                                        <input type="radio" name="posto_{{ forloop.counter0 }}" value="2T"> 2T
+                                    </label>
+                                    <label style="display:flex;align-items:center;gap:5px;cursor:pointer;">
+                                        <input type="radio" name="posto_{{ forloop.counter0 }}" value="1T"> 1T
+                                    </label>
+                                </div>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="form-actions" style="margin-top:20px;">
+                {% if fonte == 'psv' %}
+                <a href="{% url 'Secao_pessoal:prestacao_servico' %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Concluir Importação</button>
+                {% else %}
+                <a href="{% url 'Secao_pessoal:importar_excel' %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Concluir Importação</button>
+                {% endif %}
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

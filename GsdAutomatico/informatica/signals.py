@@ -30,7 +30,7 @@ def log_user_logout(sender, request, user, **kwargs):
 
 @receiver(user_login_failed)
 def log_user_login_failed(sender, credentials, request, **kwargs):
-    ip = request.META.get('REMOTE_ADDR')
+    ip = request.META.get('REMOTE_ADDR') if request is not None else 'N/A'
     username = credentials.get('username', 'desconhecido')
     logger.warning(f"⚠️ LOGIN FALHOU: Tentativa falhada para utilizador '{username}'. (IP: {ip})")
 

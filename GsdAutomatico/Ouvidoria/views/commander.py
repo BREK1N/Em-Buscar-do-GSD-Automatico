@@ -30,8 +30,19 @@ from .decorators import (
     oficial_responsavel_required, ComandanteAccessMixin,
 )
 from .helpers import _sync_oficial_signature, get_document_pages
+from ..permissions import OUVIDORIA_CHEFE, OUVIDORIA_APURADOR, OUVIDORIA_ADJUNTO, OUVIDORIA_CB, OUVIDORIA_S2, COMANDANTE
+from auditoria.utils import registrar, resolver_label
 
 logger = logging.getLogger(__name__)
+
+_PATD_PERMISSAO_MAP = {
+    OUVIDORIA_CHEFE: 'Chefe- Ouvidoria',
+    OUVIDORIA_APURADOR: 'Apurador- Ouvidoria',
+    OUVIDORIA_ADJUNTO: 'Adjunto- Ouvidoria',
+    OUVIDORIA_CB: 'CB- Ouvidoria',
+    OUVIDORIA_S2: 'S2- Ouvidoria',
+    COMANDANTE: 'Comandante',
+}
 
 def _check_and_advance_reconsideracao_status(patd_pk):
     """
@@ -302,8 +313,15 @@ def assinar_analise_oficial(request, pk):
         return redirect('Ouvidoria:patd_detail', pk=pk)
 
     patd.oficial_assinou_analise = True
-    patd.documento_html = []  # Força regeneração para incluir assinatura no documento
+    patd.documento_html = []
     patd.save(update_fields=['oficial_assinou_analise', 'documento_html'])
+    # oficial_assinou_analise não está em campos_monitorados — log explícito necessário
+    registrar(
+        request.user, secao='ouvidoria',
+        permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+        acao='assinou', descricao=f"assinou a análise da PATD {patd.numero_patd}",
+        objeto_tipo='PATD', objeto_id=patd.numero_patd,
+    )
 
     if is_ajax:
         return JsonResponse({'ok': True, 'mensagem': 'Análise assinada com sucesso.'})
@@ -364,9 +382,22 @@ def salvar_reconsideracao(request, pk):
         if not patd.data_reconsideracao:
             patd.data_reconsideracao = timezone.now()
         patd.save(update_fields=['texto_reconsideracao', 'data_reconsideracao'])
+        # texto_reconsideracao não está em campos_monitorados — log explícito
+        registrar(
+            request.user, secao='ouvidoria',
+            permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+            acao='editou', descricao=f"registrou pedido de reconsideração da PATD {patd.numero_patd}",
+            objeto_tipo='PATD', objeto_id=patd.numero_patd,
+        )
 
         for arquivo in arquivos:
             Anexo.objects.create(patd=patd, arquivo=arquivo, tipo='reconsideracao')
+            registrar(
+                request.user, secao='ouvidoria',
+                permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+                acao='anexou', descricao=f"anexou documento de reconsideração na PATD {patd.numero_patd}",
+                objeto_tipo='PATD', objeto_id=patd.numero_patd,
+            )
 
         # --- CORREÇÃO: Usar transaction.on_commit para consistência ---
         # Garante que a verificação só ocorra após o salvamento do texto/anexos
@@ -392,6 +423,12 @@ def anexar_documento_reconsideracao_oficial(request, pk):
             return redirect('Ouvidoria:patd_detail', pk=pk)
 
         Anexo.objects.create(patd=patd, arquivo=anexo_file, tipo='reconsideracao_oficial')
+        registrar(
+            request.user, secao='ouvidoria',
+            permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+            acao='anexou', descricao=f"anexou documento de reconsideração (oficial) na PATD {patd.numero_patd}",
+            objeto_tipo='PATD', objeto_id=patd.numero_patd,
+        )
 
         messages.success(request, "Documento de reconsideração anexado com sucesso.")
         return redirect('Ouvidoria:patd_detail', pk=pk)
@@ -641,7 +678,7 @@ def relatorio_excel(request):
     for row_idx, patd in enumerate(patds_list, start=3):
         is_alt   = (row_idx % 2 == 0)
         row_fill = fill_alt if is_alt else None
-        itens_str = ', '.join([str(i.get('numero', '')) for i in (patd.itens_enquadrados or []) if i.get('numero')]) or '—'
+        itens_str = ', '.join([str(i.get('numero', '')) for i in (patd.itens_enquadrados or []) if isinstance(i, dict) and i.get('numero')]) or '—'
         row_data = [
             patd.numero_patd or '—',
             patd.militar.nome_guerra if patd.militar else '—',
@@ -760,9 +797,10 @@ def relatorio_excel(request):
         if patd.status == 'finalizado':
             stats_mil[key]['fin'] += 1
         for item in (patd.itens_enquadrados or []):
-            n = item.get('numero')
-            if n:
-                stats_mil[key]['itens'][str(n)] += 1
+            if isinstance(item, dict):
+                n = item.get('numero')
+                if n:
+                    stats_mil[key]['itens'][str(n)] += 1
 
     sorted_mil = sorted(stats_mil.items(), key=lambda x: x[1]['total'], reverse=True)
     for row_idx, (nome, s) in enumerate(sorted_mil, start=3):

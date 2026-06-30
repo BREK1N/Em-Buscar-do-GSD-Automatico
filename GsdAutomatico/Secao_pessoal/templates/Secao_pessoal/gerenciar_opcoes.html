@@ -126,8 +126,8 @@
                 <label for="id_tipo_opcao">Tipo da Opção</label>
                 <select name="tipo_opcao" id="id_tipo_opcao" required>
                     <option value="posto" {% if selected_tipo == 'posto' %}selected{% endif %}>Posto/Grad.</option>
-                    <option value="quad" {% if selected_tipo == 'quad' %}selected{% endif %}>Quadro</option>
-                    <option value="especializacao" {% if selected_tipo == 'especializacao' %}selected{% endif %}>Especialização</option>
+                    <option value="quad" {% if selected_tipo == 'quad' %}selected{% endif %}>Especialidade</option>
+                    <option value="especializacao" {% if selected_tipo == 'especializacao' %}selected{% endif %}>Quadro</option>
                     <option value="om" {% if selected_tipo == 'om' %}selected{% endif %}>OM</option>
                     <option value="setor" {% if selected_tipo == 'setor' %}selected{% endif %}>Setor</option>
                     <option value="subsetor" {% if selected_tipo == 'subsetor' %}selected{% endif %}>Subsetor</option>
@@ -171,7 +171,7 @@
             </div>
 
             <div class="options-list-card">
-                <h3>Quadros</h3>
+                <h3>Especialidades</h3>
                 <ul class="options-list">
                     {% for item in quads %}
                     <li>
@@ -193,7 +193,7 @@
             </div>
 
             <div class="options-list-card">
-                <h3>Especializações</h3>
+                <h3>Quadros</h3>
                 <ul class="options-list">
                     {% for item in especializacoes %}
                     <li>

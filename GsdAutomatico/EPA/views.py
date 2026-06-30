@@ -8,6 +8,11 @@ from django.db.models import Q
 from Secao_operacoes.models import Missao
 from Secao_pessoal.models import Efetivo
 from .models import EscalaMissaoEPA
+from auditoria.utils import registrar, resolver_label
+
+_EPA_PERMISSAO_MAP = {
+    'EPA - Missões': 'EPA- Missões',
+}
 
 # Filtra missões onde qualquer campo "a cargo" ou qualquer grupo do JSON menciona EPA
 _EPA_Q = (
@@ -169,9 +174,22 @@ def salvar_escala(request, missao_id):
         escala.militares.set(todos_ids)
     else:
         militares_ids = request.POST.getlist('militares')
+        todos_ids = militares_ids
         escala.grupos_json = ''
         escala.save()
-        escala.militares.set(militares_ids)
+        escala.militares.set(todos_ids)
+
+    # ManyToMany .set() não dispara post_save — log explícito com lista dos escalados
+    nomes_escalados = list(
+        Efetivo.objects.filter(pk__in=todos_ids).values_list('nome_guerra', flat=True)
+    )
+    registrar(
+        request.user, secao='epa',
+        permissao=resolver_label(request.user, _EPA_PERMISSAO_MAP),
+        acao='editou',
+        descricao=f"escalou militares para OMIS {missao.numero}: {', '.join(nomes_escalados) or '(nenhum)'}",
+        objeto_tipo='Escala EPA', objeto_id=missao.numero,
+    )
 
     try:
         from notificacoes.utils import notificar

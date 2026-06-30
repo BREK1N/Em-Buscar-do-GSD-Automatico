@@ -9,28 +9,21 @@ from Ouvidoria.models import Configuracao
 @receiver(post_save, sender=UserProfile)
 def on_user_profile_save(sender, instance, **kwargs):
     """
-    Quando um perfil de usuário é salvo (criado ou atualizado),
-    verifica se o militar associado é o comandante atual e, em caso afirmativo,
-    concede a permissão 'Comandante'. Também remove a permissão se o militar
-    deixa de ser o comandante.
+    Quando um perfil é salvo e o militar associado é o comandante configurado,
+    garante que o usuário esteja no grupo 'Comandante'.
+    A remoção do grupo é gerenciada exclusivamente por on_commander_change
+    (via post_save de ConfiguracaoComandantes) para evitar que salvamentos
+    rotineiros do perfil (ex: update_last_login no login) retirem o grupo
+    de usuários legitimamente adicionados.
     """
     try:
         config = Configuracao.load()
-        comandante_group, _ = Group.objects.get_or_create(name='Comandante')
-
-        # Verifica se o militar associado a este perfil é o comandante definido nas configurações
         is_commander = instance.militar and (instance.militar == config.comandante_gsd)
-        
-        # Verifica se este usuário já está no grupo de comandantes
-        is_in_group = instance.user.groups.filter(name='Comandante').exists()
 
-        if is_commander and not is_in_group:
-            # Se ele É o comandante mas NÃO está no grupo, adiciona.
-            instance.user.groups.add(comandante_group)
-        elif not is_commander and is_in_group:
-            # Se ele NÃO é o comandante mas ESTÁ no grupo, remove.
-            instance.user.groups.remove(comandante_group)
+        if is_commander:
+            comandante_group, _ = Group.objects.get_or_create(name='Comandante')
+            if not instance.user.groups.filter(name='Comandante').exists():
+                instance.user.groups.add(comandante_group)
 
     except Exception:
-        # Em caso de qualquer erro (ex: BD não pronto na migração inicial), ignora.
         pass

@@ -1930,9 +1930,11 @@ document.addEventListener('DOMContentLoaded', function() {
         const reconsideracaoOficialContainer = document.getElementById('anexos-reconsideracao-oficial-container-geral');
         const reconsideracaoOficialList = document.getElementById('anexos-reconsideracao-oficial-list-geral');
 
-        defesaList.innerHTML = '';
-        reconsideracaoList.innerHTML = '';
-        reconsideracaoOficialList.innerHTML = '';
+        // Elementos opcionais conforme o status do PATD
+        if (!defesaContainer && !reconsideracaoContainer && !reconsideracaoOficialContainer) return;
+        if (defesaList) defesaList.innerHTML = '';
+        if (reconsideracaoList) reconsideracaoList.innerHTML = '';
+        if (reconsideracaoOficialList) reconsideracaoOficialList.innerHTML = '';
 
         let hasAnexos = false;
 
@@ -1940,6 +1942,7 @@ document.addEventListener('DOMContentLoaded', function() {
         const hasDefesaContent = anexosDefesa.length > 0 || PATD_CONFIG.hasDefesa || PATD_CONFIG.hasDefesaSig;
         const showDefesaSection = hasDefesaContent || canManageDefesa;
 
+        if (defesaContainer) {
         if (showDefesaSection) {
             defesaContainer.style.display = 'block';
             anexosDefesa.forEach(anexo => {
@@ -1954,7 +1957,7 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${canManageDefesa ? `<button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>` : ''}
                     </div>
                 `;
-                defesaList.appendChild(li);
+                if (defesaList) defesaList.appendChild(li);
             });
             const addBtnContainer = document.getElementById('defesa-add-btn-container');
             if (addBtnContainer) {
@@ -1966,8 +1969,9 @@ document.addEventListener('DOMContentLoaded', function() {
             const addBtnContainer = document.getElementById('defesa-add-btn-container');
             if (addBtnContainer) addBtnContainer.style.display = 'none';
         }
+        } // end if (defesaContainer)
 
-        if (anexosReconsideracao.length > 0) {
+        if (reconsideracaoContainer && anexosReconsideracao.length > 0) {
             reconsideracaoContainer.style.display = 'block';
             anexosReconsideracao.forEach(anexo => {
                 const li = document.createElement('li');
@@ -1981,14 +1985,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${!isFinalized ? `<button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>` : ''}
                     </div>
                 `;
-                reconsideracaoList.appendChild(li);
+                if (reconsideracaoList) reconsideracaoList.appendChild(li);
             });
             hasAnexos = true;
-        } else {
+        } else if (reconsideracaoContainer) {
             reconsideracaoContainer.style.display = 'none';
         }
 
-        if (anexosReconsideracaoOficial.length > 0) {
+        if (reconsideracaoOficialContainer && anexosReconsideracaoOficial.length > 0) {
             reconsideracaoOficialContainer.style.display = 'block';
             anexosReconsideracaoOficial.forEach(anexo => {
                 const li = document.createElement('li');
@@ -2002,14 +2006,14 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${!isFinalized ? `<button class="btn btn-sm btn-delete excluir-anexo-btn" data-anexo-id="${anexo.id}">Excluir</button>` : ''}
                     </div>
                 `;
-                reconsideracaoOficialList.appendChild(li);
+                if (reconsideracaoOficialList) reconsideracaoOficialList.appendChild(li);
             });
             hasAnexos = true;
-        } else {
+        } else if (reconsideracaoOficialContainer) {
             reconsideracaoOficialContainer.style.display = 'none';
         }
 
-        anexosCard.style.display = hasAnexos ? 'block' : 'none';
+        if (anexosCard) anexosCard.style.display = hasAnexos ? 'block' : 'none';
     }
 
     const btnApurar = document.getElementById('btn-apurar');

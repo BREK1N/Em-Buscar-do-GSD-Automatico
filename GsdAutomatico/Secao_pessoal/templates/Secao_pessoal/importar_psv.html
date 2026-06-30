@@ -1,0 +1,46 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Importar PSV{% endblock %}
+
+{% block content %}
+<div class="content-column">
+    <div class="table-header">
+        <h1>Importar Planilha de PSV</h1>
+    </div>
+
+    {% if messages %}
+    <div style="margin-bottom:16px;">
+        {% for msg in messages %}
+        <div class="alert alert-{{ msg.tags }}" style="padding:10px 16px;border-radius:8px;margin-bottom:8px;background:{% if 'error' in msg.tags %}rgba(220,38,38,0.1){% else %}rgba(34,197,94,0.1){% endif %};border:1px solid {% if 'error' in msg.tags %}rgba(220,38,38,0.4){% else %}rgba(34,197,94,0.4){% endif %};color:var(--text-primary);">
+            {{ msg }}
+        </div>
+        {% endfor %}
+    </div>
+    {% endif %}
+
+    <div class="card" style="background:var(--bg-card);border:1px solid var(--border-strong);border-radius:12px;padding:24px;">
+        <p style="color:var(--text-primary);margin-bottom:16px;">
+            Selecione um arquivo Excel (.xlsx) com o modelo de PSV. As colunas esperadas são: <strong>Posto, Espec, Quad, Nome Completo, Nome de Guerra, SARAM, Turma, OM, Início, Término, Sigad, Boletim, Observações</strong>.
+            <br><a href="{% url 'Secao_pessoal:download_modelo_psv' %}" style="color:var(--accent);">Baixar modelo</a>
+        </p>
+        <form method="post" enctype="multipart/form-data">
+            {% csrf_token %}
+            <div style="margin-bottom:16px;">
+                <label for="excel_file" style="display:block;margin-bottom:6px;font-weight:600;color:var(--text-primary);">Arquivo Excel:</label>
+                <input type="file" name="excel_file" id="excel_file" accept=".xlsx,.xls" required
+                       style="display:block;width:100%;padding:8px;border:1px solid var(--border-strong);border-radius:6px;background:var(--bg-page);color:var(--text-primary);">
+            </div>
+            <div style="margin-bottom:20px;display:flex;align-items:center;gap:10px;">
+                <label style="display:flex;align-items:center;gap:8px;cursor:pointer;font-size:0.9em;">
+                    <input type="checkbox" name="sincronizar" value="1">
+                    <span>Limpar lista de PSV existente e substituir pelos dados desta planilha</span>
+                </label>
+            </div>
+            <div class="form-actions">
+                <a href="{% url 'Secao_pessoal:prestacao_servico' %}" class="btn btn-secondary">Cancelar</a>
+                <button type="submit" class="btn btn-primary">Importar</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}

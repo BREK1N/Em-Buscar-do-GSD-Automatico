@@ -79,10 +79,11 @@ def regenerar_punicao_task(self, patd_pk):
     from .analise_transgressao import sugere_punicao
     patd = PATD.objects.get(pk=patd_pk)
     try:
+        _circ = patd.circunstancias if isinstance(patd.circunstancias, dict) else {}
         punicao_obj = sugere_punicao(
             transgressao=patd.transgressao,
-            agravantes=patd.circunstancias.get('agravantes', []),
-            atenuantes=patd.circunstancias.get('atenuantes', []),
+            agravantes=_circ.get('agravantes', []),
+            atenuantes=_circ.get('atenuantes', []),
             itens=patd.itens_enquadrados,
             observacao="Regeneração de punição",
         )
@@ -123,7 +124,7 @@ def analisar_punicao_task(self, patd_pk, force_reanalyze=False):
                 itens_str = ", ".join(
                     f"Item {item.get('numero')}"
                     for item in p_antiga.itens_enquadrados
-                    if 'numero' in item
+                    if isinstance(item, dict) and item.get('numero')
                 )
                 if itens_str:
                     historico_list.append(

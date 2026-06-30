@@ -229,28 +229,30 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 
-    ['dragover', 'dragleave', 'drop'].forEach(eventName => {
-        fileLabel.addEventListener(eventName, preventDefaults, false);
-    });
-
     function preventDefaults(e) {
         e.preventDefault();
         e.stopPropagation();
     }
 
-    fileLabel.addEventListener('dragover', (e) => {
-        preventDefaults(e);
-        fileLabel.style.borderColor = 'var(--accent-color)';
-        fileLabel.style.backgroundColor = 'var(--sidebar-active-bg)';
-    });
+    if (fileLabel) {
+        ['dragover', 'dragleave', 'drop'].forEach(eventName => {
+            fileLabel.addEventListener(eventName, preventDefaults, false);
+        });
 
-    fileLabel.addEventListener('dragleave', (e) => {
-        preventDefaults(e);
-        fileLabel.style.borderColor = 'var(--border-color)';
-        fileLabel.style.backgroundColor = 'transparent';
-    });
+        fileLabel.addEventListener('dragover', (e) => {
+            preventDefaults(e);
+            fileLabel.style.borderColor = 'var(--accent-color)';
+            fileLabel.style.backgroundColor = 'var(--sidebar-active-bg)';
+        });
 
-    fileLabel.addEventListener('drop', handleDrop, false);
+        fileLabel.addEventListener('dragleave', (e) => {
+            preventDefaults(e);
+            fileLabel.style.borderColor = 'var(--border-color)';
+            fileLabel.style.backgroundColor = 'transparent';
+        });
+
+        fileLabel.addEventListener('drop', handleDrop, false);
+    }
 
     function handleDrop(e) {
         preventDefaults(e);
@@ -651,7 +653,7 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 
-    submitButton.addEventListener('click', () => {
+    if (submitButton) submitButton.addEventListener('click', () => {
         if (!fileInput.files || fileInput.files.length === 0) {
             alert('Por favor, selecione um ficheiro PDF antes de analisar.');
             return;

@@ -24,6 +24,11 @@ from Secao_pessoal.models import (
 )
 from django.contrib.auth import get_user_model as _get_user_model
 from caixa_entrada.models import Notificacao, Mensagem as _Mensagem
+from auditoria.utils import registrar, resolver_label
+
+_PESSOAL_PERMISSAO_MAP = {
+    'Seção de Pessoal (S1)': 'S1- Efetivo',
+}
 
 _User = _get_user_model()
 
@@ -43,7 +48,7 @@ import docx
 from docx.shared import Pt
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from django.contrib import messages
-from django.db.models import Q, Max, Case, When, Value, IntegerField, Count
+from django.db.models import Q, Max, Case, When, Value, IntegerField, Count, Sum
 from difflib import SequenceMatcher
 from openpyxl.styles import Font, PatternFill, Border, Side, Alignment
 from openpyxl.utils import get_column_letter
@@ -111,51 +116,178 @@ def obter_situacao_inspsau(letra):
 
 @s1_required
 def index(request):
-    # Efetivo total ativo/não baixado
-    efetivo = Efetivo.objects.exclude(situacao__iexact='Baixado')
-    
-    total_efetivo = efetivo.count()
-    total_oficiais = efetivo.filter(oficial=True).count()
-    total_pracas = efetivo.filter(oficial=False).count()
-    total_junta = efetivo.filter(situacao__iexact='De Junta').count()
+    _POSTOS      = ['TC', 'MJ', 'CP', '1T', '2T', 'ASP', 'SO', '1S', '2S', '3S', 'CB', 'S1', 'S2', 'REC']
+    _POSTOS_SET  = ['TC', 'MJ', 'CP', '1T', '2T', 'ASP', 'SO', '1S', '2S', '3S', 'CB', 'S1', 'S2']
+    _DISPLAY     = {'ASP': 'AP'}
+    _SETORES     = ['ESI', 'EPA', 'EFSD', 'SAP', 'SOP', 'CMD']
+    hoje         = date.today()
 
-    # Efetivo por posto (Garantindo que a hierarquia completa apareça no gráfico)
-    hierarquia = ['CL', 'TC', 'MJ', 'CP', '1T', '2T', 'ASP', 'SO', '1S', '2S', '3S', 'CB', 'S1', 'S2', 'REC']
-    
-    postos_count = efetivo.values('posto').annotate(count=Count('id'))
-    contagem_dict = {item['posto']: item['count'] for item in postos_count if item['posto']}
-    
-    postos_labels = []
-    postos_data = []
-    
-    # Preenche a lista com todos os postos base, colocando 0 nos que não tiverem militares
-    for posto in hierarquia:
-        postos_labels.append(posto)
-        postos_data.append(contagem_dict.get(posto, 0))
-        
-    # Adiciona outros postos que não estejam na lista base (ex: Civis ou outras especialidades)
-    outros_postos = set(contagem_dict.keys()) - set(hierarquia)
-    for posto in sorted(list(outros_postos)):
-        postos_labels.append(posto)
-        postos_data.append(contagem_dict[posto])
+    def _por_posto(qs):
+        raw = {}
+        for item in qs.values('posto').annotate(c=Count('id')):
+            p = (item['posto'] or '').strip().upper()
+            raw[p] = raw.get(p, 0) + item['c']
+        rows = [(_DISPLAY.get(p, p), raw.get(p, 0)) for p in _POSTOS]
+        total_srec = sum(v for p, v in rows if p != 'REC')
+        total = sum(v for _, v in rows)
+        return {'rows': rows, 'total_srec': total_srec, 'total': total}
 
-    # Efetivo por setor
-    setores_count = efetivo.values('setor').annotate(count=Count('id')).order_by('-count')
-    setores_labels = [item['setor'] if item['setor'] else 'Não definido' for item in setores_count]
-    setores_data = [item['count'] for item in setores_count]
+    def _setor_key(s):
+        s = (s or '').upper().strip()
+        if 'ESI' in s: return 'ESI'
+        if 'PCG' in s or 'CARCERAGEM' in s or 'CANIL' in s or 'EPA' in s: return 'EPA'
+        if 'EFSD' in s: return 'EFSD'
+        if 'SAP' in s: return 'SAP'
+        if 'SOP' in s: return 'SOP'
+        if 'CMD' in s: return 'CMD'
+        return None
+
+    qs_geral      = Efetivo.objects.exclude(situacao__iexact='Baixado')
+    qs_operac     = Efetivo.objects.filter(
+        Q(situacao__iexact='Ativo') | Q(situacao__iexact='Ativa') |
+        Q(situacao__iexact='PSV GSD-GL') |
+        Q(situacao__iexact='PSV', data_vencimento_prestacao__lt=hoje)
+    )
+    qs_psv_ext    = Efetivo.objects.filter(situacao__iexact='PSV')
+    qs_psv_gsd    = Efetivo.objects.filter(situacao__iexact='PSV GSD-GL')
+    qs_baixados   = Efetivo.all_objects.filter(situacao__iexact='Baixado')
+    qs_desertores = Efetivo.all_objects.filter(situacao__iexact='Desertor')
+
+    # --- Tabelas por posto ---
+    tabelas = [
+        {'titulo': 'Quantitativo de Efetivo Total',
+         'subtitulo': 'Efetivo do GSD-GL',
+         'data': _por_posto(qs_geral)},
+        {'titulo': 'Quantitativo de Efetivo Operacional Total',
+         'subtitulo': 'Efetivo do GSD-GL',
+         'data': _por_posto(qs_operac)},
+        {'titulo': 'Quantitativo de Efetivo Prestando Serviço Externo',
+         'subtitulo': 'Militares Prestando Serviço',
+         'data': _por_posto(qs_psv_ext)},
+        {'titulo': 'Quantitativo de Efetivo Prestando Serviço para o GSD-GL',
+         'subtitulo': 'Efetivo do GSD-GL',
+         'data': _por_posto(qs_psv_gsd)},
+        {'titulo': 'Quantitativo de Desligados',
+         'subtitulo': 'Desligados',
+         'data': _por_posto(qs_baixados)},
+    ]
+
+    # --- Tabela cruzada: postos × setores ---
+    _disp_set = [_DISPLAY.get(p, p) for p in _POSTOS_SET]
+    setor_grid = {s: {p: 0 for p in _disp_set} for s in _SETORES}
+    setor_totals_d = {s: 0 for s in _SETORES}
+
+    for item in qs_operac.values('posto', 'setor').annotate(c=Count('id')):
+        sk = _setor_key(item['setor'])
+        if sk is None:
+            continue
+        p_disp = _DISPLAY.get((item['posto'] or '').strip().upper(), (item['posto'] or '').strip().upper())
+        if p_disp in setor_grid[sk]:
+            setor_grid[sk][p_disp] += item['c']
+            setor_totals_d[sk] += item['c']
+
+    setor_rows = []
+    for p in _disp_set:
+        valores = [setor_grid[s][p] for s in _SETORES]
+        setor_rows.append({'posto': p, 'valores': valores, 'total': sum(valores)})
+    setor_totals = [setor_totals_d[s] for s in _SETORES]
+    total_setor  = sum(setor_totals)
+    total_operac = qs_operac.count()
+    setor_pie_pct = [
+        round(v / total_operac * 100, 1) if total_operac else 0 for v in setor_totals
+    ]
+
+    # --- Por Especialidade (agrupado só pela especialidade, sem posto) ---
+    esp_raw = (
+        qs_geral.values('especializacao')
+        .annotate(c=Count('id'))
+        .order_by('especializacao')
+    )
+    esp_rows = []
+    for item in esp_raw:
+        e = (item['especializacao'] or '').strip().upper()
+        esp_rows.append((e if e else '(sem especialidade)', item['c']))
+
+    tlp_raw = (
+        LotacaoPessoal.objects
+        .values('posto', 'especializacao')
+        .annotate(total=Sum('vagas_previstas'))
+        .order_by('posto', 'especializacao')
+    )
+    tlp_rows = []
+    for item in tlp_raw:
+        p = _DISPLAY.get((item['posto'] or '').strip().upper(), (item['posto'] or '').strip().upper())
+        e = (item['especializacao'] or '').strip().upper()
+        tlp_rows.append((f"{p} {e}".strip() if e else p, item['total'] or 0))
+
+    # --- Cards de quantitativos rápidos ---
+    total_geral       = qs_geral.count()
+    total_agd         = Efetivo.objects.filter(
+        Q(situacao__icontains='desligamento') | Q(situacao__iexact='AGD. DESLIGAMENTO')
+    ).count()
+    total_psv_servico = qs_psv_ext.count()
+    total_desertores_n= qs_desertores.count()
+    total_junta       = Efetivo.objects.filter(
+        Q(situacao__icontains='junta') | Q(situacao__iexact='De Junta')
+    ).count()
+    total_justica     = Efetivo.objects.filter(situacao__icontains='justi').count()
+    total_psv_vencida = Efetivo.objects.filter(
+        situacao__iexact='PSV', data_vencimento_prestacao__lt=hoje
+    ).count()
+
+    # --- Tabelas resumo por categoria (Efetivo Total e Operacional) ---
+    _dados_geral  = _por_posto(qs_geral)
+    _dados_operac_cat = _por_posto(qs_operac)
+
+    def _categorias(dados):
+        m = {label: count for label, count in dados['rows']}
+        return [
+            ('OF',   sum(m.get(p, 0) for p in ['TC', 'MJ', 'CP', '1T', '2T', 'AP'])),
+            ('SO',   m.get('SO', 0)),
+            ('SGT',  sum(m.get(p, 0) for p in ['1S', '2S', '3S'])),
+            ('CABO', m.get('CB', 0)),
+            ('S1',   m.get('S1', 0)),
+            ('S2',   m.get('S2', 0)),
+            ('REC',  m.get('REC', 0)),
+        ]
 
     context = {
-        'total_efetivo': total_efetivo,
-        'total_oficiais': total_oficiais,
-        'total_pracas': total_pracas,
-        'total_junta': total_junta,
-        'postos_labels': json.dumps(postos_labels),
-        'postos_data': json.dumps(postos_data),
-        'setores_labels': json.dumps(setores_labels),
-        'setores_data': json.dumps(setores_data),
+        'tabelas': tabelas,
+        'desertores': _por_posto(qs_desertores),
+        'setores_dash': _SETORES,
+        'setor_rows': setor_rows,
+        'setor_totals': setor_totals,
+        'total_setor': total_setor,
+        'total_operac': total_operac,
+        'setor_pie_labels': json.dumps(_SETORES),
+        'setor_pie_data': json.dumps(setor_totals),
+        'setor_pie_pct': json.dumps(setor_pie_pct),
+        'esp_rows': esp_rows,
+        'tlp_rows': tlp_rows,
+        # Cards rápidos
+        'total_geral':       total_geral,
+        'total_agd':         total_agd,
+        'total_psv_servico': total_psv_servico,
+        'total_desertores_n':total_desertores_n,
+        'total_junta':       total_junta,
+        'total_justica':     total_justica,
+        'total_psv_vencida': total_psv_vencida,
+        # Tabelas por categoria
+        'cat_geral':  _categorias(_dados_geral),
+        'cat_operac': _categorias(_dados_operac_cat),
     }
-
     return render(request, 'Secao_pessoal/index.html', context)
+
+@s1_required
+@require_POST
+def tornar_recrutas_soldados(request):
+    updated = Efetivo.objects.filter(posto='REC').update(posto='S2', especializacao='NE')
+    if updated:
+        messages.success(request, f'{updated} recruta(s) promovido(s) para S2 (especialidade → NE) com sucesso.')
+    else:
+        messages.info(request, 'Nenhum recruta (REC) encontrado no efetivo ativo.')
+    return redirect('Secao_pessoal:militar_list')
+
 
 @s1_required
 def painel_chefe(request):
@@ -421,13 +553,58 @@ class MilitarListView(ListView):
             q_objects = Q(nome_completo__icontains=query) | \
                         Q(nome_guerra__icontains=query) | \
                         Q(posto__icontains=query)
-            
+
             if query.isdigit():
                 q_objects |= Q(saram__icontains=query)
-                
+
             qs = qs.filter(q_objects)
+
+        def _split(param):
+            return [v.strip() for v in param.split(',') if v.strip()]
+
+        posto_f  = _split(self.request.GET.get('posto_f', ''))
+        esp_f    = _split(self.request.GET.get('esp_f', ''))
+        sit_f    = _split(self.request.GET.get('sit_f', ''))
+        obs_f    = _split(self.request.GET.get('obs_f', ''))
+        setor_f  = _split(self.request.GET.get('setor_f', ''))
+
+        if posto_f:
+            qs = qs.filter(posto__in=posto_f)
+        if esp_f:
+            esp_q = Q()
+            for v in esp_f:
+                if v == '__vazio__':
+                    esp_q |= Q(especializacao='') | Q(especializacao__isnull=True)
+                else:
+                    esp_q |= Q(especializacao=v)
+            qs = qs.filter(esp_q)
+        if sit_f:
+            sit_q = Q()
+            for v in sit_f:
+                if v == '__vazio__':
+                    sit_q |= Q(situacao='') | Q(situacao__isnull=True)
+                else:
+                    sit_q |= Q(situacao=v)
+            qs = qs.filter(sit_q)
+        if obs_f:
+            obs_q = Q()
+            for v in obs_f:
+                if v == '__vazio__':
+                    obs_q |= Q(observacao='') | Q(observacao__isnull=True)
+                else:
+                    obs_q |= Q(observacao=v)
+            qs = qs.filter(obs_q)
+        if setor_f:
+            set_q = Q()
+            for v in setor_f:
+                if v == '__vazio__':
+                    set_q |= Q(setor='') | Q(setor__isnull=True)
+                else:
+                    set_q |= Q(setor=v)
+            qs = qs.filter(set_q)
+
         return qs
-    
+
 @method_decorator(s1_required, name='dispatch')
 class MilitarCreateView(CreateView):
     model = Efetivo
@@ -455,9 +632,16 @@ class MilitarUpdateView(UpdateView):
     template_name = 'Secao_pessoal/militar_form.html'
     success_url = reverse_lazy('Secao_pessoal:militar_list')
 
+    def get_success_url(self):
+        next_url = self.request.POST.get('next') or self.request.GET.get('next')
+        if next_url and next_url.startswith('/'):
+            return next_url
+        return str(self.success_url)
+
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
         context['titulo'] = 'Editar Militar'
+        context['next_url'] = self.request.POST.get('next') or self.request.GET.get('next', '')
         return context
 
 @method_decorator(s1_required, name='dispatch')
@@ -470,10 +654,18 @@ class MilitarDeleteView(DeleteView):
         return Efetivo.all_objects.all()
 
     def post(self, request, *args, **kwargs):
+        from django.db.models.deletion import ProtectedError
         self.object = self.get_object()
         nome_guerra = self.object.nome_guerra
-        self.object.delete()
-        messages.success(request, f"Militar {nome_guerra} excluído permanentemente.")
+        try:
+            self.object.delete()
+            messages.success(request, f"Militar {nome_guerra} excluído permanentemente.")
+        except ProtectedError:
+            messages.error(
+                request,
+                f"Não é possível excluir {nome_guerra} pois ele possui vínculos ativos na seção "
+                f"de Informática (Cautela). Remova os registros vinculados antes de excluir o militar."
+            )
         return redirect(self.get_success_url())
 
 @method_decorator(s1_required, name='dispatch')
@@ -495,10 +687,18 @@ class MilitarTrashListView(ListView):
 @require_POST
 def militar_restore(request, pk):
     militar = get_object_or_404(Efetivo.all_objects, pk=pk, deleted=True)
+    nome = militar.nome_guerra or militar.nome_completo
     militar.deleted = False
     militar.deleted_at = None
     militar.save(update_fields=['deleted', 'deleted_at'])
-    messages.success(request, f"Militar {militar.nome_guerra or militar.nome_completo} foi restaurado com sucesso.")
+    # deleted/deleted_at não estão em campos_monitorados — log explícito necessário
+    registrar(
+        request.user, secao='pessoal',
+        permissao=resolver_label(request.user, _PESSOAL_PERMISSAO_MAP),
+        acao='restaurou', descricao=f"restaurou o militar '{nome}' da lixeira",
+        objeto_tipo='Efetivo', objeto_id=nome,
+    )
+    messages.success(request, f"Militar {nome} foi restaurado com sucesso.")
     return redirect('Secao_pessoal:militar_trash_list')
 
 @s1_required
@@ -514,41 +714,198 @@ def militar_permanently_delete(request, pk):
 @require_POST
 def militar_lixeira_esvaziar(request):
     count = Efetivo.all_objects.filter(deleted=True).count()
+    if count:
+        # log antes do bulk delete — QuerySet.delete() não dispara post_delete por registro
+        registrar(
+            request.user, secao='pessoal',
+            permissao=resolver_label(request.user, _PESSOAL_PERMISSAO_MAP),
+            acao='excluiu', descricao=f"esvaziou a lixeira de militares ({count} registro(s) excluídos permanentemente)",
+            objeto_tipo='Efetivo', objeto_id='',
+        )
     Efetivo.all_objects.filter(deleted=True).delete()
     messages.success(request, f'{count} militar(es) excluído(s) permanentemente da lixeira.')
     return redirect('Secao_pessoal:militar_trash_list')
 
 @method_decorator(s1_required, name='dispatch')
-class MilitarBaixadoListView(ListView):
+class EfetivoOperacionalListView(ListView):
+    """Efetivo Operacional — Ativo + PSV GSD-GL."""
     model = Efetivo
-    template_name = 'Secao_pessoal/militar_baixado_list.html'
+    context_object_name = 'militares'
+    paginate_by = 20
+
+    def get_template_names(self):
+        if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return ['Secao_pessoal/efetivo_operacional_partial.html']
+        return ['Secao_pessoal/efetivo_operacional.html']
+
+    def _split(self, param):
+        return [v.strip() for v in param.split(',') if v.strip()]
+
+    def get_queryset(self):
+        query = self.request.GET.get('q')
+        rank_order = Case(
+            When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)), When(posto='ASP', then=Value(6)), When(posto='SO', then=Value(7)),
+            When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)), When(posto='REC', then=Value(14)),
+            default=Value(99), output_field=IntegerField(),
+        )
+        qs = super().get_queryset().filter(
+            Q(situacao__iexact='Ativo') | Q(situacao__iexact='Ativa') | Q(situacao__iexact='PSV GSD-GL')
+        ).annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        if query:
+            q_objects = Q(nome_completo__icontains=query) | Q(nome_guerra__icontains=query) | Q(posto__icontains=query)
+            if query.isdigit():
+                q_objects |= Q(saram__icontains=query)
+            qs = qs.filter(q_objects)
+        # Filtros de coluna
+        posto_f = self._split(self.request.GET.get('posto_f', ''))
+        esp_f   = self._split(self.request.GET.get('esp_f', ''))
+        sit_f   = self._split(self.request.GET.get('sit_f', ''))
+        obs_f   = self._split(self.request.GET.get('obs_f', ''))
+        setor_f = self._split(self.request.GET.get('setor_f', ''))
+        if posto_f:
+            qs = qs.filter(posto__in=posto_f)
+        if esp_f:
+            esp_q = Q()
+            for v in esp_f:
+                if v == '__vazio__': esp_q |= Q(especializacao='') | Q(especializacao__isnull=True)
+                else: esp_q |= Q(especializacao=v)
+            qs = qs.filter(esp_q)
+        if sit_f:
+            sit_q = Q()
+            for v in sit_f:
+                if v == '__vazio__': sit_q |= Q(situacao='') | Q(situacao__isnull=True)
+                else: sit_q |= Q(situacao=v)
+            qs = qs.filter(sit_q)
+        if obs_f:
+            obs_q = Q()
+            for v in obs_f:
+                if v == '__vazio__': obs_q |= Q(observacao='') | Q(observacao__isnull=True)
+                else: obs_q |= Q(observacao=v)
+            qs = qs.filter(obs_q)
+        if setor_f:
+            set_q = Q()
+            for v in setor_f:
+                if v == '__vazio__': set_q |= Q(setor='') | Q(setor__isnull=True)
+                else: set_q |= Q(setor=v)
+            qs = qs.filter(set_q)
+        return qs
+
+
+@method_decorator(s1_required, name='dispatch')
+class MilitarBaixadoListView(ListView):
+    """Junta Médica — exibe militares com situação 'De Junta'."""
+    model = Efetivo
     context_object_name = 'militares'
     paginate_by = 20
 
     def get_template_names(self):
         if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
             return ['Secao_pessoal/militar_list_partial.html']
-        return ['Secao_pessoal/militar_baixado_list.html']
+        return ['Secao_pessoal/junta_medica_list.html']
+
+    def _split(self, param):
+        return [v.strip() for v in param.split(',') if v.strip()]
 
     def get_queryset(self):
         query = self.request.GET.get('q')
         rank_order = Case(
             When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
-            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)),When(posto='ASP', then=Value (6)), When(posto='SO', then=Value(7)),
+            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)), When(posto='ASP', then=Value(6)), When(posto='SO', then=Value(7)),
             When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
-            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)), When(posto='REC', then=Value(14)),
             default=Value(99), output_field=IntegerField(),
-        ) 
+        )
         qs = super().get_queryset().filter(situacao__iexact='De Junta').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
         if query:
-            q_objects = Q(nome_completo__icontains=query) | \
-                        Q(nome_guerra__icontains=query) | \
-                        Q(posto__icontains=query)
-            
+            q_objects = Q(nome_completo__icontains=query) | Q(nome_guerra__icontains=query) | Q(posto__icontains=query)
             if query.isdigit():
                 q_objects |= Q(saram__icontains=query)
-                
             qs = qs.filter(q_objects)
+        # Filtros de coluna
+        posto_f = self._split(self.request.GET.get('posto_f', ''))
+        esp_f   = self._split(self.request.GET.get('esp_f', ''))
+        sit_f   = self._split(self.request.GET.get('sit_f', ''))
+        obs_f   = self._split(self.request.GET.get('obs_f', ''))
+        if posto_f:
+            qs = qs.filter(posto__in=posto_f)
+        if esp_f:
+            esp_q = Q()
+            for v in esp_f:
+                if v == '__vazio__': esp_q |= Q(especializacao='') | Q(especializacao__isnull=True)
+                else: esp_q |= Q(especializacao=v)
+            qs = qs.filter(esp_q)
+        if sit_f:
+            sit_q = Q()
+            for v in sit_f:
+                if v == '__vazio__': sit_q |= Q(situacao='') | Q(situacao__isnull=True)
+                else: sit_q |= Q(situacao=v)
+            qs = qs.filter(sit_q)
+        if obs_f:
+            obs_q = Q()
+            for v in obs_f:
+                if v == '__vazio__': obs_q |= Q(observacao='') | Q(observacao__isnull=True)
+                else: obs_q |= Q(observacao=v)
+            qs = qs.filter(obs_q)
+        return qs
+
+
+@method_decorator(s1_required, name='dispatch')
+class MilitarDesligadoListView(ListView):
+    """Desligados — exibe militares com situação 'Baixado'."""
+    model = Efetivo
+    context_object_name = 'militares'
+    paginate_by = 20
+
+    @staticmethod
+    def _split(val):
+        return [v for v in (val or '').split(',') if v] if val else []
+
+    def get_template_names(self):
+        if self.request.headers.get('x-requested-with') == 'XMLHttpRequest':
+            return ['Secao_pessoal/militar_list_partial.html']
+        return ['Secao_pessoal/desligados_list.html']
+
+    def get_queryset(self):
+        query = self.request.GET.get('q')
+        rank_order = Case(
+            When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+            When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)), When(posto='ASP', then=Value(6)), When(posto='SO', then=Value(7)),
+            When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+            When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)), When(posto='REC', then=Value(14)),
+            default=Value(99), output_field=IntegerField(),
+        )
+        qs = super().get_queryset().filter(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+        if query:
+            q_objects = Q(nome_completo__icontains=query) | Q(nome_guerra__icontains=query) | Q(posto__icontains=query)
+            if query.isdigit():
+                q_objects |= Q(saram__icontains=query)
+            qs = qs.filter(q_objects)
+        posto_f = self._split(self.request.GET.get('posto_f', ''))
+        esp_f   = self._split(self.request.GET.get('esp_f', ''))
+        sit_f   = self._split(self.request.GET.get('sit_f', ''))
+        obs_f   = self._split(self.request.GET.get('obs_f', ''))
+        if posto_f:
+            qs = qs.filter(posto__in=posto_f)
+        if esp_f:
+            esp_q = Q()
+            for v in esp_f:
+                if v == '__vazio__': esp_q |= Q(especializacao='') | Q(especializacao__isnull=True)
+                else: esp_q |= Q(especializacao=v)
+            qs = qs.filter(esp_q)
+        if sit_f:
+            sit_q = Q()
+            for v in sit_f:
+                if v == '__vazio__': sit_q |= Q(situacao='') | Q(situacao__isnull=True)
+                else: sit_q |= Q(situacao=v)
+            qs = qs.filter(sit_q)
+        if obs_f:
+            obs_q = Q()
+            for v in obs_f:
+                if v == '__vazio__': obs_q |= Q(observacao='') | Q(observacao__isnull=True)
+                else: obs_q |= Q(observacao=v)
+            qs = qs.filter(obs_q)
         return qs
 
 @s1_required
@@ -693,30 +1050,42 @@ def importar_excel(request):
     if request.method == 'POST' and request.FILES.get('excel_file'):
         excel_file = request.FILES['excel_file']
         sincronizar = request.POST.get('sincronizar') == '1'
+        postos_filtro_str = request.POST.get('postos_filtro', 'todos').strip()
+        if postos_filtro_str and postos_filtro_str != 'todos':
+            postos_filtro = set(postos_filtro_str.split(','))
+        else:
+            postos_filtro = None
 
         try:
-            # Lê o arquivo Excel e converte tudo para string para evitar erros de tipo
-            df = pd.read_excel(excel_file, dtype=str)
-
-            # Remove espaços em branco dos nomes das colunas
+            # Lê o arquivo Excel e converte tudo para string para evitar erros de tipo.
+            # header=2 → linhas 1-2 são título, a linha 3 é o cabeçalho real (novo modelo).
+            # Tenta header=2 primeiro; se não encontrar colunas conhecidas, tenta header=0
+            # para compatibilidade com planilhas antigas.
+            df = pd.read_excel(excel_file, dtype=str, header=2)
             df.columns = df.columns.str.strip()
+            # Detecta se o cabeçalho correto foi lido: deve ter ao menos SARAM ou NOME COMPLETO
+            _cols_norm = {re.sub(r'\s+', ' ', normalize_name(str(c))).strip() for c in df.columns}
+            if 'SARAM' not in _cols_norm and 'NOME COMPLETO' not in _cols_norm:
+                # Fallback: planilha antiga sem linhas de título
+                df = pd.read_excel(excel_file, dtype=str, header=0)
+                df.columns = df.columns.str.strip()
 
             # Renomeia as colunas para os nomes canônicos esperados abaixo, aceitando
             # variações de acentuação/maiúsculas/abreviação/pontuação no cabeçalho da
-            # planilha (ex.: "Posto", "PST", "Pst." todos casam com "PST."). Sem isso,
-            # um cabeçalho ligeiramente diferente faz todas as linhas serem ignoradas.
+            # planilha. 'ESPC' é a abreviação usada no novo modelo; 'OBSERVAÇÕES' é nova.
             ALIASES_COLUNAS_EFETIVO = {
                 'SARAM': ['SARAM'],
                 'NOME COMPLETO': ['NOME COMPLETO', 'NOME'],
                 'PST.': ['PST', 'POSTO', 'POSTOGRAD', 'POSTO GRAD'],
                 'QUAD.': ['QUAD', 'QUADRO'],
-                'ESP.': ['ESP', 'ESPECIALIZACAO', 'ESPECIALIDADE'],
+                'ESP.': ['ESP', 'ESPC', 'ESPECIALIZACAO', 'ESPECIALIDADE'],
                 'NOME DE GUERRA': ['NOME DE GUERRA', 'NOME GUERRA', 'GUERRA'],
                 'TURMA': ['TURMA'],
                 'SITUAÇÃO': ['SITUACAO'],
                 'OM': ['OM'],
                 'SETOR': ['SETOR'],
                 'SUBSETOR': ['SUBSETOR'],
+                'OBSERVAÇÃO': ['OBSERVACOES', 'OBSERVACAO', 'OBSERVACOES'],
             }
             colunas_normalizadas = {
                 re.sub(r'\s+', ' ', re.sub(r'[.\/]', '', normalize_name(str(c)))).strip(): c
@@ -759,6 +1128,9 @@ def importar_excel(request):
             # "importar e sincronizar" para saber quem NÃO está na planilha.
             pks_na_planilha = set()
 
+            # Linhas com posto TEN/TENENTE que precisam de clarificação
+            ten_rows_efetivo = []
+
             for index, row in df.iterrows():
                 # Pega valores essenciais
                 saram_valor = str(row.get('SARAM', '')).strip()
@@ -777,25 +1149,68 @@ def importar_excel(request):
                     except ValueError:
                         saram_db = None
 
+                # Extrai nome_guerra e strip de posto prefixo
+                nome_guerra_raw = row.get('NOME DE GUERRA', '').strip()
+                posto_raw = row.get('PST.', '').strip()
+
+                nome_guerra_limpo, posto_de_nome = _strip_posto_de_nome(nome_guerra_raw)
+
+                # Determina posto final
+                if posto_raw:
+                    posto_norm, is_ten = _normalizar_posto(posto_raw)
+                    if posto_norm is None:
+                        posto_norm = posto_raw  # fallback (sem normalização)
+                else:
+                    # Usa posto detectado no nome_guerra se posto_raw estiver vazio
+                    posto_norm = posto_de_nome or ''
+                    is_ten = False
+
+                # Pula postos não selecionados pelo usuário
+                if postos_filtro and posto_norm not in postos_filtro:
+                    continue
+
+                # Se posto é TEN/TENENTE, guarda para clarificação e passa para a próxima
+                if is_ten:
+                    if postos_filtro and posto_norm not in postos_filtro:
+                        continue
+                    ten_rows_efetivo.append({
+                        'saram': saram_valor,
+                        'nome_completo': nome_completo_valor,
+                        'nome_guerra': nome_guerra_limpo,
+                        'posto_raw': posto_raw,
+                        'quad': row.get('QUAD.', '').strip(),
+                        'especializacao': row.get('ESP.', '').strip(),
+                        'turma': _extrair_ano_turma(row.get('TURMA', '')),
+                        'situacao': row.get('SITUAÇÃO', '').strip(),
+                        'om': row.get('OM', '').strip(),
+                        'setor': row.get('SETOR', '').strip(),
+                        'subsetor': row.get('SUBSETOR', '').strip(),
+                        'observacao': row.get('OBSERVAÇÃO', '').strip(),
+                        'saram_db': saram_db,
+                        'is_ten': True,
+                    })
+                    continue
+
                 # Dicionário com os dados a serem salvos/atualizados
                 dados_militar = {
-                    'posto': row.get('PST.', '').strip(),
+                    'posto': posto_norm,
                     'quad': row.get('QUAD.', '').strip(),
                     'especializacao': row.get('ESP.', '').strip(),
-                    'saram': saram_db, # Usando a variável tratada
+                    'saram': saram_db,
                     'nome_completo': nome_completo_valor,
-                    'nome_guerra': row.get('NOME DE GUERRA', '').strip(),
-                    'turma': row.get('TURMA', '').strip(),
+                    'nome_guerra': nome_guerra_limpo,
+                    'turma': _extrair_ano_turma(row.get('TURMA', '')),
                     'situacao': row.get('SITUAÇÃO', '').strip(),
                     'om': row.get('OM', '').strip(),
                     'setor': row.get('SETOR', '').strip(),
                     'subsetor': row.get('SUBSETOR', '').strip(),
+                    'observacao': row.get('OBSERVAÇÃO', '').strip(),
                     # Se o militar estava na lixeira, reimportá-lo via planilha deve
                     # restaurá-lo para o efetivo ativo — caso contrário ele continua
                     # "atualizado" mas invisível na lista geral.
                     'deleted': False,
                     'deleted_at': None,
-                        }
+                }
 
                 # Acumula valores não-vazios para criar no controle geral
                 if dados_militar['posto']:
@@ -852,6 +1267,15 @@ def importar_excel(request):
                     agora = timezone.now()
                     nao_encontrados = Efetivo.objects.exclude(pk__in=pks_na_planilha)
                     removidos = nao_encontrados.update(deleted=True, deleted_at=agora)
+                    if removidos:
+                        # bulk update não dispara signal — log explícito
+                        registrar(
+                            request.user, secao='pessoal',
+                            permissao=resolver_label(request.user, _PESSOAL_PERMISSAO_MAP),
+                            acao='excluiu',
+                            descricao=f"importação Excel (sincronizar): {removidos} militar(es) movidos para lixeira por não constar na planilha",
+                            objeto_tipo='Efetivo', objeto_id='',
+                        )
 
             # Cria opções do controle geral sem duplicar (get_or_create é idempotente)
             for v in postos_excel:
@@ -867,20 +1291,167 @@ def importar_excel(request):
             for v in subsetores_excel:
                 Subsetor.objects.get_or_create(nome=v)
 
+            # Se há linhas com TEN/TENENTE ambíguo, redireciona para clarificação
+            if ten_rows_efetivo:
+                request.session['ten_rows_efetivo'] = ten_rows_efetivo
+                request.session['efetivo_criados'] = criados
+                request.session['efetivo_atualizados'] = atualizados
+                request.session['efetivo_pks_na_planilha'] = list(pks_na_planilha)
+                request.session['efetivo_sincronizar'] = sincronizar
+                request.session['efetivo_postos'] = list(postos_excel)
+                request.session['efetivo_quads'] = list(quads_excel)
+                request.session['efetivo_especs'] = list(especs_excel)
+                request.session['efetivo_oms'] = list(oms_excel)
+                request.session['efetivo_setores'] = list(setores_excel)
+                request.session['efetivo_subsetores'] = list(subsetores_excel)
+                messages.info(request, f'{criados + atualizados} militar(es) processado(s). Esclareça o posto dos {len(ten_rows_efetivo)} militar(es) com TEN/TENENTE.')
+                return redirect('Secao_pessoal:esclarecer_importacao_efetivo')
+
             if sincronizar_abortada:
                 messages.error(request, 'Nenhum militar foi reconhecido na planilha (verifique se as colunas "SARAM" e "NOME COMPLETO" estão corretas). A sincronização foi cancelada para evitar apagar o efetivo existente.')
             elif sincronizar:
                 messages.success(request, f'Sucesso! {criados} militares criados, {atualizados} atualizados e {removidos} removidos (enviados para a lixeira) por não constarem na planilha.')
             else:
                 messages.success(request, f'Sucesso! {criados} militares criados e {atualizados} atualizados.')
-            return redirect('Secao_pessoal:militar_list') # Verifique o nome da sua rota de listagem
+            return redirect('Secao_pessoal:militar_list')
 
         except Exception as e:
             messages.error(request, f'Erro na importação: {str(e)}')
             return redirect('Secao_pessoal:importar_excel')
 
     return render(request, 'Secao_pessoal/importar_excel.html')
-    
+
+
+@s1_required
+@require_POST
+def preview_postos_excel(request):
+    """Lê o arquivo Excel e retorna os postos encontrados (sem importar)."""
+    excel_file = request.FILES.get('excel_file')
+    if not excel_file:
+        return JsonResponse({'error': 'Nenhum arquivo enviado'}, status=400)
+    try:
+        df = pd.read_excel(excel_file, dtype=str, header=2)
+        df.columns = df.columns.str.strip()
+        _cols = {re.sub(r'\s+', ' ', normalize_name(str(c))).strip() for c in df.columns}
+        if 'SARAM' not in _cols and 'NOME COMPLETO' not in _cols:
+            df = pd.read_excel(excel_file, dtype=str, header=0)
+            df.columns = df.columns.str.strip()
+        colunas_norm = {
+            re.sub(r'\s+', ' ', re.sub(r'[.\/]', '', normalize_name(str(c)))).strip(): c
+            for c in df.columns
+        }
+        posto_col = None
+        for alias in ['PST', 'POSTO', 'POSTOGRAD', 'POSTO GRAD']:
+            if alias in colunas_norm:
+                posto_col = colunas_norm[alias]
+                break
+        if not posto_col:
+            return JsonResponse({'postos': []})
+        df.fillna('', inplace=True)
+        hierarquia = ['TC', 'MJ', 'CP', '1T', '2T', 'ASP', 'SO', '1S', '2S', '3S', 'CB', 'S1', 'S2', 'REC']
+        postos_norm = set()
+        for p_raw in df[posto_col].unique():
+            p_raw = str(p_raw).strip()
+            if p_raw:
+                p_norm, _ = _normalizar_posto(p_raw)
+                if p_norm:
+                    postos_norm.add(p_norm)
+        postos_ord = sorted(postos_norm, key=lambda x: hierarquia.index(x) if x in hierarquia else 99)
+        return JsonResponse({'postos': postos_ord})
+    except Exception as e:
+        return JsonResponse({'error': str(e)}, status=400)
+
+
+@s1_required
+def esclarecer_importacao_efetivo(request):
+    ten_rows = request.session.get('ten_rows_efetivo', [])
+    if not ten_rows:
+        return redirect('Secao_pessoal:militar_list')
+
+    if request.method == 'POST':
+        criados    = request.session.pop('efetivo_criados', 0)
+        atualizados= request.session.pop('efetivo_atualizados', 0)
+        pks_na_planilha = set(request.session.pop('efetivo_pks_na_planilha', []))
+        sincronizar = request.session.pop('efetivo_sincronizar', False)
+        postos_excel   = set(request.session.pop('efetivo_postos', []))
+        quads_excel    = set(request.session.pop('efetivo_quads', []))
+        especs_excel   = set(request.session.pop('efetivo_especs', []))
+        oms_excel      = set(request.session.pop('efetivo_oms', []))
+        setores_excel  = set(request.session.pop('efetivo_setores', []))
+        subsetores_excel = set(request.session.pop('efetivo_subsetores', []))
+        request.session.pop('ten_rows_efetivo', None)
+
+        existentes_por_nome = {}
+        for efetivo_existente in Efetivo.all_objects.all():
+            chave = normalize_name(efetivo_existente.nome_completo).strip()
+            if chave:
+                existentes_por_nome[chave] = efetivo_existente
+
+        for i, r in enumerate(ten_rows):
+            posto_escolhido = request.POST.get(f'posto_{i}', '')
+            saram_db = r.get('saram_db')
+            dados_militar = {
+                'posto': posto_escolhido,
+                'quad': r.get('quad', ''),
+                'especializacao': r.get('especializacao', ''),
+                'saram': saram_db,
+                'nome_completo': r.get('nome_completo', ''),
+                'nome_guerra': r.get('nome_guerra', ''),
+                'turma': r.get('turma', ''),
+                'situacao': r.get('situacao', ''),
+                'om': r.get('om', ''),
+                'setor': r.get('setor', ''),
+                'subsetor': r.get('subsetor', ''),
+                'observacao': r.get('observacao', ''),
+                'deleted': False,
+                'deleted_at': None,
+            }
+            if posto_escolhido:
+                postos_excel.add(posto_escolhido)
+
+            if saram_db:
+                obj, created = Efetivo.all_objects.update_or_create(saram=saram_db, defaults=dados_militar)
+            else:
+                chave_nome = normalize_name(r.get('nome_completo', '')).strip()
+                existente = existentes_por_nome.get(chave_nome)
+                if existente:
+                    for campo, valor in dados_militar.items():
+                        setattr(existente, campo, valor)
+                    existente.save()
+                    obj, created = existente, False
+                else:
+                    obj = Efetivo.all_objects.create(**dados_militar)
+                    created = True
+                    existentes_por_nome[chave_nome] = obj
+            if created:
+                criados += 1
+            else:
+                atualizados += 1
+            pks_na_planilha.add(obj.pk)
+
+        # Sincronizar se necessário
+        removidos = 0
+        if sincronizar and pks_na_planilha:
+            agora = timezone.now()
+            nao_enc = Efetivo.objects.exclude(pk__in=pks_na_planilha)
+            removidos = nao_enc.update(deleted=True, deleted_at=agora)
+
+        for v in postos_excel: Posto.objects.get_or_create(nome=v)
+        for v in quads_excel: Quad.objects.get_or_create(nome=v)
+        for v in especs_excel: Especializacao.objects.get_or_create(nome=v)
+        for v in oms_excel: OM.objects.get_or_create(nome=v)
+        for v in setores_excel: Setor.objects.get_or_create(nome=v)
+        for v in subsetores_excel: Subsetor.objects.get_or_create(nome=v)
+
+        if sincronizar and removidos:
+            messages.success(request, f'Sucesso! {criados} militares criados, {atualizados} atualizados e {removidos} removidos por não constarem na planilha.')
+        else:
+            messages.success(request, f'Sucesso! {criados} militares criados e {atualizados} atualizados.')
+        return redirect('Secao_pessoal:militar_list')
+
+    return render(request, 'Secao_pessoal/esclarecer_importacao.html', {'ambiguous': ten_rows, 'fonte': 'efetivo'})
+
+
 # --- Lógica para Nome de Guerra ---
 
 def normalize_name(name):
@@ -1334,7 +1905,7 @@ def baixa(request):
         if militar_id:
             try:
                 militar = Efetivo.objects.get(id=militar_id) # type: ignore
-                militar.situacao = 'De Junta' # Ao invés de deletar, apenas altera a situação
+                militar.situacao = 'Baixado' # Ao invés de deletar, apenas altera a situação
                 militar.observacao = motivo_baixa # Salva o motivo da baixa
                 militar.motivo_desligamento = motivo_baixa
                 if data_baixa:
@@ -1363,13 +1934,15 @@ def indisponiveis(request):
         When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)),When(posto='REC', then=Value(14)),
         default=Value(99), output_field=IntegerField(),
     )
-    # Traz todos os militares onde a situação não seja "Ativo" e não seja vazia
-    militares = Efetivo.objects.exclude(
-        Q(situacao__iexact='Ativo') | Q(situacao__exact='') | Q(situacao__isnull=True)
+    qs = Efetivo.objects.exclude(
+        Q(situacao__iexact='Ativo') | Q(situacao__iexact='Ativa') | Q(situacao__exact='') | Q(situacao__isnull=True)
     ).annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
-    
+    paginator = Paginator(qs, 20)
+    page_obj = paginator.get_page(request.GET.get('page'))
     context = {
-        'militares': militares
+        'militares': page_obj,
+        'page_obj': page_obj,
+        'is_paginated': page_obj.has_other_pages(),
     }
     return render(request, 'Secao_pessoal/indisponiveis.html', context)
 
@@ -1526,8 +2099,15 @@ def gerenciar_opcoes(request):
 @s1_required
 def exportar_efetivo(request):
     if request.method == 'POST':
-        filtro = request.POST.get('filtro')
-        
+        # Filtro avançado (vem do botão Exportar na lista)
+        q        = request.POST.get('q', '').strip()
+        posto_f  = [v.strip() for v in request.POST.get('posto_f', '').split(',') if v.strip()]
+        esp_f    = [v.strip() for v in request.POST.get('esp_f', '').split(',') if v.strip()]
+        sit_f    = [v.strip() for v in request.POST.get('sit_f', '').split(',') if v.strip()]
+        obs_f    = [v.strip() for v in request.POST.get('obs_f', '').split(',') if v.strip()]
+        setor_f  = [v.strip() for v in request.POST.get('setor_f', '').split(',') if v.strip()]
+        usa_filtro_avancado = any([q, posto_f, esp_f, sit_f, obs_f, setor_f])
+
         # Cria o Workbook e a planilha ativa
         wb = openpyxl.Workbook()
         ws = wb.active
@@ -1560,15 +2140,47 @@ def exportar_efetivo(request):
         queryset = Efetivo.objects.exclude(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_guerra')
 
         # Aplica os filtros
-        if filtro == 'todos':
-            pass # Pega tudo
-        elif filtro == 'oficiais':
-            queryset = queryset.filter(oficial=True)
-        elif filtro == 'pracas':
-            queryset = queryset.filter(oficial=False)
-        elif filtro:
-            # Assume que é um posto específico (ex: 'CB', 'REC', '3S')
-            queryset = queryset.filter(posto=filtro)
+        if usa_filtro_avancado:
+            if q:
+                queryset = queryset.filter(
+                    Q(nome_completo__icontains=q) | Q(nome_guerra__icontains=q) | Q(posto__icontains=q)
+                )
+            if posto_f:
+                queryset = queryset.filter(posto__in=posto_f)
+            if esp_f:
+                eq = Q()
+                for v in esp_f:
+                    if v == '__vazio__': eq |= Q(especializacao='') | Q(especializacao__isnull=True)
+                    else: eq |= Q(especializacao=v)
+                queryset = queryset.filter(eq)
+            if sit_f:
+                sq = Q()
+                for v in sit_f:
+                    if v == '__vazio__': sq |= Q(situacao='') | Q(situacao__isnull=True)
+                    else: sq |= Q(situacao=v)
+                queryset = queryset.filter(sq)
+            if obs_f:
+                oq = Q()
+                for v in obs_f:
+                    if v == '__vazio__': oq |= Q(observacao='') | Q(observacao__isnull=True)
+                    else: oq |= Q(observacao=v)
+                queryset = queryset.filter(oq)
+            if setor_f:
+                stq = Q()
+                for v in setor_f:
+                    if v == '__vazio__': stq |= Q(setor='') | Q(setor__isnull=True)
+                    else: stq |= Q(setor=v)
+                queryset = queryset.filter(stq)
+        else:
+            filtro = request.POST.get('filtro')
+            if filtro == 'todos':
+                pass
+            elif filtro == 'oficiais':
+                queryset = queryset.filter(oficial=True)
+            elif filtro == 'pracas':
+                queryset = queryset.filter(oficial=False)
+            elif filtro:
+                queryset = queryset.filter(posto=filtro)
 
         # Preenche os dados
         for militar in queryset:
@@ -1654,10 +2266,17 @@ class PrestacaoServicoListView(ListView):
         if query:
             q_objects = Q(nome_completo__icontains=query) | \
                         Q(nome_guerra__icontains=query) | \
+                        Q(saram__icontains=query) | \
                         Q(unidade_prestacao_servico__icontains=query) | \
-                        Q(portaria_prestacao__icontains=query)
+                        Q(portaria_prestacao__icontains=query) | \
+                        Q(sigad_prestacao__icontains=query)
             qs = qs.filter(q_objects)
         return qs
+
+    def get_template_names(self):
+        if self.request.headers.get('X-Requested-With') == 'XMLHttpRequest':
+            return ['Secao_pessoal/psv_list_partial.html']
+        return ['Secao_pessoal/prestacao_servico_list.html']
 
     def get_context_data(self, **kwargs):
         context = super().get_context_data(**kwargs)
@@ -1680,6 +2299,339 @@ def historico_inspsau_delete(request, pk):
         messages.error(request, f"Ocorreu um erro ao excluir o registro: {e}")
         
     return redirect('Secao_pessoal:historico_inspsau_list')
+_POSTO_MAP = {
+    'ASPIRANTE': 'ASP', 'ASP': 'ASP',
+    '2T': '2T', '2º TENENTE': '2T', '2 TENENTE': '2T', 'SEGUNDO TENENTE': '2T',
+    '1T': '1T', '1º TENENTE': '1T', '1 TENENTE': '1T', 'PRIMEIRO TENENTE': '1T',
+    'CAP': 'CP', 'CAPITAO': 'CP', 'CAPITÃO': 'CP', 'CP': 'CP',
+    'MAJ': 'MJ', 'MAJOR': 'MJ', 'MJ': 'MJ',
+    'TC': 'TC', 'TEN CEL': 'TC', 'TENENTE CORONEL': 'TC', 'TEN-CEL': 'TC',
+    'CEL': 'CL', 'CORONEL': 'CL', 'CL': 'CL',
+    'SO': 'SO', 'SARGENTO': 'SO',
+    '1S': '1S', '1º SARGENTO': '1S', 'PRIMEIRO SARGENTO': '1S',
+    '2S': '2S', '2º SARGENTO': '2S', 'SEGUNDO SARGENTO': '2S',
+    '3S': '3S', '3º SARGENTO': '3S', 'TERCEIRO SARGENTO': '3S',
+    'CB': 'CB', 'CABO': 'CB',
+    'SD': 'S1', 'S1': 'S1', 'S2': 'S2', 'REC': 'REC', 'SOLDADO': 'S1',
+}
+_POSTO_TEN = {'TEN', 'TENENTE', '1TEN', '2TEN', 'TEN.', '1T/2T', 'TENENTE.', 'TEN.1', 'TEN.2'}
+
+# Prefixos reconhecidos no nome de guerra (ordem: mais longos primeiro para evitar partial matches)
+_POSTOS_PREFIXO = sorted(
+    list(_POSTO_MAP.keys()) + list(_POSTO_TEN),
+    key=lambda x: -len(x)
+)
+
+
+def _strip_posto_de_nome(nome_guerra):
+    """Remove prefix de posto do nome_guerra. Retorna (nome_limpo, posto_detectado_ou_None)."""
+    if not nome_guerra:
+        return nome_guerra, None
+    ng_upper = nome_guerra.upper().strip()
+    for p in _POSTOS_PREFIXO:
+        p_upper = p.upper()
+        if ng_upper.startswith(p_upper + ' ') or ng_upper == p_upper:
+            stripped = nome_guerra[len(p):].strip()
+            posto_norm = _POSTO_MAP.get(normalize_name(p.replace('.', '').replace('-', '')))
+            return (stripped.upper() if stripped else nome_guerra.upper()), posto_norm
+    return nome_guerra.upper(), None
+
+
+def _normalizar_posto(valor):
+    """Retorna (posto_normalizado, é_tenente_ambiguo)."""
+    v = normalize_name(valor.strip())
+    # remove pontos e hifens para comparação
+    v_clean = v.replace('.', '').replace('-', '').strip()
+    if v_clean in _POSTO_TEN or v in _POSTO_TEN:
+        return None, True  # TEN ambíguo
+    return _POSTO_MAP.get(v_clean) or _POSTO_MAP.get(v) or valor.strip(), False
+
+
+def _parse_date(val):
+    """Tenta converter string para date, retorna None em caso de falha."""
+    from datetime import datetime as _dt
+    if not val or str(val).strip() in ('', 'nan', 'NaT', 'None'):
+        return None
+    for fmt in ('%d/%m/%Y', '%Y-%m-%d', '%d-%m-%Y', '%m/%d/%Y'):
+        try:
+            return _dt.strptime(str(val).strip(), fmt).date()
+        except ValueError:
+            pass
+    return None
+
+
+def _extrair_ano_turma(val):
+    """Normaliza o campo TURMA: se for data (ex: '2001-12-15 00:00:00'), extrai só o ano."""
+    v = str(val).strip()
+    if not v or v in ('', 'nan', 'NaT', 'None'):
+        return ''
+    if len(v) >= 4 and v[:4].isdigit() and (len(v) == 4 or not v[4].isdigit()):
+        return v[:4]
+    return v
+
+
+# ── Adicionar PSV ───────────────────────────────────────────────────────────
+@s1_required
+def adicionar_psv(request):
+    rank_order = Case(
+        When(posto='CL', then=Value(0)), When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+        When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)), When(posto='ASP', then=Value(6)), When(posto='SO', then=Value(7)),
+        When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)), When(posto='3S', then=Value(10)),
+        When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)), When(posto='S2', then=Value(13)), When(posto='REC', then=Value(14)),
+        default=Value(99), output_field=IntegerField(),
+    )
+    militares = Efetivo.objects.exclude(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'turma', 'nome_completo')
+
+    if request.method == 'POST':
+        militar_id = request.POST.get('militar_psv')
+        if not militar_id:
+            messages.error(request, 'Selecione o militar.')
+            return redirect('Secao_pessoal:adicionar_psv')
+        try:
+            militar = Efetivo.objects.get(id=militar_id)
+        except Efetivo.DoesNotExist:
+            messages.error(request, 'Militar não encontrado.')
+            return redirect('Secao_pessoal:adicionar_psv')
+
+        militar.unidade_prestacao_servico = request.POST.get('unidade', '').strip() or None
+        militar.sigad_prestacao           = request.POST.get('sigad', '').strip() or None
+        militar.portaria_prestacao        = request.POST.get('portaria', '').strip() or None
+        militar.boletim_prestacao         = request.POST.get('boletim', '').strip() or None
+        militar.data_inicio_prestacao     = _parse_date(request.POST.get('data_inicio', ''))
+        militar.data_vencimento_prestacao = _parse_date(request.POST.get('data_vencimento', ''))
+        militar.data_portaria_prestacao   = _parse_date(request.POST.get('data_portaria', ''))
+        militar.data_boletim_prestacao    = _parse_date(request.POST.get('data_boletim', ''))
+        _oms_gsd = {'BINFAE-GL', 'GSD-GL', 'BINFAE GL', 'GSD GL'}
+        om_origem = (militar.om or '').strip().upper()
+        militar.situacao = 'PSV GSD-GL' if om_origem in _oms_gsd else 'PSV'
+        militar.save()
+        messages.success(request, f'Prestação de serviço de {militar.posto} {militar.nome_guerra} registrada com sucesso.')
+        return redirect('Secao_pessoal:prestacao_servico')
+
+    return render(request, 'Secao_pessoal/adicionar_psv.html', {'militares': militares})
+
+
+# ── Retornar PSV → OM Origem ────────────────────────────────────────────────
+@s1_required
+@require_POST
+def retornar_psv(request, pk):
+    militar = get_object_or_404(Efetivo, pk=pk)
+    militar.situacao = 'ATIVA'
+    militar.unidade_prestacao_servico = None
+    militar.data_inicio_prestacao     = None
+    militar.data_vencimento_prestacao = None
+    militar.sigad_prestacao           = None
+    militar.portaria_prestacao        = None
+    militar.boletim_prestacao         = None
+    militar.data_portaria_prestacao   = None
+    militar.data_boletim_prestacao    = None
+    militar.save()
+    messages.success(request, f'{militar.posto} {militar.nome_guerra} retornou à OM de origem.')
+    return redirect('Secao_pessoal:prestacao_servico')
+
+
+# ── Exportar PSV ────────────────────────────────────────────────────────────
+@s1_required
+def exportar_psv(request):
+    import io
+    qs = Efetivo.objects.filter(
+        Q(unidade_prestacao_servico__isnull=False) & ~Q(unidade_prestacao_servico='')
+    ).order_by('posto', 'nome_completo')
+
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = 'PSV'
+    headers = ['Posto', 'Espec', 'Quad', 'Nome Completo', 'Nome de Guerra', 'SARAM', 'Turma', 'OM', 'Início', 'Término', 'Sigad', 'Boletim', 'Observações']
+    ws.append(headers)
+    for m in qs:
+        ws.append([
+            m.posto, m.especializacao, m.quad, m.nome_completo, m.nome_guerra,
+            m.saram, m.turma,
+            m.unidade_prestacao_servico or '',
+            m.data_inicio_prestacao.strftime('%d/%m/%Y') if m.data_inicio_prestacao else '',
+            m.data_vencimento_prestacao.strftime('%d/%m/%Y') if m.data_vencimento_prestacao else '',
+            m.sigad_prestacao or '',
+            m.boletim_prestacao or '',
+            m.observacao or '',
+        ])
+    buffer = io.BytesIO()
+    wb.save(buffer)
+    buffer.seek(0)
+    resp = HttpResponse(buffer, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = 'attachment; filename="PSV_GSD_GL.xlsx"'
+    return resp
+
+
+# ── Importar PSV ────────────────────────────────────────────────────────────
+@s1_required
+def importar_psv(request):
+    if request.method == 'POST' and request.FILES.get('excel_file'):
+        excel_file = request.FILES['excel_file']
+        sincronizar = request.POST.get('sincronizar') == '1'
+        try:
+            df = pd.read_excel(excel_file, dtype=str)
+            df.columns = df.columns.str.strip()
+            df.fillna('', inplace=True)
+
+            # Normaliza nomes de colunas
+            COL_MAP = {
+                'posto': ['POSTO', 'PST', 'PST.'],
+                'espec': ['ESPEC', 'ESP', 'ESPECIALIDADE', 'ESPECIALIZACAO'],
+                'quad': ['QUAD', 'QUADRO'],
+                'nome_completo': ['NOME COMPLETO', 'NOME'],
+                'nome_guerra': ['NOME DE GUERRA', 'NOME GUERRA', 'GUERRA'],
+                'saram': ['SARAM'],
+                'turma': ['TURMA'],
+                'om': ['OM', 'UNIDADE'],
+                'inicio': ['INICIO', 'INÍCIO', 'DATA INICIO', 'DATA INÍCIO'],
+                'termino': ['TERMINO', 'TÉRMINO', 'DATA TERMINO', 'DATA TÉRMINO', 'VENCIMENTO'],
+                'sigad': ['SIGAD'],
+                'boletim': ['BOLETIM'],
+                'observacoes': ['OBSERVACOES', 'OBSERVAÇÕES', 'OBS'],
+            }
+            def find_col(df, candidates):
+                for c in df.columns:
+                    normalized = normalize_name(c.strip().replace('.', '').replace('/', ''))
+                    for cand in candidates:
+                        if normalized == normalize_name(cand):
+                            return c
+                return None
+
+            col = {k: find_col(df, v) for k, v in COL_MAP.items()}
+
+            rows = []
+            ambiguous = []
+
+            for _, row in df.iterrows():
+                saram_raw = str(row.get(col['saram'], '')).strip() if col['saram'] else ''
+                nome_completo = str(row.get(col['nome_completo'], '')).strip() if col['nome_completo'] else ''
+                if not saram_raw and not nome_completo:
+                    continue
+
+                posto_raw = str(row.get(col['posto'], '')).strip() if col['posto'] else ''
+                posto_norm, is_ten = _normalizar_posto(posto_raw) if posto_raw else ('', False)
+
+                r = {
+                    'saram': saram_raw,
+                    'nome_completo': nome_completo,
+                    'nome_guerra': str(row.get(col['nome_guerra'], '')).strip() if col['nome_guerra'] else '',
+                    'posto_raw': posto_raw,
+                    'posto_norm': posto_norm,
+                    'espec': str(row.get(col['espec'], '')).strip() if col['espec'] else '',
+                    'quad': str(row.get(col['quad'], '')).strip() if col['quad'] else '',
+                    'turma': str(row.get(col['turma'], '')).strip() if col['turma'] else '',
+                    'om': str(row.get(col['om'], '')).strip() if col['om'] else '',
+                    'inicio': str(row.get(col['inicio'], '')).strip() if col['inicio'] else '',
+                    'termino': str(row.get(col['termino'], '')).strip() if col['termino'] else '',
+                    'sigad': str(row.get(col['sigad'], '')).strip() if col['sigad'] else '',
+                    'boletim': str(row.get(col['boletim'], '')).strip() if col['boletim'] else '',
+                    'observacoes': str(row.get(col['observacoes'], '')).strip() if col['observacoes'] else '',
+                    'is_ten': is_ten,
+                }
+                if is_ten:
+                    ambiguous.append(r)
+                else:
+                    rows.append(r)
+
+            if ambiguous:
+                import json as _json
+                request.session['importar_psv_rows'] = rows
+                request.session['importar_psv_ambiguous'] = ambiguous
+                request.session['importar_psv_sincronizar'] = sincronizar
+                return redirect('Secao_pessoal:esclarecer_importacao_psv')
+
+            return _completar_importacao_psv(request, rows, sincronizar)
+
+        except Exception as e:
+            messages.error(request, f'Erro na importação: {e}')
+            return redirect('Secao_pessoal:prestacao_servico')
+
+    return render(request, 'Secao_pessoal/importar_psv.html')
+
+
+@s1_required
+def esclarecer_importacao_psv(request):
+    ambiguous = request.session.get('importar_psv_ambiguous', [])
+    if not ambiguous:
+        return redirect('Secao_pessoal:prestacao_servico')
+
+    if request.method == 'POST':
+        rows = request.session.get('importar_psv_rows', [])
+        sincronizar = request.session.get('importar_psv_sincronizar', False)
+        for i, r in enumerate(ambiguous):
+            posto_escolhido = request.POST.get(f'posto_{i}', '')
+            r['posto_norm'] = posto_escolhido
+            r['is_ten'] = False
+            rows.append(r)
+        del request.session['importar_psv_ambiguous']
+        del request.session['importar_psv_rows']
+        request.session.pop('importar_psv_sincronizar', None)
+        return _completar_importacao_psv(request, rows, sincronizar)
+
+    return render(request, 'Secao_pessoal/esclarecer_importacao.html', {'ambiguous': ambiguous, 'fonte': 'psv'})
+
+
+def _completar_importacao_psv(request, rows, sincronizar):
+    from datetime import date as _date
+    atualizados = 0
+    nao_encontrados = []
+    pks_na_planilha = set()
+
+    for r in rows:
+        saram_db = None
+        if r['saram']:
+            try:
+                saram_db = int(float(r['saram']))
+            except (ValueError, TypeError):
+                pass
+
+        efetivo = None
+        if saram_db:
+            efetivo = Efetivo.objects.filter(saram=saram_db).first()
+        if not efetivo and r['nome_completo']:
+            chave = normalize_name(r['nome_completo'])
+            efetivo = next(
+                (e for e in Efetivo.objects.all() if normalize_name(e.nome_completo) == chave),
+                None
+            )
+        if not efetivo:
+            nao_encontrados.append(r.get('nome_completo') or r.get('saram') or '?')
+            continue
+
+        efetivo.unidade_prestacao_servico = r['om'] or None
+        efetivo.data_inicio_prestacao     = _parse_date(r['inicio'])
+        efetivo.data_vencimento_prestacao = _parse_date(r['termino'])
+        efetivo.sigad_prestacao           = r['sigad'] or None
+        efetivo.boletim_prestacao         = r['boletim'] or None
+        if r['posto_norm']:
+            efetivo.posto = r['posto_norm']
+        if r['espec']:
+            efetivo.especializacao = r['espec']
+        if r['turma']:
+            efetivo.turma = r['turma']
+        _oms_gsd = {'BINFAE-GL', 'GSD-GL', 'BINFAE GL', 'GSD GL'}
+        om_origem = (efetivo.om or '').strip().upper()
+        efetivo.situacao = 'PSV GSD-GL' if om_origem in _oms_gsd else 'PSV'
+        efetivo.save()
+        pks_na_planilha.add(efetivo.pk)
+        atualizados += 1
+
+    if sincronizar and pks_na_planilha:
+        Efetivo.objects.filter(
+            Q(unidade_prestacao_servico__isnull=False) & ~Q(unidade_prestacao_servico='')
+        ).exclude(pk__in=pks_na_planilha).update(
+            unidade_prestacao_servico=None, data_inicio_prestacao=None,
+            data_vencimento_prestacao=None, sigad_prestacao=None,
+            boletim_prestacao=None,
+        )
+
+    msg = f'{atualizados} militar(es) atualizado(s).'
+    if nao_encontrados:
+        msg += f' Não encontrado(s) no sistema: {", ".join(nao_encontrados[:5])}{"..." if len(nao_encontrados) > 5 else ""}.'
+    messages.success(request, msg)
+    return redirect('Secao_pessoal:prestacao_servico')
+
+
 @s1_required
 @require_GET
 def api_search_militares(request):
@@ -1697,8 +2649,299 @@ def api_search_militares(request):
     ).order_by('posto', 'nome_guerra')[:15]
 
     data = [{'id': m.id, 'posto': m.posto, 'nome_guerra': m.nome_guerra, 'nome_completo': m.nome_completo} for m in militares]
-    
+
     return JsonResponse(data, safe=False)
+
+
+@s1_required
+@require_GET
+def download_modelo_efetivo(request):
+    from django.contrib.staticfiles import finders
+    path = finders.find('Secao_pessoal/templates_pdf/modelo_importacao_efetivo.xlsx')
+    if not path:
+        from django.http import Http404
+        raise Http404
+    with open(path, 'rb') as f:
+        content = f.read()
+    resp = HttpResponse(content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = 'attachment; filename="MODELO ATUALIZACAO DE EFETIVO.xlsx"'
+    return resp
+
+
+@s1_required
+def download_modelo_desligamento(request):
+    """Gera e serve o modelo Excel para importação de desligamentos."""
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Desligamentos"
+    headers = ['SARAM', 'NOME COMPLETO', 'PST.', 'QUAD.', 'ESP.', 'NOME DE GUERRA', 'SITUAÇÃO']
+    hf = Font(bold=True, color='FFFFFF')
+    hfill = PatternFill(start_color='4F81BD', end_color='4F81BD', fill_type='solid')
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = hf
+        cell.fill = hfill
+        cell.alignment = Alignment(horizontal='center')
+    ws.append(['', 'EXEMPLO DA SILVA', 'S2', 'QPPM', 'QAE', 'EXEMPLO', 'DESLIGADO'])
+    for col in ws.columns:
+        width = max(len(str(c.value)) if c.value else 0 for c in col) + 4
+        ws.column_dimensions[col[0].column_letter].width = width
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=modelo_desligamento.xlsx'
+    wb.save(response)
+    return response
+
+
+@s1_required
+def exportar_desligados(request):
+    if request.method != 'POST':
+        return redirect('Secao_pessoal:desligados_list')
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Desligados"
+    hf = Font(bold=True, color='FFFFFF')
+    hfill = PatternFill(start_color='4F81BD', end_color='4F81BD', fill_type='solid')
+    ac = Alignment(horizontal='center', vertical='center')
+    thin = Border(left=Side(style='thin'), right=Side(style='thin'), top=Side(style='thin'), bottom=Side(style='thin'))
+    headers = ['POSTO', 'NOME DE GUERRA', 'NOME COMPLETO', 'SARAM', 'ESPECIALIZAÇÃO', 'SETOR', 'OBSERVAÇÃO']
+    ws.append(headers)
+    for cell in ws[1]:
+        cell.font = hf; cell.fill = hfill; cell.alignment = ac
+    rank_order = Case(
+        When(posto='TC', then=Value(1)), When(posto='MJ', then=Value(2)), When(posto='CP', then=Value(3)),
+        When(posto='1T', then=Value(4)), When(posto='2T', then=Value(5)), When(posto='ASP', then=Value(6)),
+        When(posto='SO', then=Value(7)), When(posto='1S', then=Value(8)), When(posto='2S', then=Value(9)),
+        When(posto='3S', then=Value(10)), When(posto='CB', then=Value(11)), When(posto='S1', then=Value(12)),
+        When(posto='S2', then=Value(13)), When(posto='REC', then=Value(14)),
+        default=Value(99), output_field=IntegerField(),
+    )
+    qs = Efetivo.all_objects.filter(situacao__iexact='Baixado').annotate(rank_order=rank_order).order_by('rank_order', 'nome_guerra')
+    q = request.POST.get('q', '').strip()
+    if q:
+        qs = qs.filter(Q(nome_completo__icontains=q) | Q(nome_guerra__icontains=q))
+    for mil in qs:
+        ws.append([mil.posto, mil.nome_guerra, mil.nome_completo, mil.saram or '', mil.especializacao or '', mil.setor or '', mil.observacao or ''])
+    for row in ws.iter_rows(min_row=2):
+        for cell in row:
+            cell.border = thin; cell.alignment = Alignment(vertical='center')
+    for col in ws.columns:
+        width = max(len(str(c.value)) if c.value else 0 for c in col) + 2
+        ws.column_dimensions[col[0].column_letter].width = width
+    response = HttpResponse(content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    response['Content-Disposition'] = 'attachment; filename=desligados_exportados.xlsx'
+    wb.save(response)
+    return response
+
+
+@s1_required
+def importar_desligamento(request):
+    if request.method != 'POST' or not request.FILES.get('excel_file'):
+        return redirect('Secao_pessoal:desligados_list')
+    excel_file = request.FILES['excel_file']
+    try:
+        df = pd.read_excel(excel_file, dtype=str, header=2)
+        df.columns = df.columns.str.strip()
+        _cols = {re.sub(r'\s+', ' ', normalize_name(str(c))).strip() for c in df.columns}
+        if 'SARAM' not in _cols and 'NOME COMPLETO' not in _cols:
+            df = pd.read_excel(excel_file, dtype=str, header=0)
+            df.columns = df.columns.str.strip()
+        colunas_norm = {re.sub(r'\s+', ' ', re.sub(r'[.\/]', '', normalize_name(str(c)))).strip(): c for c in df.columns}
+        rename_map = {}
+        for canonico, aliases in [
+            ('SARAM', ['SARAM']),
+            ('NOME COMPLETO', ['NOME COMPLETO', 'NOME']),
+            ('SITUAÇÃO', ['SITUACAO']),
+            ('PST.', ['PST', 'POSTO']),
+        ]:
+            for alias in aliases:
+                real = colunas_norm.get(alias)
+                if real:
+                    rename_map[real] = canonico
+                    break
+        df.rename(columns=rename_map, inplace=True)
+        df.fillna('', inplace=True)
+
+        ignorados = []
+        nao_encontrados = []
+        ativos_para_confirmar = []
+        atualizados = 0
+
+        existentes_por_nome = {}
+        for ef in Efetivo.all_objects.all():
+            chave = normalize_name(ef.nome_completo).strip()
+            if chave:
+                existentes_por_nome[chave] = ef
+
+        for _, row in df.iterrows():
+            saram_val = str(row.get('SARAM', '')).strip()
+            nome_val = str(row.get('NOME COMPLETO', '')).strip()
+            sit_val = str(row.get('SITUAÇÃO', '')).strip()
+            if not saram_val and not nome_val:
+                continue
+            if sit_val.upper() != 'DESLIGADO':
+                ignorados.append({'nome': nome_val, 'saram': saram_val, 'situacao': sit_val})
+                continue
+            obj = None
+            saram_db = None
+            if saram_val:
+                try:
+                    saram_db = int(float(saram_val))
+                    obj = Efetivo.all_objects.filter(saram=saram_db).first()
+                except ValueError:
+                    pass
+            if obj is None and nome_val:
+                obj = existentes_por_nome.get(normalize_name(nome_val).strip())
+            if obj is None:
+                nao_encontrados.append({'nome': nome_val, 'saram': saram_val})
+                continue
+            sit_atual = (obj.situacao or '').strip().lower()
+            if sit_atual in ('ativo', 'ativa', 'ativo/a'):
+                ativos_para_confirmar.append({'pk': obj.pk, 'nome': obj.nome_completo, 'posto': obj.posto, 'situacao_atual': obj.situacao})
+            else:
+                obj.situacao = 'Baixado'
+                obj.deleted = False
+                obj.save()
+                atualizados += 1
+
+        if ignorados or ativos_para_confirmar:
+            request.session['desl_ignorados'] = ignorados
+            request.session['desl_ativos'] = ativos_para_confirmar
+            request.session['desl_atualizados'] = atualizados
+            request.session['desl_nao_encontrados'] = nao_encontrados
+            return redirect('Secao_pessoal:esclarecer_desligamento')
+
+        msgs = [f'{atualizados} militar(es) desligado(s).']
+        if nao_encontrados:
+            msgs.append(f'{len(nao_encontrados)} nome(s) não encontrado(s) no efetivo (ignorados).')
+        messages.success(request, ' '.join(msgs))
+        return redirect('Secao_pessoal:desligados_list')
+    except Exception as e:
+        messages.error(request, f'Erro na importação: {str(e)}')
+        return redirect('Secao_pessoal:desligados_list')
+
+
+@s1_required
+def esclarecer_desligamento(request):
+    ignorados = request.session.get('desl_ignorados', [])
+    ativos = request.session.get('desl_ativos', [])
+    atualizados_base = request.session.get('desl_atualizados', 0)
+    nao_encontrados = request.session.get('desl_nao_encontrados', [])
+
+    if not ignorados and not ativos:
+        return redirect('Secao_pessoal:desligados_list')
+
+    if request.method == 'POST':
+        acao = request.POST.get('acao')
+        novos_desligados = 0
+
+        converter_pks_str = request.POST.getlist('converter_ignorado')
+        ignorados_converter = []
+        for idx_str in converter_pks_str:
+            try:
+                idx = int(idx_str)
+                if 0 <= idx < len(ignorados):
+                    ignorados_converter.append(ignorados[idx])
+            except (ValueError, IndexError):
+                pass
+        for item in ignorados_converter:
+            saram_val = item.get('saram', '')
+            nome_val = item.get('nome', '')
+            obj = None
+            if saram_val:
+                try:
+                    obj = Efetivo.all_objects.filter(saram=int(float(saram_val))).first()
+                except (ValueError, TypeError):
+                    pass
+            if obj is None and nome_val:
+                chave = normalize_name(nome_val).strip()
+                for ef in Efetivo.all_objects.all():
+                    if normalize_name(ef.nome_completo).strip() == chave:
+                        obj = ef
+                        break
+            if obj:
+                obj.situacao = 'Baixado'
+                obj.deleted = False
+                obj.save()
+                novos_desligados += 1
+
+        if acao == 'desligar_todos':
+            pks = [item['pk'] for item in ativos]
+        else:
+            pks = [int(pk) for pk in request.POST.getlist('desligar_pk') if pk.isdigit()]
+
+        for pk in pks:
+            try:
+                obj = Efetivo.all_objects.get(pk=pk)
+                obj.situacao = 'Baixado'
+                obj.deleted = False
+                obj.save()
+                novos_desligados += 1
+            except Efetivo.DoesNotExist:
+                pass
+
+        total = atualizados_base + novos_desligados
+        for key in ('desl_ignorados', 'desl_ativos', 'desl_atualizados', 'desl_nao_encontrados'):
+            request.session.pop(key, None)
+        messages.success(request, f'{total} militar(es) desligado(s) no total.')
+        return redirect('Secao_pessoal:desligados_list')
+
+    return render(request, 'Secao_pessoal/esclarecer_desligamento.html', {
+        'ignorados': list(enumerate(ignorados)),
+        'ativos': ativos,
+        'nao_encontrados': nao_encontrados,
+        'atualizados_base': atualizados_base,
+    })
+
+
+@s1_required
+@require_GET
+def download_modelo_psv(request):
+    from django.contrib.staticfiles import finders
+    path = finders.find('Secao_pessoal/templates_pdf/modelo_importacao_psv.xlsx')
+    if not path:
+        from django.http import Http404
+        raise Http404
+    with open(path, 'rb') as f:
+        content = f.read()
+    resp = HttpResponse(content, content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet')
+    resp['Content-Disposition'] = 'attachment; filename="MODELO ATUALIZACAO DE PSV.xlsx"'
+    return resp
+
+
+@s1_required
+@require_GET
+def efetivo_filter_options(request):
+    """Retorna valores distintos dos campos filtráveis, filtrados pelo contexto da view."""
+    view = request.GET.get('view', 'geral')
+    if view == 'operacional':
+        base_qs = Efetivo.objects.filter(Q(situacao__iexact='Ativo') | Q(situacao__iexact='Ativa') | Q(situacao__iexact='PSV GSD-GL'))
+    elif view == 'junta':
+        base_qs = Efetivo.objects.filter(situacao__iexact='De Junta')
+    elif view == 'desligados':
+        base_qs = Efetivo.objects.filter(situacao__iexact='Baixado')
+    elif view == 'psv':
+        base_qs = Efetivo.objects.filter(
+            Q(unidade_prestacao_servico__isnull=False) & ~Q(unidade_prestacao_servico='')
+        )
+    else:  # geral
+        base_qs = Efetivo.objects.exclude(situacao__iexact='Baixado')
+
+    def distinct_sorted(field):
+        vals = list(base_qs.values_list(field, flat=True).distinct())
+        non_empty = sorted({v for v in vals if v}, key=lambda x: x.lower())
+        has_empty = any(v is None or v == '' for v in vals)
+        result = non_empty
+        if has_empty:
+            result = result + ['__vazio__']
+        return result
+
+    return JsonResponse({
+        'posto':          distinct_sorted('posto'),
+        'especializacao': distinct_sorted('especializacao'),
+        'situacao':       distinct_sorted('situacao'),
+        'observacao':     distinct_sorted('observacao'),
+        'setor':          distinct_sorted('setor'),
+    })
 
 @s1_required
 def importar_fq(request):

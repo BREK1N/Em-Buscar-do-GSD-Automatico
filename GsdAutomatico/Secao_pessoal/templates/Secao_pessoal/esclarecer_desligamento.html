@@ -1,0 +1,82 @@
+{% extends 'Secao_pessoal/base.html' %}
+{% block title %}Esclarecer Desligamento{% endblock %}
+{% block content %}
+<div style="max-width:800px;margin:0 auto;">
+    <h1 style="margin-bottom:8px;">Esclarecer Importação de Desligamentos</h1>
+    <p style="color:var(--text-secondary);margin-bottom:24px;">{{ atualizados_base }} militar(es) foram desligados automaticamente. Verifique os casos abaixo antes de concluir.</p>
+
+    <form method="post" action="">
+        {% csrf_token %}
+
+        {% if ignorados %}
+        <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:20px;margin-bottom:20px;">
+            <h2 style="font-size:1rem;margin:0 0 12px;color:#d97706;">Linhas ignoradas (situação diferente de DESLIGADO)</h2>
+            <p style="font-size:0.87rem;color:var(--text-secondary);margin-bottom:12px;">Marque os militares abaixo que também devem ser desligados:</p>
+            <table style="width:100%;border-collapse:collapse;font-size:0.87rem;">
+                <thead><tr style="background:var(--bg-main);">
+                    <th style="padding:6px 10px;text-align:left;">Incluir</th>
+                    <th style="padding:6px 10px;text-align:left;">Nome</th>
+                    <th style="padding:6px 10px;text-align:left;">SARAM</th>
+                    <th style="padding:6px 10px;text-align:left;">Situação no arquivo</th>
+                </tr></thead>
+                <tbody>
+                    {% for idx, item in ignorados %}
+                    <tr style="border-top:1px solid var(--border-color);">
+                        <td style="padding:6px 10px;"><input type="checkbox" name="converter_ignorado" value="{{ idx }}"></td>
+                        <td style="padding:6px 10px;">{{ item.nome }}</td>
+                        <td style="padding:6px 10px;">{{ item.saram|default:"-" }}</td>
+                        <td style="padding:6px 10px;color:#b45309;">{{ item.situacao|default:"(vazio)" }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% endif %}
+
+        {% if ativos %}
+        <div style="background:var(--bg-card);border:1px solid #fca5a5;border-radius:10px;padding:20px;margin-bottom:20px;">
+            <h2 style="font-size:1rem;margin:0 0 8px;color:#dc2626;">Militares ativos sendo desligados</h2>
+            <p style="font-size:0.87rem;color:var(--text-secondary);margin-bottom:12px;">Os militares abaixo constam como <strong>ativos</strong> no Efetivo Total mas estão na planilha de desligamentos. Selecione quais deseja desligar:</p>
+            <table style="width:100%;border-collapse:collapse;font-size:0.87rem;margin-bottom:12px;">
+                <thead><tr style="background:var(--bg-main);">
+                    <th style="padding:6px 10px;text-align:left;">Desligar</th>
+                    <th style="padding:6px 10px;text-align:left;">Posto</th>
+                    <th style="padding:6px 10px;text-align:left;">Nome</th>
+                    <th style="padding:6px 10px;text-align:left;">Situação atual</th>
+                </tr></thead>
+                <tbody>
+                    {% for item in ativos %}
+                    <tr style="border-top:1px solid var(--border-color);">
+                        <td style="padding:6px 10px;"><input type="checkbox" name="desligar_pk" value="{{ item.pk }}"></td>
+                        <td style="padding:6px 10px;">{{ item.posto }}</td>
+                        <td style="padding:6px 10px;">{{ item.nome }}</td>
+                        <td style="padding:6px 10px;">{{ item.situacao_atual }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+            <button type="submit" name="acao" value="desligar_todos" class="btn btn-secondary" style="background:#dc2626;color:#fff;border-color:#dc2626;">
+                Desligar todos mesmo assim
+            </button>
+        </div>
+        {% endif %}
+
+        {% if nao_encontrados %}
+        <div style="background:var(--bg-card);border:1px solid var(--border-color);border-radius:10px;padding:20px;margin-bottom:20px;">
+            <h2 style="font-size:1rem;margin:0 0 8px;color:var(--text-secondary);">Nao encontrados no Efetivo</h2>
+            <p style="font-size:0.87rem;color:var(--text-secondary);margin-bottom:8px;">Os nomes abaixo não foram encontrados no Efetivo Total e foram ignorados:</p>
+            <ul style="font-size:0.87rem;margin:0;padding-left:20px;color:var(--text-secondary);">
+                {% for item in nao_encontrados %}
+                <li>{{ item.nome }}{% if item.saram %} (SARAM: {{ item.saram }}){% endif %}</li>
+                {% endfor %}
+            </ul>
+        </div>
+        {% endif %}
+
+        <div style="display:flex;gap:10px;justify-content:flex-end;margin-top:12px;">
+            <a href="{% url 'Secao_pessoal:desligados_list' %}" class="btn btn-secondary">Cancelar (manter apenas os automáticos)</a>
+            <button type="submit" name="acao" value="confirmar" class="btn btn-primary">Confirmar seleção</button>
+        </div>
+    </form>
+</div>
+{% endblock %}

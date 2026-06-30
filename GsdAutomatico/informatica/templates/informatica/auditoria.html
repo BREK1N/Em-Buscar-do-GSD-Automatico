@@ -1,0 +1,370 @@
+{% extends 'informatica/base.html' %}
+{% load static %}
+
+{% block title %}Auditoria — Informática{% endblock %}
+{% block header_eyebrow %}Seção de Informática{% endblock %}
+{% block header_title %}Auditoria do Sistema{% endblock %}
+
+{% block extra_head %}
+<style>
+    .filter-card {
+        background: var(--bg-content); border: 1px solid var(--border-color);
+        border-radius: 16px; padding: 20px 24px; margin-bottom: 20px;
+        box-shadow: var(--shadow-card);
+    }
+    .filter-grid {
+        display: grid; grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+        gap: 12px; margin-bottom: 14px;
+    }
+    .filter-item label {
+        font-size: 0.78rem; font-weight: 600; color: var(--text-secondary);
+        text-transform: uppercase; letter-spacing: 0.05em; display: block; margin-bottom: 5px;
+    }
+    .filter-input {
+        width: 100%; padding: 8px 11px; border-radius: 8px;
+        border: 1px solid var(--border-color); background: var(--bg-main);
+        color: var(--text-primary); font-size: 0.875rem; font-family: 'Inter', sans-serif;
+        transition: border-color 0.15s;
+    }
+    .filter-input:focus { border-color: var(--accent); outline: none; box-shadow: 0 0 0 3px rgba(59,130,246,0.12); }
+
+    .results-card {
+        background: var(--bg-content); border: 1px solid var(--border-color);
+        border-radius: 16px; padding: 20px 24px; box-shadow: var(--shadow-card);
+    }
+    .results-header {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-bottom: 16px; gap: 12px; flex-wrap: wrap;
+    }
+    .results-count { font-size: 0.85rem; color: var(--text-secondary); }
+
+    /* ── Entrada de log ── */
+    .log-entry {
+        border: 1px solid var(--border-color); border-radius: 10px;
+        padding: 12px 15px; margin-bottom: 8px; background: var(--bg-main);
+        transition: border-color 0.15s;
+    }
+    .log-entry:hover { border-color: var(--accent); }
+    .log-entry-top {
+        display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 6px;
+    }
+    .log-entry-desc {
+        font-size: 0.875rem; color: var(--text-primary); margin-bottom: 5px;
+        line-height: 1.45;
+    }
+    .log-entry-meta {
+        font-size: 0.75rem; color: var(--text-secondary); display: flex;
+        align-items: center; gap: 10px; flex-wrap: wrap;
+    }
+
+    /* ── Badges de ação ── */
+    .badge-acao {
+        display: inline-block; padding: 2px 9px; border-radius: 20px;
+        font-size: 0.68rem; font-weight: 700; text-transform: uppercase;
+        letter-spacing: 0.06em; flex-shrink: 0;
+    }
+    .badge-criou   { background: rgba(34,197,94,0.15);  color: #16a34a; }
+    .badge-editou  { background: rgba(59,130,246,0.15); color: #2563eb; }
+    .badge-excluiu { background: rgba(239,68,68,0.15);  color: #dc2626; }
+    .badge-assinou { background: rgba(168,85,247,0.15); color: #9333ea; }
+    .badge-anexou  { background: rgba(249,115,22,0.15); color: #ea580c; }
+    .badge-restaurou { background: rgba(245,158,11,0.15); color: #d97706; }
+    .badge-login   { background: rgba(6,182,212,0.15);  color: #0891b2; }
+    .badge-logout  { background: rgba(148,163,184,0.15); color: #64748b; }
+    .badge-default { background: rgba(148,163,184,0.15); color: #64748b; }
+
+    /* ── Chips de seção ── */
+    .chip-secao {
+        display: inline-block; padding: 2px 8px; border-radius: 6px;
+        font-size: 0.68rem; font-weight: 600; flex-shrink: 0;
+    }
+    .chip-ouvidoria   { background: rgba(239,68,68,0.1);    color: #dc2626; }
+    .chip-operacoes   { background: rgba(59,130,246,0.1);   color: #2563eb; }
+    .chip-pessoal     { background: rgba(34,197,94,0.1);    color: #16a34a; }
+    .chip-epa         { background: rgba(249,115,22,0.1);   color: #ea580c; }
+    .chip-informatica { background: rgba(99,102,241,0.12);  color: #4f46e5; }
+    .chip-caixa_entrada { background: rgba(168,85,247,0.1); color: #9333ea; }
+    .chip-login       { background: rgba(6,182,212,0.1);    color: #0891b2; }
+    .chip-default     { background: rgba(148,163,184,0.1);  color: #64748b; }
+
+    /* ── Paginação ── */
+    .pagination-bar {
+        display: flex; align-items: center; justify-content: space-between;
+        margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--border-color);
+    }
+    .pagination-info { font-size: 0.82rem; color: var(--text-secondary); }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="mb-4">
+    <p style="color:var(--text-secondary);">Histórico completo de todas as ações realizadas em todas as seções do sistema.</p>
+</div>
+
+<!-- FILTROS -->
+<div class="filter-card">
+    <div style="display:flex;align-items:center;gap:8px;margin-bottom:14px;">
+        <i class="fas fa-filter" style="color:var(--accent);"></i>
+        <strong style="font-size:0.95rem;">Filtros</strong>
+        <span id="aud-filtros-ativos" style="font-size:0.78rem;color:var(--text-secondary);"></span>
+        <button id="aud-btn-limpar" class="btn btn-sm btn-secondary" style="margin-left:auto;border-radius:6px;padding:4px 10px;font-size:0.78rem;" onclick="audLimparFiltros()">
+            <i class="fas fa-times me-1"></i> Limpar
+        </button>
+    </div>
+    <div class="filter-grid">
+        <div class="filter-item">
+            <label>Usuário / Nome de guerra</label>
+            <input type="text" id="aud-usuario" class="filter-input" placeholder="ex: dpaulalfp">
+        </div>
+        <div class="filter-item">
+            <label>Seção</label>
+            <select id="aud-secao" class="filter-input">
+                <option value="">— todas —</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>Tipo de Objeto</label>
+            <select id="aud-objeto-tipo" class="filter-input">
+                <option value="">— todos —</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>Ação</label>
+            <select id="aud-acao" class="filter-input">
+                <option value="">— todas —</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>Permissão</label>
+            <select id="aud-permissao" class="filter-input">
+                <option value="">— todas —</option>
+            </select>
+        </div>
+        <div class="filter-item">
+            <label>De</label>
+            <input type="date" id="aud-data-inicio" class="filter-input">
+        </div>
+        <div class="filter-item">
+            <label>Até</label>
+            <input type="date" id="aud-data-fim" class="filter-input">
+        </div>
+        <div class="filter-item" style="grid-column: span 2;">
+            <label>Busca livre</label>
+            <input type="text" id="aud-busca" class="filter-input" placeholder="ex: PATD 1589, omis, D. Paula…">
+        </div>
+    </div>
+    <div style="display:flex;gap:10px;align-items:center;">
+        <button id="aud-btn-buscar" class="btn btn-primary" style="border-radius:8px;padding:9px 20px;">
+            <i class="fas fa-search me-2"></i> Buscar
+        </button>
+        <span id="aud-loading" style="display:none;color:var(--text-secondary);font-size:0.85rem;">
+            <i class="fas fa-spinner fa-spin me-1"></i> Carregando…
+        </span>
+    </div>
+</div>
+
+<!-- RESULTADOS -->
+<div class="results-card">
+    <div class="results-header">
+        <strong style="font-size:0.95rem;">Registros</strong>
+        <span id="aud-contador" class="results-count"></span>
+    </div>
+
+    <div id="aud-lista">
+        <div style="text-align:center;padding:40px 20px;color:var(--text-secondary);">
+            <i class="fas fa-spinner fa-spin" style="font-size:2rem;margin-bottom:12px;display:block;"></i>
+            Carregando registros…
+        </div>
+    </div>
+
+    <div class="pagination-bar">
+        <button id="aud-btn-anterior" class="btn btn-sm btn-secondary" style="border-radius:6px;" disabled>
+            <i class="fas fa-chevron-left me-1"></i> Anterior
+        </button>
+        <span id="aud-pagina-info" class="pagination-info"></span>
+        <button id="aud-btn-proxima" class="btn btn-sm btn-secondary" style="border-radius:6px;" disabled>
+            Próxima <i class="fas fa-chevron-right ms-1"></i>
+        </button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function() {
+    const SEARCH_URL  = "{% url 'informatica:auditoria_search' %}";
+    const FILTROS_URL = "{% url 'informatica:auditoria_filtros' %}";
+
+    const listaEl      = document.getElementById('aud-lista');
+    const contadorEl   = document.getElementById('aud-contador');
+    const paginaInfoEl = document.getElementById('aud-pagina-info');
+    const loadingEl    = document.getElementById('aud-loading');
+    const btnAnterior  = document.getElementById('aud-btn-anterior');
+    const btnProxima   = document.getElementById('aud-btn-proxima');
+    const selSecao     = document.getElementById('aud-secao');
+    const selObjTipo   = document.getElementById('aud-objeto-tipo');
+    const selAcao      = document.getElementById('aud-acao');
+    const selPermissao = document.getElementById('aud-permissao');
+
+    let paginaAtual = 1;
+
+    /* ── Cores por ação ── */
+    const ACAO_CLASS = {
+        criou: 'badge-criou', editou: 'badge-editou', excluiu: 'badge-excluiu',
+        assinou: 'badge-assinou', anexou: 'badge-anexou', restaurou: 'badge-restaurou',
+        login: 'badge-login', logout: 'badge-logout',
+    };
+
+    /* ── Cores por seção ── */
+    const SECAO_CLASS = {
+        ouvidoria: 'chip-ouvidoria', operacoes: 'chip-operacoes', pessoal: 'chip-pessoal',
+        epa: 'chip-epa', informatica: 'chip-informatica', caixa_entrada: 'chip-caixa_entrada',
+        login: 'chip-login',
+    };
+
+    const SECAO_LABEL = {
+        ouvidoria: 'Ouvidoria', operacoes: 'Operações', pessoal: 'Pessoal',
+        epa: 'EPA', informatica: 'Informática', caixa_entrada: 'Caixa de Entrada',
+        login: 'Login/Logout',
+    };
+
+    /* ── Carrega opções dos filtros ── */
+    function carregarFiltros() {
+        fetch(FILTROS_URL)
+            .then(r => r.json())
+            .then(d => {
+                _populateSelect(selSecao, d.secoes || [], v => SECAO_LABEL[v] || v);
+                _populateSelect(selObjTipo, d.objeto_tipos || []);
+                _populateSelect(selAcao, d.acoes || []);
+                _populateSelect(selPermissao, d.permissoes || []);
+            }).catch(() => {});
+    }
+
+    function _populateSelect(el, items, labelFn) {
+        items.forEach(v => {
+            const opt = document.createElement('option');
+            opt.value = v;
+            opt.textContent = labelFn ? labelFn(v) : v;
+            el.appendChild(opt);
+        });
+    }
+
+    /* ── Busca ── */
+    function buscar(pagina) {
+        paginaAtual = pagina || 1;
+        const params = new URLSearchParams({
+            usuario:     document.getElementById('aud-usuario')?.value?.trim() || '',
+            secao:       selSecao?.value || '',
+            objeto_tipo: selObjTipo?.value || '',
+            acao:        selAcao?.value || '',
+            permissao:   selPermissao?.value || '',
+            busca:       document.getElementById('aud-busca')?.value?.trim() || '',
+            data_inicio: document.getElementById('aud-data-inicio')?.value || '',
+            data_fim:    document.getElementById('aud-data-fim')?.value || '',
+            page:        paginaAtual,
+        });
+
+        loadingEl.style.display = 'inline';
+        document.getElementById('aud-btn-buscar').disabled = true;
+
+        fetch(`${SEARCH_URL}?${params}`)
+            .then(r => r.json())
+            .then(d => {
+                renderResultados(d.results || []);
+                contadorEl.textContent = `${d.count} registro(s)`;
+                paginaInfoEl.textContent = `Página ${d.page} de ${d.num_pages || 1}`;
+                btnAnterior.disabled = !d.has_previous;
+                btnProxima.disabled  = !d.has_next;
+            })
+            .catch(() => {
+                listaEl.innerHTML = '<div style="color:#ef4444;padding:20px 0;">Erro ao buscar registros.</div>';
+            })
+            .finally(() => {
+                loadingEl.style.display = 'none';
+                document.getElementById('aud-btn-buscar').disabled = false;
+            });
+    }
+
+    /* ── Renderiza resultados ── */
+    function renderResultados(items) {
+        if (!items.length) {
+            listaEl.innerHTML = '<div style="text-align:center;padding:40px 20px;color:var(--text-secondary);"><i class="fas fa-search" style="font-size:2rem;display:block;margin-bottom:12px;opacity:0.4;"></i>Nenhum registro encontrado com esses filtros.</div>';
+            return;
+        }
+        listaEl.innerHTML = '';
+        items.forEach(item => {
+            const acaoClass = ACAO_CLASS[item.acao] || 'badge-default';
+            const secaoClass = SECAO_CLASS[item.secao] || 'chip-default';
+            const secaoLabel = SECAO_LABEL[item.secao] || item.secao;
+            const dataHora = new Date(item.criado_em).toLocaleString('pt-BR');
+
+            const objTag = (item.objeto_tipo && item.objeto_id)
+                ? `<span style="font-size:0.72rem;color:var(--text-muted);">${item.objeto_tipo} #${item.objeto_id}</span>`
+                : item.objeto_tipo
+                    ? `<span style="font-size:0.72rem;color:var(--text-muted);">${item.objeto_tipo}</span>`
+                    : '';
+
+            const div = document.createElement('div');
+            div.className = 'log-entry';
+            div.innerHTML = `
+                <div class="log-entry-top">
+                    <span class="badge-acao ${acaoClass}">${item.acao}</span>
+                    <span class="chip-secao ${secaoClass}">${secaoLabel}</span>
+                    ${objTag}
+                    <span style="margin-left:auto;font-size:0.75rem;color:var(--text-muted);white-space:nowrap;">${dataHora}</span>
+                </div>
+                <div class="log-entry-desc">${_escapeHtml(item.descricao)}</div>
+                <div class="log-entry-meta">
+                    <span><i class="fas fa-user" style="opacity:.6;margin-right:3px;"></i>${_escapeHtml(item.username)}${item.nome_guerra ? ' (' + _escapeHtml(item.nome_guerra) + ')' : ''}</span>
+                    ${item.permissao && item.permissao !== '—' ? `<span><i class="fas fa-shield-alt" style="opacity:.6;margin-right:3px;"></i>${_escapeHtml(item.permissao)}</span>` : ''}
+                </div>
+            `;
+            listaEl.appendChild(div);
+        });
+    }
+
+    function _escapeHtml(s) {
+        return String(s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+    }
+
+    /* ── Limpar filtros ── */
+    window.audLimparFiltros = function() {
+        document.getElementById('aud-usuario').value = '';
+        selSecao.value = '';
+        selObjTipo.value = '';
+        selAcao.value = '';
+        selPermissao.value = '';
+        document.getElementById('aud-busca').value = '';
+        document.getElementById('aud-data-inicio').value = '';
+        document.getElementById('aud-data-fim').value = '';
+        buscar(1);
+    };
+
+    /* ── Eventos ── */
+    document.getElementById('aud-btn-buscar')?.addEventListener('click', () => buscar(1));
+    btnAnterior?.addEventListener('click', () => buscar(paginaAtual - 1));
+    btnProxima?.addEventListener('click', () => buscar(paginaAtual + 1));
+
+    /* Enter em qualquer input dispara busca */
+    document.querySelectorAll('#aud-usuario, #aud-busca').forEach(el => {
+        el.addEventListener('keydown', e => { if (e.key === 'Enter') buscar(1); });
+    });
+
+    /* Mudança nos selects dispara busca automaticamente */
+    [selSecao, selObjTipo, selAcao, selPermissao].forEach(el => {
+        el?.addEventListener('change', () => buscar(1));
+    });
+
+    /* Mudança nas datas dispara busca automaticamente */
+    ['aud-data-inicio', 'aud-data-fim'].forEach(id => {
+        document.getElementById(id)?.addEventListener('change', () => buscar(1));
+    });
+
+    /* ── Init ── */
+    document.addEventListener('DOMContentLoaded', () => {
+        carregarFiltros();
+        buscar(1);
+    });
+})();
+</script>
+{% endblock %}

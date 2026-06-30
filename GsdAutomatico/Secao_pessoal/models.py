@@ -16,8 +16,9 @@ class Efetivo(models.Model):
     nome_guerra = models.CharField(max_length=100,blank=True, verbose_name="Nome de Guerra")
     turma = models.CharField(max_length=100, blank=True, verbose_name="Turma")
     situacao = models.CharField(max_length=50, blank=True, verbose_name="Situação")
+    tlp = models.CharField(max_length=3, blank=True, verbose_name="TLP?")
     observacao = models.TextField(blank=True, null=True, verbose_name="Observações / Motivo da Baixa")
-    om = models.CharField(max_length=100, blank=True, verbose_name="OM")
+    om = models.CharField(max_length=100, blank=True, default='BINFAE-GL', verbose_name="OM")
     setor = models.CharField(max_length=100, blank=True, verbose_name="Setor")
     subsetor = models.CharField(max_length=100, blank=True, verbose_name="Subsetor")
     oficial = models.BooleanField(default=False, verbose_name="É Oficial?")
@@ -38,6 +39,7 @@ class Efetivo(models.Model):
     data_portaria_prestacao = models.DateField(null=True, blank=True, verbose_name="Data da Portaria")
     boletim_prestacao = models.CharField(max_length=100, blank=True, null=True, verbose_name="Boletim de Prestação de Serviço")
     data_boletim_prestacao = models.DateField(null=True, blank=True, verbose_name="Data do Boletim")
+    sigad_prestacao = models.CharField(max_length=100, blank=True, null=True, verbose_name="SIGAD da Prestação de Serviço")
 
     # Campos de Desligamento
     data_desligamento = models.DateField(null=True, blank=True, verbose_name="Data do Desligamento")

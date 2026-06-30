@@ -95,6 +95,7 @@
 
 <form method="post" class="model-form">
     {% csrf_token %}
+    {% if next_url %}<input type="hidden" name="next" value="{{ next_url }}">{% endif %}
 
     <div class="form-card">
         <div class="form-card-header">
@@ -145,6 +146,10 @@
                  <div class="form-item">
                     <label for="{{ form.situacao.id_for_label }}">{{ form.situacao.label }}:</label>
                     {{ form.situacao }}
+                </div>
+                <div class="form-item">
+                    <label for="{{ form.tlp.id_for_label }}">{{ form.tlp.label }}</label>
+                    {{ form.tlp }}
                 </div>
 
                 <div class="form-item-checkbox">
@@ -334,7 +339,7 @@
 
     <div class="form-actions">
         <button type="submit" class="btn btn-primary">Salvar</button>
-        <a href="{% url 'Secao_pessoal:militar_list' %}" class="btn btn-secondary">Cancelar</a>
+        <a href="{{ next_url|default_if_none:'' }}{% if not next_url %}{% url 'Secao_pessoal:militar_list' %}{% endif %}" class="btn btn-secondary">Cancelar</a>
     </div>
 </form>
 {% endblock %}

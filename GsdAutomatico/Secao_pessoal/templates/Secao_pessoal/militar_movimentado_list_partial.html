@@ -3,6 +3,7 @@
         <thead>
             <tr>
                 <th>Posto</th>
+                <th>Especialidade</th>
                 <th>Nome de Guerra</th>
                 <th>Nome Completo</th>
                 <th>SARAM</th>
@@ -16,6 +17,7 @@
             {% for militar in militares %}
             <tr>
                 <td>{{ militar.posto }}</td>
+                <td>{{ militar.especializacao|default:"-" }}</td>
                 <td>{{ militar.nome_guerra }}</td>
                 <td>{{ militar.nome_completo }}</td>
                 <td>{{ militar.saram|default:"-" }}</td>
@@ -27,7 +29,7 @@
                 </td>
                 <td>
                     <div class="actions-cell">
-                        <a href="{% url 'Secao_pessoal:militar_update' militar.pk %}" class="btn btn-sm btn-edit">
+                        <a href="{% url 'Secao_pessoal:militar_update' militar.pk %}?next={{ request.path }}" class="btn btn-sm btn-edit">
                             <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10" /></svg>
                             Editar
                         </a>
@@ -36,7 +38,7 @@
             </tr>
             {% empty %}
             <tr>
-                <td colspan="8" style="text-align: center; padding: 20px;">Nenhum militar movimentado encontrado.</td>
+                <td colspan="9" style="text-align: center; padding: 20px;">Nenhum militar movimentado encontrado.</td>
             </tr>
             {% endfor %}
         </tbody>

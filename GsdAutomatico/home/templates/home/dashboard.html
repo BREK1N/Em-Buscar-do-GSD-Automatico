@@ -699,7 +699,7 @@
             else { sun.style.display = ''; moon.style.display = 'none'; }
         }
         applyTheme(localStorage.getItem('theme') || 'light-theme');
-        toggle.addEventListener('click', function () {
+        if (toggle) toggle.addEventListener('click', function () {
             const next = body.classList.contains('dark-theme') ? 'light-theme' : 'dark-theme';
             localStorage.setItem('theme', next);
             applyTheme(next);
@@ -732,17 +732,18 @@
         // ── Dropdown do perfil ────────────────────────────────
         var profileChip = document.getElementById('profile-chip');
         var profileMenu = document.getElementById('profile-menu');
-        profileChip.addEventListener('click', function(e) {
-            e.stopPropagation();
-            profileMenu.classList.toggle('open');
-            // fechar notificações se aberto
-            var _np = document.getElementById('notif-panel') || document.getElementById('notifications-panel');
-            if (_np) _np.classList.remove('open', 'active');
-        });
-        document.addEventListener('click', function() {
-            profileMenu.classList.remove('open');
-        });
-        profileMenu.addEventListener('click', function(e) { e.stopPropagation(); });
+        if (profileChip && profileMenu) {
+            profileChip.addEventListener('click', function(e) {
+                e.stopPropagation();
+                profileMenu.classList.toggle('open');
+                var _np = document.getElementById('notif-panel') || document.getElementById('notifications-panel');
+                if (_np) _np.classList.remove('open', 'active');
+            });
+            document.addEventListener('click', function() {
+                profileMenu.classList.remove('open');
+            });
+            profileMenu.addEventListener('click', function(e) { e.stopPropagation(); });
+        }
     });
     </script>
 </body>

@@ -2,12 +2,29 @@ from django import forms
 from Secao_pessoal.models import Efetivo, Posto, Quad, Especializacao, OM, Setor, Subsetor, LotacaoPessoal
 from django.contrib.auth import get_user_model
 
+_SITUACAO_CHOICES = [
+    ('', '---------'),
+    ('ATIVA', 'ATIVA'),
+    ('PSV', 'PSV'),
+    ('PSV GSD-GL', 'PSV GSD-GL'),
+    ('JUNTA MÉDICA', 'JUNTA MÉDICA'),
+    ('JUSTIÇA', 'JUSTIÇA'),
+    ('AGD. DESLIGAMENTO', 'AGD. DESLIGAMENTO'),
+]
+
+_TLP_CHOICES = [
+    ('', '---------'),
+    ('SIM', 'SIM'),
+    ('NÃO', 'NÃO'),
+]
+
+
 class MilitarForm(forms.ModelForm):
     # Formulário para criar e atualizar registros de Militares.
 
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
-        
+
         # Opções para os campos de escolha
         opcoes_posto = [(p.nome, p.nome) for p in Posto.objects.all()]
         opcoes_quad = [(q.nome, q.nome) for q in Quad.objects.all()]
@@ -24,11 +41,15 @@ class MilitarForm(forms.ModelForm):
         self.fields['setor'].choices = [('', '---------')] + opcoes_setor
         self.fields['subsetor'].choices = [('', '---------')] + opcoes_subsetor
 
+        # Para novos registros, OM já vem pré-selecionado como BINFAE-GL
+        if not self.instance.pk and not self.data.get('om'):
+            self.initial['om'] = 'BINFAE-GL'
+
     class Meta:
         model = Efetivo
         fields = [
             'posto', 'quad', 'especializacao', 'saram', 'nome_completo', 'nome_guerra',
-            'turma', 'situacao', 'om', 'setor', 'subsetor', 'oficial', 'observacao',
+            'turma', 'situacao', 'tlp', 'om', 'setor', 'subsetor', 'oficial', 'observacao',
             'assinatura', 'unidade_prestacao_servico', 'data_inicio_prestacao',
             'data_vencimento_prestacao', 'portaria_prestacao', 'data_portaria_prestacao',
             'boletim_prestacao', 'data_boletim_prestacao',
@@ -37,7 +58,7 @@ class MilitarForm(forms.ModelForm):
             'conjuge', 'ano_praca', 'contato_1', 'contato_2', 'contato_3', 'contato_4',
             'email_1', 'email_2', 'email_3', 'cep', 'endereco', 'complemento', 'bairro',
         ]
-        
+
         # Usando Select para os campos que agora são listas
         widgets = {
             'posto': forms.Select(),
@@ -46,13 +67,14 @@ class MilitarForm(forms.ModelForm):
             'om': forms.Select(),
             'setor': forms.Select(),
             'subsetor': forms.Select(),
-            
+            'situacao': forms.Select(choices=_SITUACAO_CHOICES),
+            'tlp': forms.Select(choices=_TLP_CHOICES),
+
             # Widgets que permanecem os mesmos
             'saram': forms.NumberInput(attrs={'placeholder': 'Apenas números'}),
             'nome_completo': forms.TextInput(attrs={'placeholder': 'Nome completo do militar'}),
             'nome_guerra': forms.TextInput(attrs={'placeholder': 'Nome de guerra'}),
             'turma': forms.TextInput(attrs={'placeholder': 'Ex: 2024'}),
-            'situacao': forms.TextInput(attrs={'placeholder': 'Ex: Ativo'}),
             'observacao': forms.Textarea(attrs={'rows': 3, 'placeholder': 'Observações sobre a situação do militar (ex: motivo da baixa, período de férias).'}),
             'assinatura': forms.HiddenInput(),
             'unidade_prestacao_servico': forms.TextInput(attrs={'placeholder': 'Ex: BAGL'}),

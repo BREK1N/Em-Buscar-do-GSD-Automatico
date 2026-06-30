@@ -175,13 +175,18 @@ class PATDForm(forms.ModelForm):
 
         # Preenche os campos de texto com os dados JSON formatados
         if self.instance and self.instance.pk:
-            if self.instance.itens_enquadrados:
-                itens_str = "\n".join([f"{item.get('numero', '')}: {item.get('descricao', '')}" for item in self.instance.itens_enquadrados])
+            _itens = self.instance.itens_enquadrados
+            if isinstance(_itens, list) and _itens:
+                itens_str = "\n".join([
+                    f"{item.get('numero', '')}: {item.get('descricao', '')}" if isinstance(item, dict) else str(item)
+                    for item in _itens
+                ])
                 self.fields['itens_enquadrados_text'].initial = itens_str
 
-            if self.instance.circunstancias:
-                self.fields['atenuantes'].initial = ", ".join(self.instance.circunstancias.get('atenuantes', []))
-                self.fields['agravantes'].initial = ", ".join(self.instance.circunstancias.get('agravantes', []))
+            _circ = self.instance.circunstancias if isinstance(self.instance.circunstancias, dict) else {}
+            if _circ:
+                self.fields['atenuantes'].initial = ", ".join(_circ.get('atenuantes', []))
+                self.fields['agravantes'].initial = ", ".join(_circ.get('agravantes', []))
 
             # --- INÍCIO DA MODIFICAÇÃO: Inicialização dos campos de punição sugerida ---
             if self.instance.punicao_sugerida:

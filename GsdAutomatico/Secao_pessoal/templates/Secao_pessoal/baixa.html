@@ -1,6 +1,6 @@
 {% extends 'Secao_pessoal/base.html' %}
 
-{% block title %}Baixa de Militar - Seção de Pessoal{% endblock %}
+{% block title %}Desligar Militar - Seção de Pessoal{% endblock %}
 
 {% block extra_head %}
 <link href="https://cdn.jsdelivr.net/npm/select2@4.1.0-rc.0/dist/css/select2.min.css" rel="stylesheet" />
@@ -39,7 +39,7 @@
 {% block content %}
 <div class="content-column">
     <div class="table-header">
-        <h1>Baixa de Militar do Efetivo</h1>
+        <h1>Desligar Militar do Efetivo</h1>
     </div>
 
     <form method="post" class="model-form">
@@ -55,7 +55,7 @@
                 </select>
             </p>
             <p>
-                <label for="data_baixa">Data da Baixa:</label>
+                <label for="data_baixa">Data do Desligamento:</label>
                 <input type="date" name="data_baixa" id="data_baixa" required>
             </p>
             <p>
@@ -64,7 +64,7 @@
             </p>
         </div>
         <div class="form-actions">
-            <button type="submit" class="btn btn-danger">Registrar Baixa</button>
+            <button type="submit" class="btn btn-danger">Registrar Desligamento</button>
         </div>
     </form>
 </div>

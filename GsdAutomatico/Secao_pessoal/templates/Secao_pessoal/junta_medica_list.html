@@ -1,0 +1,239 @@
+{% extends 'Secao_pessoal/base.html' %}
+
+{% block title %}Junta Médica{% endblock %}
+
+{% block content %}
+<div class="table-header">
+    <h1>Junta Médica</h1>
+    <div class="filter-bar">
+        <div class="search-group">
+            <form method="get" id="search-form" onsubmit="return false;">
+                <input type="text" name="q" id="search-input" placeholder="Pesquisar por nome, posto, SARAM..." value="{{ request.GET.q }}">
+                <button type="button" class="search-btn" aria-label="Pesquisar">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
+                </button>
+            </form>
+        </div>
+    </div>
+</div>
+
+<div id="militar-list-container">
+    {% include 'Secao_pessoal/militar_list_partial.html' %}
+</div>
+
+<!-- Painel de filtro de coluna -->
+<div id="col-filter-overlay" style="display:none;position:fixed;inset:0;z-index:1050;"></div>
+<div id="col-filter-panel" style="display:none;position:fixed;z-index:1051;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.22);padding:14px;min-width:240px;max-width:320px;flex-direction:column;gap:10px;">
+    <div>
+        <input type="text" id="col-filter-search" placeholder="Pesquisar..." autocomplete="off"
+               style="width:100%;padding:6px 10px;font-size:0.83em;box-sizing:border-box;">
+    </div>
+    <div style="border-bottom:1px solid var(--border-strong);padding-bottom:8px;display:flex;align-items:center;gap:10px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.83em;cursor:pointer;user-select:none;font-weight:600;color:var(--text-primary);">
+            <input type="checkbox" id="col-filter-select-all"> Selecionar tudo
+        </label>
+        <button type="button" id="col-filter-deselect-all"
+                style="font-size:0.78em;background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:0;margin-left:auto;line-height:1;">
+            Desmarcar tudo
+        </button>
+    </div>
+    <div id="col-filter-list" style="overflow-y:auto;max-height:230px;display:flex;flex-direction:column;gap:1px;"></div>
+    <div style="border-top:1px solid var(--border-strong);padding-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" id="col-filter-clear-btn" class="btn btn-sm btn-secondary">Limpar filtro</button>
+        <button type="button" id="col-filter-apply-btn" class="btn btn-sm btn-primary">Aplicar</button>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<style>
+.col-filter-btn {
+    background: none; border: none; padding: 0; margin: 0; cursor: pointer;
+    font: inherit; color: inherit; letter-spacing: inherit; text-transform: inherit;
+    display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; line-height: 1; outline: none;
+}
+.col-filter-btn:hover { color: var(--accent); }
+.col-filter-btn svg { opacity: 0.4; transition: opacity 0.15s, color 0.15s; flex-shrink: 0; }
+.col-filter-btn:hover svg { opacity: 0.9; }
+.col-filter-btn.filter-active { color: var(--accent); }
+.col-filter-btn.filter-active svg { opacity: 1; color: var(--accent); }
+#col-filter-list label {
+    display: flex; align-items: flex-start; gap: 8px; padding: 5px 6px; border-radius: 5px;
+    font-size: 0.83em; cursor: pointer; user-select: none; line-height: 1.35; color: var(--text-primary);
+}
+#col-filter-list label:hover { background: var(--bg-page); }
+#col-filter-list input[type=checkbox] { flex-shrink: 0; margin-top: 2px; cursor: pointer; }
+#col-filter-list span { overflow: hidden; word-break: break-word; }
+</style>
+
+<script>
+(function () {
+    const filterOptionsUrl = '{% url "Secao_pessoal:efetivo_filter_options" %}?view=junta';
+    const container     = document.getElementById('militar-list-container');
+    const searchInput   = document.getElementById('search-input');
+    const overlay       = document.getElementById('col-filter-overlay');
+    const panel         = document.getElementById('col-filter-panel');
+    const filterSearch  = document.getElementById('col-filter-search');
+    const filterList    = document.getElementById('col-filter-list');
+    const selectAllCb   = document.getElementById('col-filter-select-all');
+    const deselectAllBtn= document.getElementById('col-filter-deselect-all');
+    const clearBtn      = document.getElementById('col-filter-clear-btn');
+    const applyBtn      = document.getElementById('col-filter-apply-btn');
+
+    const FIELD_TO_PARAM = {
+        posto: 'posto_f', especializacao: 'esp_f', situacao: 'sit_f', observacao: 'obs_f',
+    };
+
+    let filterOptions = {};
+    let activeFilters = { posto_f: [], esp_f: [], sit_f: [], obs_f: [] };
+    let currentCol    = null;
+    let searchTimeout;
+
+    async function loadFilterOptions() {
+        try {
+            const r = await fetch(filterOptionsUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            filterOptions = await r.json();
+        } catch (e) { console.error('Erro ao carregar opções de filtro:', e); }
+    }
+
+    function buildUrl(page) {
+        const params = new URLSearchParams();
+        const q = searchInput.value.trim();
+        if (q)                             params.set('q',       q);
+        if (activeFilters.posto_f.length)  params.set('posto_f', activeFilters.posto_f.join(','));
+        if (activeFilters.esp_f.length)    params.set('esp_f',   activeFilters.esp_f.join(','));
+        if (activeFilters.sit_f.length)    params.set('sit_f',   activeFilters.sit_f.join(','));
+        if (activeFilters.obs_f.length)    params.set('obs_f',   activeFilters.obs_f.join(','));
+        if (page && page > 1)              params.set('page',    page);
+        const qs = params.toString();
+        return qs ? ('?' + qs) : '?';
+    }
+
+    async function updateList(url) {
+        history.pushState(null, '', url);
+        const r = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        container.innerHTML = await r.text();
+        updateFilterIndicators();
+    }
+
+    function updateFilterIndicators() {
+        container.querySelectorAll('.col-filter-btn').forEach(btn => {
+            const param = FIELD_TO_PARAM[btn.dataset.filterCol];
+            btn.classList.toggle('filter-active', !!(param && activeFilters[param].length > 0));
+        });
+    }
+
+    function openPanel(col, triggerEl) {
+        currentCol = col;
+        const param   = FIELD_TO_PARAM[col];
+        const options = filterOptions[col] || [];
+        const active  = new Set(activeFilters[param]);
+        filterList.innerHTML = '';
+        options.forEach(val => {
+            const label = document.createElement('label');
+            const cb    = document.createElement('input');
+            cb.type    = 'checkbox';
+            cb.value   = val;
+            cb.checked = active.size === 0 || active.has(val);
+            cb.addEventListener('change', refreshSelectAll);
+            const span = document.createElement('span');
+            span.textContent = val === '__vazio__' ? '(vazio)' : val;
+            label.appendChild(cb);
+            label.appendChild(span);
+            filterList.appendChild(label);
+        });
+        refreshSelectAll();
+        filterSearch.value = '';
+        applyListSearch('');
+        const rect = triggerEl.getBoundingClientRect();
+        panel.style.display = 'flex';
+        panel.style.top  = (rect.bottom + 6) + 'px';
+        panel.style.left = rect.left + 'px';
+        requestAnimationFrame(() => {
+            const pr = panel.getBoundingClientRect();
+            if (pr.right > window.innerWidth - 8)
+                panel.style.left = Math.max(8, window.innerWidth - pr.width - 8) + 'px';
+        });
+        overlay.style.display = 'block';
+        filterSearch.focus();
+    }
+
+    function closePanel() {
+        panel.style.display   = 'none';
+        overlay.style.display = 'none';
+        currentCol = null;
+    }
+
+    function refreshSelectAll() {
+        const visible = Array.from(filterList.querySelectorAll('input[type=checkbox]'))
+                             .filter(cb => cb.closest('label').style.display !== 'none');
+        const allChk  = visible.length > 0 && visible.every(cb => cb.checked);
+        const noneChk = visible.every(cb => !cb.checked);
+        selectAllCb.checked       = allChk;
+        selectAllCb.indeterminate = !allChk && !noneChk;
+    }
+
+    function applyListSearch(query) {
+        const q = query.toLowerCase();
+        filterList.querySelectorAll('label').forEach(label => {
+            const text = label.querySelector('span').textContent.toLowerCase();
+            label.style.display = text.includes(q) ? '' : 'none';
+        });
+        refreshSelectAll();
+    }
+
+    filterSearch.addEventListener('input', () => applyListSearch(filterSearch.value));
+    selectAllCb.addEventListener('change', () => {
+        filterList.querySelectorAll('input[type=checkbox]').forEach(cb => {
+            if (cb.closest('label').style.display !== 'none') cb.checked = selectAllCb.checked;
+        });
+        refreshSelectAll();
+    });
+    deselectAllBtn.addEventListener('click', () => {
+        filterList.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+        refreshSelectAll();
+    });
+    clearBtn.addEventListener('click', () => {
+        if (!currentCol) return;
+        activeFilters[FIELD_TO_PARAM[currentCol]] = [];
+        closePanel();
+        updateList(buildUrl(1));
+    });
+    applyBtn.addEventListener('click', () => {
+        if (!currentCol) return;
+        const param   = FIELD_TO_PARAM[currentCol];
+        const options = filterOptions[currentCol] || [];
+        const checked = Array.from(filterList.querySelectorAll('input[type=checkbox]:checked')).map(cb => cb.value);
+        activeFilters[param] = (checked.length === 0 || checked.length === options.length) ? [] : checked;
+        closePanel();
+        updateList(buildUrl(1));
+    });
+    overlay.addEventListener('click', closePanel);
+
+    container.addEventListener('click', function (e) {
+        const filterBtn = e.target.closest('.col-filter-btn');
+        if (filterBtn) {
+            e.stopPropagation();
+            if (currentCol === filterBtn.dataset.filterCol) { closePanel(); return; }
+            openPanel(filterBtn.dataset.filterCol, filterBtn);
+            return;
+        }
+        const pageLink = e.target.closest('#pagination-container a');
+        if (pageLink) {
+            e.preventDefault();
+            const usp  = new URLSearchParams((pageLink.getAttribute('href') || '').replace(/^\?/, ''));
+            const page = parseInt(usp.get('page') || '1', 10);
+            updateList(buildUrl(page));
+        }
+    });
+
+    searchInput.addEventListener('input', function () {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => updateList(buildUrl(1)), 300);
+    });
+    document.getElementById('search-form').addEventListener('submit', e => e.preventDefault());
+
+    loadFilterOptions().then(updateFilterIndicators);
+})();
+</script>
+{% endblock %}

@@ -213,6 +213,12 @@ class UserCreateView(StaffRequiredMixin, CreateView):
     def form_valid(self, form):
         user = form.save()
         generated_pwd = getattr(user, '_generated_password', '—')
+        registrar(
+            self.request.user, secao='informatica',
+            permissao=resolver_label(self.request.user, _INFORMATICA_PERMISSAO_MAP),
+            acao='criou', descricao=f"criou o usuário '{user.username}'",
+            objeto_tipo='Usuário', objeto_id=user.username,
+        )
         messages.success(self.request, f"Utilizador '{user.username}' criado. Senha temporária: {generated_pwd} (anote agora — não será exibida novamente).")
         return redirect(self.success_url)
 
@@ -231,6 +237,15 @@ class UserUpdateView(StaffRequiredMixin, UpdateView):
         except Exception:
             context['militar_atual'] = None
         return context
+    def form_valid(self, form):
+        response = super().form_valid(form)
+        registrar(
+            self.request.user, secao='informatica',
+            permissao=resolver_label(self.request.user, _INFORMATICA_PERMISSAO_MAP),
+            acao='editou', descricao=f"editou o usuário '{self.object.username}'",
+            objeto_tipo='Usuário', objeto_id=self.object.username,
+        )
+        return response
 
 class UserDeleteView(StaffRequiredMixin, DeleteView):
     model = User
@@ -240,6 +255,15 @@ class UserDeleteView(StaffRequiredMixin, DeleteView):
         context = super().get_context_data(**kwargs)
         context['page_title'] = f"Confirmar Exclusão de {self.object.username}"
         return context
+    def form_valid(self, form):
+        username = self.object.username
+        registrar(
+            self.request.user, secao='informatica',
+            permissao=resolver_label(self.request.user, _INFORMATICA_PERMISSAO_MAP),
+            acao='excluiu', descricao=f"excluiu o usuário '{username}'",
+            objeto_tipo='Usuário', objeto_id=username,
+        )
+        return super().form_valid(form)
 
 @staff_member_required
 @require_POST
@@ -249,6 +273,12 @@ def reset_user_password(request, pk):
         temp_password = '12345678'
         user_to_reset.set_password(temp_password)
         user_to_reset.save()
+        registrar(
+            request.user, secao='informatica',
+            permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+            acao='editou', descricao=f"redefiniu a senha do usuário '{user_to_reset.username}'",
+            objeto_tipo='Usuário', objeto_id=user_to_reset.username,
+        )
         return JsonResponse({
             'status': 'success',
             'message': f"Senha do utilizador '{user_to_reset.username}' redefinida para 12345678.",
@@ -310,6 +340,12 @@ class GroupCreateView(StaffRequiredMixin, CreateView):
         response = super().form_valid(form)
         secao = self.request.POST.get('secao', 'geral')
         GroupProfile.objects.update_or_create(group=self.object, defaults={'secao': secao})
+        registrar(
+            self.request.user, secao='informatica',
+            permissao=resolver_label(self.request.user, _INFORMATICA_PERMISSAO_MAP),
+            acao='criou', descricao=f"criou o grupo '{self.object.name}'",
+            objeto_tipo='Grupo', objeto_id=self.object.name,
+        )
         return response
 
     def get_context_data(self, **kwargs):
@@ -331,6 +367,12 @@ class GroupUpdateView(StaffRequiredMixin, UpdateView):
         response = super().form_valid(form)
         secao = self.request.POST.get('secao', 'geral')
         GroupProfile.objects.update_or_create(group=self.object, defaults={'secao': secao})
+        registrar(
+            self.request.user, secao='informatica',
+            permissao=resolver_label(self.request.user, _INFORMATICA_PERMISSAO_MAP),
+            acao='editou', descricao=f"editou o grupo '{self.object.name}'",
+            objeto_tipo='Grupo', objeto_id=self.object.name,
+        )
         return response
 
     def get_context_data(self, **kwargs):
@@ -349,6 +391,13 @@ class GroupDeleteView(StaffRequiredMixin, DeleteView):
     success_url = reverse_lazy('informatica:group_list')
 
     def form_valid(self, form):
+        nome = self.object.name
+        registrar(
+            self.request.user, secao='informatica',
+            permissao=resolver_label(self.request.user, _INFORMATICA_PERMISSAO_MAP),
+            acao='excluiu', descricao=f"excluiu o grupo '{nome}'",
+            objeto_tipo='Grupo', objeto_id=nome,
+        )
         GroupProfile.objects.filter(group=self.object).delete()
         return super().form_valid(form)
 
@@ -410,6 +459,12 @@ def configuracao_comandantes(request):
         config.save()
         config_ouvidoria.oficial_chefe_ouvidoria = _get('oficial_chefe_ouvidoria')
         config_ouvidoria.save()
+        registrar(
+            request.user, secao='informatica',
+            permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+            acao='editou', descricao="editou a configuração de comandantes",
+            objeto_tipo='ConfiguracaoComandantes', objeto_id='1',
+        )
         from django.contrib import messages
         messages.success(request, 'Comandantes salvos com sucesso.')
         return redirect('informatica:configuracao_comandantes')
@@ -552,6 +607,13 @@ def backup_restaurar_registro(request, pk):
                 logger.info(
                     "[BACKUP RESTORE] %s restaurou campos %s do registro %s (%s) a partir do backup #%s",
                     request.user.username, alterados, model.__name__, live_obj.pk, execucao.pk,
+                )
+                registrar(
+                    request.user, secao='informatica',
+                    permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+                    acao='restaurou',
+                    descricao=f"restaurou campos ({', '.join(alterados)}) do {model.__name__} #{live_obj.pk} via backup #{execucao.pk}",
+                    objeto_tipo=model.__name__, objeto_id=str(live_obj.pk),
                 )
                 messages.success(request, f"Campos restaurados: {', '.join(alterados)}.")
             else:
@@ -1654,8 +1716,15 @@ def logs_alegacao_defesa(request):
 
 
 # ==========================================
-# AUDITORIA (Fase 3) — API consumida pela aba "Auditoria" em configuracao_form.html
+# AUDITORIA (Fase 3) — página dedicada + APIs JSON
 # ==========================================
+@login_required
+def auditoria_page(request):
+    if not is_informatica_secao(request.user):
+        return redirect('home:index')
+    return render(request, 'informatica/auditoria.html')
+
+
 @login_required
 def auditoria_search(request):
     if not is_informatica_secao(request.user):
@@ -1664,10 +1733,12 @@ def auditoria_search(request):
 
     from auditoria.models import LogAuditoria
 
-    qs = LogAuditoria.objects.all()
+    qs = LogAuditoria.objects.select_related('usuario').all()
     usuario = request.GET.get('usuario', '').strip()
     secao = request.GET.get('secao', '').strip()
     acao = request.GET.get('acao', '').strip()
+    objeto_tipo = request.GET.get('objeto_tipo', '').strip()
+    permissao = request.GET.get('permissao', '').strip()
     busca = request.GET.get('busca', '').strip()
     data_inicio = request.GET.get('data_inicio', '').strip()
     data_fim = request.GET.get('data_fim', '').strip()
@@ -1678,8 +1749,18 @@ def auditoria_search(request):
         qs = qs.filter(secao=secao)
     if acao:
         qs = qs.filter(acao=acao)
+    if objeto_tipo:
+        qs = qs.filter(objeto_tipo=objeto_tipo)
+    if permissao:
+        qs = qs.filter(permissao__icontains=permissao)
     if busca:
-        qs = qs.filter(Q(descricao__icontains=busca) | Q(objeto_tipo__icontains=busca) | Q(objeto_id__icontains=busca))
+        qs = qs.filter(
+            Q(descricao__icontains=busca) |
+            Q(objeto_tipo__icontains=busca) |
+            Q(objeto_id__icontains=busca) |
+            Q(username__icontains=busca) |
+            Q(nome_guerra__icontains=busca)
+        )
     if data_inicio:
         qs = qs.filter(criado_em__date__gte=data_inicio)
     if data_fim:
@@ -1693,10 +1774,14 @@ def auditoria_search(request):
         'results': [{
             'id': log.id,
             'linha': log.linha_formatada,
+            'username': log.username,
+            'nome_guerra': log.nome_guerra,
+            'permissao': log.permissao,
             'secao': log.secao,
             'acao': log.acao,
             'objeto_tipo': log.objeto_tipo,
             'objeto_id': log.objeto_id,
+            'descricao': log.descricao,
             'criado_em': log.criado_em.isoformat(),
         } for log in page_obj],
         'has_next': page_obj.has_next(),
@@ -1709,7 +1794,7 @@ def auditoria_search(request):
 
 @login_required
 def auditoria_filtros(request):
-    """Opções disponíveis pra montar os selects de filtro (seção/ação) na aba Auditoria."""
+    """Opções disponíveis pra montar os selects de filtro na página de Auditoria."""
     if not is_informatica_secao(request.user):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden()
@@ -1717,4 +1802,6 @@ def auditoria_filtros(request):
     from auditoria.models import LogAuditoria
     secoes = list(LogAuditoria.objects.exclude(secao='').values_list('secao', flat=True).distinct().order_by('secao'))
     acoes = list(LogAuditoria.objects.exclude(acao='').values_list('acao', flat=True).distinct().order_by('acao'))
-    return JsonResponse({'secoes': secoes, 'acoes': acoes})
+    objeto_tipos = list(LogAuditoria.objects.exclude(objeto_tipo='').values_list('objeto_tipo', flat=True).distinct().order_by('objeto_tipo'))
+    permissoes = list(LogAuditoria.objects.exclude(permissao__in=['', '—']).values_list('permissao', flat=True).distinct().order_by('permissao'))
+    return JsonResponse({'secoes': secoes, 'acoes': acoes, 'objeto_tipos': objeto_tipos, 'permissoes': permissoes})

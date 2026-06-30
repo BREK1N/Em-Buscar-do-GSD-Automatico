@@ -14,7 +14,8 @@ from django.core.files.base import ContentFile
 from ..models import PATD, Configuracao, Anexo
 from Secao_pessoal.models import Efetivo
 from ..permissions import (
-    can_change_patd_date, OUVIDORIA_CHEFE, OUVIDORIA_APURADOR, OUVIDORIA_ADJUNTO, OUVIDORIA_CB, OUVIDORIA_S2,
+    can_change_patd_date, OUVIDORIA_CHEFE, OUVIDORIA_APURADOR, OUVIDORIA_ADJUNTO,
+    OUVIDORIA_CB, OUVIDORIA_S2, COMANDANTE,
 )
 from .decorators import ouvidoria_required, oficial_responsavel_required
 from .helpers import get_document_pages, _try_advance_status_from_justificativa
@@ -29,6 +30,7 @@ _PATD_PERMISSAO_MAP = {
     OUVIDORIA_ADJUNTO: 'Adjunto- Ouvidoria',
     OUVIDORIA_CB: 'CB- Ouvidoria',
     OUVIDORIA_S2: 'S2- Ouvidoria',
+    COMANDANTE: 'Comandante',
 }
 
 def _check_preclusao_signatures(patd):

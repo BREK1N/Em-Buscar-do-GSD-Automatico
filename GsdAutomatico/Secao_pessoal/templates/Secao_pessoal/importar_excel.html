@@ -68,6 +68,7 @@
                     Importar e sincronizar: além de criar e atualizar quem estiver na planilha, remove (envia para a lixeira) os militares que estão cadastrados no sistema mas não constam mais nesta planilha.
                 </label>
             </p>
+            <input type="hidden" name="postos_filtro" id="postos_filtro" value="todos">
             <button type="submit" id="submit-btn" style="margin-top: 15px;">
                 <span class="spinner"></span>
                 <span class="button-text">Enviar e Importar</span>
@@ -93,6 +94,23 @@
         </div>
     </div>
 </div>
+
+<!-- Modal seleção de postos -->
+<div id="modal-postos" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+    <div style="background:var(--bg-card);border-radius:12px;padding:28px;max-width:480px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+        <h3 style="margin:0 0 8px;font-size:1.1rem;">Selecionar postos a importar</h3>
+        <p style="color:var(--text-secondary);font-size:0.88rem;margin-bottom:16px;">Escolha quais postos deseja atualizar. Apenas os militares dos postos selecionados serão criados ou atualizados.</p>
+        <div id="postos-checkbox-list" style="display:flex;flex-direction:column;gap:8px;max-height:280px;overflow-y:auto;margin-bottom:16px;padding:4px 0;"></div>
+        <label style="display:flex;align-items:center;gap:8px;font-weight:600;padding:8px 0;border-top:1px solid var(--border-color);margin-bottom:16px;">
+            <input type="checkbox" id="check-todos-postos" checked>
+            Todo o Efetivo (todos os postos)
+        </label>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" class="btn btn-secondary" id="btn-cancelar-postos">Cancelar</button>
+            <button type="button" class="btn btn-primary" id="btn-confirmar-postos">Confirmar e Importar</button>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
@@ -101,34 +119,92 @@ document.addEventListener('DOMContentLoaded', function() {
     const importForm = document.getElementById('import-form');
     const submitButton = document.getElementById('submit-btn');
     const statusBox = document.getElementById('status-box');
+    const fileInput = document.getElementById('excel_file');
+    const modalPostos = document.getElementById('modal-postos');
+    const postosList = document.getElementById('postos-checkbox-list');
+    const checkTodos = document.getElementById('check-todos-postos');
+    const btnCancelar = document.getElementById('btn-cancelar-postos');
+    const btnConfirmar = document.getElementById('btn-confirmar-postos');
+    const postosFiltroInput = document.getElementById('postos_filtro');
+
+    let postosEncontrados = [];
+
+    fileInput.addEventListener('change', function() {
+        if (!fileInput.files || !fileInput.files[0]) return;
+        const fd = new FormData();
+        fd.append('excel_file', fileInput.files[0]);
+        fd.append('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        fetch('{% url "Secao_pessoal:preview_postos_excel" %}', { method: 'POST', body: fd })
+            .then(r => r.json())
+            .then(data => {
+                postosEncontrados = data.postos || [];
+                if (postosEncontrados.length === 0) {
+                    postosFiltroInput.value = 'todos';
+                    return;
+                }
+                postosList.innerHTML = '';
+                postosEncontrados.forEach(p => {
+                    const lbl = document.createElement('label');
+                    lbl.style.cssText = 'display:flex;align-items:center;gap:8px;cursor:pointer;';
+                    const cb = document.createElement('input');
+                    cb.type = 'checkbox';
+                    cb.value = p;
+                    cb.checked = true;
+                    cb.dataset.posto = p;
+                    lbl.appendChild(cb);
+                    lbl.appendChild(document.createTextNode(p));
+                    postosList.appendChild(lbl);
+                });
+                checkTodos.checked = true;
+                modalPostos.style.display = 'flex';
+            })
+            .catch(() => {
+                postosFiltroInput.value = 'todos';
+            });
+    });
+
+    checkTodos.addEventListener('change', function() {
+        postosList.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = checkTodos.checked);
+    });
+
+    btnCancelar.addEventListener('click', function() {
+        modalPostos.style.display = 'none';
+        fileInput.value = '';
+        postosFiltroInput.value = 'todos';
+    });
+
+    btnConfirmar.addEventListener('click', function() {
+        if (checkTodos.checked) {
+            postosFiltroInput.value = 'todos';
+        } else {
+            const selecionados = Array.from(postosList.querySelectorAll('input:checked')).map(cb => cb.value);
+            if (selecionados.length === 0) {
+                alert('Selecione pelo menos um posto.');
+                return;
+            }
+            postosFiltroInput.value = selecionados.join(',');
+        }
+        modalPostos.style.display = 'none';
+        const sincronizarCheckbox = document.getElementById('sincronizar');
+        if (sincronizarCheckbox && sincronizarCheckbox.checked) {
+            const confirmado = confirm('Tem certeza? Militares cadastrados que não estiverem nesta planilha serão movidos para a lixeira.');
+            if (!confirmado) return;
+        }
+        const spinner = submitButton.querySelector('.spinner');
+        const buttonText = submitButton.querySelector('.button-text');
+        buttonText.textContent = 'A importar...';
+        spinner.style.display = 'block';
+        submitButton.disabled = true;
+        statusBox.innerHTML = '<div class="loading-state"><div class="big-spinner"></div><p>A processar o ficheiro...<br>Isto pode levar alguns segundos.</p></div>';
+        importForm.submit();
+    });
 
     if (importForm) {
         importForm.addEventListener('submit', function(e) {
-            const fileInput = document.getElementById('excel_file');
-            if (!fileInput.files || fileInput.files.length === 0) {
+            if (modalPostos.style.display === 'flex') {
+                e.preventDefault();
                 return;
             }
-
-            const sincronizarCheckbox = document.getElementById('sincronizar');
-            if (sincronizarCheckbox && sincronizarCheckbox.checked) {
-                const confirmado = confirm('Tem certeza? Militares cadastrados que não estiverem nesta planilha serão movidos para a lixeira.');
-                if (!confirmado) {
-                    e.preventDefault();
-                    return;
-                }
-            }
-
-            const spinner = submitButton.querySelector('.spinner');
-            const buttonText = submitButton.querySelector('.button-text');
-            
-            buttonText.textContent = 'A importar...';
-            spinner.style.display = 'block';
-            submitButton.disabled = true;
-
-            statusBox.innerHTML = `<div class="loading-state">
-                                       <div class="big-spinner"></div>
-                                       <p>A processar o ficheiro...<br>Isto pode levar alguns segundos.</p>
-                                   </div>`;
         });
     }
 });

@@ -15,14 +15,22 @@
             </form>
         </div>
         <div class="actions">
-            <a href="{% url 'Secao_pessoal:exportar_excel' %}" class="btn btn-secondary" style="margin-right: 5px;">
+            <a href="{% url 'Secao_pessoal:download_modelo_efetivo' %}" class="btn btn-secondary">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m.75 12l3 3m0 0l3-3m-3 3v-6m-1.5-9H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z" /></svg>
+                Modelo
+            </a>
+            <button type="button" class="btn btn-secondary" id="btn-exportar">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
                 Exportar
-            </a>
+            </button>
             <a href="{% url 'Secao_pessoal:importar_excel' %}" class="btn btn-secondary">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V9.75m0 0l-3 3m3-3l3 3M6.75 18.75a4.5 4.5 0 01-1.41-8.775 5.25 5.25 0 0110.233-2.33 3 3 0 013.758 3.848A3.752 3.752 0 0118 19.5H6.75z" /></svg>
                 Importar
             </a>
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-recrutas').style.display='flex'">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l7.5-7.5 7.5 7.5m-15 6l7.5-7.5 7.5 7.5" /></svg>
+                Recrutas &rarr; S2
+            </button>
             <a href="{% url 'Secao_pessoal:militar_create' %}" class="btn btn-primary">
                 <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15" /></svg>
                 Adicionar
@@ -35,46 +43,330 @@
 <div id="militar-list-container">
     {% include 'Secao_pessoal/militar_list_partial.html' %}
 </div>
+
+<!-- Painel de filtro de coluna — DEVE ficar dentro do block content para ser renderizado -->
+<div id="col-filter-overlay" style="display:none;position:fixed;inset:0;z-index:1050;"></div>
+<div id="col-filter-panel" style="display:none;position:fixed;z-index:1051;background:var(--bg-card);border:1px solid var(--border-strong);border-radius:10px;box-shadow:0 8px 32px rgba(0,0,0,0.22);padding:14px;min-width:240px;max-width:320px;flex-direction:column;gap:10px;">
+    <div>
+        <input type="text" id="col-filter-search" placeholder="Pesquisar..." autocomplete="off"
+               style="width:100%;padding:6px 10px;font-size:0.83em;box-sizing:border-box;">
+    </div>
+    <div style="border-bottom:1px solid var(--border-strong);padding-bottom:8px;display:flex;align-items:center;gap:10px;">
+        <label style="display:flex;align-items:center;gap:6px;font-size:0.83em;cursor:pointer;user-select:none;font-weight:600;color:var(--text-primary);">
+            <input type="checkbox" id="col-filter-select-all"> Selecionar tudo
+        </label>
+        <button type="button" id="col-filter-deselect-all"
+                style="font-size:0.78em;background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:0;margin-left:auto;line-height:1;">
+            Desmarcar tudo
+        </button>
+    </div>
+    <div id="col-filter-list" style="overflow-y:auto;max-height:230px;display:flex;flex-direction:column;gap:1px;"></div>
+    <div style="border-top:1px solid var(--border-strong);padding-top:10px;display:flex;gap:8px;justify-content:flex-end;">
+        <button type="button" id="col-filter-clear-btn" class="btn btn-sm btn-secondary">Limpar filtro</button>
+        <button type="button" id="col-filter-apply-btn" class="btn btn-sm btn-primary">Aplicar</button>
+    </div>
+</div>
+<!-- Modal Recrutas → S2 -->
+<div id="modal-recrutas" style="display:none;position:fixed;inset:0;z-index:2000;background:rgba(0,0,0,0.5);align-items:center;justify-content:center;">
+    <div style="background:var(--bg-card);border-radius:12px;padding:28px;max-width:420px;width:90%;box-shadow:0 8px 32px rgba(0,0,0,0.3);">
+        <h3 style="margin:0 0 12px;font-size:1.1rem;">Confirmar promoção</h3>
+        <p style="color:var(--text-secondary);margin-bottom:20px;">Todos os militares com posto <strong>REC</strong> no Efetivo Total serão alterados para <strong>S2</strong>. Essa ação não pode ser desfeita automaticamente.</p>
+        <div style="display:flex;gap:10px;justify-content:flex-end;">
+            <button type="button" class="btn btn-secondary" onclick="document.getElementById('modal-recrutas').style.display='none'">Cancelar</button>
+            <form method="post" action="{% url 'Secao_pessoal:tornar_recrutas_soldados' %}" style="margin:0;">
+                {% csrf_token %}
+                <button type="submit" class="btn btn-primary">Confirmar</button>
+            </form>
+        </div>
+    </div>
+</div>
 {% endblock %}
 
 {% block extra_js %}
+<style>
+/* Botão de filtro no cabeçalho da tabela */
+.col-filter-btn {
+    background: none;
+    border: none;
+    padding: 0;
+    margin: 0;
+    cursor: pointer;
+    font: inherit;          /* herda tudo do <th>: tamanho, peso, família, cor */
+    color: inherit;
+    letter-spacing: inherit;
+    text-transform: inherit;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    white-space: nowrap;
+    line-height: 1;
+    outline: none;
+}
+.col-filter-btn:hover { color: var(--accent); }
+.col-filter-btn svg { opacity: 0.4; transition: opacity 0.15s, color 0.15s; flex-shrink: 0; }
+.col-filter-btn:hover svg { opacity: 0.9; }
+.col-filter-btn.filter-active { color: var(--accent); }
+.col-filter-btn.filter-active svg { opacity: 1; color: var(--accent); }
+
+/* Itens da lista de filtro */
+#col-filter-list label {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    padding: 5px 6px;
+    border-radius: 5px;
+    font-size: 0.83em;
+    cursor: pointer;
+    user-select: none;
+    line-height: 1.35;
+    color: var(--text-primary);
+}
+#col-filter-list label:hover { background: var(--bg-page); }
+#col-filter-list input[type=checkbox] { flex-shrink: 0; margin-top: 2px; cursor: pointer; }
+#col-filter-list span { overflow: hidden; word-break: break-word; }
+</style>
+
 <script>
-document.addEventListener('DOMContentLoaded', function() {
-    const searchInput = document.getElementById('search-input');
-    const container = document.getElementById('militar-list-container');
+(function () {
+    const filterOptionsUrl = '{% url "Secao_pessoal:efetivo_filter_options" %}';
+    const container     = document.getElementById('militar-list-container');
+    const searchInput   = document.getElementById('search-input');
+    const overlay       = document.getElementById('col-filter-overlay');
+    const panel         = document.getElementById('col-filter-panel');
+    const filterSearch  = document.getElementById('col-filter-search');
+    const filterList    = document.getElementById('col-filter-list');
+    const selectAllCb   = document.getElementById('col-filter-select-all');
+    const deselectAllBtn= document.getElementById('col-filter-deselect-all');
+    const clearBtn      = document.getElementById('col-filter-clear-btn');
+    const applyBtn      = document.getElementById('col-filter-apply-btn');
+
+    const FIELD_TO_PARAM = {
+        posto:          'posto_f',
+        especializacao: 'esp_f',
+        situacao:       'sit_f',
+        observacao:     'obs_f',
+        setor:          'setor_f',
+    };
+
+    let filterOptions = {};
+    let activeFilters = { posto_f: [], esp_f: [], sit_f: [], obs_f: [], setor_f: [] };
+    let currentCol    = null;
     let searchTimeout;
+    const FILTER_STORE_KEY = 'efetivoFilters_' + (window.__currentUserId || 0);
 
-    searchInput.addEventListener('input', function() {
-        clearTimeout(searchTimeout);
-        
-        searchTimeout = setTimeout(() => {
-            const query = searchInput.value;
-            const url = `?q=${encodeURIComponent(query)}`;
+    function restoreFiltersFromStorage() {
+        try {
+            const stored = sessionStorage.getItem(FILTER_STORE_KEY);
+            if (stored) {
+                const parsed = JSON.parse(stored);
+                Object.keys(activeFilters).forEach(k => {
+                    if (parsed[k]) activeFilters[k] = parsed[k];
+                });
+            }
+        } catch(e) {}
+    }
 
-            // Atualiza a URL na barra de endereço sem recarregar a página
-            history.pushState(null, '', url);
+    function saveFiltersToStorage() {
+        try {
+            sessionStorage.setItem(FILTER_STORE_KEY, JSON.stringify(activeFilters));
+        } catch(e) {}
+    }
 
-            // Faz a requisição AJAX para buscar o conteúdo atualizado
-            fetch(url, {
-                headers: {
-                    'X-Requested-With': 'XMLHttpRequest'
-                }
-            })
-            .then(response => response.text())
-            .then(html => {
-                // Substitui diretamente o conteúdo do container pelo HTML recebido,
-                // que já é o bloco 'militar-list-container' completo.
-                container.innerHTML = html;
-            })
-            .catch(error => console.error('Erro ao realizar a pesquisa:', error));
-        }, 300); // Aguarda 300ms após o utilizador parar de digitar
+    /* ── 1. Carrega valores distintos do servidor ── */
+    async function loadFilterOptions() {
+        try {
+            const r = await fetch(filterOptionsUrl, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+            filterOptions = await r.json();
+        } catch (e) {
+            console.error('Erro ao carregar opções de filtro:', e);
+        }
+    }
+
+    /* ── 2. Monta a URL com todos os filtros ativos ── */
+    function buildUrl(page) {
+        const params = new URLSearchParams();
+        const q = searchInput.value.trim();
+        if (q)                              params.set('q',       q);
+        if (activeFilters.posto_f.length)   params.set('posto_f', activeFilters.posto_f.join(','));
+        if (activeFilters.esp_f.length)     params.set('esp_f',   activeFilters.esp_f.join(','));
+        if (activeFilters.sit_f.length)     params.set('sit_f',   activeFilters.sit_f.join(','));
+        if (activeFilters.obs_f.length)     params.set('obs_f',   activeFilters.obs_f.join(','));
+        if (activeFilters.setor_f.length)   params.set('setor_f', activeFilters.setor_f.join(','));
+        if (page && page > 1)               params.set('page',    page);
+        const qs = params.toString();
+        return qs ? ('?' + qs) : '?';
+    }
+
+    /* ── 3. Atualiza a tabela via AJAX ── */
+    async function updateList(url) {
+        history.pushState(null, '', window.location.pathname);
+        const r = await fetch(url, { headers: { 'X-Requested-With': 'XMLHttpRequest' } });
+        container.innerHTML = await r.text();
+        updateFilterIndicators();
+        saveFiltersToStorage();
+    }
+
+    /* ── 4. Ícones de filtro ativo ── */
+    function updateFilterIndicators() {
+        container.querySelectorAll('.col-filter-btn').forEach(btn => {
+            const param = FIELD_TO_PARAM[btn.dataset.filterCol];
+            btn.classList.toggle('filter-active', !!(param && activeFilters[param].length > 0));
+        });
+    }
+
+    /* ── 5. Abre o painel de filtro ── */
+    function openPanel(col, triggerEl) {
+        currentCol = col;
+        const param   = FIELD_TO_PARAM[col];
+        const options = filterOptions[col] || [];
+        const active  = new Set(activeFilters[param]);
+
+        filterList.innerHTML = '';
+        options.forEach(val => {
+            const label = document.createElement('label');
+            const cb    = document.createElement('input');
+            cb.type    = 'checkbox';
+            cb.value   = val;
+            cb.checked = active.size === 0 || active.has(val);
+            cb.addEventListener('change', refreshSelectAll);
+            const span = document.createElement('span');
+            span.textContent = val === '__vazio__' ? '(vazio)' : val;
+            label.appendChild(cb);
+            label.appendChild(span);
+            filterList.appendChild(label);
+        });
+
+        refreshSelectAll();
+        filterSearch.value = '';
+        applyListSearch('');
+
+        /* position:fixed → top relativo ao viewport, sem scrollY */
+        const rect = triggerEl.getBoundingClientRect();
+        panel.style.display = 'flex';
+        panel.style.top  = (rect.bottom + 6) + 'px';
+        panel.style.left = rect.left + 'px';
+
+        /* evita sair pela direita */
+        requestAnimationFrame(() => {
+            const pr = panel.getBoundingClientRect();
+            if (pr.right > window.innerWidth - 8)
+                panel.style.left = Math.max(8, window.innerWidth - pr.width - 8) + 'px';
+        });
+
+        overlay.style.display = 'block';
+        filterSearch.focus();
+    }
+
+    function closePanel() {
+        panel.style.display   = 'none';
+        overlay.style.display = 'none';
+        currentCol = null;
+    }
+
+    /* ── 6. Lógica interna do painel ── */
+    function refreshSelectAll() {
+        const visible = Array.from(filterList.querySelectorAll('input[type=checkbox]'))
+                             .filter(cb => cb.closest('label').style.display !== 'none');
+        const allChk  = visible.length > 0 && visible.every(cb => cb.checked);
+        const noneChk = visible.every(cb => !cb.checked);
+        selectAllCb.checked       = allChk;
+        selectAllCb.indeterminate = !allChk && !noneChk;
+    }
+
+    function applyListSearch(query) {
+        const q = query.toLowerCase();
+        filterList.querySelectorAll('label').forEach(label => {
+            const text = label.querySelector('span').textContent.toLowerCase();
+            label.style.display = text.includes(q) ? '' : 'none';
+        });
+        refreshSelectAll();
+    }
+
+    filterSearch.addEventListener('input', () => applyListSearch(filterSearch.value));
+
+    selectAllCb.addEventListener('change', () => {
+        filterList.querySelectorAll('input[type=checkbox]').forEach(cb => {
+            if (cb.closest('label').style.display !== 'none') cb.checked = selectAllCb.checked;
+        });
+        refreshSelectAll();
     });
-});
 
-// Previne o envio do formulário ao pressionar Enter
-document.getElementById('search-form').addEventListener('submit', function(e) {
-    e.preventDefault();
-});
+    deselectAllBtn.addEventListener('click', () => {
+        filterList.querySelectorAll('input[type=checkbox]').forEach(cb => cb.checked = false);
+        refreshSelectAll();
+    });
 
+    clearBtn.addEventListener('click', () => {
+        if (!currentCol) return;
+        activeFilters[FIELD_TO_PARAM[currentCol]] = [];
+        closePanel();
+        updateList(buildUrl(1));
+    });
+
+    applyBtn.addEventListener('click', () => {
+        if (!currentCol) return;
+        const param   = FIELD_TO_PARAM[currentCol];
+        const options = filterOptions[currentCol] || [];
+        const checked = Array.from(filterList.querySelectorAll('input[type=checkbox]:checked'))
+                             .map(cb => cb.value);
+        /* tudo ou nada selecionado → sem restrição */
+        activeFilters[param] = (checked.length === 0 || checked.length === options.length) ? [] : checked;
+        closePanel();
+        updateList(buildUrl(1));
+    });
+
+    overlay.addEventListener('click', closePanel);
+
+    /* ── 7. Delegação de eventos no container (sobrevive ao AJAX) ── */
+    container.addEventListener('click', function (e) {
+        /* botão de filtro */
+        const filterBtn = e.target.closest('.col-filter-btn');
+        if (filterBtn) {
+            e.stopPropagation();
+            if (currentCol === filterBtn.dataset.filterCol) { closePanel(); return; }
+            openPanel(filterBtn.dataset.filterCol, filterBtn);
+            return;
+        }
+        /* links de paginação */
+        const pageLink = e.target.closest('#pagination-container a');
+        if (pageLink) {
+            e.preventDefault();
+            const usp  = new URLSearchParams((pageLink.getAttribute('href') || '').replace(/^\?/, ''));
+            const page = parseInt(usp.get('page') || '1', 10);
+            updateList(buildUrl(page));
+        }
+    });
+
+    /* ── 8. Pesquisa por texto ── */
+    searchInput.addEventListener('input', function () {
+        clearTimeout(searchTimeout);
+        searchTimeout = setTimeout(() => updateList(buildUrl(1)), 300);
+    });
+
+    document.getElementById('search-form').addEventListener('submit', e => e.preventDefault());
+
+    /* ── 9. Inicialização ── */
+    loadFilterOptions().then(() => { restoreFiltersFromStorage(); updateFilterIndicators(); });
+
+    // ── Exportar com filtro atual ──
+    document.getElementById('btn-exportar').addEventListener('click', function() {
+        const form = document.createElement('form');
+        form.method = 'POST';
+        form.action = '{% url "Secao_pessoal:exportar_excel" %}';
+        form.style.display = 'none';
+        const addHidden = (n, v) => { const i = document.createElement('input'); i.type='hidden'; i.name=n; i.value=v; form.appendChild(i); };
+        addHidden('csrfmiddlewaretoken', document.querySelector('[name=csrfmiddlewaretoken]').value);
+        const q = document.getElementById('search-input').value.trim();
+        if (q) addHidden('q', q);
+        if (activeFilters.posto_f.length)  addHidden('posto_f', activeFilters.posto_f.join(','));
+        if (activeFilters.esp_f.length)    addHidden('esp_f',   activeFilters.esp_f.join(','));
+        if (activeFilters.sit_f.length)    addHidden('sit_f',   activeFilters.sit_f.join(','));
+        if (activeFilters.obs_f.length)    addHidden('obs_f',   activeFilters.obs_f.join(','));
+        if (activeFilters.setor_f.length)  addHidden('setor_f', activeFilters.setor_f.join(','));
+        document.body.appendChild(form);
+        form.submit();
+        document.body.removeChild(form);
+    });
+})();
 </script>
 {% endblock %}

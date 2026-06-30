@@ -25,6 +25,17 @@ from django.utils import timezone
 from ..models import PATD, Configuracao, Anexo
 from ..forms import MilitarForm, PATDForm, AtribuirOficialForm, AceitarAtribuicaoForm, ComandanteAprovarForm
 from ..permissions import has_ouvidoria_access, can_delete_patd, has_comandante_access, can_edit_patd, is_apurador
+from ..permissions import OUVIDORIA_CHEFE, OUVIDORIA_APURADOR, OUVIDORIA_ADJUNTO, OUVIDORIA_CB, OUVIDORIA_S2, COMANDANTE
+from auditoria.utils import registrar, resolver_label
+
+_PATD_PERMISSAO_MAP = {
+    OUVIDORIA_CHEFE: 'Chefe- Ouvidoria',
+    OUVIDORIA_APURADOR: 'Apurador- Ouvidoria',
+    OUVIDORIA_ADJUNTO: 'Adjunto- Ouvidoria',
+    OUVIDORIA_CB: 'CB- Ouvidoria',
+    OUVIDORIA_S2: 'S2- Ouvidoria',
+    COMANDANTE: 'Comandante',
+}
 
 def has_patd_detail_access(user):
     return has_ouvidoria_access(user) or has_comandante_access(user)
@@ -795,16 +806,6 @@ class PatdFinalizadoListView(ListView):
         return PATD.objects.filter(status='finalizado').select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
 
 
-@method_decorator([login_required, user_passes_test(lambda u: u.is_superuser)], name='dispatch')
-class PATDTrashListView(ListView):
-    model = PATD
-    template_name = 'patd_trash_list.html'
-    context_object_name = 'patds'
-    paginate_by = 15
-
-    def get_queryset(self):
-        return PATD.all_objects.filter(deleted=True).select_related('militar').order_by('-deleted_at')
-
 
 @method_decorator([login_required, user_passes_test(has_patd_detail_access)], name='dispatch')
 class PATDDetailView(DetailView):
@@ -1123,15 +1124,20 @@ class PATDDeleteView(UserPassesTestMixin, DeleteView):
     def post(self, request, *args, **kwargs):
         self.object = self.get_object()
         numero_original = self.object.numero_patd
-        
+
         self.object.deleted = True
         self.object.deleted_at = timezone.now()
-        
-        # Salva o número original antes de apagar
         self.object.numero_patd_anterior = numero_original
-        self.object.numero_patd = None 
-            
+        self.object.numero_patd = None
+
         self.object.save()
+        # signal é ignorado aqui (deleted/numero_patd não estão em campos_monitorados)
+        registrar(
+            request.user, secao='ouvidoria',
+            permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+            acao='excluiu', descricao=f"moveu a PATD {numero_original} para a lixeira",
+            objeto_tipo='PATD', objeto_id=numero_original,
+        )
         messages.success(request, f"A PATD (antigo Nº {numero_original}) foi movida para a lixeira.")
         return redirect(self.get_success_url())
 
@@ -1466,11 +1472,18 @@ def patd_restore(request, pk):
     patd.deleted = False
     patd.restored_at = timezone.now()
     patd.restored_by = request.user.profile.militar
-    
+
     patd.numero_patd = get_next_patd_number()
     patd.numero_patd_anterior = None
-    
+
     patd.save()
+    # signal é ignorado aqui (deleted/numero_patd não estão em campos_monitorados)
+    registrar(
+        request.user, secao='ouvidoria',
+        permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+        acao='restaurou', descricao=f"restaurou a PATD {numero_antigo} da lixeira (novo Nº {patd.numero_patd})",
+        objeto_tipo='PATD', objeto_id=patd.numero_patd,
+    )
     messages.success(request, f'A PATD (antigo Nº {numero_antigo}) foi restaurada com sucesso e recebeu o novo Nº {patd.numero_patd}.')
     return redirect('Ouvidoria:patd_trash')
 
@@ -1481,6 +1494,13 @@ def patd_restore(request, pk):
 def patd_permanently_delete(request, pk):
     patd = get_object_or_404(PATD.all_objects, pk=pk)
     numero = patd.numero_patd_anterior
+    # log antes do delete — post_delete usaria numero_patd=None pois está na lixeira
+    registrar(
+        request.user, secao='ouvidoria',
+        permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+        acao='excluiu', descricao=f"excluiu permanentemente a PATD {numero}",
+        objeto_tipo='PATD', objeto_id=numero,
+    )
     patd.delete()
     messages.success(request, f'A PATD Nº {numero} foi excluída permanentemente.')
     return redirect('Ouvidoria:patd_trash')
@@ -1493,6 +1513,14 @@ def lixeira_esvaziar(request):
     """Exclui permanentemente todas as PATDs na lixeira."""
     from ..models import Configuracao
     count = PATD.all_objects.filter(deleted=True).count()
+    if count:
+        # log antes do bulk delete — QuerySet.delete() não dispara post_delete por registro
+        registrar(
+            request.user, secao='ouvidoria',
+            permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
+            acao='excluiu', descricao=f"esvaziou a lixeira de PATDs ({count} registro(s) excluídos permanentemente)",
+            objeto_tipo='PATD', objeto_id='',
+        )
     PATD.all_objects.filter(deleted=True).delete()
     messages.success(request, f'{count} PATD(s) excluída(s) permanentemente da lixeira.')
     return redirect('Ouvidoria:patd_trash')

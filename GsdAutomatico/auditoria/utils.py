@@ -37,8 +37,11 @@ def registrar(user, secao, permissao, acao, descricao, objeto_tipo='', objeto_id
     if user is None:
         user = get_usuario_atual()
     if user is None or not getattr(user, 'is_authenticated', False):
+        logger.debug("[AUDITORIA] registrar: sem usuário autenticado — skip (%s/%s)", secao, acao)
         return
 
+    logger.debug("[AUDITORIA] registrar: user=%s secao=%s acao=%s descricao='%s'",
+                 user.username, secao, acao, descricao)
     try:
         registrar_log_task.delay(
             usuario_id=user.id,
@@ -51,5 +54,6 @@ def registrar(user, secao, permissao, acao, descricao, objeto_tipo='', objeto_id
             objeto_id=objeto_id,
             descricao=descricao,
         )
+        logger.debug("[AUDITORIA] task despachada para user=%s", user.username)
     except Exception:
         logger.exception("registrar: falha ao despachar log de auditoria (%s / %s)", secao, descricao)

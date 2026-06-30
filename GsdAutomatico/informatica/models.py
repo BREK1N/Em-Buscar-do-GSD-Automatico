@@ -141,8 +141,8 @@ class Cautela(models.Model):
     data_emissao = models.DateTimeField(auto_now_add=True)
     data_devolucao = models.DateTimeField(null=True, blank=True)
 
-    sobreaviso = models.ForeignKey(Efetivo, on_delete=models.PROTECT, related_name='cautelas_liberadas')
-    recebedor = models.ForeignKey(Efetivo, on_delete=models.PROTECT, related_name='cautelas_recebidas')
+    sobreaviso = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_liberadas')
+    recebedor = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, null=True, blank=True, related_name='cautelas_recebidas')
 
     assinatura_sobreaviso = models.TextField()
     assinatura_recebedor = models.TextField()
@@ -152,7 +152,7 @@ class Cautela(models.Model):
     telefone_contato = models.CharField(max_length=50, blank=True, null=True, verbose_name="Telefone de Contato")
 
     # Quem recebeu a devolução da Cautela inteira
-    recebedor_devolucao = models.ForeignKey(Efetivo, on_delete=models.PROTECT, related_name='devolucoes_gerais', null=True, blank=True)
+    recebedor_devolucao = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, related_name='devolucoes_gerais', null=True, blank=True)
     assinatura_devolucao = models.TextField(null=True, blank=True)
 
 
@@ -247,5 +247,5 @@ class CautelaItem(models.Model):
     data_devolucao = models.DateTimeField(null=True, blank=True)
 
     # Quem recebeu a devolução deste item individual
-    recebedor_devolucao = models.ForeignKey(Efetivo, on_delete=models.PROTECT, related_name='devolucoes_individuais', null=True, blank=True)
+    recebedor_devolucao = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, related_name='devolucoes_individuais', null=True, blank=True)
     assinatura_devolucao = models.TextField(null=True, blank=True)

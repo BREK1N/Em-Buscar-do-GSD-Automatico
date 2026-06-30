@@ -96,7 +96,6 @@ from .patd import (
     PatdFinalizadoListView,
     PatdArquivadoListView,
     PATDTrashView,
-    PATDTrashListView,
     PATDDetailView,
     PATDUpdateView,
     PATDDeleteView,

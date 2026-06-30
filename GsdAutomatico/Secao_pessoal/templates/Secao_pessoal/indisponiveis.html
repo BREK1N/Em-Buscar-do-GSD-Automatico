@@ -55,6 +55,22 @@
     </div>
 </div>
 
+    {% if is_paginated %}
+    <div class="pagination" style="margin-top:20px;">
+        <span class="step-links">
+            {% if page_obj.has_previous %}
+                <a href="?page=1">&laquo; primeira</a>
+                <a href="?page={{ page_obj.previous_page_number }}">anterior</a>
+            {% endif %}
+            <span class="current">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}.</span>
+            {% if page_obj.has_next %}
+                <a href="?page={{ page_obj.next_page_number }}">próxima</a>
+                <a href="?page={{ page_obj.paginator.num_pages }}">última &raquo;</a>
+            {% endif %}
+        </span>
+    </div>
+    {% endif %}
+
 <!-- Modais de Reintegração (Renderizados fora da tabela) -->
 {% for militar in militares %}
 <div class="modal fade" id="reintegrarModal{{ militar.pk }}" tabindex="-1" aria-labelledby="reintegrarModalLabel{{ militar.pk }}" aria-hidden="true">

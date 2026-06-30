@@ -32,7 +32,7 @@ from .helpers import (
     get_template_subfolder,
 )
 from ..analise_transgressao import analisar_e_resumir_defesa, reescrever_ocorrencia
-from ..permissions import OUVIDORIA_CHEFE, OUVIDORIA_APURADOR, OUVIDORIA_ADJUNTO, OUVIDORIA_CB, OUVIDORIA_S2
+from ..permissions import OUVIDORIA_CHEFE, OUVIDORIA_APURADOR, OUVIDORIA_ADJUNTO, OUVIDORIA_CB, OUVIDORIA_S2, COMANDANTE
 from auditoria.utils import registrar, resolver_label
 
 logger = logging.getLogger(__name__)
@@ -43,6 +43,7 @@ _PATD_PERMISSAO_MAP = {
     OUVIDORIA_ADJUNTO: 'Adjunto- Ouvidoria',
     OUVIDORIA_CB: 'CB- Ouvidoria',
     OUVIDORIA_S2: 'S2- Ouvidoria',
+    COMANDANTE: 'Comandante',
 }
 
 @login_required
@@ -754,6 +755,8 @@ def _propagate_footer_to_all_sections(document):
             inline_sect.insert(0, _copy.deepcopy(ref))
 
 
+@login_required
+@ouvidoria_required
 def preview_patd_pdf(request, pk):
     request.GET = request.GET.copy()
     request.GET['preview'] = '1'

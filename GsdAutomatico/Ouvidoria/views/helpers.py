@@ -373,9 +373,13 @@ def _get_document_context(patd, for_docx=False, doc_name=None):
         ano_fmt = f'<input type="number" class="editable-date-part" data-date-field="data_inicio" data-date-part="year" value="{data_inicio.year}" min="2000" max="2100"{doc_attr}>'
 
     # Formatação de Itens Enquadrados e Circunstâncias
-    itens_enquadrados_str = ", ".join([str(item.get('numero', '')) for item in patd.itens_enquadrados]) if patd.itens_enquadrados else ""
-    atenuantes_str = ", ".join(patd.circunstancias.get('atenuantes', [])) if patd.circunstancias else "Nenhuma"
-    agravantes_str = ", ".join(patd.circunstancias.get('agravantes', [])) if patd.circunstancias else "Nenhuma"
+    itens_enquadrados_str = ", ".join([
+        str(item.get('numero', '')) if isinstance(item, dict) else str(item)
+        for item in patd.itens_enquadrados
+    ]) if patd.itens_enquadrados else ""
+    _circ = patd.circunstancias if isinstance(patd.circunstancias, dict) else {}
+    atenuantes_str = ", ".join(_circ.get('atenuantes', [])) or "Nenhuma"
+    agravantes_str = ", ".join(_circ.get('agravantes', [])) or "Nenhuma"
 
     # --- LÓGICA DE FORMATAÇÃO DA PUNIÇÃO ATUALIZADA ---
     # Formatação da Punição Completa
@@ -405,7 +409,7 @@ def _get_document_context(patd, for_docx=False, doc_name=None):
         and patd.status not in ['ciencia_militar', 'aguardando_justificativa', 'prazo_expirado']
     )
 
-    localidade_value = patd.circunstancias.get('localidade', 'Rio de Janeiro') if patd.circunstancias else 'Rio de Janeiro'
+    localidade_value = _circ.get('localidade', 'Rio de Janeiro')
 
     # Adiciona o anexo do ofício de lançamento ao contexto, se existir
     oficio_anexo = patd.anexos.filter(tipo='oficio_lancamento').first()
