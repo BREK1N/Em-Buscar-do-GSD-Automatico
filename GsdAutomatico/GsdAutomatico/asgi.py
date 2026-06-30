@@ -21,6 +21,7 @@ from channels.auth import AuthMiddlewareStack            # noqa: E402
 from channels.routing import ProtocolTypeRouter, URLRouter  # noqa: E402
 from channels.security.websocket import AllowedHostsOriginValidator  # noqa: E402
 import chamados.routing                                   # noqa: E402
+import informatica.routing                                 # noqa: E402
 
 application = ProtocolTypeRouter({
     # Requisições HTTP normais continuam sendo tratadas pelo Django
@@ -29,7 +30,10 @@ application = ProtocolTypeRouter({
     # WebSockets — sessão Django injetada automaticamente por AuthMiddlewareStack
     "websocket": AllowedHostsOriginValidator(
         AuthMiddlewareStack(
-            URLRouter(chamados.routing.websocket_urlpatterns)
+            URLRouter(
+                chamados.routing.websocket_urlpatterns
+                + informatica.routing.websocket_urlpatterns
+            )
         )
     ),
 })

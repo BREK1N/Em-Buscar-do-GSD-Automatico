@@ -606,6 +606,23 @@
                     <span>Backup</span>
                 </a>
             </li>
+            <li>
+                <a href="{% url 'informatica:backup_arquivos' %}" class="{% if request.resolver_match.url_name == 'backup_arquivos' or request.resolver_match.url_name == 'backup_arquivo_ver' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M9.828 4a3 3 0 0 1-2.12-.879l-.83-.828A1 1 0 0 0 6.173 2H2.5a1 1 0 0 0-1 .981L1.546 4h-1L.5 3a2 2 0 0 1 2-2h3.672a2 2 0 0 1 1.414.586l.828.828A2 2 0 0 0 9.828 3v1z"/>
+                        <path d="M13.81 4H2.19a1 1 0 0 0-.996 1.09l.637 7a1 1 0 0 0 .995.91h10.348a1 1 0 0 0 .995-.91l.637-7A1 1 0 0 0 13.81 4ZM2.19 3A2 2 0 0 0 .198 5.181l.637 7A2 2 0 0 0 2.826 14h10.348a2 2 0 0 0 1.991-1.819l.637-7A2 2 0 0 0 13.81 3H2.19Z"/>
+                    </svg>
+                    <span>Arquivos do Backup</span>
+                </a>
+            </li>
+            <li>
+                <a href="{% url 'informatica:backup_terminal' %}" class="{% if request.resolver_match.url_name == 'backup_terminal' %}active{% endif %}">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+                        <path d="M0 3a2 2 0 0 1 2-2h12a2 2 0 0 1 2 2v10a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3zm10.354 3.146a.5.5 0 0 1 0 .708l-2 2a.5.5 0 1 1-.708-.708L9.293 8 7.646 6.354a.5.5 0 1 1 .708-.708l2 2zM5.354 5.646a.5.5 0 0 0-.708.708L6.293 8l-1.647 1.646a.5.5 0 0 0 .708.708l2-2a.5.5 0 0 0 0-.708l-2-2z"/>
+                    </svg>
+                    <span>Terminal Backup</span>
+                </a>
+            </li>
             {% endif %}
             {% if is_secao %}
             <li>

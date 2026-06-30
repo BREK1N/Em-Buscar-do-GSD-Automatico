@@ -725,6 +725,168 @@ def backup_restaurar_registro(request, pk):
 
 
 # ==========================================
+# GERENCIADOR DE ARQUIVOS E TERMINAL DO SERVIDOR DE BACKUP
+# ==========================================
+
+def _caminho_seguro(caminho: str) -> str:
+    """Normaliza e impede directory traversal (../) no caminho informado pelo usuário."""
+    import posixpath
+    caminho = caminho or '/'
+    if not caminho.startswith('/'):
+        caminho = '/' + caminho
+    return posixpath.normpath(caminho)
+
+
+@login_required
+def backup_arquivos(request):
+    """Gerenciador de arquivos do servidor de backup via SFTP: navegar, ver, editar, excluir."""
+    if not is_informatica_admin(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    from . import backup_server
+
+    destino = BackupDestino.get_instance()
+    caminho = _caminho_seguro(request.GET.get('path', destino.diretorio_destino or '/'))
+    erro = None
+    itens = None
+
+    if not destino.host or not destino.usuario:
+        erro = 'Servidor de backup não configurado (host/usuário ausentes).'
+    else:
+        try:
+            itens = backup_server.listar_diretorio(destino, caminho)
+        except Exception as exc:
+            erro = f'Erro ao listar diretório: {exc}'
+
+    pai = caminho.rsplit('/', 1)[0] or '/'
+
+    return render(request, 'informatica/backup_arquivos.html', {
+        'destino': destino,
+        'caminho': caminho,
+        'pai': pai,
+        'itens': itens,
+        'erro': erro,
+    })
+
+
+@login_required
+def backup_arquivo_ver(request):
+    """Visualiza/edita um arquivo de texto do servidor de backup."""
+    if not is_informatica_admin(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    from . import backup_server
+
+    destino = BackupDestino.get_instance()
+    caminho = _caminho_seguro(request.GET.get('path') or request.POST.get('path', ''))
+    erro = None
+    conteudo = None
+    pasta = caminho.rsplit('/', 1)[0] or '/'
+    eh_texto = backup_server.eh_extensao_texto(caminho)
+
+    if request.method == 'POST':
+        novo_conteudo = request.POST.get('conteudo', '')
+        try:
+            backup_server.salvar_arquivo_texto(destino, caminho, novo_conteudo)
+            registrar(
+                request.user, secao='informatica',
+                permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+                acao='editou', descricao=f"editou arquivo {caminho} no servidor de backup",
+                objeto_tipo='ArquivoBackup', objeto_id=caminho,
+            )
+            messages.success(request, 'Arquivo salvo com sucesso.')
+            return redirect(f"{reverse('informatica:backup_arquivo_ver')}?path={caminho}")
+        except Exception as exc:
+            erro = f'Erro ao salvar: {exc}'
+    elif eh_texto:
+        try:
+            conteudo = backup_server.ler_arquivo_texto(destino, caminho)
+        except Exception as exc:
+            erro = f'Erro ao ler arquivo: {exc}'
+
+    return render(request, 'informatica/backup_arquivo_ver.html', {
+        'destino': destino,
+        'caminho': caminho,
+        'pasta': pasta,
+        'conteudo': conteudo,
+        'eh_texto': eh_texto,
+        'erro': erro,
+    })
+
+
+@login_required
+def backup_arquivo_baixar(request):
+    """Baixa um arquivo do servidor de backup."""
+    if not is_informatica_admin(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    from django.http import HttpResponse, Http404
+    from . import backup_server
+
+    destino = BackupDestino.get_instance()
+    caminho = _caminho_seguro(request.GET.get('path', ''))
+    if not caminho or caminho == '/':
+        raise Http404()
+
+    try:
+        conteudo = backup_server.baixar_arquivo(destino, caminho)
+    except Exception as exc:
+        messages.error(request, f'Erro ao baixar arquivo: {exc}')
+        return redirect(f"{reverse('informatica:backup_arquivos')}?path={caminho.rsplit('/', 1)[0]}")
+
+    nome_arquivo = caminho.rsplit('/', 1)[-1]
+    resp = HttpResponse(conteudo, content_type='application/octet-stream')
+    resp['Content-Disposition'] = f'attachment; filename="{nome_arquivo}"'
+    return resp
+
+
+@login_required
+@require_POST
+def backup_arquivo_excluir(request):
+    """Exclui um arquivo (ou pasta vazia) do servidor de backup."""
+    if not is_informatica_admin(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+
+    from . import backup_server
+
+    destino = BackupDestino.get_instance()
+    caminho = _caminho_seguro(request.POST.get('path', ''))
+    is_dir = request.POST.get('is_dir') == '1'
+    pasta = caminho.rsplit('/', 1)[0] or '/'
+
+    try:
+        if is_dir:
+            backup_server.excluir_diretorio_vazio(destino, caminho)
+        else:
+            backup_server.excluir_arquivo(destino, caminho)
+        registrar(
+            request.user, secao='informatica',
+            permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+            acao='excluiu', descricao=f"excluiu {'pasta' if is_dir else 'arquivo'} {caminho} no servidor de backup",
+            objeto_tipo='ArquivoBackup', objeto_id=caminho,
+        )
+        messages.success(request, f'"{caminho.rsplit("/", 1)[-1]}" excluído com sucesso.')
+    except Exception as exc:
+        messages.error(request, f'Erro ao excluir: {exc}')
+
+    return redirect(f"{reverse('informatica:backup_arquivos')}?path={pasta}")
+
+
+@login_required
+def backup_terminal(request):
+    """Página do terminal SSH interativo do servidor de backup (via WebSocket)."""
+    if not is_informatica_admin(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+    destino = BackupDestino.get_instance()
+    return render(request, 'informatica/backup_terminal.html', {'destino': destino})
+
+
+# ==========================================
 # MÓDULO GESTÃO DE MATERIAIS E CAUTELAS
 # ==========================================
 @login_required

@@ -1,0 +1,52 @@
+{% extends 'informatica/base.html' %}
+{% block title %}{{ caminho }} — Informática{% endblock %}
+{% block header_eyebrow %}Seção de Informática{% endblock %}
+{% block header_title %}{{ caminho }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .editor-card { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+    .editor-toolbar { padding: 12px 18px; border-bottom: 1px solid var(--border-color); display:flex; justify-content: space-between; align-items:center; }
+    textarea.editor { width: 100%; min-height: 60vh; border: none; padding: 16px; font-family: "Fira Code", Consolas, monospace; font-size: 0.88rem; background: #0d1117; color: #c9d1d9; resize: vertical; }
+    textarea.editor:focus { outline: none; }
+    .alert-error { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex gap-2 mb-3">
+    <a href="{% url 'informatica:backup_arquivos' %}?path={{ pasta }}" class="btn btn-outline-secondary px-3 py-2">
+        <i class="fas fa-arrow-left me-2"></i> Voltar
+    </a>
+    <a href="{% url 'informatica:backup_arquivo_baixar' %}?path={{ caminho }}" class="btn btn-outline-primary px-3 py-2">
+        <i class="fas fa-download me-2"></i> Baixar
+    </a>
+</div>
+
+{% if erro %}
+<div class="alert-error"><i class="fas fa-exclamation-circle me-2"></i>{{ erro }}</div>
+{% endif %}
+
+{% if eh_texto and conteudo is not None %}
+<form method="post">
+    {% csrf_token %}
+    <input type="hidden" name="path" value="{{ caminho }}">
+    <div class="editor-card">
+        <div class="editor-toolbar">
+            <strong><i class="fas fa-file-alt me-2"></i>{{ caminho }}</strong>
+            <button type="submit" class="btn btn-success px-4 py-2">
+                <i class="fas fa-save me-2"></i> Salvar
+            </button>
+        </div>
+        <textarea name="conteudo" class="editor" spellcheck="false">{{ conteudo }}</textarea>
+    </div>
+</form>
+{% elif not eh_texto %}
+<div class="editor-card p-4 text-center text-muted">
+    <i class="fas fa-file fa-2x mb-3"></i>
+    <p>Este tipo de arquivo não pode ser visualizado/editado como texto. Use o botão "Baixar" acima.</p>
+</div>
+{% endif %}
+
+{% endblock %}

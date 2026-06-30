@@ -75,6 +75,13 @@ urlpatterns = [
     path('backup/<int:pk>/explorar/', views.backup_explorar, name='backup_explorar'),
     path('backup/<int:pk>/restaurar-registro/', views.backup_restaurar_registro, name='backup_restaurar_registro'),
 
+    # Painel do servidor de backup: gerenciador de arquivos + terminal SSH
+    path('backup/servidor/arquivos/', views.backup_arquivos, name='backup_arquivos'),
+    path('backup/servidor/arquivos/ver/', views.backup_arquivo_ver, name='backup_arquivo_ver'),
+    path('backup/servidor/arquivos/baixar/', views.backup_arquivo_baixar, name='backup_arquivo_baixar'),
+    path('backup/servidor/arquivos/excluir/', views.backup_arquivo_excluir, name='backup_arquivo_excluir'),
+    path('backup/servidor/terminal/', views.backup_terminal, name='backup_terminal'),
+
     # ===============================================
     # PAINEL ADMIN OUVIDORIA
     # ===============================================

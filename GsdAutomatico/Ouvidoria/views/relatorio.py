@@ -382,7 +382,12 @@ def relatorio_ouvidoria_excel(request):
         c.fill = F_DARK; c.alignment = CENTER; c.border = BRD
     ws_ap.row_dimensions[2].height = 22
 
-    for row_idx, patd in enumerate(patds_list, start=3):
+    # Maior N° PATD primeiro (mais recente -> mais antigo); sem nº fica por último
+    patds_apuracao = sorted(
+        patds_list, key=lambda p: (p.numero_patd is None, -(p.numero_patd or 0))
+    )
+
+    for row_idx, patd in enumerate(patds_apuracao, start=3):
         sf  = status_fill(patd.status)
         sfc = status_font_color(patd.status)
         alt = F_ALT if row_idx % 2 == 0 else None

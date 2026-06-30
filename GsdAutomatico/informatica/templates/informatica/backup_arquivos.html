@@ -1,0 +1,100 @@
+{% extends 'informatica/base.html' %}
+{% block title %}Arquivos do Servidor de Backup — Informática{% endblock %}
+{% block header_eyebrow %}Seção de Informática{% endblock %}
+{% block header_title %}Arquivos em {{ destino.host|default:"—" }}{% endblock %}
+
+{% block extra_head %}
+<style>
+    .path-bar { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; font-family: monospace; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
+    .path-bar a { color: var(--primary-color); text-decoration: none; }
+    .path-bar a:hover { text-decoration: underline; }
+    .table-files { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .table-files th { padding: 10px 14px; text-align: left; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color); }
+    .table-files td { padding: 9px 14px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .table-files tr:hover td { background: rgba(var(--primary-rgb), 0.04); }
+    .table-files a.item-link { color: var(--text-primary); text-decoration: none; font-weight: 500; }
+    .table-files a.item-link:hover { color: var(--primary-color); }
+    .icon-dir { color: #f59e0b; }
+    .icon-file { color: var(--text-secondary); }
+    .files-card { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
+    .files-toolbar { padding: 14px 18px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+    .alert-error { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex justify-content-between align-items-center mb-3">
+    <div class="path-bar flex-grow-1">
+        <i class="fas fa-folder-open me-1"></i>
+        <a href="?path=/">/</a>
+        <code>{{ caminho }}</code>
+    </div>
+    <a href="{% url 'informatica:backup_terminal' %}" class="btn btn-dark px-3 py-2 ms-3">
+        <i class="fas fa-terminal me-2"></i>Terminal
+    </a>
+</div>
+
+{% if erro %}
+<div class="alert-error"><i class="fas fa-exclamation-circle me-2"></i>{{ erro }}</div>
+{% endif %}
+
+{% if itens is not None %}
+<div class="files-card">
+    <div class="files-toolbar">
+        <strong>{{ itens|length }} item(ns)</strong>
+        {% if caminho != '/' %}
+        <a href="?path={{ pai }}" class="btn btn-sm btn-outline-secondary">
+            <i class="fas fa-level-up-alt me-1"></i> Subir um nível
+        </a>
+        {% endif %}
+    </div>
+    <table class="table-files">
+        <thead>
+            <tr>
+                <th>Nome</th>
+                <th>Tamanho</th>
+                <th>Modificado</th>
+                <th style="width:180px;"></th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in itens %}
+            <tr>
+                <td>
+                    {% if item.is_dir %}
+                        <i class="fas fa-folder icon-dir me-2"></i>
+                        <a class="item-link" href="?path={{ caminho }}/{{ item.nome }}">{{ item.nome }}</a>
+                    {% else %}
+                        <i class="fas fa-file icon-file me-2"></i>
+                        <a class="item-link" href="{% url 'informatica:backup_arquivo_ver' %}?path={{ caminho }}/{{ item.nome }}">{{ item.nome }}</a>
+                    {% endif %}
+                </td>
+                <td>{% if not item.is_dir %}{{ item.tamanho|filesizeformat }}{% else %}—{% endif %}</td>
+                <td>{{ item.modificado|default:0|date:"d/m/Y H:i" }}</td>
+                <td class="text-end">
+                    {% if not item.is_dir %}
+                    <a href="{% url 'informatica:backup_arquivo_baixar' %}?path={{ caminho }}/{{ item.nome }}" class="btn btn-sm btn-outline-primary" title="Baixar">
+                        <i class="fas fa-download"></i>
+                    </a>
+                    {% endif %}
+                    <form method="post" action="{% url 'informatica:backup_arquivo_excluir' %}" style="display:inline;"
+                          onsubmit="return confirm('Excluir \'{{ item.nome }}\' permanentemente?');">
+                        {% csrf_token %}
+                        <input type="hidden" name="path" value="{{ caminho }}/{{ item.nome }}">
+                        <input type="hidden" name="is_dir" value="{% if item.is_dir %}1{% else %}0{% endif %}">
+                        <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                            <i class="fas fa-trash"></i>
+                        </button>
+                    </form>
+                </td>
+            </tr>
+            {% empty %}
+            <tr><td colspan="4" class="text-center text-muted py-4">Pasta vazia.</td></tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
+{% endif %}
+
+{% endblock %}

@@ -1,0 +1,72 @@
+{% extends 'informatica/base.html' %}
+{% block title %}Terminal — Servidor de Backup{% endblock %}
+{% block header_eyebrow %}Seção de Informática{% endblock %}
+{% block header_title %}Terminal — {{ destino.host|default:"servidor de backup" }}{% endblock %}
+
+{% block extra_head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+<style>
+    #terminal-wrap { background: #0d1117; border: 1px solid var(--border-color); border-radius: 12px; padding: 12px; }
+    #terminal { height: 65vh; }
+    .term-status { font-size: 0.85rem; margin-bottom: 10px; }
+    .term-status.connected { color: #16a34a; }
+    .term-status.disconnected { color: #ef4444; }
+    .term-status.connecting { color: #d97706; }
+</style>
+{% endblock %}
+
+{% block content %}
+
+<div class="d-flex gap-2 mb-3">
+    <a href="{% url 'informatica:backup_arquivos' %}" class="btn btn-outline-secondary px-3 py-2">
+        <i class="fas fa-folder me-2"></i> Arquivos
+    </a>
+    <span id="term-status" class="term-status connecting align-self-center">
+        <i class="fas fa-circle-notch fa-spin me-1"></i> Conectando...
+    </span>
+</div>
+
+<div id="terminal-wrap">
+    <div id="terminal"></div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+<script>
+(function () {
+    const term = new Terminal({
+        cursorBlink: true,
+        fontFamily: '"Fira Code", Consolas, monospace',
+        fontSize: 14,
+        theme: { background: '#0d1117', foreground: '#c9d1d9' },
+    });
+    const fitAddon = new FitAddon.FitAddon();
+    term.loadAddon(fitAddon);
+    term.open(document.getElementById('terminal'));
+    fitAddon.fit();
+    window.addEventListener('resize', () => fitAddon.fit());
+
+    const statusEl = document.getElementById('term-status');
+    const setStatus = (cls, html) => {
+        statusEl.className = 'term-status ' + cls;
+        statusEl.innerHTML = html;
+    };
+
+    const scheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(scheme + '://' + window.location.host + '/ws/informatica/backup-terminal/');
+
+    ws.onopen = () => setStatus('connected', '<i class="fas fa-circle me-1"></i> Conectado');
+    ws.onclose = () => {
+        setStatus('disconnected', '<i class="fas fa-circle me-1"></i> Desconectado');
+        term.write('\r\n\x1b[31m[conexão encerrada]\x1b[0m\r\n');
+    };
+    ws.onerror = () => setStatus('disconnected', '<i class="fas fa-circle me-1"></i> Erro de conexão');
+    ws.onmessage = (ev) => term.write(ev.data);
+
+    term.onData((data) => {
+        if (ws.readyState === WebSocket.OPEN) ws.send(data);
+    });
+})();
+</script>
+
+{% endblock %}
