@@ -147,16 +147,19 @@
                 Exportar para Excel
             </a>
 
-            <button type="button" id="btn-import-legado" class="btn-export-excel" style="cursor:pointer;border:none;width:100%;">
-                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 7.5 12 3m0 0 4.5 4.5M12 3v13.5"/>
-                </svg>
-                Importar Histórico Antigo
-            </button>
             <form id="form-import-legado" method="post" enctype="multipart/form-data"
-                  action="{% url 'Ouvidoria:importar_patd_legado' %}" style="display:none;">
+                  action="{% url 'Ouvidoria:importar_patd_legado' %}">
                 {% csrf_token %}
-                <input type="file" id="input-import-legado" name="excel_file" accept=".xlsx,.xls,.xlsb">
+                <input type="file" id="input-import-legado" name="excel_file"
+                       accept=".xlsx,.xls,.xlsb"
+                       style="position:absolute;left:-9999px;width:0;height:0;opacity:0;">
+                <label for="input-import-legado" class="btn-export-excel"
+                       style="cursor:pointer;display:flex;align-items:center;gap:8px;width:100%;margin:0;">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 7.5 12 3m0 0 4.5 4.5M12 3v13.5"/>
+                    </svg>
+                    Importar Histórico Antigo
+                </label>
             </form>
 
             <div>
@@ -401,12 +404,8 @@
     document.getElementById('btn-apply').addEventListener('click', applyFilters);
 
     /* ── Importar histórico antigo ───────────────────────────────────── */
-    var importInput = document.getElementById('input-import-legado');
-    document.getElementById('btn-import-legado').addEventListener('click', function(){
-        importInput.click();
-    });
-    importInput.addEventListener('change', function(){
-        if (importInput.files && importInput.files.length) {
+    document.getElementById('input-import-legado').addEventListener('change', function(){
+        if (this.files && this.files.length) {
             document.getElementById('form-import-legado').submit();
         }
     });
