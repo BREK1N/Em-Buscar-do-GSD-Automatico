@@ -13,7 +13,7 @@ ENV https_proxy=$https_proxy
 
 WORKDIR /app
 
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && apt-get install -y --fix-missing \
     gcc \
     libpq-dev \
     postgresql-client \
