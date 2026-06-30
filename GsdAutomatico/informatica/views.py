@@ -529,7 +529,9 @@ def backup_explorar(request, pk):
     if not is_informatica_admin(request.user):
         from django.http import HttpResponseForbidden
         return HttpResponseForbidden()
-    from .backup_diff import MODELOS_DIFF, restaurar_dump_temp, dropar_temp, buscar_registro_temp, montar_diff, buscar_registro_atual
+    from .backup_diff import (MODELOS_DIFF, restaurar_dump_temp, dropar_temp,
+                               buscar_registro_temp, montar_diff,
+                               buscar_registro_atual, listar_todos_temp)
 
     execucao = get_object_or_404(BackupExecucao, pk=pk)
     modelo_key = request.GET.get('modelo', '')
@@ -537,27 +539,47 @@ def backup_explorar(request, pk):
     diffs = None
     registro_pk = None
     erro = None
+    lista_registros = None  # todos os registros do backup para a seção escolhida
 
-    if modelo_key and valor and modelo_key in MODELOS_DIFF:
+    if modelo_key and modelo_key in MODELOS_DIFF:
         config = MODELOS_DIFF[modelo_key]
         model = config['model']
-        live_obj = buscar_registro_atual(model, config['busca_campo'], valor)
-        if not live_obj:
-            erro = 'Nenhum registro atual encontrado com esse valor.'
-        elif not execucao.arquivo_db or not os.path.exists(execucao.arquivo_db):
+
+        if not execucao.arquivo_db or not os.path.exists(execucao.arquivo_db):
             erro = 'Arquivo de backup não encontrado em disco (pode já ter sido removido pela retenção local).'
+        elif valor:
+            # Modo busca individual: compara com registro atual
+            live_obj = buscar_registro_atual(model, config['busca_campo'], valor)
+            if not live_obj:
+                erro = 'Nenhum registro atual encontrado com esse valor.'
+            else:
+                tempdb = None
+                try:
+                    tempdb = restaurar_dump_temp(execucao.arquivo_db)
+                    old_dict = buscar_registro_temp(tempdb, model, live_obj.pk)
+                    if old_dict is None:
+                        erro = 'Este registro ainda não existia nesse backup.'
+                    else:
+                        diffs = montar_diff(old_dict, live_obj)
+                        registro_pk = live_obj.pk
+                except Exception as exc:
+                    erro = f'Erro ao restaurar/ler o backup: {exc}'
+                finally:
+                    if tempdb:
+                        dropar_temp(tempdb)
         else:
+            # Modo listagem: mostra todos os registros da seção no backup
             tempdb = None
             try:
                 tempdb = restaurar_dump_temp(execucao.arquivo_db)
-                old_dict = buscar_registro_temp(tempdb, model, live_obj.pk)
-                if old_dict is None:
-                    erro = 'Este registro ainda não existia nesse backup.'
-                else:
-                    diffs = montar_diff(old_dict, live_obj)
-                    registro_pk = live_obj.pk
+                campo_display = config['busca_campo'].replace('__', '_')
+                raw = listar_todos_temp(tempdb, model)
+                lista_registros = [
+                    {**r, '_display': r.get(campo_display, r.get('id', ''))}
+                    for r in raw
+                ]
             except Exception as exc:
-                erro = f'Erro ao restaurar/ler o backup: {exc}'
+                erro = f'Erro ao ler o backup: {exc}'
             finally:
                 if tempdb:
                     dropar_temp(tempdb)
@@ -570,6 +592,8 @@ def backup_explorar(request, pk):
         'diffs': diffs,
         'registro_pk': registro_pk,
         'erro': erro,
+        'lista_registros': lista_registros,
+        'busca_campo': MODELOS_DIFF[modelo_key]['busca_campo'] if modelo_key in MODELOS_DIFF else '',
     })
 
 

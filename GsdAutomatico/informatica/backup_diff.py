@@ -130,12 +130,29 @@ def buscar_registro_temp(tempdb: str, model, pk: int) -> dict | None:
     conn = _conectar_temp(tempdb)
     try:
         with conn.cursor() as cur:
-            cur.execute(f"SELECT * FROM {tabela} WHERE id = %s", [pk])
+            # Aspas duplas obrigatórias: db_table tem maiúsculas (ex: Ouvidoria_patd)
+            cur.execute(f'SELECT * FROM "{tabela}" WHERE id = %s', [pk])
             row = cur.fetchone()
             if row is None:
                 return None
             colunas = [c.name for c in cur.description]
             return dict(zip(colunas, row))
+    finally:
+        conn.close()
+
+
+def listar_todos_temp(tempdb: str, model, limit: int = 500) -> list[dict]:
+    """Retorna todos os registros da tabela no banco temporário, até `limit` linhas."""
+    tabela = model._meta.db_table
+    conn = _conectar_temp(tempdb)
+    try:
+        with conn.cursor() as cur:
+            cur.execute(f'SELECT * FROM "{tabela}" ORDER BY id LIMIT %s', [limit])
+            rows = cur.fetchall()
+            if not rows:
+                return []
+            colunas = [c.name for c in cur.description]
+            return [dict(zip(colunas, row)) for row in rows]
     finally:
         conn.close()
 

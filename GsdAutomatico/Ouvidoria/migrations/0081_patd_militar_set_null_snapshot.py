@@ -9,15 +9,18 @@ from django.db import migrations, models
 
 
 def backfill_militar_snapshot(apps, schema_editor):
-    # apps.get_model() returns a historical model with the plain (unfiltered)
-    # manager, regardless of which custom manager is declared on the real model.
-    PATD = apps.get_model('Ouvidoria', 'PATD')
-    PATD.objects.filter(militar__isnull=False).update(
-        militar_nome_completo_snapshot=models.F('militar__nome_completo'),
-        militar_nome_guerra_snapshot=models.F('militar__nome_guerra'),
-        militar_posto_snapshot=models.F('militar__posto'),
-        militar_saram_snapshot=models.F('militar__saram'),
-    )
+    # F() com join não é suportado em .update() — usa SQL raw com UPDATE...FROM
+    schema_editor.execute("""
+        UPDATE "Ouvidoria_patd" p
+        SET
+            militar_nome_completo_snapshot = e.nome_completo,
+            militar_nome_guerra_snapshot   = e.nome_guerra,
+            militar_posto_snapshot         = e.posto,
+            militar_saram_snapshot         = e.saram
+        FROM "Efetivo" e
+        WHERE p.militar_id = e.id
+          AND p.militar_id IS NOT NULL
+    """)
 
 
 def noop(apps, schema_editor):
