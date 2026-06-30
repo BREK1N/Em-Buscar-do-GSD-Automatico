@@ -545,13 +545,16 @@ def backup_explorar(request, pk):
     lista_registros = None
     colunas_lista = []
     config = MODELOS_DIFF.get(modelo_key)
+    arquivo_local = None
+    arquivo_temp = None
 
     if config:
         model = config['model']
         colunas_lista = config.get('colunas_lista', [])
 
-        if not execucao.arquivo_db or not os.path.exists(execucao.arquivo_db):
-            erro = 'Arquivo de backup não encontrado em disco (pode já ter sido removido pela retenção local).'
+        arquivo_local, arquivo_temp = _resolver_arquivo_db(execucao)
+        if not arquivo_local:
+            erro = 'Arquivo de backup não encontrado em disco nem no servidor remoto.'
         elif valor:
             # ── Modo detalhe: busca individual e diff ──
             live_obj = buscar_registro_atual(model, config['busca_campo'], valor)
@@ -559,7 +562,7 @@ def backup_explorar(request, pk):
                 # tenta apenas pelo backup sem registro atual (PATD deletada)
                 tempdb = None
                 try:
-                    tempdb = restaurar_dump_temp(execucao.arquivo_db)
+                    tempdb = restaurar_dump_temp(arquivo_local)
                     pk_int = int(valor) if valor.isdigit() else None
                     old_dict_destaque = buscar_registro_temp(tempdb, model, pk_int) if pk_int else None
                     if old_dict_destaque is None:
@@ -580,7 +583,7 @@ def backup_explorar(request, pk):
             else:
                 tempdb = None
                 try:
-                    tempdb = restaurar_dump_temp(execucao.arquivo_db)
+                    tempdb = restaurar_dump_temp(arquivo_local)
                     old_dict = buscar_registro_temp(tempdb, model, live_obj.pk)
                     if old_dict is None:
                         erro = 'Este registro ainda não existia nesse backup.'
@@ -597,7 +600,7 @@ def backup_explorar(request, pk):
             # ── Modo listagem ──
             tempdb = None
             try:
-                tempdb = restaurar_dump_temp(execucao.arquivo_db)
+                tempdb = restaurar_dump_temp(arquivo_local)
                 raw = listar_todos_temp(tempdb, model)
 
                 def _cell(row, col, tipo):
@@ -647,6 +650,13 @@ def backup_explorar(request, pk):
                 if tempdb:
                     dropar_temp(tempdb)
 
+    # Limpa arquivo temporário baixado do servidor remoto (se houver)
+    if arquivo_temp and os.path.exists(arquivo_temp):
+        try:
+            os.remove(arquivo_temp)
+        except Exception:
+            pass
+
     # Campos de destaque para a view de detalhe
     campos_destaque = []
     if old_dict_destaque and config:
@@ -692,9 +702,14 @@ def backup_restaurar_registro(request, pk):
     model = MODELOS_DIFF[modelo_key]['model']
     live_obj = get_object_or_404(model, pk=registro_pk)
 
+    arquivo_local, arquivo_temp = _resolver_arquivo_db(execucao)
+    if not arquivo_local:
+        messages.error(request, 'Arquivo de backup não encontrado em disco nem no servidor remoto.')
+        return redirect(redirect_url)
+
     tempdb = None
     try:
-        tempdb = restaurar_dump_temp(execucao.arquivo_db)
+        tempdb = restaurar_dump_temp(arquivo_local)
         old_dict = buscar_registro_temp(tempdb, model, live_obj.pk)
         if old_dict is None:
             messages.error(request, 'Registro não encontrado no backup.')
@@ -720,6 +735,11 @@ def backup_restaurar_registro(request, pk):
     finally:
         if tempdb:
             dropar_temp(tempdb)
+        if arquivo_temp and os.path.exists(arquivo_temp):
+            try:
+                os.remove(arquivo_temp)
+            except Exception:
+                pass
 
     return redirect(redirect_url)
 
@@ -727,6 +747,43 @@ def backup_restaurar_registro(request, pk):
 # ==========================================
 # GERENCIADOR DE ARQUIVOS E TERMINAL DO SERVIDOR DE BACKUP
 # ==========================================
+
+def _resolver_arquivo_db(execucao) -> tuple[str | None, str | None]:
+    """
+    Retorna (caminho_para_usar, caminho_temp_ou_None).
+    1. Se o arquivo local existe → (arquivo_local, None)
+    2. Se não existe mas foi enviado ao remoto → baixa via SFTP para /tmp,
+       retorna (caminho_tmp, caminho_tmp) — o chamador deve apagar o tmp ao final.
+    3. Se nenhum dos dois → (None, None)
+    """
+    import tempfile
+
+    arquivo_local = execucao.arquivo_db or ''
+    if arquivo_local and os.path.exists(arquivo_local):
+        return arquivo_local, None
+
+    if not execucao.enviado_remoto or not arquivo_local:
+        return None, None
+
+    try:
+        from . import backup_server as _bs
+        destino = BackupDestino.get_instance()
+        if not destino.host or not destino.usuario:
+            return None, None
+
+        nome_arquivo = os.path.basename(arquivo_local)
+        caminho_remoto = f"{destino.diretorio_destino.rstrip('/')}/{nome_arquivo}"
+
+        conteudo = _bs.baixar_arquivo(destino, caminho_remoto)
+        sufixo = os.path.splitext(nome_arquivo)[-1]
+        fd, tmp_path = tempfile.mkstemp(suffix=sufixo)
+        with os.fdopen(fd, 'wb') as f:
+            f.write(conteudo)
+        return tmp_path, tmp_path
+    except Exception as exc:
+        logger.warning("_resolver_arquivo_db: falha ao baixar do remoto: %s", exc)
+        return None, None
+
 
 def _caminho_seguro(caminho: str) -> str:
     """Normaliza e impede directory traversal (../) no caminho informado pelo usuário."""
