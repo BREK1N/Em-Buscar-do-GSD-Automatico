@@ -1,23 +1,51 @@
 {% extends 'informatica/base.html' %}
 {% block title %}Arquivos do Servidor de Backup — Informática{% endblock %}
 {% block header_eyebrow %}Seção de Informática{% endblock %}
-{% block header_title %}Arquivos em {{ destino.host|default:"—" }}{% endblock %}
+{% block header_title %}{% if eh_pasta_backup %}Backups em {{ destino.host|default:"—" }}{% else %}{{ caminho }}{% endif %}{% endblock %}
 
 {% block extra_head %}
 <style>
+    /* Barra de caminho */
     .path-bar { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 10px; padding: 10px 16px; margin-bottom: 16px; font-family: monospace; font-size: 0.9rem; display: flex; align-items: center; gap: 8px; flex-wrap: wrap; }
     .path-bar a { color: var(--primary-color); text-decoration: none; }
-    .path-bar a:hover { text-decoration: underline; }
-    .table-files { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-    .table-files th { padding: 10px 14px; text-align: left; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color); }
-    .table-files td { padding: 9px 14px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+
+    /* Visão por data */
+    .mes-card { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; margin-bottom: 12px; overflow: hidden; }
+    .mes-header { padding: 14px 20px; display: flex; justify-content: space-between; align-items: center; cursor: pointer; user-select: none; border-bottom: 1px solid transparent; transition: background .15s; }
+    .mes-header:hover { background: rgba(var(--primary-rgb), 0.05); }
+    .mes-header.open { border-bottom-color: var(--border-color); }
+    .mes-title { font-size: 1rem; font-weight: 700; }
+    .mes-badge { background: rgba(var(--primary-rgb), .12); color: var(--primary-color); border-radius: 20px; padding: 3px 10px; font-size: 0.78rem; font-weight: 700; }
+    .mes-body { display: none; }
+    .mes-body.open { display: block; }
+
+    .dia-row { border-bottom: 1px solid var(--border-color); }
+    .dia-row:last-child { border-bottom: none; }
+    .dia-header { padding: 10px 24px; display: flex; align-items: center; gap: 12px; cursor: pointer; background: rgba(0,0,0,0.02); }
+    .dia-header:hover { background: rgba(var(--primary-rgb), 0.04); }
+    .dia-data { font-weight: 700; font-size: 0.92rem; min-width: 100px; }
+    .dia-count { font-size: 0.78rem; color: var(--text-secondary); }
+    .dia-files { display: none; }
+    .dia-files.open { display: block; }
+
+    /* Tabela de arquivos dentro de um dia */
+    .table-files { width: 100%; border-collapse: collapse; font-size: 0.88rem; }
+    .table-files td { padding: 8px 32px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .table-files tr:last-child td { border-bottom: none; }
     .table-files tr:hover td { background: rgba(var(--primary-rgb), 0.04); }
-    .table-files a.item-link { color: var(--text-primary); text-decoration: none; font-weight: 500; }
-    .table-files a.item-link:hover { color: var(--primary-color); }
-    .icon-dir { color: #f59e0b; }
-    .icon-file { color: var(--text-secondary); }
+    .file-icon { color: var(--text-secondary); margin-right: 8px; }
+    .file-icon.dump { color: #3b82f6; }
+    .file-icon.gz { color: #f59e0b; }
+    .file-icon.log { color: #6b7280; }
+
+    /* Visão normal de diretório */
     .files-card { background: var(--bg-content); border: 1px solid var(--border-color); border-radius: 12px; overflow: hidden; }
-    .files-toolbar { padding: 14px 18px; border-bottom: 1px solid var(--border-color); display: flex; justify-content: space-between; align-items: center; }
+    .table-dir { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+    .table-dir th { padding: 10px 14px; text-align: left; font-size: 0.8rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--text-secondary); border-bottom: 2px solid var(--border-color); }
+    .table-dir td { padding: 9px 14px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
+    .table-dir tr:hover td { background: rgba(var(--primary-rgb), 0.04); }
+    .icon-dir { color: #f59e0b; }
+
     .alert-error { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
 </style>
 {% endblock %}
@@ -25,12 +53,16 @@
 {% block content %}
 
 <div class="d-flex justify-content-between align-items-center mb-3">
+    {% if not eh_pasta_backup %}
     <div class="path-bar flex-grow-1">
         <i class="fas fa-folder-open me-1"></i>
-        <a href="?path=/">/</a>
+        <a href="?path={{ destino.diretorio_destino }}"><i class="fas fa-home"></i></a>
         <code>{{ caminho }}</code>
     </div>
-    <a href="{% url 'informatica:backup_terminal' %}" class="btn btn-dark px-3 py-2 ms-3">
+    {% else %}
+    <div></div>
+    {% endif %}
+    <a href="{% url 'informatica:backup_terminal' %}" class="btn btn-dark px-3 py-2 {% if not eh_pasta_backup %}ms-3{% endif %}">
         <i class="fas fa-terminal me-2"></i>Terminal
     </a>
 </div>
@@ -39,9 +71,97 @@
 <div class="alert-error"><i class="fas fa-exclamation-circle me-2"></i>{{ erro }}</div>
 {% endif %}
 
+{# ── Visão por data (pasta de backups) ── #}
+{% if eh_pasta_backup and meses is not None %}
+
+{% if meses %}
+    {% for mes in meses %}
+    <div class="mes-card">
+        <div class="mes-header" onclick="toggleMes(this)">
+            <span class="mes-title"><i class="fas fa-calendar-alt me-2" style="color:var(--primary-color)"></i>{{ mes.mes_nome }} {{ mes.ano }}</span>
+            <div class="d-flex align-items-center gap-3">
+                <span class="mes-badge">{{ mes.total_arquivos }} arquivo(s)</span>
+                <i class="fas fa-chevron-down toggle-icon" style="transition:.2s; color:var(--text-secondary)"></i>
+            </div>
+        </div>
+        <div class="mes-body {% if forloop.first %}open{% endif %}">
+            {% for dia in mes.dias %}
+            <div class="dia-row">
+                <div class="dia-header" onclick="toggleDia(this)">
+                    <i class="fas fa-chevron-right dia-icon" style="color:var(--text-secondary); transition:.2s; font-size:.75rem;"></i>
+                    <span class="dia-data">{{ dia.data_fmt }}</span>
+                    <span class="dia-count">{{ dia.arquivos|length }} arquivo(s)</span>
+                </div>
+                <div class="dia-files {% if forloop.first and forloop.parentloop.first %}open{% endif %}">
+                    <table class="table-files">
+                        {% for arq in dia.arquivos %}
+                        <tr>
+                            <td style="width:28px;">
+                                {% if '.dump' in arq.nome %}<i class="fas fa-database file-icon dump"></i>
+                                {% elif '.gz' in arq.nome %}<i class="fas fa-file-archive file-icon gz"></i>
+                                {% elif '.log' in arq.nome %}<i class="fas fa-scroll file-icon log"></i>
+                                {% else %}<i class="fas fa-file file-icon"></i>{% endif %}
+                            </td>
+                            <td>{{ arq.nome }}</td>
+                            <td style="width:100px; color:var(--text-secondary);">{{ arq.tamanho|filesizeformat }}</td>
+                            <td style="width:200px; text-align:right;">
+                                <a href="{% url 'informatica:backup_arquivo_baixar' %}?path={{ caminho }}/{{ arq.nome }}" class="btn btn-sm btn-outline-primary me-1" title="Baixar">
+                                    <i class="fas fa-download me-1"></i>Baixar
+                                </a>
+                                <form method="post" action="{% url 'informatica:backup_arquivo_excluir' %}" style="display:inline;"
+                                      onsubmit="return confirm('Excluir \'{{ arq.nome }}\' permanentemente?');">
+                                    {% csrf_token %}
+                                    <input type="hidden" name="path" value="{{ caminho }}/{{ arq.nome }}">
+                                    <input type="hidden" name="is_dir" value="0">
+                                    <button type="submit" class="btn btn-sm btn-outline-danger" title="Excluir">
+                                        <i class="fas fa-trash"></i>
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </table>
+                </div>
+            </div>
+            {% endfor %}
+        </div>
+    </div>
+    {% endfor %}
+{% else %}
+    <p class="text-muted text-center py-5">Nenhum arquivo de backup encontrado.</p>
+{% endif %}
+
+{# Arquivos sem data detectável #}
+{% if sem_data %}
+<div class="mes-card mt-2">
+    <div class="mes-header" onclick="toggleMes(this)">
+        <span class="mes-title"><i class="fas fa-question-circle me-2" style="color:#6b7280"></i>Sem data identificada</span>
+        <i class="fas fa-chevron-down toggle-icon" style="transition:.2s; color:var(--text-secondary)"></i>
+    </div>
+    <div class="mes-body">
+        <table class="table-files">
+            {% for arq in sem_data %}
+            <tr>
+                <td style="width:28px;"><i class="fas fa-file file-icon"></i></td>
+                <td>{{ arq.nome }}</td>
+                <td style="width:100px; color:var(--text-secondary);">{{ arq.tamanho|filesizeformat }}</td>
+                <td style="width:200px; text-align:right;">
+                    <a href="{% url 'informatica:backup_arquivo_baixar' %}?path={{ caminho }}/{{ arq.nome }}" class="btn btn-sm btn-outline-primary" title="Baixar">
+                        <i class="fas fa-download me-1"></i>Baixar
+                    </a>
+                </td>
+            </tr>
+            {% endfor %}
+        </table>
+    </div>
+</div>
+{% endif %}
+
+{# ── Visão normal de diretório ── #}
+{% else %}
 {% if itens is not None %}
 <div class="files-card">
-    <div class="files-toolbar">
+    <div class="p-3 border-bottom d-flex justify-content-between align-items-center">
         <strong>{{ itens|length }} item(ns)</strong>
         {% if caminho != '/' %}
         <a href="?path={{ pai }}" class="btn btn-sm btn-outline-secondary">
@@ -49,13 +169,10 @@
         </a>
         {% endif %}
     </div>
-    <table class="table-files">
+    <table class="table-dir">
         <thead>
             <tr>
-                <th>Nome</th>
-                <th>Tamanho</th>
-                <th>Modificado</th>
-                <th style="width:180px;"></th>
+                <th>Nome</th><th>Tamanho</th><th>Modificado</th><th style="width:180px;"></th>
             </tr>
         </thead>
         <tbody>
@@ -64,10 +181,10 @@
                 <td>
                     {% if item.is_dir %}
                         <i class="fas fa-folder icon-dir me-2"></i>
-                        <a class="item-link" href="?path={{ caminho }}/{{ item.nome }}">{{ item.nome }}</a>
+                        <a href="?path={{ caminho }}/{{ item.nome }}" style="font-weight:500;">{{ item.nome }}</a>
                     {% else %}
-                        <i class="fas fa-file icon-file me-2"></i>
-                        <a class="item-link" href="{% url 'informatica:backup_arquivo_ver' %}?path={{ caminho }}/{{ item.nome }}">{{ item.nome }}</a>
+                        <i class="fas fa-file me-2" style="color:var(--text-secondary);"></i>
+                        <a href="{% url 'informatica:backup_arquivo_ver' %}?path={{ caminho }}/{{ item.nome }}" style="font-weight:500;">{{ item.nome }}</a>
                     {% endif %}
                 </td>
                 <td>{% if not item.is_dir %}{{ item.tamanho|filesizeformat }}{% else %}—{% endif %}</td>
@@ -96,5 +213,31 @@
     </table>
 </div>
 {% endif %}
+{% endif %}
+
+<script>
+function toggleMes(header) {
+    const body = header.nextElementSibling;
+    const icon = header.querySelector('.toggle-icon');
+    const open = body.classList.toggle('open');
+    header.classList.toggle('open', open);
+    icon.style.transform = open ? 'rotate(180deg)' : '';
+}
+function toggleDia(header) {
+    const files = header.nextElementSibling;
+    const icon = header.querySelector('.dia-icon');
+    const open = files.classList.toggle('open');
+    icon.style.transform = open ? 'rotate(90deg)' : '';
+}
+// Abre a seta do primeiro dia automaticamente
+document.querySelectorAll('.dia-files.open').forEach(el => {
+    const icon = el.previousElementSibling.querySelector('.dia-icon');
+    if (icon) icon.style.transform = 'rotate(90deg)';
+});
+document.querySelectorAll('.mes-header.open, .mes-header:has(+ .mes-body.open)').forEach(h => {
+    const icon = h.querySelector('.toggle-icon');
+    if (icon) icon.style.transform = 'rotate(180deg)';
+});
+</script>
 
 {% endblock %}

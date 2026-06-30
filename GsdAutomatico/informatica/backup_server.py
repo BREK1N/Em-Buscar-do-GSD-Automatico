@@ -137,3 +137,69 @@ def criar_diretorio(destino, caminho: str):
 def eh_extensao_texto(nome: str) -> bool:
     nome = nome.lower()
     return any(nome.endswith(ext) for ext in EXTENSOES_TEXTO)
+
+
+import re as _re
+from datetime import date as _date
+from collections import defaultdict as _defaultdict
+
+_RE_DATA1 = _re.compile(r'(\d{4})(\d{2})(\d{2})')          # 20260630
+_RE_DATA2 = _re.compile(r'(\d{4})-(\d{2})-(\d{2})')        # 2026-06-30
+_MESES = ['', 'Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
+          'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro']
+
+
+def _extrair_data(nome: str) -> _date | None:
+    """Extrai a data do nome do arquivo ou retorna None."""
+    for pat in (_RE_DATA2, _RE_DATA1):
+        m = pat.search(nome)
+        if m:
+            try:
+                return _date(int(m.group(1)), int(m.group(2)), int(m.group(3)))
+            except ValueError:
+                continue
+    return None
+
+
+def agrupar_por_data(itens: list[dict]) -> list[dict]:
+    """
+    Agrupa itens de diretório por data extraída do nome do arquivo.
+    Retorna lista de meses (desc.) cada um com lista de dias (desc.)
+    cada dia com lista de arquivos.
+    Itens sem data detectável ficam num grupo "Sem data" no final.
+    """
+    por_data = _defaultdict(list)
+    sem_data = []
+
+    for item in itens:
+        if item['is_dir']:
+            continue
+        d = _extrair_data(item['nome'])
+        if d:
+            por_data[d].append(item)
+        else:
+            sem_data.append(item)
+
+    # Ordena dias desc.
+    dias_ordenados = sorted(por_data.keys(), reverse=True)
+
+    # Agrupa em meses
+    por_mes = _defaultdict(list)  # chave: (ano, mes)
+    for d in dias_ordenados:
+        por_mes[(d.year, d.month)].append({
+            'data': d,
+            'data_fmt': d.strftime('%d/%m/%Y'),
+            'arquivos': sorted(por_data[d], key=lambda x: x['nome']),
+        })
+
+    meses = []
+    for (ano, mes) in sorted(por_mes.keys(), reverse=True):
+        meses.append({
+            'ano': ano,
+            'mes': mes,
+            'mes_nome': _MESES[mes],
+            'dias': por_mes[(ano, mes)],
+            'total_arquivos': sum(len(d['arquivos']) for d in por_mes[(ano, mes)]),
+        })
+
+    return meses, sem_data

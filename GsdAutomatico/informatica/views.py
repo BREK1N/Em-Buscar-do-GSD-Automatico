@@ -751,11 +751,18 @@ def backup_arquivos(request):
     erro = None
     itens = None
 
+    pasta_backup = (destino.diretorio_destino or '').rstrip('/')
+    eh_pasta_backup = (caminho.rstrip('/') == pasta_backup)
+    meses = None
+    sem_data = None
+
     if not destino.host or not destino.usuario:
         erro = 'Servidor de backup não configurado (host/usuário ausentes).'
     else:
         try:
             itens = backup_server.listar_diretorio(destino, caminho)
+            if eh_pasta_backup:
+                meses, sem_data = backup_server.agrupar_por_data(itens)
         except Exception as exc:
             erro = f'Erro ao listar diretório: {exc}'
 
@@ -767,6 +774,9 @@ def backup_arquivos(request):
         'pai': pai,
         'itens': itens,
         'erro': erro,
+        'meses': meses,
+        'sem_data': sem_data,
+        'eh_pasta_backup': eh_pasta_backup,
     })
 
 
