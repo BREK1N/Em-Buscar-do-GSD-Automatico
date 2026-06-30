@@ -28,6 +28,17 @@ def _cor_status(status):
     return 'em_andamento'
 
 
+def status_label(patd):
+    """Rótulo de status exibido nos relatórios — sinaliza PATDs arquivadas."""
+    if patd.arquivado:
+        return 'Arquivada'
+    return patd.get_status_display()
+
+
+def origem_label(patd):
+    return 'Sistema Antigo' if patd.sistema_antigo else 'Atual'
+
+
 @login_required
 @ouvidoria_required
 def relatorio_ouvidoria(request):
@@ -75,7 +86,7 @@ def relatorio_ouvidoria_json(request):
         ) or '—'
         patds_data.append({
             'pk': p.pk,
-            'numero':           p.numero_patd or '—',
+            'numero':           p.numero_patd or (f'(Antigo) {p.numero_patd_legado}' if p.numero_patd_legado else '—'),
             'saram':            str(p.militar.saram) if p.militar and p.militar.saram else '—',
             'militar':          p.militar.nome_guerra if p.militar else '—',
             'nome_completo':    p.militar.nome_completo if p.militar else '—',
@@ -83,11 +94,12 @@ def relatorio_ouvidoria_json(request):
             'setor':            p.militar.setor if p.militar else '—',
             'oficial':          str(p.oficial_responsavel) if p.oficial_responsavel else '—',
             'data_inicio':      p.data_inicio.strftime('%d/%m/%Y') if p.data_inicio else '—',
-            'data_ocorrencia':  p.data_ocorrencia.strftime('%d/%m/%Y') if p.data_ocorrencia else '—',
+            'data_ocorrencia':  p.data_inicio.strftime('%d/%m/%Y') if p.data_inicio else '—',
             'protocolo_comaer': p.protocolo_comaer or '—',
-            'status_display':   p.get_status_display(),
+            'status_display':   status_label(p),
             'status':           p.status,
-            'cor':              _cor_status(p.status),
+            'cor':              'arquivada' if p.arquivado else _cor_status(p.status),
+            'origem':           origem_label(p),
             'natureza':         p.natureza_transgressao or '—',
             'punicao':          p.punicao or '—',
             'dias_punicao':     p.dias_punicao or '—',
@@ -287,7 +299,7 @@ def relatorio_ouvidoria_excel(request):
     # ══════════════════════════════════════════════════════════════════════
     ws = wb.create_sheet('Processos')
 
-    ws.merge_cells('A1:L1')
+    ws.merge_cells('A1:M1')
     ws['A1'] = 'LISTA DE PROCESSOS PATD'
     ws['A1'].font = Font(bold=True, color='FFFFFF', size=13)
     ws['A1'].fill = F_DARK; ws['A1'].alignment = CENTER
@@ -295,8 +307,8 @@ def relatorio_ouvidoria_excel(request):
 
     headers = [
         'N° PATD', 'SARAM', 'Militar', 'Nome Completo', 'Posto',
-        'Setor', 'Oficial Apurador', 'Data Ocorrência',
-        'Status', 'Natureza', 'Punição', 'Itens Enquadrados',
+        'Setor', 'Oficial Apurador', 'Data de Início',
+        'Status', 'Natureza', 'Punição', 'Itens Enquadrados', 'Origem',
     ]
     for col, hdr in enumerate(headers, start=1):
         c = ws.cell(row=2, column=col, value=hdr)
@@ -313,18 +325,19 @@ def relatorio_ouvidoria_excel(request):
         ) or '—'
 
         row_data = [
-            patd.numero_patd or '—',
+            patd.numero_patd or (f'(Antigo) {patd.numero_patd_legado}' if patd.numero_patd_legado else '—'),
             str(patd.militar.saram) if patd.militar and patd.militar.saram else '—',
             patd.militar.nome_guerra if patd.militar else '—',
             patd.militar.nome_completo if patd.militar else '—',
             patd.militar.posto if patd.militar else '—',
             patd.militar.setor if patd.militar else '—',
             str(patd.oficial_responsavel) if patd.oficial_responsavel else '—',
-            patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else '—',
-            patd.get_status_display(),
+            patd.data_inicio.strftime('%d/%m/%Y') if patd.data_inicio else '—',
+            status_label(patd),
             patd.natureza_transgressao or '—',
             f"{patd.dias_punicao or ''} {patd.punicao or ''}".strip() or '—',
             itens_str,
+            origem_label(patd),
         ]
         for col, value in enumerate(row_data, start=1):
             c = ws.cell(row=row_idx, column=col, value=value)
@@ -345,7 +358,7 @@ def relatorio_ouvidoria_excel(request):
     ws.cell(row=tr, column=2, value=total).font = Font(bold=True, color='FFFFFF')
     ws.cell(row=tr, column=2).fill = F_AMBER; ws.cell(row=tr, column=2).alignment = CENTER
 
-    for col, w in enumerate([10, 10, 18, 28, 10, 16, 24, 14, 32, 16, 20, 22], start=1):
+    for col, w in enumerate([10, 10, 18, 28, 10, 16, 24, 14, 32, 16, 20, 22, 16], start=1):
         ws.column_dimensions[get_column_letter(col)].width = w
 
     ws.auto_filter.ref = f'A2:{get_column_letter(len(headers))}{ws.max_row}'
@@ -374,11 +387,11 @@ def relatorio_ouvidoria_excel(request):
         sfc = status_font_color(patd.status)
         alt = F_ALT if row_idx % 2 == 0 else None
         row_data = [
-            patd.numero_patd or '—',
+            patd.numero_patd or (f'(Antigo) {patd.numero_patd_legado}' if patd.numero_patd_legado else '—'),
             f"{patd.militar.posto or ''} {patd.militar.nome_guerra or ''}".strip() if patd.militar else '—',
             patd.transgressao or '—',
             patd.texto_relatorio or '—',
-            patd.get_status_display(),
+            status_label(patd),
         ]
         for col, value in enumerate(row_data, start=1):
             c = ws_ap.cell(row=row_idx, column=col, value=str(value))

@@ -96,6 +96,7 @@ urlpatterns = [
     path('relatorio/', views.relatorio_ouvidoria, name='relatorio_ouvidoria'),
     path('relatorio/dados.json', views.relatorio_ouvidoria_json, name='relatorio_ouvidoria_json'),
     path('relatorio/exportar.xlsx', views.relatorio_ouvidoria_excel, name='relatorio_ouvidoria_excel'),
+    path('relatorio/importar-legado/', views.importar_patd_legado, name='importar_patd_legado'),
 
     # API
     path('api/search-militares/', views.search_militares_json, name='search_militares_json'),

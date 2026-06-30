@@ -469,8 +469,8 @@ def _get_document_context(patd, for_docx=False, doc_name=None):
         '{Ano}': ano_fmt,
 
         # Dados do Militar Arrolado
-        '{Militar Arrolado}': format_militar_string(patd.militar),
-        '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', '[Não informado]')),
+        '{Militar Arrolado}': format_militar_string(patd.militar) if patd.militar_id else (patd.militar_nome_guerra_snapshot or patd.militar_nome_completo_snapshot or '[Militar excluído]'),
+        '{Saram Militar Arrolado}': str(getattr(patd.militar, 'saram', None) or patd.militar_saram_snapshot or '[Não informado]'),
         '{Setor Militar Arrolado}': getattr(patd.militar, 'setor', '[Não informado]') ,
 
         # Dados do Oficial Apurador

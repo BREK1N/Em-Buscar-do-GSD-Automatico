@@ -30,6 +30,7 @@ from .decorators import (
     oficial_responsavel_required, ComandanteAccessMixin,
 )
 from .helpers import _sync_oficial_signature, get_document_pages
+from .relatorio import status_label, origem_label
 from ..permissions import OUVIDORIA_CHEFE, OUVIDORIA_APURADOR, OUVIDORIA_ADJUNTO, OUVIDORIA_CB, OUVIDORIA_S2, COMANDANTE
 from auditoria.utils import registrar, resolver_label
 
@@ -464,13 +465,13 @@ def relatorio_json(request):
     for p in qs[:200]:
         patds_data.append({
             'pk': p.pk,
-            'numero': p.numero_patd or '—',
+            'numero': p.numero_patd or (f'(Antigo) {p.numero_patd_legado}' if p.numero_patd_legado else '—'),
             'militar': str(p.militar) if p.militar else '—',
             'oficial': str(p.oficial_responsavel) if p.oficial_responsavel else '—',
             'data_inicio': p.data_inicio.strftime('%d/%m/%Y') if p.data_inicio else '—',
-            'data_ocorrencia': p.data_ocorrencia.strftime('%d/%m/%Y') if p.data_ocorrencia else '—',
-            'status_display': p.get_status_display(),
+            'status_display': status_label(p),
             'status': p.status,
+            'origem': origem_label(p),
         })
 
     total = qs.count()
@@ -656,7 +657,7 @@ def relatorio_excel(request):
     ws = wb.create_sheet('Processos')
 
     # Título
-    ws.merge_cells('A1:H1')
+    ws.merge_cells('A1:I1')
     ws['A1'] = 'LISTA DE PROCESSOS'
     ws['A1'].font = Font(bold=True, color='FFFFFF', size=13)
     ws['A1'].fill = fill_dark
@@ -664,7 +665,7 @@ def relatorio_excel(request):
     ws.row_dimensions[1].height = 28
 
     # Cabeçalho tabela
-    headers = ['N° PATD', 'Militar Acusado', 'Posto', 'Oficial Apurador', 'Data Início', 'Data Ocorrência', 'Status', 'Punição', 'Itens Enquadrados']
+    headers = ['N° PATD', 'Militar Acusado', 'Posto', 'Oficial Apurador', 'Data de Início', 'Status', 'Punição', 'Itens Enquadrados', 'Origem']
     for col, hdr in enumerate(headers, start=1):
         cell = ws.cell(row=2, column=col, value=hdr)
         cell.font = Font(bold=True, color='FFFFFF', size=10)
@@ -680,15 +681,15 @@ def relatorio_excel(request):
         row_fill = fill_alt if is_alt else None
         itens_str = ', '.join([str(i.get('numero', '')) for i in (patd.itens_enquadrados or []) if isinstance(i, dict) and i.get('numero')]) or '—'
         row_data = [
-            patd.numero_patd or '—',
+            patd.numero_patd or (f'(Antigo) {patd.numero_patd_legado}' if patd.numero_patd_legado else '—'),
             patd.militar.nome_guerra if patd.militar else '—',
             patd.militar.posto if patd.militar else '—',
             str(patd.oficial_responsavel) if patd.oficial_responsavel else '—',
             patd.data_inicio.strftime('%d/%m/%Y') if patd.data_inicio else '—',
-            patd.data_ocorrencia.strftime('%d/%m/%Y') if patd.data_ocorrencia else '—',
-            patd.get_status_display(),
+            status_label(patd),
             getattr(patd, 'punicao', '') or '—',
             itens_str,
+            origem_label(patd),
         ]
         for col, value in enumerate(row_data, start=1):
             cell = ws.cell(row=row_idx, column=col, value=value)
@@ -708,7 +709,7 @@ def relatorio_excel(request):
     ws.cell(row=total_row, column=2).alignment = center
 
     # Larguras colunas processos
-    for col, w in enumerate([10, 22, 14, 24, 14, 16, 30, 20, 22], start=1):
+    for col, w in enumerate([10, 22, 14, 24, 14, 30, 20, 22, 16], start=1):
         ws.column_dimensions[get_column_letter(col)].width = w
 
     # Auto-filter e freeze

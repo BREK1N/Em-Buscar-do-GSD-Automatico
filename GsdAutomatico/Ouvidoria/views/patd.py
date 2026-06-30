@@ -1660,7 +1660,8 @@ def finalizar_patd_completa(request, pk):
 
         patd.save()
 
-        messages.success(request, f"PATD Nº {patd.numero_patd} de {patd.militar.nome_guerra} foi finalizada, documentada e arquivada com sucesso!")
+        nome_militar = patd.militar.nome_guerra if patd.militar_id else (patd.militar_nome_guerra_snapshot or "militar excluído")
+        messages.success(request, f"PATD Nº {patd.numero_patd} de {nome_militar} foi finalizada, documentada e arquivada com sucesso!")
         return redirect('Ouvidoria:patd_detail', pk=pk)
 
     except Exception as e:

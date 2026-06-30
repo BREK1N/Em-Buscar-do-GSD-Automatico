@@ -140,7 +140,11 @@ class PATD(models.Model):
     objects = PATDManager()
     all_objects = models.Manager()
 
-    militar = models.ForeignKey(Efetivo, on_delete=models.CASCADE, related_name='patds', verbose_name="Militar Acusado")
+    militar = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, null=True, blank=True, related_name='patds', verbose_name="Militar Acusado")
+    militar_nome_completo_snapshot = models.CharField(max_length=255, blank=True, null=True, verbose_name="Nome Completo do Militar (registro histórico)")
+    militar_nome_guerra_snapshot = models.CharField(max_length=100, blank=True, null=True, verbose_name="Nome de Guerra do Militar (registro histórico)")
+    militar_posto_snapshot = models.CharField(max_length=50, blank=True, null=True, verbose_name="Posto/Graduação do Militar (registro histórico)")
+    militar_saram_snapshot = models.IntegerField(blank=True, null=True, verbose_name="SARAM do Militar (registro histórico)")
     transgressao = models.TextField(verbose_name="Transgressão")
     ocorrencia_reescrita = models.TextField(blank=True, null=True, verbose_name="Ocorrência Reescrita (Formal)")
     numero_patd = models.IntegerField(null=True, blank=True, verbose_name="N° PATD")
@@ -247,6 +251,8 @@ class PATD(models.Model):
     restored_at = models.DateTimeField(null=True, blank=True, verbose_name="Data de Restauração")
     restored_by = models.ForeignKey(Efetivo, on_delete=models.SET_NULL, null=True, blank=True, related_name='restored_patds', verbose_name="Restaurado por")
     prazo_override = models.DateTimeField(null=True, blank=True, verbose_name="Prazo de Defesa (override)")
+    sistema_antigo = models.BooleanField(default=False, db_index=True, verbose_name="Importado do Sistema Antigo")
+    numero_patd_legado = models.CharField(max_length=20, blank=True, null=True, verbose_name="N° PATD (Sistema Antigo)")
 
     # --- INÍCIO DAS MODIFICAÇÕES SOLICITADAS ---
     def calcular_e_atualizar_comportamento(self):
@@ -374,7 +380,8 @@ class PATD(models.Model):
         return None
 
     def __str__(self):
-        return f"PATD N° {self.numero_patd} - {self.militar.nome_guerra}"
+        nome = self.militar.nome_guerra if self.militar_id else (self.militar_nome_guerra_snapshot or self.militar_nome_completo_snapshot or "Militar excluído")
+        return f"PATD N° {self.numero_patd} - {nome}"
 
     def save(self, *args, **kwargs):
         from datetime import date as _date
@@ -393,6 +400,14 @@ class PATD(models.Model):
                 ]
         if self.circunstancias is not None and not isinstance(self.circunstancias, dict):
             self.circunstancias = None
+
+        # Mantém um retrato dos dados do militar para que a PATD continue
+        # identificável mesmo se o militar for excluído (PATD.militar usa SET_NULL).
+        if self.militar_id:
+            self.militar_nome_completo_snapshot = self.militar.nome_completo
+            self.militar_nome_guerra_snapshot = self.militar.nome_guerra
+            self.militar_posto_snapshot = self.militar.posto
+            self.militar_saram_snapshot = self.militar.saram
 
         is_new = self.pk is None
         if not is_new:

@@ -90,6 +90,10 @@ from .relatorio import (
     relatorio_ouvidoria_excel,
 )
 
+from .importacao_legado import (
+    importar_patd_legado,
+)
+
 from .patd import (
     index,
     PATDListView,

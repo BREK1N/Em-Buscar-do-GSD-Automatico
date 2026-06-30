@@ -25,6 +25,8 @@
 .ro-pill-white  { background: #f3f4f6; color: #374151; border: 1px solid #d1d5db; }
 .ro-pill-yellow { background: #fef3c7; color: #78350f; border: 1px solid #fde68a; }
 .ro-pill-green  { background: #dcfce7; color: #14532d; border: 1px solid #bbf7d0; }
+.ro-pill-gray   { background: #e5e7eb; color: #4b5563; border: 1px solid #9ca3af; }
+.ro-origin-tag  { font-size: .68rem; color: #6b7280; border: 1px solid #d1d5db; border-radius: 4px; padding: 1px 5px; margin-left: 4px; white-space: nowrap; }
 
 .ro-patd-link { font-weight: 700; color: var(--accent-color); text-decoration: none; }
 .ro-patd-link:hover { text-decoration: underline; }
@@ -145,6 +147,18 @@
                 Exportar para Excel
             </a>
 
+            <button type="button" id="btn-import-legado" class="btn-export-excel" style="cursor:pointer;border:none;width:100%;">
+                <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M7.5 7.5 12 3m0 0 4.5 4.5M12 3v13.5"/>
+                </svg>
+                Importar Histórico Antigo
+            </button>
+            <form id="form-import-legado" method="post" enctype="multipart/form-data"
+                  action="{% url 'Ouvidoria:importar_patd_legado' %}" style="display:none;">
+                {% csrf_token %}
+                <input type="file" id="input-import-legado" name="excel_file" accept=".xlsx,.xls,.xlsb">
+            </form>
+
             <div>
                 <div class="f-divider" style="margin-bottom:8px;">Legenda</div>
                 <div class="ro-legend-pills">
@@ -200,15 +214,16 @@
                             <th>Posto</th>
                             <th>Setor</th>
                             <th>Oficial Apurador</th>
-                            <th>Data Ocorrência</th>
+                            <th>Data de Início</th>
                             <th>Status</th>
                             <th>Natureza</th>
                             <th>Punição</th>
                             <th>Itens</th>
+                            <th>Origem</th>
                         </tr>
                     </thead>
                     <tbody id="report-tbody">
-                        <tr class="empty-row"><td colspan="12">Use os filtros ao lado para buscar processos.</td></tr>
+                        <tr class="empty-row"><td colspan="13">Use os filtros ao lado para buscar processos.</td></tr>
                     </tbody>
                 </table>
             </div>
@@ -328,6 +343,7 @@
 
     /* ── Apply filters ────────────────────────────────────────────────── */
     function pillClass(cor) {
+        if (cor === 'arquivada')    return 'ro-pill-gray';
         if (cor === 'finalizado')   return 'ro-pill-green';
         if (cor === 'nao_iniciado') return 'ro-pill-white';
         return 'ro-pill-yellow';
@@ -353,7 +369,7 @@
 
             var tbody = document.getElementById('report-tbody');
             if (!data.patds.length) {
-                tbody.innerHTML = '<tr class="empty-row"><td colspan="12">Nenhum resultado encontrado.</td></tr>';
+                tbody.innerHTML = '<tr class="empty-row"><td colspan="13">Nenhum resultado encontrado.</td></tr>';
                 return;
             }
             tbody.innerHTML = data.patds.map(function(p){
@@ -366,22 +382,34 @@
                     '<td>' + p.posto + '</td>' +
                     '<td>' + p.setor + '</td>' +
                     '<td>' + p.oficial + '</td>' +
-                    '<td>' + p.data_ocorrencia + '</td>' +
+                    '<td>' + p.data_inicio + '</td>' +
                     '<td><span class="ro-pill ' + pillClass(p.cor) + '">' + p.status_display + '</span></td>' +
                     '<td>' + p.natureza + '</td>' +
                     '<td>' + punicao + '</td>' +
                     '<td style="font-size:.73rem;color:var(--text-secondary);">' + p.itens + '</td>' +
+                    '<td>' + (p.origem === 'Sistema Antigo' ? '<span class="ro-origin-tag">Sistema Antigo</span>' : 'Atual') + '</td>' +
                 '</tr>';
             }).join('');
         })
         .catch(function(){
             document.getElementById('report-loading').style.display = 'none';
             document.getElementById('report-tbody').innerHTML =
-                '<tr class="empty-row"><td colspan="12">Erro ao carregar dados. Tente novamente.</td></tr>';
+                '<tr class="empty-row"><td colspan="13">Erro ao carregar dados. Tente novamente.</td></tr>';
         });
     }
 
     document.getElementById('btn-apply').addEventListener('click', applyFilters);
+
+    /* ── Importar histórico antigo ───────────────────────────────────── */
+    var importInput = document.getElementById('input-import-legado');
+    document.getElementById('btn-import-legado').addEventListener('click', function(){
+        importInput.click();
+    });
+    importInput.addEventListener('change', function(){
+        if (importInput.files && importInput.files.length) {
+            document.getElementById('form-import-legado').submit();
+        }
+    });
 
     /* ── Limpar ───────────────────────────────────────────────────────── */
     document.getElementById('btn-clear-all').addEventListener('click', function(){
