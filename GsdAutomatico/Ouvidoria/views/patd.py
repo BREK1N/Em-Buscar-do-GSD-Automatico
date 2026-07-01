@@ -190,26 +190,32 @@ def index(request):
             term = request.POST.get('term', '').strip()
             if not term or len(term) < 2:
                 return JsonResponse({'results': []})
-            
-            # Busca por Nome de Guerra ou Nome Completo ou SARAM
-            militares = Efetivo.objects.filter(
-                Q(nome_guerra__icontains=term) |
-                Q(nome_completo__icontains=term) |
-                Q(saram__icontains=term)
-            )[:10] # Limita a 10 resultados para não pesar
 
+            # Detecta se o primeiro token é um posto (ex: "S2 D. paula", "CB conceição")
+            POSTOS = {'S1', 'S2', 'CB', '1S', '2S', '3S', 'ST', 'SGT',
+                      'CAP', 'MAJ', 'TC', 'CEL', '1T', '2T', 'ASP', 'TEN'}
+            tokens = term.split()
+            if len(tokens) > 1 and tokens[0].upper() in POSTOS:
+                posto_termo = tokens[0].upper()
+                nome_termo = ' '.join(tokens[1:])
+                militares = Efetivo.objects.filter(
+                    Q(posto__iexact=posto_termo),
+                ).filter(
+                    Q(nome_guerra__icontains=nome_termo) |
+                    Q(nome_completo__icontains=nome_termo)
+                )[:10]
+            else:
+                militares = Efetivo.objects.filter(
+                    Q(nome_guerra__icontains=term) |
+                    Q(nome_completo__icontains=term) |
+                    Q(saram__icontains=term)
+                )[:10]
 
-            results = []
-            for m in militares:
-                results.append({
-                    'id': m.id,
-                    'posto': m.posto,
-                    'nome_guerra': m.nome_guerra,
-                    'nome_completo': m.nome_completo,
-                    'saram': m.saram or 'N/A'
-                })
-
-            
+            results = [
+                {'id': m.id, 'posto': m.posto, 'nome_guerra': m.nome_guerra,
+                 'nome_completo': m.nome_completo, 'saram': m.saram or 'N/A'}
+                for m in militares
+            ]
             return JsonResponse({'results': results})
 
         # --- NOVO BLOCO 2: Associar Transgressão a Militar Existente ---
@@ -763,6 +769,7 @@ class PATDListView(ListView):
             count = base_qs.filter(status__in=phase['statuses']).count()
             phases_with_counts.append({**phase, 'count': count})
         context['phase_groups'] = phases_with_counts
+        context['count_retornadas_cmd'] = base_qs.filter(status='aguardando_punicao_alterar').count()
 
         # Ano selecionado
         context['ano'] = _ano_str
@@ -852,6 +859,12 @@ class PATDDetailView(DetailView):
         # e o status ainda não foi atualizado.
         if patd.status == 'em_reconsideracao':
             _check_and_advance_reconsideracao_status(patd.pk)
+
+        # Verificação proativa para NPD: se todas as assinaturas já estão presentes
+        # (ex.: assinadas antes de uma correção de código), avança automaticamente.
+        if patd.status == 'aguardando_assinatura_npd':
+            if _check_and_finalize_patd(patd):
+                patd.refresh_from_db()
 
         document_pages = get_document_pages(patd)
         context['documento_texto_json'] = json.dumps(document_pages)

@@ -1,219 +1,537 @@
 {% extends 'base.html' %}
-
 {% block title %}Minhas Atribuições de PATD{% endblock %}
 
 {% block content %}
 <style>
-    /* Estilos para as abas, similar ao patd_detail.html */
-    .tabs-nav { display: flex; border-bottom: 1px solid var(--border-color); margin-bottom: 20px; }
-    .tabs-nav a { padding: 10px 20px; text-decoration: none; color: var(--text-secondary); border-bottom: 3px solid transparent; margin-bottom: -1px; /* Alinha com a borda inferior */ cursor: pointer; display: flex; align-items: center; gap: 8px; }
-    .tabs-nav a.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+/* ── Tabs ────────────────────────────────────────────────────── */
+.atr-tabs {
+    display: flex;
+    gap: 4px;
+    border-bottom: 2px solid var(--border-color);
+    margin-bottom: 24px;
+}
+.atr-tab {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 10px 20px;
+    text-decoration: none;
+    color: var(--text-secondary);
+    font-weight: 500;
+    font-size: .9rem;
+    border-bottom: 3px solid transparent;
+    margin-bottom: -2px;
+    border-radius: 6px 6px 0 0;
+    transition: color .15s, border-color .15s, background .15s;
+}
+.atr-tab:hover { color: var(--text-primary); background: var(--bg-card-header); }
+.atr-tab.active { color: var(--accent-color); border-bottom-color: var(--accent-color); }
+.atr-badge {
+    background: var(--accent-color);
+    color: #fff;
+    font-size: .72rem;
+    font-weight: 700;
+    padding: 2px 7px;
+    border-radius: 99px;
+    line-height: 1.4;
+    min-width: 20px;
+    text-align: center;
+}
+.atr-badge.danger { background: #ef4444; }
+
+/* ── Filtros (tab Todas) ─────────────────────────────────────── */
+.atr-filters {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    margin-bottom: 16px;
+    padding: 14px 16px;
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+}
+.atr-filters input[type=text],
+.atr-filters select {
+    background: var(--bg-content);
+    color: var(--text-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    padding: 7px 12px;
+    font-size: .88rem;
+    outline: none;
+    transition: border-color .15s;
+}
+.atr-filters input[type=text]:focus,
+.atr-filters select:focus { border-color: var(--accent-color); }
+.atr-filters input[type=text] { flex: 1; min-width: 200px; }
+.atr-org-toggle {
+    display: flex;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    overflow: hidden;
+}
+.atr-org-toggle a {
+    padding: 7px 14px;
+    font-size: .85rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    text-decoration: none;
+    background: var(--bg-content);
+    transition: background .15s, color .15s;
+}
+.atr-org-toggle a.active { background: var(--accent-color); color: #fff; }
+.atr-org-toggle a:not(:last-child) { border-right: 1px solid var(--border-color); }
+.atr-th-sort {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    color: var(--text-secondary);
+    text-decoration: none;
+    font-size: .78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    cursor: pointer;
+}
+.atr-th-sort:hover { color: var(--accent-color); }
+.atr-th-sort.active { color: var(--accent-color); }
+
+/* ── Tabela ──────────────────────────────────────────────────── */
+.atr-table-wrap { border: 1px solid var(--border-color); border-radius: 10px; overflow: hidden; }
+.atr-table { width: 100%; border-collapse: collapse; font-size: .9rem; }
+.atr-table th {
+    background: var(--bg-card-header);
+    color: var(--text-secondary);
+    font-size: .78rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: .04em;
+    padding: 10px 16px;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+.atr-table td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--border-color);
+    vertical-align: middle;
+    color: var(--text-primary);
+}
+.atr-table tbody tr:last-child td { border-bottom: none; }
+.atr-table tbody tr:hover { background: var(--bg-card-header); }
+
+/* ── Status badges ───────────────────────────────────────────── */
+.s-badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 99px;
+    font-size: .75rem;
+    font-weight: 700;
+    white-space: nowrap;
+}
+.s-aguardando_aprovacao_atribuicao { background: rgba(245,158,11,.15); color: #b45309; border: 1px solid rgba(245,158,11,.3); }
+.s-em_apuracao                     { background: rgba(37,99,235,.12);  color: #1d4ed8; border: 1px solid rgba(37,99,235,.25); }
+.s-apuracao_preclusao              { background: rgba(249,115,22,.12); color: #c2410c; border: 1px solid rgba(249,115,22,.25); }
+.s-aguardando_punicao              { background: rgba(124,58,237,.12); color: #6d28d9; border: 1px solid rgba(124,58,237,.25); }
+.s-aguardando_punicao_alterar      { background: rgba(249,115,22,.12); color: #c2410c; border: 1px solid rgba(249,115,22,.25); }
+.s-analise_oficial_apurador        { background: rgba(8,145,178,.12);  color: #0e7490; border: 1px solid rgba(8,145,178,.3);  font-weight:800; }
+.s-analise_comandante              { background: rgba(100,116,139,.12); color: #475569; border: 1px solid rgba(100,116,139,.25); }
+.s-aguardando_assinatura_npd       { background: rgba(124,58,237,.12); color: #6d28d9; border: 1px solid rgba(124,58,237,.25); }
+.s-finalizado                      { background: rgba(22,163,74,.12);  color: #15803d; border: 1px solid rgba(22,163,74,.25); }
+.s-default                         { background: rgba(100,116,139,.1); color: var(--text-secondary); border: 1px solid var(--border-color); }
+
+/* ── Org chips ───────────────────────────────────────────────── */
+.org-chip {
+    display: inline-block;
+    padding: 2px 8px;
+    border-radius: 5px;
+    font-size: .72rem;
+    font-weight: 700;
+}
+.org-gsd   { background: rgba(37,99,235,.12); color: #1d4ed8; }
+.org-binfae { background: rgba(124,58,237,.12); color: #6d28d9; }
+
+/* ── Card de "Analisar e Assinar" ────────────────────────────── */
+.analise-card {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-left: 4px solid var(--accent-color);
+    border-radius: 10px;
+    padding: 16px 20px;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+    margin-bottom: 12px;
+    transition: box-shadow .15s;
+}
+.analise-card:hover { box-shadow: var(--box-shadow); }
+.analise-card-num {
+    font-size: 1.4rem;
+    font-weight: 800;
+    color: var(--accent-color);
+    white-space: nowrap;
+    min-width: 60px;
+}
+.analise-card-info { flex: 1; }
+.analise-card-militar { font-weight: 700; color: var(--text-primary); font-size: .95rem; }
+.analise-card-desc { color: var(--text-secondary); font-size: .83rem; margin-top: 3px; }
+.analise-card-meta { display: flex; gap: 10px; margin-top: 6px; flex-wrap: wrap; }
+
+/* ── Paginação ───────────────────────────────────────────────── */
+.atr-pagination {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-top: 16px;
+    flex-wrap: wrap;
+    gap: 10px;
+}
+.atr-pagination-info { color: var(--text-secondary); font-size: .85rem; }
+.atr-page-links { display: flex; gap: 4px; }
+.atr-page-links a,
+.atr-page-links span {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    min-width: 34px;
+    height: 34px;
+    padding: 0 8px;
+    border-radius: 6px;
+    font-size: .85rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    background: var(--bg-content);
+    transition: border-color .15s, color .15s, background .15s;
+}
+.atr-page-links a:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.atr-page-links span.current { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+.atr-page-links span.disabled { opacity: .4; cursor: not-allowed; }
+
+/* ── Empty state ─────────────────────────────────────────────── */
+.atr-empty {
+    text-align: center;
+    padding: 48px 20px;
+    color: var(--text-secondary);
+}
+.atr-empty svg { opacity: .3; margin-bottom: 12px; }
+.atr-empty p { font-size: .95rem; }
 </style>
 
-<h1>Minhas Atribuições de PATD</h1>
-<p>Gerencie os processos administrativos que foram atribuídos a você.</p>
+<div style="display:flex;align-items:center;gap:14px;margin-bottom:6px;">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor" style="width:28px;height:28px;color:var(--accent-color)">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12h3.75M9 15h3.75M9 18h3.75m3 .75H18a2.25 2.25 0 002.25-2.25V6.108c0-1.135-.845-2.098-1.976-2.192a48.424 48.424 0 00-1.123-.08m-5.801 0c-.065.21-.1.433-.1.664 0 .414.336.75.75.75h4.5a.75.75 0 00.75-.75 2.25 2.25 0 00-.1-.664m-5.8 0A2.251 2.251 0 0113.5 2.25H15c1.012 0 1.867.668 2.15 1.586m-5.8 0c-.376.023-.75.05-1.124.08C9.095 4.01 8.25 4.973 8.25 6.108V8.25m0 0H4.875c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125h9.75c.621 0 1.125-.504 1.125-1.125V9.375c0-.621-.504-1.125-1.125-1.125H8.25zM6.75 12h.008v.008H6.75V12zm0 3h.008v.008H6.75V15zm0 3h.008v.008H6.75V18z"/>
+    </svg>
+    <div>
+        <h1 style="margin:0;font-size:1.4rem;">Minhas Atribuições de PATD</h1>
+        <p style="margin:0;color:var(--text-secondary);font-size:.88rem;">Processos atribuídos a você como Oficial Apurador</p>
+    </div>
+</div>
 
-<nav class="tabs-nav">
-    <a href="{% url 'Ouvidoria:patd_atribuicoes_pendentes' %}?tab=aprovar" class="tab-link {% if active_tab == 'aprovar' %}active{% endif %}">
-        <span>Para Aprovar</span>
-        {% if count_aprovar > 0 %}<span class="badge">{{ count_aprovar }}</span>{% endif %}
+<nav class="atr-tabs">
+    <a href="?tab=analise_assinar" class="atr-tab {% if active_tab == 'analise_assinar' %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width:16px;height:16px">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125M18 14v4.75A2.25 2.25 0 0115.75 21H5.25A2.25 2.25 0 013 18.75V8.25A2.25 2.25 0 015.25 6H10"/>
+        </svg>
+        Analisar e Assinar
+        {% if count_analise > 0 %}
+            <span class="atr-badge danger">{{ count_analise }}</span>
+        {% endif %}
     </a>
-    <a href="{% url 'Ouvidoria:patd_atribuicoes_pendentes' %}?tab=apuracao" class="tab-link {% if active_tab == 'apuracao' %}active{% endif %}">
-        <span>Em Apuração</span>
-        {% if count_apuracao > 0 %}<span class="badge">{{ count_apuracao }}</span>{% endif %}
+    <a href="?tab=retornadas" class="atr-tab {% if active_tab == 'retornadas' %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width:16px;height:16px">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>
+        </svg>
+        Retornadas pelo Comandante
+        {% if count_retornadas > 0 %}
+            <span class="atr-badge danger">{{ count_retornadas }}</span>
+        {% endif %}
     </a>
-    <a href="{% url 'Ouvidoria:patd_atribuicoes_pendentes' %}?tab=todas" class="tab-link {% if active_tab == 'todas' %}active{% endif %}">
+    <a href="?tab=todas" class="atr-tab {% if active_tab == 'todas' %}active{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width:16px;height:16px">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+        </svg>
         Todas as Atribuições
     </a>
 </nav>
 
-<div class="table-responsive">
-    <table class="data-table">
+{# ══════════════════════════════════════════════════════════════ #}
+{# TAB: Analisar e Assinar                                       #}
+{# ══════════════════════════════════════════════════════════════ #}
+{% if active_tab == 'analise_assinar' %}
+
+{% if page_obj.object_list %}
+<div style="margin-bottom:12px;color:var(--text-secondary);font-size:.85rem;">
+    {{ page_obj.paginator.count }} PATD{{ page_obj.paginator.count|pluralize }} aguardando sua análise e assinatura
+</div>
+
+{% for patd in page_obj %}
+<div class="analise-card">
+    <div class="analise-card-num">{{ patd.numero_patd|default:"—" }}</div>
+    <div class="analise-card-info">
+        <div class="analise-card-militar">
+            {% if patd.militar %}{{ patd.militar }}{% else %}{{ patd.militar_posto_snapshot }} {{ patd.militar_nome_guerra_snapshot|default:"Militar não informado" }}{% endif %}
+        </div>
+        <div class="analise-card-desc">Revise a apuração, assine a análise e envie ao Comandante</div>
+        <div class="analise-card-meta">
+            <span class="org-chip {% if patd.organizacao == 'GSD' %}org-gsd{% else %}org-binfae{% endif %}">{{ patd.organizacao }}</span>
+            {% if patd.data_ocorrencia %}
+            <span style="color:var(--text-secondary);font-size:.78rem;">Ocorrência: {{ patd.data_ocorrencia|date:"d/m/Y" }}</span>
+            {% endif %}
+            {% if patd.transgressao %}
+            <span style="color:var(--text-secondary);font-size:.78rem;max-width:400px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;" title="{{ patd.transgressao }}">{{ patd.transgressao|truncatechars:80 }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-primary" style="white-space:nowrap;flex-shrink:0;">
+        Ir para PATD
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:14px;height:14px;margin-left:4px;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+        </svg>
+    </a>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="atr-empty">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" style="width:56px;height:56px;display:block;margin:0 auto 12px;">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <p>Nenhuma PATD aguardando análise e assinatura no momento.</p>
+</div>
+{% endif %}
+
+{% if page_obj.has_other_pages %}
+<div class="atr-pagination">
+    <div class="atr-pagination-info">
+        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }} &mdash; {{ page_obj.paginator.count }} registro{{ page_obj.paginator.count|pluralize }}
+    </div>
+    <div class="atr-page-links">
+        {% if page_obj.has_previous %}
+            <a href="?tab=analise_assinar&page=1">«</a>
+            <a href="?tab=analise_assinar&page={{ page_obj.previous_page_number }}">‹</a>
+        {% else %}
+            <span class="disabled">«</span><span class="disabled">‹</span>
+        {% endif %}
+        <span class="current">{{ page_obj.number }}</span>
+        {% if page_obj.has_next %}
+            <a href="?tab=analise_assinar&page={{ page_obj.next_page_number }}">›</a>
+            <a href="?tab=analise_assinar&page={{ page_obj.paginator.num_pages }}">»</a>
+        {% else %}
+            <span class="disabled">›</span><span class="disabled">»</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════════ #}
+{# TAB: Retornadas pelo Comandante                               #}
+{# ══════════════════════════════════════════════════════════════ #}
+{% elif active_tab == 'retornadas' %}
+
+{% if page_obj.object_list %}
+<div style="margin-bottom:12px;color:var(--text-secondary);font-size:.85rem;">
+    {{ page_obj.paginator.count }} PATD{{ page_obj.paginator.count|pluralize }} retornada{{ page_obj.paginator.count|pluralize }} pelo Comandante aguardando correção
+</div>
+
+{% for patd in page_obj %}
+<div class="analise-card" style="border-left-color:#ef4444;">
+    <div class="analise-card-num" style="color:#ef4444;">{{ patd.numero_patd|default:"—" }}</div>
+    <div class="analise-card-info">
+        <div class="analise-card-militar">
+            {% if patd.militar %}{{ patd.militar }}{% else %}{{ patd.militar_posto_snapshot }} {{ patd.militar_nome_guerra_snapshot|default:"Militar não informado" }}{% endif %}
+        </div>
+        {% if patd.comentario_comandante %}
+        <div style="margin-top:6px;padding:8px 12px;background:rgba(239,68,68,.07);border:1px solid rgba(239,68,68,.2);border-radius:6px;font-size:.82rem;color:var(--text-primary);">
+            <span style="font-weight:700;color:#b91c1c;">Obs. do Comandante:</span> {{ patd.comentario_comandante }}
+        </div>
+        {% else %}
+        <div class="analise-card-desc">O Comandante retornou esta PATD para alteração da punição</div>
+        {% endif %}
+        <div class="analise-card-meta">
+            <span class="org-chip {% if patd.organizacao == 'GSD' %}org-gsd{% else %}org-binfae{% endif %}">{{ patd.organizacao }}</span>
+            {% if patd.data_ocorrencia %}
+            <span style="color:var(--text-secondary);font-size:.78rem;">Ocorrência: {{ patd.data_ocorrencia|date:"d/m/Y" }}</span>
+            {% endif %}
+        </div>
+    </div>
+    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-danger" style="white-space:nowrap;flex-shrink:0;">
+        Corrigir PATD
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" style="width:14px;height:14px;margin-left:4px;">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 4.5L21 12m0 0l-7.5 7.5M21 12H3"/>
+        </svg>
+    </a>
+</div>
+{% endfor %}
+
+{% else %}
+<div class="atr-empty">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" style="width:56px;height:56px;display:block;margin:0 auto 12px;">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+    </svg>
+    <p>Nenhuma PATD retornada pelo Comandante no momento.</p>
+</div>
+{% endif %}
+
+{% if page_obj.has_other_pages %}
+<div class="atr-pagination">
+    <div class="atr-pagination-info">
+        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }} &mdash; {{ page_obj.paginator.count }} registro{{ page_obj.paginator.count|pluralize }}
+    </div>
+    <div class="atr-page-links">
+        {% if page_obj.has_previous %}
+            <a href="?tab=retornadas&page=1">«</a>
+            <a href="?tab=retornadas&page={{ page_obj.previous_page_number }}">‹</a>
+        {% else %}
+            <span class="disabled">«</span><span class="disabled">‹</span>
+        {% endif %}
+        <span class="current">{{ page_obj.number }}</span>
+        {% if page_obj.has_next %}
+            <a href="?tab=retornadas&page={{ page_obj.next_page_number }}">›</a>
+            <a href="?tab=retornadas&page={{ page_obj.paginator.num_pages }}">»</a>
+        {% else %}
+            <span class="disabled">›</span><span class="disabled">»</span>
+        {% endif %}
+    </div>
+</div>
+{% endif %}
+
+{# ══════════════════════════════════════════════════════════════ #}
+{# TAB: Todas as Atribuições                                     #}
+{# ══════════════════════════════════════════════════════════════ #}
+{% else %}
+
+<form method="get" action="" id="filtros-form">
+    <input type="hidden" name="tab" value="todas">
+    <div class="atr-filters">
+        <input type="text" name="q" value="{{ q }}" placeholder="Buscar por N° PATD, nome, nome completo ou SARAM…" id="busca-input">
+        <div class="atr-org-toggle">
+            <a href="?tab=todas{% if q %}&q={{ q }}{% endif %}&order={{ order }}" class="{% if not org_filter %}active{% endif %}">Todas</a>
+            <a href="?tab=todas{% if q %}&q={{ q }}{% endif %}&order={{ order }}&org=GSD" class="{% if org_filter == 'GSD' %}active{% endif %}">GSD</a>
+            <a href="?tab=todas{% if q %}&q={{ q }}{% endif %}&order={{ order }}&org=BINFAE" class="{% if org_filter == 'BINFAE' %}active{% endif %}">BINFAE</a>
+        </div>
+        <button type="submit" class="btn btn-primary" style="white-space:nowrap;">Buscar</button>
+        {% if q or org_filter %}
+        <a href="?tab=todas" class="btn btn-secondary" style="white-space:nowrap;">Limpar</a>
+        {% endif %}
+    </div>
+</form>
+
+{% if page_obj.object_list %}
+<div class="atr-table-wrap">
+    <table class="atr-table">
         <thead>
             <tr>
-                <th>N° PATD</th>
+                <th>
+                    <a href="?tab=todas{% if q %}&q={{ q }}{% endif %}{% if org_filter %}&org={{ org_filter }}{% endif %}&order={% if order == 'numero_asc' %}numero_desc{% else %}numero_asc{% endif %}"
+                       class="atr-th-sort active" title="Ordenar por N° PATD">
+                        N° PATD
+                        {% if order == 'numero_asc' %}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" style="width:12px;height:12px"><path fill-rule="evenodd" d="M8 2a.75.75 0 01.75.75v8.69l1.97-1.97a.75.75 0 111.06 1.06l-3.25 3.25a.75.75 0 01-1.06 0L4.22 10.53a.75.75 0 111.06-1.06l1.97 1.97V2.75A.75.75 0 018 2z" clip-rule="evenodd"/></svg>
+                        {% else %}
+                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 16 16" fill="currentColor" style="width:12px;height:12px"><path fill-rule="evenodd" d="M8 14a.75.75 0 01-.75-.75V4.56L5.28 6.53a.75.75 0 01-1.06-1.06l3.25-3.25a.75.75 0 011.06 0l3.25 3.25a.75.75 0 01-1.06 1.06L8.75 4.56v8.69A.75.75 0 018 14z" clip-rule="evenodd"/></svg>
+                        {% endif %}
+                    </a>
+                </th>
+                <th>OM</th>
                 <th>Militar Acusado</th>
-                <th>Data da Ocorrência</th>
-                {% if active_tab != 'aprovar' %}
-                <th>Status</th>
-                {% endif %}
-                <th>Ação</th>
+                <th>Data Ocorrência</th>
+                <th>Etapa Atual</th>
+                <th style="text-align:right;">Ação</th>
             </tr>
         </thead>
         <tbody>
-            {% for patd in patds %}
+            {% for patd in page_obj %}
             <tr>
-                <td>{{ patd.numero_patd }}</td>
+                <td style="font-weight:700;color:var(--accent-color);">{{ patd.numero_patd|default:"—" }}</td>
                 <td>
-                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="militar-acusado-link">{{ patd.militar }}</a>
+                    <span class="org-chip {% if patd.organizacao == 'GSD' %}org-gsd{% else %}org-binfae{% endif %}">{{ patd.organizacao }}</span>
                 </td>
-                <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"-" }}</td>
-                
-                {% if active_tab == 'aprovar' %}
-                    <td class="actions-cell">
-                        <button type="button" class="btn btn-sm btn-success open-aceite-modal-btn" data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
-                            Aceitar Atribuição
-                        </button>
-                    </td>
-                {% else %}
-                    <td>{{ patd.get_status_display }}</td>
-                    <td class="actions-cell">
-                         <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver Detalhes</a>
-                    </td>
-                {% endif %}
-            </tr>
-            {% empty %}
-            <tr>
-                <td colspan="{% if active_tab == 'aprovar' %}4{% else %}5{% endif %}" style="text-align: center; padding: 20px;">Nenhuma PATD encontrada nesta categoria.</td>
+                <td>
+                    {% if patd.militar %}
+                        <span style="font-weight:600;">{{ patd.militar }}</span>
+                    {% else %}
+                        <span style="color:var(--text-secondary);">{{ patd.militar_posto_snapshot }} {{ patd.militar_nome_guerra_snapshot|default:"—" }}</span>
+                    {% endif %}
+                </td>
+                <td style="color:var(--text-secondary);">{{ patd.data_ocorrencia|date:"d/m/Y"|default:"—" }}</td>
+                <td>
+                    <span class="s-badge s-{{ patd.status }}">
+                        {% if patd.status == 'aguardando_aprovacao_atribuicao' %}Aguardando Aceitação
+                        {% elif patd.status == 'em_apuracao' %}Em Apuração
+                        {% elif patd.status == 'apuracao_preclusao' %}Em Apuração (Preclusão)
+                        {% elif patd.status == 'aguardando_punicao' %}Aguardando Punição
+                        {% elif patd.status == 'aguardando_punicao_alterar' %}Alterar Punição
+                        {% elif patd.status == 'analise_oficial_apurador' %}Analisar e Assinar
+                        {% elif patd.status == 'analise_comandante' %}Em Análise pelo Comandante
+                        {% elif patd.status == 'aguardando_assinatura_npd' %}Aguardando Assinatura NPD
+                        {% elif patd.status == 'finalizado' %}Finalizado
+                        {% else %}{{ patd.get_status_display }}
+                        {% endif %}
+                    </span>
+                </td>
+                <td style="text-align:right;">
+                    <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-primary">Ver PATD</a>
+                </td>
             </tr>
             {% endfor %}
         </tbody>
     </table>
 </div>
 
-<!-- Modal para Aceitar Atribuição -->
-<div class="modal-overlay" id="aceitar-atribuicao-modal">
-    <div class="modal-content">
-        <h3 id="aceitar-modal-title">Aceitar Atribuição</h3>
-        <p>Para confirmar que aceita ser o oficial responsável por esta PATD, insira a sua senha.</p>
-
-        <!-- Alerta de erro/sucesso inline -->
-        <div id="aceite-alert" style="display:none;margin-bottom:14px;padding:12px 16px;border-radius:8px;font-size:.88rem;font-weight:500;display:none;align-items:center;gap:10px;"></div>
-
-        <form id="aceitar-atribuicao-form" method="post" action="" class="model-form">
-            {% csrf_token %}
-            <div class="form-grid">
-                <p>
-                    <label for="id_senha_aceite">Sua Senha:</label>
-                    <input type="password" name="senha" required id="id_senha_aceite" autocomplete="current-password">
-                </p>
-            </div>
-            <div class="form-actions" style="justify-content: flex-end;">
-                <button type="button" class="btn btn-secondary" id="cancel-aceitar-btn">Cancelar</button>
-                <button type="submit" class="btn btn-success" id="confirm-aceitar-btn">
-                    <span id="confirm-aceitar-txt">Confirmar e Aceitar</span>
-                </button>
-            </div>
-        </form>
+<div class="atr-pagination">
+    <div class="atr-pagination-info">
+        Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}
+        &mdash; {{ page_obj.paginator.count }} registro{{ page_obj.paginator.count|pluralize }}
+        {% if q %} para "<strong>{{ q }}</strong>"{% endif %}
+    </div>
+    <div class="atr-page-links">
+        {% if page_obj.has_previous %}
+            <a href="?tab=todas{% if q %}&q={{ q }}{% endif %}{% if org_filter %}&org={{ org_filter }}{% endif %}&order={{ order }}&page=1">«</a>
+            <a href="?tab=todas{% if q %}&q={{ q }}{% endif %}{% if org_filter %}&org={{ org_filter }}{% endif %}&order={{ order }}&page={{ page_obj.previous_page_number }}">‹</a>
+        {% else %}
+            <span class="disabled">«</span><span class="disabled">‹</span>
+        {% endif %}
+        <span class="current">{{ page_obj.number }}</span>
+        {% if page_obj.has_next %}
+            <a href="?tab=todas{% if q %}&q={{ q }}{% endif %}{% if org_filter %}&org={{ org_filter }}{% endif %}&order={{ order }}&page={{ page_obj.next_page_number }}">›</a>
+            <a href="?tab=todas{% if q %}&q={{ q }}{% endif %}{% if org_filter %}&org={{ org_filter }}{% endif %}&order={{ order }}&page={{ page_obj.paginator.num_pages }}">»</a>
+        {% else %}
+            <span class="disabled">›</span><span class="disabled">»</span>
+        {% endif %}
     </div>
 </div>
+
+{% else %}
+<div class="atr-empty">
+    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1" stroke="currentColor" style="width:56px;height:56px;display:block;margin:0 auto 12px;">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 15.803 7.5 7.5 0 0016.803 15.803z"/>
+    </svg>
+    <p>Nenhuma PATD encontrada{% if q %} para "<strong>{{ q }}</strong>"{% endif %}.</p>
+    {% if q or org_filter %}
+    <a href="?tab=todas" class="btn btn-secondary" style="margin-top:12px;">Limpar filtros</a>
+    {% endif %}
+</div>
+{% endif %}
+
+{% endif %}{# end tab todas #}
+
 {% endblock %}
 
 {% block extra_js %}
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const modal      = document.getElementById('aceitar-atribuicao-modal');
-    const form       = document.getElementById('aceitar-atribuicao-form');
-    const title      = document.getElementById('aceitar-modal-title');
-    const senhaInput = document.getElementById('id_senha_aceite');
-    const alert      = document.getElementById('aceite-alert');
-    const confirmBtn = document.getElementById('confirm-aceitar-btn');
-    const confirmTxt = document.getElementById('confirm-aceitar-txt');
-    const cancelBtn  = document.getElementById('cancel-aceitar-btn');
-
-    function showAlert(tipo, msg) {
-        // tipo: 'erro' | 'sucesso'
-        const isErro = tipo === 'erro';
-        alert.style.display = 'flex';
-        alert.style.background    = isErro ? 'rgba(220,38,38,.12)' : 'rgba(22,163,74,.12)';
-        alert.style.border        = `1px solid ${isErro ? 'rgba(220,38,38,.35)' : 'rgba(22,163,74,.35)'}`;
-        alert.style.color         = isErro ? '#fca5a5' : '#86efac';
-        alert.innerHTML = `
-            <svg width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink:0">
-                ${isErro
-                    ? '<path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/><path d="M7.002 11a1 1 0 1 1 2 0 1 1 0 0 1-2 0zM7.1 4.995a.905.905 0 1 1 1.8 0l-.35 3.507a.552.552 0 0 1-1.1 0L7.1 4.995z"/>'
-                    : '<path d="M16 8A8 8 0 1 1 0 8a8 8 0 0 1 16 0zm-3.97-3.03a.75.75 0 0 0-1.08.022L7.477 9.417 5.384 7.323a.75.75 0 0 0-1.06 1.06L6.97 11.03a.75.75 0 0 0 1.079-.02l3.992-4.99a.75.75 0 0 0-.01-1.05z"/>'}
-            </svg>
-            <span>${msg}</span>`;
-    }
-
-    function hideAlert() {
-        alert.style.display = 'none';
-        alert.innerHTML = '';
-    }
-
-    function openModal(patdPk, patdNumero) {
-        form.dataset.url = `/Ouvidoria/patd/${patdPk}/aceitar_atribuicao/`;
-        title.textContent = `Aceitar Atribuição — PATD Nº ${patdNumero}`;
-        senhaInput.value = '';
-        hideAlert();
-        confirmBtn.disabled = false;
-        confirmTxt.textContent = 'Confirmar e Aceitar';
-        modal.classList.add('active');
-        setTimeout(() => senhaInput.focus(), 100);
-    }
-
-    function closeModal() {
-        modal.classList.remove('active');
-    }
-
-    // Abrir modal
-    document.body.addEventListener('click', function (e) {
-        const btn = e.target.closest('.open-aceite-modal-btn');
-        if (btn) openModal(btn.dataset.patdPk, btn.dataset.patdNumero);
-    });
-
-    // Fechar modal
-    cancelBtn?.addEventListener('click', closeModal);
-    modal?.addEventListener('click', e => { if (e.target === modal) closeModal(); });
-
-    // Submissão via fetch
-    form.addEventListener('submit', async function (e) {
-        e.preventDefault();
-        hideAlert();
-
-        const senha = senhaInput.value.trim();
-        if (!senha) {
-            showAlert('erro', 'Por favor, insira a sua senha.');
-            senhaInput.focus();
-            return;
-        }
-
-        // Estado de carregamento
-        confirmBtn.disabled = true;
-        confirmTxt.textContent = 'Verificando…';
-
-        const fd = new FormData(form);
-        try {
-            const resp = await fetch(form.dataset.url, {
-                method: 'POST',
-                headers: { 'X-Requested-With': 'XMLHttpRequest' },
-                body: fd,
-            });
-
-            let data = null;
-            const ct = resp.headers.get('content-type') || '';
-            if (ct.includes('application/json')) {
-                data = await resp.json();
+    // Submit do busca ao pressionar Enter no campo de texto
+    const buscaInput = document.getElementById('busca-input');
+    if (buscaInput) {
+        buscaInput.addEventListener('keydown', function (e) {
+            if (e.key === 'Enter') {
+                e.preventDefault();
+                document.getElementById('filtros-form').submit();
             }
-
-            if (data && data.ok) {
-                showAlert('sucesso', data.mensagem || 'Atribuição aceite com sucesso!');
-                confirmBtn.disabled = true;
-                confirmTxt.textContent = 'Aceito ✓';
-                setTimeout(() => location.reload(), 1500);
-            } else if (data && !data.ok) {
-                showAlert('erro', data.erro || 'Ocorreu um erro. Tente novamente.');
-                confirmBtn.disabled = false;
-                confirmTxt.textContent = 'Confirmar e Aceitar';
-                senhaInput.value = '';
-                senhaInput.focus();
-            } else if (resp.redirected || resp.status === 302) {
-                showAlert('erro', 'Sessão expirada. Recarregue a página e faça login novamente.');
-                confirmBtn.disabled = false;
-                confirmTxt.textContent = 'Confirmar e Aceitar';
-            } else {
-                showAlert('erro', `Erro no servidor (${resp.status}). Contacte o administrador.`);
-                confirmBtn.disabled = false;
-                confirmTxt.textContent = 'Confirmar e Aceitar';
-            }
-        } catch (err) {
-            showAlert('erro', 'Erro de conexão. Verifique sua rede e tente novamente.');
-            confirmBtn.disabled = false;
-            confirmTxt.textContent = 'Confirmar e Aceitar';
-        }
-    });
+        });
+    }
 });
 </script>
 {% endblock %}
-

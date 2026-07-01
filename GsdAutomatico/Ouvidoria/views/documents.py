@@ -368,24 +368,13 @@ def upload_ficha_individual(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
 
     if patd.status == 'finalizado':
-        messages.error(request, "Não é possível anexar arquivos em processos finalizados.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
-    
+        return JsonResponse({'status': 'error', 'message': 'Não é possível anexar arquivos em processos finalizados.'}, status=400)
+
     if 'ficha_individual' not in request.FILES:
-        messages.error(request, "Nenhum arquivo enviado.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
+        return JsonResponse({'status': 'error', 'message': 'Nenhum arquivo enviado.'}, status=400)
 
-    ficha_individual_file = request.FILES['ficha_individual']
-
-    # Remove existing ficha_individual if it exists
     patd.anexos.filter(tipo='ficha_individual').delete()
-
-    # Create a new Anexo for the ficha_individual
-    Anexo.objects.create(
-        patd=patd,
-        arquivo=ficha_individual_file,
-        tipo='ficha_individual'
-    )
+    anexo = Anexo.objects.create(patd=patd, arquivo=request.FILES['ficha_individual'], tipo='ficha_individual')
     registrar(
         request.user, secao='ouvidoria', permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
         acao='anexou', descricao=f"anexou a ficha individual da PATD {patd.numero_patd}",
@@ -396,29 +385,29 @@ def upload_ficha_individual(request, pk):
     if patd.status == 'confeccao_fr_ficha':
         avancou = _try_advance_from_confeccao(patd)
 
-    if avancou:
-        messages.success(
-            request,
-            "Ficha individual atualizada. Como a Ficha Individual e o Formulário de Resumo já foram "
-            "anexados, o processo avançou automaticamente para a Fase 2 – Ciência do Militar e Defesa."
-        )
-    else:
-        messages.success(request, "Ficha individual atualizada com sucesso.")
-    return redirect('Ouvidoria:patd_detail', pk=pk)
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Ficha individual atualizada com sucesso.',
+        'avancou': avancou,
+        'arquivo_nome': os.path.basename(anexo.arquivo.name),
+        'arquivo_url': anexo.arquivo.url,
+    })
 
 
 @login_required
 @ouvidoria_required
+@require_POST
 def upload_formulario_resumo(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
+
     if patd.status == 'finalizado':
-        messages.error(request, "Não é possível anexar arquivos em processos finalizados.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
+        return JsonResponse({'status': 'error', 'message': 'Não é possível anexar arquivos em processos finalizados.'}, status=400)
+
     if 'formulario_resumo' not in request.FILES:
-        messages.error(request, "Nenhum arquivo enviado.")
-        return redirect('Ouvidoria:patd_detail', pk=pk)
+        return JsonResponse({'status': 'error', 'message': 'Nenhum arquivo enviado.'}, status=400)
+
     patd.anexos.filter(tipo='formulario_resumo').delete()
-    Anexo.objects.create(patd=patd, arquivo=request.FILES['formulario_resumo'], tipo='formulario_resumo')
+    anexo = Anexo.objects.create(patd=patd, arquivo=request.FILES['formulario_resumo'], tipo='formulario_resumo')
     registrar(
         request.user, secao='ouvidoria', permissao=resolver_label(request.user, _PATD_PERMISSAO_MAP),
         acao='anexou', descricao=f"anexou o formulário de resumo da PATD {patd.numero_patd}",
@@ -429,15 +418,13 @@ def upload_formulario_resumo(request, pk):
     if patd.status == 'confeccao_fr_ficha':
         avancou = _try_advance_from_confeccao(patd)
 
-    if avancou:
-        messages.success(
-            request,
-            "Formulário de resumo anexado. Como a Ficha Individual e o Formulário de Resumo já foram "
-            "anexados, o processo avançou automaticamente para a Fase 2 – Ciência do Militar e Defesa."
-        )
-    else:
-        messages.success(request, "Formulário de resumo anexado com sucesso.")
-    return redirect('Ouvidoria:patd_detail', pk=pk)
+    return JsonResponse({
+        'status': 'success',
+        'message': 'Formulário de resumo anexado com sucesso.',
+        'avancou': avancou,
+        'arquivo_nome': os.path.basename(anexo.arquivo.name),
+        'arquivo_url': anexo.arquivo.url,
+    })
 
 
 def _try_advance_from_confeccao(patd):

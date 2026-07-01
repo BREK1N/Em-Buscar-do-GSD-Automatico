@@ -16,10 +16,10 @@ WORKDIR /app
 # libcaca0 e libetonyek-0.1-1 são bloqueados pelo proxy corporativo por filtro de URL.
 # Injetamos os .deb locais e forçamos instalação; o apt-get install -f resolve
 # as dependências deles (libslang2, liblangtag1 etc.) que o proxy SI libera.
-COPY libcaca0.deb libetonyek.deb /tmp/
-RUN dpkg -i --force-depends /tmp/libcaca0.deb /tmp/libetonyek.deb; \
-    apt-get update && apt-get install -f -y && \
-    rm /tmp/libcaca0.deb /tmp/libetonyek.deb
+#COPY libcaca0.deb libetonyek.deb /tmp/
+# RUN dpkg -i --force-depends /tmp/libcaca0.deb /tmp/libetonyek.deb; \
+#     apt-get update && apt-get install -f -y && \
+#     rm /tmp/libcaca0.deb /tmp/libetonyek.deb
 
 RUN apt-get update && apt-get install -y \
     gcc \

@@ -66,27 +66,8 @@ def regenerar_punicao(request, pk):
 @require_POST
 def analisar_punicao(request, pk):
     patd = get_object_or_404(PATD, pk=pk)
-    force_reanalyze = False
 
-    if request.content_type == 'application/json':
-        try:
-            data = json.loads(request.body)
-            force_reanalyze = data.get('force_reanalyze', False)
-        except json.JSONDecodeError:
-            pass
-
-    # Caminho rápido: resultado já existe e não foi pedido re-análise
-    if patd.punicao_sugerida and not force_reanalyze:
-        return JsonResponse({
-            'status': 'success',
-            'analise_data': {
-                'itens': patd.itens_enquadrados,
-                'circunstancias': patd.circunstancias,
-                'punicao': patd.punicao_sugerida,
-            }
-        })
-
-    task = analisar_punicao_task.delay(pk, force_reanalyze)
+    task = analisar_punicao_task.delay(pk)
     return JsonResponse({'status': 'pending', 'task_id': task.id}, status=202)
 
 

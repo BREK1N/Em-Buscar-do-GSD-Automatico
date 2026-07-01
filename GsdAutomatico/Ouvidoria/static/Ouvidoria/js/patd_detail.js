@@ -2122,15 +2122,16 @@ document.addEventListener('DOMContentLoaded', function() {
         }, 2000);
     }
 
-    function fetchAnalisePunicao(forceReanalyze = false) {
-        if(btnApurar) btnApurar.classList.add('loading');
-        if(btnReanalisar) btnReanalisar.classList.add('loading');
+    function fetchAnalisePunicao(triggeredBtn) {
+        // Marca o botão clicado como loading e desabilita ambos
+        if (btnApurar)     { btnApurar.classList.add('loading');     btnApurar.disabled     = true; }
+        if (btnReanalisar) { btnReanalisar.classList.add('loading'); btnReanalisar.disabled = true; }
 
         const url = PATD_CONFIG.urls.analisarPunicao;
 
         function _onDone() {
-            if(btnApurar) btnApurar.classList.remove('loading');
-            if(btnReanalisar) btnReanalisar.classList.remove('loading');
+            if (btnApurar)     { btnApurar.classList.remove('loading');     btnApurar.disabled     = false; }
+            if (btnReanalisar) { btnReanalisar.classList.remove('loading'); btnReanalisar.disabled = false; }
         }
 
         fetch(url, {
@@ -2139,7 +2140,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 'Content-Type': 'application/json',
                 'X-CSRFToken': csrfToken
             },
-            body: JSON.stringify({ force_reanalyze: forceReanalyze })
+            body: JSON.stringify({})
         })
         .then(response => response.json())
         .then(data => {
@@ -2151,14 +2152,12 @@ document.addEventListener('DOMContentLoaded', function() {
                     data.task_id,
                     function(result) { preencherFormApuracao(result); _onDone(); },
                     function(errMsg) {
-                        alert('Erro ao buscar análise: ' + errMsg);
-                        if (analiseData && !forceReanalyze) preencherFormApuracao(analiseData);
+                        alert('Erro ao analisar: ' + errMsg);
                         _onDone();
                     }
                 );
             } else {
-                alert('Erro ao buscar análise: ' + (data.message || 'Erro desconhecido.'));
-                if (analiseData && !forceReanalyze) preencherFormApuracao(analiseData);
+                alert('Erro ao analisar: ' + (data.message || 'Erro desconhecido.'));
                 _onDone();
             }
         })
@@ -2170,19 +2169,13 @@ document.addEventListener('DOMContentLoaded', function() {
     }
 
     if (btnApurar) {
-        btnApurar.addEventListener('click', () => {
-            if (analiseData) {
-                preencherFormApuracao(analiseData);
-            } else {
-                fetchAnalisePunicao(false);
-            }
-        });
+        btnApurar.addEventListener('click', () => fetchAnalisePunicao(btnApurar));
     }
 
     if (btnReanalisar) {
         btnReanalisar.addEventListener('click', () => {
-            if (confirm('Tem certeza que deseja re-analisar? Isso pode sobrescrever os dados atuais.')) {
-                fetchAnalisePunicao(true);
+            if (confirm('Isso vai re-analisar com a IA e sobrescrever os dados atuais. Continuar?')) {
+                fetchAnalisePunicao(btnReanalisar);
             }
         });
     }

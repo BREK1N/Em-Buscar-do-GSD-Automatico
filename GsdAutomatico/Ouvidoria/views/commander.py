@@ -113,10 +113,12 @@ def _check_and_finalize_patd(patd):
     if provided_mil_signatures < required_mil_signatures:
         return False
 
-    if not patd.testemunha1 or not patd.assinatura_testemunha1:
+    # Exige assinatura somente se a testemunha estiver atribuída
+    # (PATDs sem preclusão não têm testemunhas e não devem ser bloqueadas)
+    if patd.testemunha1 and not patd.assinatura_testemunha1:
         return False
 
-    if not patd.testemunha2 or not patd.assinatura_testemunha2:
+    if patd.testemunha2 and not patd.assinatura_testemunha2:
         return False
 
     patd.status = 'periodo_reconsideracao'
@@ -150,9 +152,10 @@ class ComandanteDashboardView(ListView):
             ano_int = today.year
             ano = str(ano_int)
 
-        anos_disponiveis = sorted(set(
-            PATD.objects.dates('data_inicio', 'year').values_list('data_inicio__year', flat=True)
-        ), reverse=True)
+        anos_disponiveis = sorted(
+            set(PATD.objects.exclude(data_inicio=None).values_list('data_inicio__year', flat=True)),
+            reverse=True
+        )
         context['ano'] = ano
         context['anos_disponiveis'] = anos_disponiveis
 
@@ -188,7 +191,7 @@ class ComandanteDashboardView(ListView):
         finalizadas_por_mes_dict = {
             item['month'].strftime('%Y-%m'): item['count']
             for item in patd_ano
-            .filter(status='finalizado')
+            .filter(status='finalizado', data_termino__isnull=False)
             .annotate(month=TruncMonth('data_termino'))
             .values('month')
             .annotate(count=Count('id'))
@@ -230,6 +233,7 @@ def patd_aprovar(request, pk):
         if user is not None:
             # Senha correta, prossegue com a aprovação
             patd.status = 'aguardando_assinatura_npd'
+            patd.documento_html = []  # Invalida cache para incluir página da NPD no visualizador
             patd.save()
             messages.success(request, f"PATD Nº {patd.numero_patd} aprovada com sucesso. Aguardando assinatura da NPD.")
             return redirect('Ouvidoria:comandante_dashboard')
@@ -442,13 +446,32 @@ def anexar_documento_reconsideracao_oficial(request, pk):
 @login_required
 @comandante_required
 def relatorio_json(request):
-    qs = PATD.objects.select_related('militar', 'oficial_responsavel').order_by('-data_inicio')
+    qs = PATD.objects.select_related('militar', 'oficial_responsavel')
 
+    q          = request.GET.get('q', '').strip()
     data_inicio = request.GET.get('data_inicio')
-    data_fim = request.GET.get('data_fim')
-    status = request.GET.get('status')
-    oficial_pk = request.GET.get('oficial')
-    militar_pk = request.GET.get('militar')
+    data_fim    = request.GET.get('data_fim')
+    status      = request.GET.get('status')
+    oficial_pk  = request.GET.get('oficial')
+    militar_pk  = request.GET.get('militar')
+    org         = request.GET.get('org', '')
+    order       = request.GET.get('order', 'numero_desc')
+
+    if q:
+        numero_q = None
+        try:
+            numero_q = int(q)
+        except ValueError:
+            pass
+        fq = (
+            Q(militar__nome_guerra__icontains=q) |
+            Q(militar__nome_completo__icontains=q) |
+            Q(militar_nome_guerra_snapshot__icontains=q) |
+            Q(militar_nome_completo_snapshot__icontains=q)
+        )
+        if numero_q is not None:
+            fq |= Q(numero_patd=numero_q) | Q(militar__saram=numero_q) | Q(militar_saram_snapshot=numero_q)
+        qs = qs.filter(fq)
 
     if data_inicio:
         qs = qs.filter(data_inicio__date__gte=data_inicio)
@@ -460,17 +483,23 @@ def relatorio_json(request):
         qs = qs.filter(oficial_responsavel__pk=oficial_pk)
     if militar_pk:
         qs = qs.filter(militar__pk=militar_pk)
+    if org:
+        qs = qs.filter(organizacao=org)
+
+    qs = qs.order_by('numero_patd' if order == 'numero_asc' else '-numero_patd')
 
     patds_data = []
-    for p in qs[:200]:
+    for p in qs[:500]:
         patds_data.append({
             'pk': p.pk,
             'numero': p.numero_patd or (f'(Antigo) {p.numero_patd_legado}' if p.numero_patd_legado else '—'),
-            'militar': str(p.militar) if p.militar else '—',
+            'militar': str(p.militar) if p.militar else (f"{p.militar_posto_snapshot or ''} {p.militar_nome_guerra_snapshot or ''}".strip() or '—'),
             'oficial': str(p.oficial_responsavel) if p.oficial_responsavel else '—',
             'data_inicio': p.data_inicio.strftime('%d/%m/%Y') if p.data_inicio else '—',
+            'data_ocorrencia': p.data_ocorrencia.strftime('%d/%m/%Y') if p.data_ocorrencia else '—',
             'status_display': status_label(p),
             'status': p.status,
+            'organizacao': p.organizacao or '—',
             'origem': origem_label(p),
         })
 

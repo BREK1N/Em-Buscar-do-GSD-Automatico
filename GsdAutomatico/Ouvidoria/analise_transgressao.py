@@ -48,16 +48,50 @@ logger.debug("Cliente OpenAI inicializado com sucesso.")
 
 # Modelo para representar um único militar acusado
 class MilitarAcusado(BaseModel):
-    # Usamos Optional e default="" para garantir que não quebre se a IA omitir um campo
-    nome_completo: Optional[str] = Field(default="", description="O nome completo do militar acusado/transgressor. NÃO inclua o nome de quem reportou o fato.")
-    nome_guerra: Optional[str] = Field(default="", description="O nome de guerra do militar acusado (ex: SILVA).")
-    saram: Optional[str] = Field(default="", description="O SARAM/Matrícula do militar acusado. Se houver múltiplos números, pegue o associado ao transgressor.")
-    posto_graduacao: Optional[str] = Field(default="", description="O posto ou graduação do acusado (ex: S2, CB, 3S).")
-    transgressao_individual: Optional[str] = Field(default="", description="Copie LITERALMENTE, palavra por palavra, apenas o trecho do documento que descreve o que ESTE militar específico fez. Se todos os acusados cometeram exatamente o mesmo ato descrito no mesmo trecho, copie esse trecho. NÃO altere, NÃO acrescente, NÃO interprete nada.")
+    nome_completo: Optional[str] = Field(
+        default="",
+        description=(
+            "Nome completo do militar ACUSADO — quem COMETEU a falta descrita no documento. "
+            "NUNCA inclua: quem assinou o documento, quem relatou o fato, o comandante destinatário, "
+            "testemunhas, vítimas (exceto em brigas/rixas onde todos são acusados), "
+            "ou qualquer militar mencionado apenas como contexto."
+        ),
+    )
+    nome_guerra: Optional[str] = Field(
+        default="",
+        description="Nome de guerra (sobrenome em maiúsculas) do militar ACUSADO. Ex: SILVA, SANTOS.",
+    )
+    saram: Optional[str] = Field(
+        default="",
+        description=(
+            "SARAM/Matrícula do militar ACUSADO. Tem 6 ou 7 dígitos. "
+            "Se aparecerem vários SARAMs no documento, use SOMENTE o associado ao transgressor — "
+            "geralmente aparece junto ao nome do acusado na descrição da falta."
+        ),
+    )
+    posto_graduacao: Optional[str] = Field(
+        default="",
+        description="Posto ou graduação do militar ACUSADO. Ex: S2, CB, 3S, Sgt, Ten.",
+    )
+    transgressao_individual: Optional[str] = Field(
+        default="",
+        description=(
+            "Trecho copiado LITERALMENTE do documento que descreve o que ESTE acusado específico fez. "
+            "Se todos cometeram o mesmo ato num mesmo trecho, copie esse trecho para todos. "
+            "PROIBIDO inventar, resumir ou interpretar."
+        ),
+    )
 
 # Modelo principal para a análise
 class AnaliseTransgressao(BaseModel):
-    acusados: List[MilitarAcusado] = Field(description="Lista contendo TODOS os militares que cometeram a transgressão (acusados).")
+    acusados: List[MilitarAcusado] = Field(
+        description=(
+            "Lista com UM item para CADA militar que COMETEU a transgressão. "
+            "NÃO inclua: signatário do documento, quem relatou, comandante, testemunhas, "
+            "ou militares mencionados apenas como contexto. "
+            "Inclua TODOS os transgressores — não pare no primeiro nome encontrado."
+        ),
+    )
     transgressao: str = Field(description="Trecho do documento copiado LITERALMENTE, palavra por palavra. Não altere nenhuma palavra. Não acrescente nada. Não interprete. Apenas transcreva.")
     local: str = Field(description="O local onde a transgressão ocorreu.")
     data_ocorrencia: str = Field(description="A data da transgressão no formato AAAA-MM-DD. Se não mencionada, retorne string vazia.")
@@ -81,54 +115,76 @@ def analisar_documento_pdf(conteudo_pdf: str) -> AnaliseTransgressao:
 Você é um extrator de dados de documentos militares. Sua única função é COPIAR informações do documento. Você NÃO reescreve, NÃO interpreta, NÃO resume, NÃO acrescenta nada.
 
 ═══════════════════════════════════════════
-REGRA MÁXIMA — TRANSCRIÇÃO LITERAL
+PASSO 1 — ENTENDA O DOCUMENTO ANTES DE PREENCHER
 ═══════════════════════════════════════════
-Os campos `transgressao` e `transgressao_individual` devem ser CÓPIAS EXATAS do texto do documento.
+Antes de extrair qualquer dado, responda mentalmente:
+a) PROPÓSITO: Qual é o assunto do documento? (ex: "relato de ausência sem licença", "comunicado de embriaguez em serviço")
+b) ACUSADO(S): Quem COMETEU a falta? (quem o documento ACUSA — o objeto do relato)
+c) OUTROS MENCIONADOS: Quem mais aparece no documento SEM ter cometido a falta?
+   - Quem ASSINOU o documento (signatário)
+   - Quem RELATOU ou DENUNCIOU o fato
+   - O COMANDANTE a quem o documento é dirigido (destinatário)
+   - TESTEMUNHAS que presenciaram
+   - SUPERVISORES mencionados como referência
+   - Qualquer militar citado apenas para contextualizar
+
+Somente os militares do item (b) vão para a lista `acusados`. Todos do item (c) são IGNORADOS.
+
+═══════════════════════════════════════════
+PASSO 2 — COMO IDENTIFICAR O ACUSADO NO TEXTO
+═══════════════════════════════════════════
+O acusado é identificado por padrões como:
+✔ "O militar [NOME/POSTO/SARAM] foi flagrado..."
+✔ "Verificou-se que [NOME] se encontrava..."
+✔ "[NOME] se ausentou sem autorização..."
+✔ "[NOME] agrediu / recusou / faltou / chegou atrasado..."
+✔ "Conforme o exposto, [NOME] cometeu/praticou..."
+✔ Listas numeradas: "1º - [NOME], 2º - [NOME]..." como envolvidos/acusados
+
+O acusado NÃO é identificado por:
+✘ "Assina: [NOME]" / "[NOME] - Comandante" / "De: [NOME]" / "Para: [NOME]"
+✘ "Testemunha: [NOME]" / "Presenciado por [NOME]"
+✘ "Conforme relatório do [NOME]" / "Segundo informação do Sgt [NOME]"
+✘ "[NOME] é o chefe/supervisor de [acusado]"
+✘ Nomes que aparecem APENAS no cabeçalho, rodapé ou bloco de assinatura
+
+═══════════════════════════════════════════
+PASSO 3 — REGRAS DE EXTRAÇÃO
+═══════════════════════════════════════════
+TRANSCRIÇÃO LITERAL:
+- Os campos `transgressao` e `transgressao_individual` devem ser CÓPIAS EXATAS do texto.
 - PROIBIDO corrigir ortografia, pontuação ou gramática do documento original.
-- PROIBIDO trocar, resumir, parafrasear ou interpretar qualquer palavra.
-- PROIBIDO acrescentar frases como "o que configura", "demonstrando que", "em desacordo com", "infringindo o Art.", ou qualquer coisa que não esteja literalmente escrita no documento.
-- Se houver erro de digitação no documento original, COPIE o erro. Não corrija.
-- A saída deve ser caractere por caractere igual ao texto fonte.
+- PROIBIDO acrescentar frases como "o que configura", "demonstrando que", "em desacordo com".
+- Se houver erro de digitação no documento, COPIE o erro.
 
-═══════════════════════════════════════════
-NOMES DOS ACUSADOS — REGRAS ABSOLUTAS
-═══════════════════════════════════════════
-1. Copie o nome EXATAMENTE como aparece no documento. Não corrija, não complete, não altere a grafia.
-2. QUEM É O ACUSADO: é o militar contra quem o documento foi escrito — quem cometeu a falta.
-3. NÃO extraia: signatário, quem assinou o documento, testemunhas, comandante destinatário, vítima (salvo em rixas).
-4. SARAM: associe o número ao nome correto. SARAM tem 6 ou 7 dígitos e geralmente aparece próximo ao nome.
-5. MÚLTIPLOS ACUSADOS — OBRIGATÓRIO:
-   - ANTES de preencher qualquer campo: leia o documento INTEIRO e identifique TODOS os nomes de militares acusados.
-   - A lista `acusados` deve conter UM item para CADA militar que cometeu a transgressão.
-   - NÃO pare ao encontrar o primeiro nome. Continue até o final do documento.
-   - Se o documento mencionar nomes em parágrafos separados, em tabela, ou em lista numerada, extraia CADA UM.
-   - Faltas coletivas (briga, rixa, recusa em grupo, embriaguez em grupo, ausência coletiva) têm MÚLTIPLOS acusados — procure todos.
-   - Se o documento listar "1º - FULANO, 2º - BELTRANO", cada um deve ser um item separado na lista.
-   - NUNCA retorne uma lista vazia se houver ao menos um nome de militar acusado no documento.
+MÚLTIPLOS ACUSADOS:
+- A lista `acusados` deve ter UM item para CADA militar que COMETEU a falta.
+- NÃO pare no primeiro nome — leia o documento inteiro.
+- Faltas coletivas (briga, rixa, embriaguez em grupo, ausência coletiva) têm MÚLTIPLOS acusados.
+- Se o documento listar "1º - FULANO, 2º - BELTRANO", cada um é um item separado.
+- NUNCA retorne lista vazia se houver acusado identificável no documento.
 
-═══════════════════════════════════════════
-DATA DA OCORRÊNCIA — REGRAS ABSOLUTAS
-═══════════════════════════════════════════
-1. Retorne SOMENTE a data do FATO ocorrido. NÃO use data de elaboração do documento, data de assinatura ou data de protocolo.
-2. Formato obrigatório: AAAA-MM-DD.
-3. Data por extenso → converta para AAAA-MM-DD.
-4. Intervalo de datas → use APENAS o primeiro dia do intervalo.
-5. Se o documento tiver duas datas (ex: data do fato e data do ofício), `data_ocorrencia` = data do FATO, `data_oficio` = data do documento.
-6. Se a data do fato não estiver no documento, retorne string vazia. NÃO invente datas.
+SARAM:
+- Tem 6 ou 7 dígitos. Associe SOMENTE ao acusado ao qual está vinculado no texto.
+- Não transfira SARAM de uma pessoa para outra.
 
-═══════════════════════════════════════════
-CAMPO `transgressao_individual` (por acusado)
-═══════════════════════════════════════════
+DATA DA OCORRÊNCIA:
+- Use SOMENTE a data do FATO, nunca a data de elaboração, assinatura ou protocolo.
+- Formato: AAAA-MM-DD. Data por extenso → converta. Intervalo → use o primeiro dia.
+- Se a data do fato não constar, retorne string vazia.
+
+CAMPO `transgressao_individual`:
 - Copie LITERALMENTE o trecho que descreve o que AQUELE acusado específico fez.
-- Se todos cometeram o mesmo ato num mesmo trecho, copie o mesmo trecho para todos.
-- Se o documento separar os atos por pessoa, copie apenas o trecho de cada um.
-- PROIBIDO inventar ou elaborar texto que não esteja no documento.
+- Se todos cometeram o mesmo ato no mesmo trecho, copie esse trecho para todos.
+- PROIBIDO inventar texto que não esteja no documento.
 """
 
     human_prompt = (
-        "Extraia os dados deste documento militar copiando o texto LITERALMENTE, sem alterar nenhuma palavra.\n\n"
-        "IMPORTANTE: leia o documento do início ao fim antes de responder. "
-        "Certifique-se de incluir TODOS os militares acusados na lista — não apenas o primeiro encontrado.\n\n"
+        "Leia o documento abaixo com atenção.\n\n"
+        "PASSO 1: Identifique o propósito do documento e quem COMETEU a falta (acusado).\n"
+        "PASSO 2: Identifique quem NÃO é acusado (signatário, relator, destinatário, testemunhas) e IGNORE essas pessoas.\n"
+        "PASSO 3: Extraia os dados copiando o texto LITERALMENTE, sem alterar nenhuma palavra.\n\n"
+        "Certifique-se de incluir TODOS os acusados — não apenas o primeiro encontrado.\n\n"
         "Documento:\n{documento}"
     )
 

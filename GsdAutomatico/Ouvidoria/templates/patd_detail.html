@@ -297,11 +297,15 @@
     }
     .page-content input.editable-date,
     .page-content input.editable-date-part,
-    .page-content select.editable-date-part {
+    .page-content select.editable-date-part,
+    input.editable-date,
+    input.editable-date-part,
+    select.editable-date-part {
         background-color: #ffffff !important;
+        background: #ffffff !important;
         color: #000000 !important;
         -webkit-text-fill-color: #000000 !important;
-        color-scheme: light !important;
+        color-scheme: only light !important;
         border: 1px solid #888 !important;
         border-radius: 3px;
         padding: 1px 4px;
@@ -312,7 +316,9 @@
         appearance: none;
     }
     .page-content input[type=number].editable-date-part::-webkit-inner-spin-button,
-    .page-content input[type=number].editable-date-part::-webkit-outer-spin-button {
+    .page-content input[type=number].editable-date-part::-webkit-outer-spin-button,
+    input[type=number].editable-date-part::-webkit-inner-spin-button,
+    input[type=number].editable-date-part::-webkit-outer-spin-button {
         -webkit-appearance: none;
         margin: 0;
     }
@@ -908,20 +914,20 @@
                 Anexe o <strong>Formulário de Resumo (FR)</strong> e a <strong>Ficha Individual</strong> para avançar para a fase de Ciência do Militar.
             </p>
             <div style="display: flex; gap: 12px; flex-wrap: wrap;">
-                <div style="flex:1; min-width: 200px; padding: 12px; border-radius: 8px; background: {% if formulario_resumo_anexo %}rgba(22,163,74,.1); border: 1px solid rgba(22,163,74,.35){% else %}rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.35){% endif %};">
+                <div id="confeccao-status-fr" style="flex:1; min-width: 200px; padding: 12px; border-radius: 8px; background: {% if formulario_resumo_anexo %}rgba(22,163,74,.1); border: 1px solid rgba(22,163,74,.35){% else %}rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.35){% endif %};">
                     <div style="font-weight: 700; margin-bottom: 4px;">Formulário de Resumo (FR)</div>
                     {% if formulario_resumo_anexo %}
-                        <span style="color: #16a34a; font-size: .88rem;">✓ Anexado</span>
+                        <span id="confeccao-status-fr-label" style="color: #16a34a; font-size: .88rem;">✓ Anexado</span>
                     {% else %}
-                        <span style="color: #b45309; font-size: .88rem;">Pendente</span>
+                        <span id="confeccao-status-fr-label" style="color: #b45309; font-size: .88rem;">Pendente</span>
                     {% endif %}
                 </div>
-                <div style="flex:1; min-width: 200px; padding: 12px; border-radius: 8px; background: {% if ficha_individual_anexo %}rgba(22,163,74,.1); border: 1px solid rgba(22,163,74,.35){% else %}rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.35){% endif %};">
+                <div id="confeccao-status-ficha" style="flex:1; min-width: 200px; padding: 12px; border-radius: 8px; background: {% if ficha_individual_anexo %}rgba(22,163,74,.1); border: 1px solid rgba(22,163,74,.35){% else %}rgba(245,158,11,.1); border: 1px solid rgba(245,158,11,.35){% endif %};">
                     <div style="font-weight: 700; margin-bottom: 4px;">Ficha Individual</div>
                     {% if ficha_individual_anexo %}
-                        <span style="color: #16a34a; font-size: .88rem;">✓ Anexada</span>
+                        <span id="confeccao-status-ficha-label" style="color: #16a34a; font-size: .88rem;">✓ Anexada</span>
                     {% else %}
-                        <span style="color: #b45309; font-size: .88rem;">Pendente</span>
+                        <span id="confeccao-status-ficha-label" style="color: #b45309; font-size: .88rem;">Pendente</span>
                     {% endif %}
                 </div>
             </div>
@@ -941,7 +947,7 @@
         </div>
         <div class="card-body">
             {% if ficha_individual_anexo %}
-            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.35);margin-bottom:16px;font-size:.88rem;">
+            <div id="ficha-individual-status-card" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.35);margin-bottom:16px;font-size:.88rem;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#16a34a" viewBox="0 0 16 16" style="flex-shrink:0">
                     <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
                 </svg>
@@ -949,7 +955,7 @@
                 <a href="{{ ficha_individual_anexo.arquivo.url }}" target="_blank" class="btn btn-sm btn-success" style="flex-shrink:0;">Visualizar</a>
             </div>
             {% endif %}
-            <form action="{% url 'Ouvidoria:upload_ficha_individual' patd.pk %}" method="post" enctype="multipart/form-data">
+            <form id="form-ficha-individual" action="{% url 'Ouvidoria:upload_ficha_individual' patd.pk %}" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="form-item" style="color: var(--anexo)">
                     <label for="ficha_individual_file">{% if ficha_individual_anexo %}Substituir Ficha Individual (PDF/Imagem):{% else %}Anexar Ficha Individual (PDF/Imagem):{% endif %}</label>
@@ -963,7 +969,7 @@
                     </div>
                 </div>
                 <div class="form-actions" style="justify-content: flex-start; margin-top: 15px;">
-                    <button type="submit" class="btn btn-primary">{% if ficha_individual_anexo %}Substituir{% else %}Anexar{% endif %}</button>
+                    <button type="submit" id="btn-anexar-ficha" class="btn btn-primary">{% if ficha_individual_anexo %}Substituir{% else %}Anexar{% endif %}</button>
                 </div>
             </form>
         </div>
@@ -976,7 +982,7 @@
         </div>
         <div class="card-body">
             {% if formulario_resumo_anexo %}
-            <div style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.35);margin-bottom:16px;font-size:.88rem;">
+            <div id="formulario-resumo-status-card" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.35);margin-bottom:16px;font-size:.88rem;">
                 <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#16a34a" viewBox="0 0 16 16" style="flex-shrink:0">
                     <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
                 </svg>
@@ -984,14 +990,21 @@
                 <a href="{{ formulario_resumo_anexo.arquivo.url }}" target="_blank" class="btn btn-sm btn-success" style="flex-shrink:0;">Visualizar</a>
             </div>
             {% endif %}
-            <form action="{% url 'Ouvidoria:upload_formulario_resumo' patd.pk %}" method="post" enctype="multipart/form-data">
+            <form id="form-formulario-resumo" action="{% url 'Ouvidoria:upload_formulario_resumo' patd.pk %}" method="post" enctype="multipart/form-data">
                 {% csrf_token %}
                 <div class="form-item" style="color: var(--anexo)">
                     <label for="formulario_resumo_file">{% if formulario_resumo_anexo %}Substituir Formulário de Resumo (PDF/Imagem):{% else %}Anexar Formulário de Resumo (PDF/Imagem):{% endif %}</label>
                     <input type="file" name="formulario_resumo" id="formulario_resumo_file" accept=".pdf,.jpg,.jpeg,.png,.webp" required style="width: 100%; padding: 10px;">
+                    <div id="formulario-resumo-preview" style="display:none;margin-top:8px;padding:10px 14px;border-radius:8px;background:rgba(37,99,235,.1);border:1px solid rgba(37,99,235,.3);align-items:center;gap:10px;font-size:.88rem;color:var(--accent-color);">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" fill="currentColor" viewBox="0 0 16 16" style="flex-shrink:0">
+                            <path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/>
+                        </svg>
+                        <span id="formulario-resumo-nome" style="font-weight:500;flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;"></span>
+                        <button type="button" id="formulario-resumo-remover" style="background:none;border:none;cursor:pointer;color:var(--text-secondary);padding:0;line-height:1;" title="Remover">✕</button>
+                    </div>
                 </div>
                 <div class="form-actions" style="justify-content: flex-start; margin-top: 15px;">
-                    <button type="submit" class="btn btn-primary">{% if formulario_resumo_anexo %}Substituir{% else %}Anexar{% endif %}</button>
+                    <button type="submit" id="btn-anexar-resumo" class="btn btn-primary">{% if formulario_resumo_anexo %}Substituir{% else %}Anexar{% endif %}</button>
                 </div>
             </form>
         </div>
@@ -1109,8 +1122,8 @@
                         Justificar Transgressão
                     </button>
                     <button type="button" id="btn-reanalisar-apuracao" class="btn btn-warning">
-                        <span class="spinner" style="display: none;"></span>
-                        Analisar Novamente
+                        <span class="spinner"></span>
+                        <span class="btn-text">Analisar Novamente</span>
                     </button>
                     <button type="button" id="btn-cancelar-apuracao" class="btn btn-secondary">Ocultar</button>
                 </div>
@@ -1948,28 +1961,133 @@ const PATD_CONFIG = {
     btnPdf.addEventListener('click',  () => iniciarExport(urlPdf,  'PDF'));
 })();
 
-// Ficha individual file preview
+// File preview helper (ficha individual + formulário de resumo)
 (function () {
-    const input   = document.getElementById('ficha_individual_file');
-    const preview = document.getElementById('ficha-individual-preview');
-    const nome    = document.getElementById('ficha-individual-nome');
-    const remover = document.getElementById('ficha-individual-remover');
-    if (!input) return;
-
-    input.addEventListener('change', function () {
-        if (input.files && input.files.length > 0) {
-            nome.textContent = input.files[0].name;
-            preview.style.display = 'flex';
-        } else {
+    function setupPreview(inputId, previewId, nomeId, removerId) {
+        const input   = document.getElementById(inputId);
+        const preview = document.getElementById(previewId);
+        const nome    = document.getElementById(nomeId);
+        const remover = document.getElementById(removerId);
+        if (!input) return;
+        input.addEventListener('change', function () {
+            if (input.files && input.files.length > 0) {
+                nome.textContent = input.files[0].name;
+                preview.style.display = 'flex';
+            } else {
+                preview.style.display = 'none';
+            }
+        });
+        remover.addEventListener('click', function () {
+            input.value = '';
             preview.style.display = 'none';
-        }
-    });
+            nome.textContent = '';
+        });
+    }
 
-    remover.addEventListener('click', function () {
-        input.value = '';
-        preview.style.display = 'none';
-        nome.textContent = '';
-    });
+    setupPreview('ficha_individual_file',  'ficha-individual-preview',  'ficha-individual-nome',  'ficha-individual-remover');
+    setupPreview('formulario_resumo_file', 'formulario-resumo-preview', 'formulario-resumo-nome', 'formulario-resumo-remover');
+})();
+
+// AJAX upload — ficha individual e formulário de resumo (sem reload de página)
+(function () {
+    const CSRF = '{{ csrf_token }}';
+
+    function showUploadToast(msg, ok) {
+        let t = document.getElementById('_upload-toast');
+        if (!t) {
+            t = document.createElement('div');
+            t.id = '_upload-toast';
+            t.style.cssText = 'position:fixed;bottom:20px;right:20px;padding:10px 18px;border-radius:8px;font-size:14px;font-weight:600;z-index:99999;transition:opacity .4s;pointer-events:none;';
+            document.body.appendChild(t);
+        }
+        t.textContent = msg;
+        t.style.background = ok ? '#22c55e' : '#ef4444';
+        t.style.color = '#fff';
+        t.style.opacity = '1';
+        clearTimeout(t._timer);
+        t._timer = setTimeout(function () { t.style.opacity = '0'; }, 3000);
+    }
+
+    function updateStatusCard(cardId, formId, fileName, fileUrl) {
+        const cardHtml = '<div id="' + cardId + '" style="display:flex;align-items:center;gap:12px;padding:12px 16px;border-radius:8px;background:rgba(22,163,74,.1);border:1px solid rgba(22,163,74,.35);margin-bottom:16px;font-size:.88rem;">'
+            + '<svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" fill="#16a34a" viewBox="0 0 16 16" style="flex-shrink:0"><path d="M14 14V4.5L9.5 0H4a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h8a2 2 0 0 0 2-2zM9.5 3A1.5 1.5 0 0 0 11 4.5h2V14a1 1 0 0 1-1 1H4a1 1 0 0 1-1-1V2a1 1 0 0 1 1-1h5.5v2z"/></svg>'
+            + '<span style="flex:1;font-weight:600;color:#16a34a;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">' + fileName + '</span>'
+            + '<a href="' + fileUrl + '" target="_blank" class="btn btn-sm btn-success" style="flex-shrink:0;">Visualizar</a>'
+            + '</div>';
+        const tmp = document.createElement('div');
+        tmp.innerHTML = cardHtml;
+        const newCard = tmp.firstElementChild;
+        const existing = document.getElementById(cardId);
+        if (existing) {
+            existing.replaceWith(newCard);
+        } else {
+            const form = document.getElementById(formId);
+            form.parentNode.insertBefore(newCard, form);
+        }
+    }
+
+    function markConfeccaoAnexado(cardId, labelId, labelText) {
+        const card  = document.getElementById(cardId);
+        const label = document.getElementById(labelId);
+        if (card) {
+            card.style.background = 'rgba(22,163,74,.1)';
+            card.style.border     = '1px solid rgba(22,163,74,.35)';
+        }
+        if (label) {
+            label.style.color  = '#16a34a';
+            label.textContent  = labelText;
+        }
+    }
+
+    function setupAjaxUpload(formId, inputId, statusCardId, previewId, nomeId, btnId, confeccaoCardId, confeccaoLabelId, confeccaoLabelText) {
+        const form  = document.getElementById(formId);
+        const input = document.getElementById(inputId);
+        const btn   = document.getElementById(btnId);
+        if (!form || !input) return;
+
+        form.addEventListener('submit', function (e) {
+            e.preventDefault();
+            if (!input.files || input.files.length === 0) {
+                showUploadToast('Selecione um arquivo antes de anexar.', false);
+                return;
+            }
+            btn.disabled = true;
+            btn.textContent = 'Enviando…';
+            const fd = new FormData(form);
+            fetch(form.action, {
+                method: 'POST',
+                headers: { 'X-CSRFToken': CSRF },
+                body: fd,
+            })
+            .then(function (r) { return r.json(); })
+            .then(function (data) {
+                btn.disabled = false;
+                if (data.status === 'success') {
+                    showUploadToast(data.message, true);
+                    updateStatusCard(statusCardId, formId, data.arquivo_nome, data.arquivo_url);
+                    markConfeccaoAnexado(confeccaoCardId, confeccaoLabelId, confeccaoLabelText);
+                    input.value = '';
+                    const preview = document.getElementById(previewId);
+                    const nome    = document.getElementById(nomeId);
+                    if (preview) preview.style.display = 'none';
+                    if (nome)    nome.textContent = '';
+                    btn.textContent = 'Substituir';
+                    if (data.avancou) { setTimeout(function () { window.location.reload(); }, 1500); }
+                } else {
+                    showUploadToast(data.message || 'Erro ao anexar arquivo.', false);
+                    btn.textContent = 'Tentar novamente';
+                }
+            })
+            .catch(function () {
+                btn.disabled = false;
+                btn.textContent = 'Tentar novamente';
+                showUploadToast('Erro de comunicação com o servidor.', false);
+            });
+        });
+    }
+
+    setupAjaxUpload('form-ficha-individual',  'ficha_individual_file',  'ficha-individual-status-card',  'ficha-individual-preview',  'ficha-individual-nome',  'btn-anexar-ficha',  'confeccao-status-ficha', 'confeccao-status-ficha-label', '✓ Anexada');
+    setupAjaxUpload('form-formulario-resumo', 'formulario_resumo_file', 'formulario-resumo-status-card', 'formulario-resumo-preview', 'formulario-resumo-nome', 'btn-anexar-resumo', 'confeccao-status-fr',    'confeccao-status-fr-label',    '✓ Anexado');
 })();
 
 // Fix de datas: salva imediatamente ao sair do campo e aplica estilo para tema escuro
@@ -1999,13 +2117,15 @@ const PATD_CONFIG = {
             'input.editable-date, input.editable-date-part, select.editable-date-part'
         ).forEach(function(el) {
             el.style.setProperty('background-color', '#ffffff', 'important');
+            el.style.setProperty('background', '#ffffff', 'important');
             el.style.setProperty('color', '#000000', 'important');
+            el.style.setProperty('-webkit-text-fill-color', '#000000', 'important');
+            el.style.setProperty('color-scheme', 'only light', 'important');
             el.style.setProperty('border', '1px solid #888', 'important');
             el.style.setProperty('border-radius', '3px', 'important');
             el.style.setProperty('padding', '1px 4px', 'important');
             el.style.setProperty('font-family', "'Times New Roman', Times, serif", 'important');
             el.style.setProperty('font-size', '12pt', 'important');
-            el.style.colorScheme = 'light';
             if (el.type === 'number') {
                 el.style.setProperty('-moz-appearance', 'textfield', 'important');
                 el.style.setProperty('-webkit-appearance', 'none', 'important');
@@ -2087,6 +2207,7 @@ const PATD_CONFIG = {
         const container = document.getElementById('document-preview-container');
         if (container) {
             observer.observe(container, { childList: true, subtree: true });
+            applyInputStyles(); // aplica imediatamente nos inputs já presentes no DOM
 
             function collectDatesFromPage(changedInput) {
                 const fieldName = changedInput.dataset.dateField;

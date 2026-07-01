@@ -59,6 +59,15 @@
 .fase-tab.active .fase-count { background: rgba(255,255,255,.25); color: #fff; }
 .fase-tab-all { border-style: dashed; }
 .fase-tab-all.active { border-style: solid; }
+.fase-tab-retornada {
+    border-color: rgba(239,68,68,.4);
+    color: #b91c1c;
+    background: rgba(239,68,68,.06);
+}
+.fase-tab-retornada:hover { background: rgba(239,68,68,.13); color: #b91c1c; border-color: rgba(239,68,68,.6); }
+.fase-tab-retornada.active { background: #ef4444; color: #fff; border-color: #ef4444; box-shadow: 0 2px 8px rgba(239,68,68,.3); }
+.fase-tab-retornada .fase-count { background: rgba(239,68,68,.2); color: #b91c1c; }
+.fase-tab-retornada.active .fase-count { background: rgba(255,255,255,.25); color: #fff; }
 
 /* ── Barra de filtros ── */
 .patd-filters {
@@ -235,17 +244,27 @@
 
 <!-- Guias de Fase -->
 <div class="fase-tabs">
-    <a class="fase-tab fase-tab-all {% if not current_fase %}active{% endif %}"
-       href="?ano={{ ano }}{% if mostrar_tabs_org %}&org={{ org_atual }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">
+    <a class="fase-tab fase-tab-all {% if not current_fase and current_status != 'aguardando_punicao_alterar' %}active{% endif %}"
+       href="?ano={{ ano }}{% if mostrar_tabs_org %}&org={{ org_atual }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
         Todas
     </a>
     {% for phase in phase_groups %}
     <a class="fase-tab {% if current_fase == phase.key %}active{% endif %}"
-       href="?ano={{ ano }}{% if mostrar_tabs_org %}&org={{ org_atual }}{% endif %}&fase={{ phase.key }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}">
+       href="?ano={{ ano }}{% if mostrar_tabs_org %}&org={{ org_atual }}{% endif %}&fase={{ phase.key }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
         {{ phase.label }}
         <span class="fase-count">{{ phase.count }}</span>
     </a>
     {% endfor %}
+    {% if count_retornadas_cmd > 0 or current_status == 'aguardando_punicao_alterar' %}
+    <a class="fase-tab fase-tab-retornada {% if current_status == 'aguardando_punicao_alterar' %}active{% endif %}"
+       href="?ano={{ ano }}{% if mostrar_tabs_org %}&org={{ org_atual }}{% endif %}&status=aguardando_punicao_alterar{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}">
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor" style="width:14px;height:14px">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 15L3 9m0 0l6-6M3 9h12a6 6 0 010 12h-3"/>
+        </svg>
+        Retornadas pelo Comandante
+        <span class="fase-count">{{ count_retornadas_cmd }}</span>
+    </a>
+    {% endif %}
 </div>
 
 <!-- Barra de filtros -->
@@ -253,6 +272,7 @@
     <input type="hidden" name="ano" value="{{ ano }}">
     {% if mostrar_tabs_org %}<input type="hidden" name="org" value="{{ org_atual }}">{% endif %}
     {% if current_fase %}<input type="hidden" name="fase" value="{{ current_fase }}">{% endif %}
+    {% if current_status %}<input type="hidden" name="status" value="{{ current_status }}">{% endif %}
     <div class="search-wrap">
         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z" /></svg>
         <input type="text" name="q" placeholder="Pesquisar em {{ ano }}…" value="{{ request.GET.q|default:'' }}" autocomplete="off">
@@ -377,8 +397,8 @@
     {% if is_paginated %}
     <div class="patd-pagination">
         {% if page_obj.has_previous %}
-        <a class="pg-btn" href="?page=1&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">«</a>
-        <a class="pg-btn" href="?page={{ page_obj.previous_page_number }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">‹</a>
+        <a class="pg-btn" href="?page=1&ano={{ ano }}{% if request.GET.org %}&org={{ request.GET.org }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">«</a>
+        <a class="pg-btn" href="?page={{ page_obj.previous_page_number }}&ano={{ ano }}{% if request.GET.org %}&org={{ request.GET.org }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">‹</a>
         {% else %}
         <span class="pg-btn disabled">«</span>
         <span class="pg-btn disabled">‹</span>
@@ -387,8 +407,8 @@
         <span class="pg-info">Página {{ page_obj.number }} de {{ page_obj.paginator.num_pages }}</span>
 
         {% if page_obj.has_next %}
-        <a class="pg-btn" href="?page={{ page_obj.next_page_number }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">›</a>
-        <a class="pg-btn" href="?page={{ page_obj.paginator.num_pages }}&ano={{ ano }}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">»</a>
+        <a class="pg-btn" href="?page={{ page_obj.next_page_number }}&ano={{ ano }}{% if request.GET.org %}&org={{ request.GET.org }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">›</a>
+        <a class="pg-btn" href="?page={{ page_obj.paginator.num_pages }}&ano={{ ano }}{% if request.GET.org %}&org={{ request.GET.org }}{% endif %}{% if request.GET.q %}&q={{ request.GET.q }}{% endif %}{% if current_status %}&status={{ current_status }}{% endif %}{% if current_fase %}&fase={{ current_fase }}{% endif %}">»</a>
         {% else %}
         <span class="pg-btn disabled">›</span>
         <span class="pg-btn disabled">»</span>

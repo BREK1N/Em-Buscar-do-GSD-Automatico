@@ -385,7 +385,19 @@ document.addEventListener('DOMContentLoaded', function() {
                         data-militar-id="${militarId}"
                         data-index="${index}"
                         data-transgressao-individual="${escapeHtml(militarData.transgressao_individual || '')}">Sim, Criar PATD</button>
+                    <button type="button" class="btn btn-warning btn-sm trocar-militar-btn" data-index="${index}">Trocar Militar</button>
                     <button type="button" class="btn btn-secondary btn-sm" onclick="this.closest('.resultado-item').remove()">Não</button>
+                </div>
+                <div id="trocar-search-area-${index}" style="display:none; margin-top:8px;">
+                    <div class="search-wrapper">
+                        <input type="text"
+                               class="search-input trocar-search"
+                               id="trocar-militar-input-${index}"
+                               data-index="${index}"
+                               data-transgressao="${escapeHtml(militarData.transgressao_individual || '')}"
+                               placeholder="Pesquisar outro militar..." autocomplete="off">
+                        <div class="search-results-dropdown" id="trocar-results-${index}"></div>
+                    </div>
                 </div>
                 <div class="dynamic-form-feedback" style="margin-top: 10px;"></div>
             </div>
@@ -431,6 +443,20 @@ document.addEventListener('DOMContentLoaded', function() {
             setItensInContainer(idx, itens);
             numInput.value = '';
             descInput.value = '';
+        }
+
+        // Trocar militar encontrado
+        if (e.target.classList.contains('trocar-militar-btn')) {
+            const idx = e.target.dataset.index;
+            const area = document.getElementById(`trocar-search-area-${idx}`);
+            if (area) {
+                const isVisible = area.style.display !== 'none';
+                area.style.display = isVisible ? 'none' : 'block';
+                if (!isVisible) {
+                    const inp = document.getElementById(`trocar-militar-input-${idx}`);
+                    if (inp) inp.focus();
+                }
+            }
         }
 
         // Re-analisar itens
@@ -546,6 +572,61 @@ document.addEventListener('DOMContentLoaded', function() {
             })
             .catch(err => console.error("Erro na busca:", err));
         }
+    }, 400));
+
+    document.body.addEventListener('input', debounce(function(e) {
+        if (!e.target.classList.contains('trocar-search')) return;
+        const query = e.target.value;
+        const index = e.target.dataset.index;
+        const resultsBox = document.getElementById(`trocar-results-${index}`);
+
+        if (query.length < 2) { resultsBox.style.display = 'none'; return; }
+
+        const formData = new FormData();
+        formData.append('action', 'search_militar');
+        formData.append('term', query);
+
+        fetch("{% url 'Ouvidoria:index' %}", {
+            method: 'POST',
+            headers: { 'X-CSRFToken': csrfToken },
+            body: formData
+        })
+        .then(res => res.json())
+        .then(data => {
+            resultsBox.innerHTML = '';
+            if (data.results && data.results.length > 0) {
+                resultsBox.style.display = 'block';
+                data.results.forEach(militar => {
+                    const item = document.createElement('div');
+                    item.className = 'search-item';
+                    item.innerHTML = `
+                        <span>${escapeHtml(militar.nome_guerra)} <small>(${escapeHtml(militar.nome_completo)})</small></span>
+                        <small>SARAM: ${militar.saram || 'N/A'}</small>
+                    `;
+                    item.addEventListener('click', () => {
+                        const searchInput = document.getElementById(`trocar-militar-input-${index}`);
+                        const transgressaoIndividual = searchInput ? searchInput.dataset.transgressao || '' : '';
+                        const itens = getItensFromContainer(index);
+                        const card = document.getElementById(`confirm-militar-${index}`);
+                        if (card) {
+                            card.outerHTML = handleMilitarFound({
+                                id: militar.id,
+                                nome_guerra: militar.nome_guerra,
+                                nome_completo: militar.nome_completo,
+                                posto: militar.posto || '',
+                                transgressao_individual: transgressaoIndividual,
+                                itens_enquadrados: itens,
+                            }, index);
+                        }
+                    });
+                    resultsBox.appendChild(item);
+                });
+            } else {
+                resultsBox.style.display = 'block';
+                resultsBox.innerHTML = '<div class="search-item" style="cursor:default;color:var(--text-secondary);">Nenhum militar encontrado.</div>';
+            }
+        })
+        .catch(err => console.error("Erro na busca (trocar):", err));
     }, 400));
 
     document.addEventListener('click', function(e) {

@@ -5,7 +5,7 @@
 
 {% block extra_head %}
 <style>
-/* ===== CABEÇALHO ===== */
+/* ── Cabeçalho ───────────────────────────────────────────────── */
 .cmd-header {
     display: flex;
     align-items: center;
@@ -13,6 +13,7 @@
     margin-bottom: 24px;
     padding-bottom: 20px;
     border-bottom: 1px solid var(--border-color);
+    flex-wrap: wrap;
 }
 .cmd-header-icon {
     width: 48px; height: 48px;
@@ -22,34 +23,49 @@
     flex-shrink: 0;
 }
 .cmd-header-icon svg { width: 24px; height: 24px; color: #fff; }
-.cmd-header-text h1 {
-    font-size: 1.3rem; font-weight: 700; margin: 0 0 2px;
-    border: none; padding: 0;
-}
-.cmd-header-text p { font-size: .85rem; color: var(--text-secondary); margin: 0; }
+.cmd-header-text { flex: 1; min-width: 0; }
+.cmd-header-text h1 { font-size: 1.3rem; font-weight: 700; margin: 0 0 2px; border: none; padding: 0; }
+.cmd-header-text p  { font-size: .85rem; color: var(--text-secondary); margin: 0; }
 
-/* ===== KPI BAR ===== */
+/* ── Seletor de ano (pills) ──────────────────────────────────── */
+.ano-selector { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+.ano-selector-label { font-size: .78rem; font-weight: 600; color: var(--text-secondary); }
+.ano-pill {
+    padding: 5px 14px;
+    border-radius: 20px;
+    font-size: .82rem;
+    font-weight: 600;
+    text-decoration: none;
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    background: var(--bg-content);
+    transition: all .15s;
+}
+.ano-pill:hover { border-color: var(--accent-color); color: var(--accent-color); }
+.ano-pill.active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+
+/* ── KPI bar ─────────────────────────────────────────────────── */
 .kpi-bar {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 12px;
+    grid-template-columns: repeat(auto-fit, minmax(130px, 1fr));
+    gap: 10px;
     margin-bottom: 24px;
 }
 .kpi-card {
     background: var(--bg-content);
     border: 1px solid var(--border-color);
     border-radius: 12px;
-    padding: 16px;
+    padding: 14px 16px;
     text-align: center;
     box-shadow: var(--box-shadow);
 }
-.kpi-num  { font-size: 2rem; font-weight: 800; line-height: 1; color: var(--accent-color); }
-.kpi-label{ font-size: .72rem; color: var(--text-secondary); margin-top: 6px; line-height: 1.3; }
+.kpi-num   { font-size: 1.9rem; font-weight: 800; line-height: 1; color: var(--accent-color); }
+.kpi-label { font-size: .7rem; color: var(--text-secondary); margin-top: 6px; line-height: 1.3; }
 .kpi-card.kpi-danger  .kpi-num { color: var(--danger-color); }
 .kpi-card.kpi-success .kpi-num { color: var(--success-color); }
 .kpi-card.kpi-warning .kpi-num { color: var(--warning-color); }
 
-/* ===== BADGES ===== */
+/* ── Badges gerais ───────────────────────────────────────────── */
 .patd-num-badge {
     display: inline-block;
     background: var(--badge-bg);
@@ -61,18 +77,179 @@
 .status-pill {
     display: inline-block; font-size: .75rem; font-weight: 600;
     padding: 3px 10px; border-radius: 20px;
-    background: var(--badge-bg);
-    color: var(--text-secondary);
+    background: var(--badge-bg); color: var(--text-secondary);
     border: 1px solid var(--border-color);
 }
+.org-chip-r {
+    display: inline-block; padding: 2px 7px; border-radius: 5px;
+    font-size: .7rem; font-weight: 700;
+}
+.org-chip-r.gsd    { background: rgba(37,99,235,.12); color: #1d4ed8; }
+.org-chip-r.binfae { background: rgba(124,58,237,.12); color: #6d28d9; }
 .actions-cell { white-space: nowrap; }
 
-/* ===== PAINEL DE RESULTADOS ===== */
-/* Loading do relatório do comandante */
-#report-loading {
-    display: none; text-align: center;
-    padding: 28px; color: var(--text-secondary); font-size: .9rem;
+/* ── Loading ─────────────────────────────────────────────────── */
+#report-loading { display: none; text-align: center; padding: 28px; color: var(--text-secondary); font-size: .9rem; }
+
+/* ── Relatório — filtro + resultado ─────────────────────────── */
+.report-layout { display: grid; grid-template-columns: 260px 1fr; gap: 20px; align-items: start; }
+@media (max-width: 900px) { .report-layout { grid-template-columns: 1fr; } }
+
+/* ── Painel de filtros ───────────────────────────────────────── */
+.filter-panel {
+    background: var(--bg-card);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    overflow: hidden;
+    position: sticky;
+    top: 16px;
 }
+.filter-panel-hd {
+    display: flex; justify-content: space-between; align-items: center;
+    padding: 12px 16px;
+    background: var(--bg-card-header);
+    border-bottom: 1px solid var(--border-color);
+}
+.filter-panel-hd h4 { margin: 0; font-size: .9rem; font-weight: 700; }
+.btn-clear-filter {
+    background: none; border: none; cursor: pointer;
+    font-size: .8rem; color: var(--text-secondary);
+    padding: 2px 6px; border-radius: 4px;
+}
+.btn-clear-filter:hover { color: var(--danger-color); }
+.filter-body { padding: 14px 14px 18px; display: flex; flex-direction: column; gap: 2px; }
+.f-divider { font-size: .7rem; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-secondary); margin: 10px 0 6px; }
+.f-group { display: flex; flex-direction: column; gap: 4px; margin-bottom: 8px; }
+.f-group label { font-size: .78rem; font-weight: 600; color: var(--text-secondary); }
+.f-group input[type=date],
+.f-group input[type=text],
+.f-group select {
+    background: var(--bg-content); color: var(--text-primary);
+    border: 1px solid var(--border-color); border-radius: 6px;
+    padding: 7px 10px; font-size: .85rem; outline: none; width: 100%;
+    transition: border-color .15s;
+}
+.f-group input:focus, .f-group select:focus { border-color: var(--accent-color); }
+
+/* Org toggle nos filtros */
+.filter-org-toggle { display: flex; border: 1px solid var(--border-color); border-radius: 6px; overflow: hidden; }
+.filter-org-btn {
+    flex: 1; padding: 6px 0; font-size: .8rem; font-weight: 600;
+    color: var(--text-secondary); background: var(--bg-content);
+    border: none; cursor: pointer; transition: background .15s, color .15s;
+}
+.filter-org-btn.active { background: var(--accent-color); color: #fff; }
+.filter-org-btn:not(:last-child) { border-right: 1px solid var(--border-color); }
+
+/* Quick buttons */
+.quick-btns { display: flex; flex-wrap: wrap; gap: 5px; }
+.quick-btn {
+    padding: 4px 10px; border-radius: 6px; font-size: .78rem; font-weight: 600;
+    border: 1px solid var(--border-color); background: var(--bg-content);
+    color: var(--text-secondary); cursor: pointer; transition: all .15s;
+}
+.quick-btn:hover, .quick-btn.active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+
+/* Year quick buttons */
+.year-btns { display: flex; flex-wrap: wrap; gap: 5px; }
+.year-btn {
+    padding: 4px 10px; border-radius: 6px; font-size: .78rem; font-weight: 700;
+    border: 1px solid var(--border-color); background: var(--bg-content);
+    color: var(--text-secondary); cursor: pointer; transition: all .15s;
+}
+.year-btn:hover, .year-btn.active { background: var(--accent-color); color: #fff; border-color: var(--accent-color); }
+
+/* Searchable dropdown */
+.sd-wrap { position: relative; }
+.sd-input {
+    width: 100%; padding-right: 28px; cursor: default; caret-color: transparent;
+}
+.sd-input[readonly=""] { cursor: pointer; }
+.sd-clear {
+    position: absolute; right: 6px; top: 50%; transform: translateY(-50%);
+    background: none; border: none; cursor: pointer; color: var(--text-secondary);
+    font-size: .75rem; display: none; padding: 2px;
+}
+.sd-clear:hover { color: var(--danger-color); }
+.sd-list {
+    position: absolute; z-index: 9000; top: calc(100% + 3px); left: 0; right: 0;
+    background: var(--bg-content); border: 1px solid var(--border-color);
+    border-radius: 8px; box-shadow: 0 8px 24px rgba(0,0,0,.15);
+    max-height: 220px; overflow-y: auto; display: none;
+}
+.sd-list.open { display: block; }
+.sd-option {
+    padding: 8px 12px; font-size: .85rem; cursor: pointer;
+    transition: background .1s;
+}
+.sd-option:hover, .sd-option.sd-selected { background: var(--accent-color); color: #fff; }
+.sd-no-results { padding: 8px 12px; font-size: .82rem; color: var(--text-secondary); }
+
+.btn-apply-filter {
+    margin-top: 10px; padding: 9px 0; border-radius: 8px;
+    background: var(--accent-color); color: #fff; border: none;
+    font-size: .88rem; font-weight: 700; cursor: pointer; width: 100%;
+    transition: opacity .15s;
+}
+.btn-apply-filter:hover { opacity: .88; }
+.btn-export-excel {
+    margin-top: 8px; display: flex; align-items: center; justify-content: center; gap: 6px;
+    padding: 8px 0; border-radius: 8px; text-decoration: none;
+    background: rgba(34,197,94,.12); color: #15803d;
+    border: 1px solid rgba(34,197,94,.3); font-size: .83rem; font-weight: 600;
+    transition: background .15s;
+}
+.btn-export-excel:hover { background: rgba(34,197,94,.2); }
+
+/* ── KPIs do relatório ───────────────────────────────────────── */
+.report-kpis {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+    margin-bottom: 16px;
+}
+@media (max-width: 600px) { .report-kpis { grid-template-columns: repeat(2,1fr); } }
+.rkpi {
+    background: var(--bg-card); border: 1px solid var(--border-color);
+    border-radius: 10px; padding: 12px; text-align: center;
+}
+.rk-num { font-size: 1.6rem; font-weight: 800; line-height: 1; }
+.rk-lbl { font-size: .68rem; color: var(--text-secondary); margin-top: 4px; line-height: 1.3; }
+.rk-a .rk-num { color: var(--accent-color); }
+.rk-s .rk-num { color: var(--success-color); }
+.rk-w .rk-num { color: var(--warning-color); }
+.rk-d .rk-num { color: var(--danger-color); }
+
+/* ── Tabela relatório ────────────────────────────────────────── */
+.report-table-wrap { overflow-x: auto; }
+.report-table { width: 100%; border-collapse: collapse; font-size: .88rem; }
+.report-table th {
+    background: var(--bg-card-header); color: var(--text-secondary);
+    font-size: .75rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; padding: 9px 12px;
+    border-bottom: 1px solid var(--border-color); text-align: left;
+}
+.report-table td {
+    padding: 10px 12px; border-bottom: 1px solid var(--border-color);
+    vertical-align: middle; color: var(--text-primary);
+}
+.report-table tbody tr:last-child td { border-bottom: none; }
+.report-table tbody tr:hover { background: var(--bg-card-header); }
+.empty-row td { text-align: center; color: var(--text-secondary); padding: 36px; }
+
+/* Sort header */
+.sort-th {
+    display: inline-flex; align-items: center; gap: 5px;
+    color: var(--text-secondary); text-decoration: none;
+    font-size: .75rem; font-weight: 600; text-transform: uppercase;
+    letter-spacing: .04em; cursor: pointer; user-select: none;
+}
+.sort-th:hover { color: var(--accent-color); }
+.sort-th.active { color: var(--accent-color); }
+.sort-arrow { font-size: .7rem; }
+
+/* Chart */
+.chart-wrapper { padding: 12px 0; height: 240px; position: relative; }
 </style>
 {% endblock extra_head %}
 
@@ -81,23 +258,21 @@
 <!-- Cabeçalho -->
 <div class="cmd-header">
     <div class="cmd-header-icon">
-        <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 0 0 6 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0 1 18 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 1.5-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0 1 16.5 7.605" />
+        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" stroke-width="1.8" stroke="currentColor">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0-1 3m8.5-3 1 3m0 0 .5 1.5m-.5-1.5h-9.5m0 1.5-.5 1.5m.75-9 3-3 2.148 2.148A12.061 12.061 0 0116.5 7.605" />
         </svg>
     </div>
     <div class="cmd-header-text">
         <h1>Painel do Comandante</h1>
         <p>Decisões pendentes, relatórios e estatísticas de processos PATD</p>
     </div>
-    {% if anos_disponiveis|length > 1 %}
-    <form method="get" style="display:flex;align-items:center;gap:8px;">
-        <label style="font-size:13px;font-weight:600;color:var(--text-muted);">Ano:</label>
-        <select name="ano" onchange="this.form.submit()" style="padding:6px 10px;border-radius:8px;border:1px solid var(--border-strong);background:var(--bg-card);color:var(--text-primary);font-size:13px;">
-            {% for a in anos_disponiveis %}
-            <option value="{{ a }}" {% if a|stringformat:"s" == ano %}selected{% endif %}>{{ a }}</option>
-            {% endfor %}
-        </select>
-    </form>
+    {% if anos_disponiveis %}
+    <div class="ano-selector">
+        <span class="ano-selector-label">Estatísticas do ano:</span>
+        {% for a in anos_disponiveis %}
+        <a href="?ano={{ a }}" class="ano-pill {% if a|stringformat:'s' == ano %}active{% endif %}">{{ a }}</a>
+        {% endfor %}
+    </div>
     {% endif %}
 </div>
 
@@ -129,14 +304,14 @@
     </div>
 </div>
 
-<!-- Abas (usando classes existentes do style.css) -->
+<!-- Abas -->
 <div class="tabs-container">
     <div class="tabs-nav">
         <button class="tab-link active" data-tab="decisao">Aguardando Decisão ({{ patds.count }})</button>
         <button class="tab-link" data-tab="relatorios">Relatórios e Análises</button>
     </div>
 
-    <!-- TAB: DECISÕES -->
+    <!-- TAB: DECISÕES ─────────────────────────────────────────── -->
     <div id="decisao" class="tab-content active">
         <div class="detail-card">
             <div class="detail-card-header">
@@ -161,24 +336,18 @@
                             <td>{{ patd.militar }}</td>
                             <td>{{ patd.oficial_responsavel|default:"—" }}</td>
                             <td>{{ patd.data_ocorrencia|date:"d/m/Y"|default:"—" }}</td>
-                            <td>
-                                <span class="status-pill">{{ patd.get_status_display }}</span>
-                            </td>
+                            <td><span class="status-pill">{{ patd.get_status_display }}</span></td>
                             <td class="actions-cell">
                                 <a href="{% url 'Ouvidoria:patd_detail' patd.pk %}" class="btn btn-sm btn-secondary">Ver Detalhes</a>
                                 <button type="button" class="btn btn-sm btn-success open-aprovar-modal-btn"
-                                    data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
-                                    Aprovar
-                                </button>
+                                    data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Aprovar</button>
                                 <button type="button" class="btn btn-sm btn-warning open-retornar-modal-btn"
-                                    data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">
-                                    Retornar
-                                </button>
+                                    data-patd-pk="{{ patd.pk }}" data-patd-numero="{{ patd.numero_patd }}">Retornar</button>
                             </td>
                         </tr>
                         {% empty %}
                         <tr>
-                            <td colspan="6" style="text-align:center; padding:36px; color:var(--text-secondary);">
+                            <td colspan="6" style="text-align:center;padding:36px;color:var(--text-secondary);">
                                 Nenhuma PATD aguardando decisão.
                             </td>
                         </tr>
@@ -189,7 +358,7 @@
         </div>
     </div>
 
-    <!-- TAB: RELATÓRIOS -->
+    <!-- TAB: RELATÓRIOS ───────────────────────────────────────── -->
     <div id="relatorios" class="tab-content">
         <div class="report-layout">
 
@@ -201,15 +370,35 @@
                 </div>
                 <div class="filter-body">
 
-                    <div class="f-divider">Período</div>
+                    <div class="f-divider">Busca</div>
+                    <div class="f-group">
+                        <input type="text" id="f-q" placeholder="N° PATD, nome ou SARAM…">
+                    </div>
 
+                    <div class="f-divider">Organização</div>
+                    <div class="f-group">
+                        <div class="filter-org-toggle">
+                            <button class="filter-org-btn active" data-org="">Todas</button>
+                            <button class="filter-org-btn" data-org="GSD">GSD</button>
+                            <button class="filter-org-btn" data-org="BINFAE">BINFAE</button>
+                        </div>
+                    </div>
+
+                    <div class="f-divider">Período</div>
                     <div class="f-group">
                         <label>Atalhos rápidos</label>
                         <div class="quick-btns">
                             <button class="quick-btn" data-range="today">Hoje</button>
                             <button class="quick-btn" data-range="week">Esta semana</button>
                             <button class="quick-btn" data-range="month">Este mês</button>
-                            <button class="quick-btn" data-range="year">Este ano</button>
+                        </div>
+                    </div>
+                    <div class="f-group">
+                        <label>Ano inteiro</label>
+                        <div class="year-btns" id="year-btns-container">
+                            {% for a in anos_disponiveis %}
+                            <button class="year-btn" data-year="{{ a }}">{{ a }}</button>
+                            {% endfor %}
                         </div>
                     </div>
                     <div class="f-group">
@@ -222,7 +411,6 @@
                     </div>
 
                     <div class="f-divider">Processo</div>
-
                     <div class="f-group">
                         <label>Status</label>
                         <div class="sd-wrap" id="sd-status-wrap">
@@ -267,8 +455,8 @@
                     </div>
 
                     <button class="btn-apply-filter" id="btn-apply">Aplicar Filtros</button>
-                    <a id="btn-export" href="#" class="btn-export-excel" title="Exportar resultado atual para Excel">
-                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 0 0 5.25 21h13.5A2.25 2.25 0 0 0 21 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3" /></svg>
+                    <a id="btn-export" href="#" class="btn-export-excel">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="15" height="15" fill="none" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12 12 16.5m0 0L7.5 12m4.5 4.5V3"/></svg>
                         Exportar para Excel
                     </a>
                 </div>
@@ -279,28 +467,16 @@
 
                 <!-- KPIs do filtro -->
                 <div class="report-kpis">
-                    <div class="rkpi rk-a">
-                        <div class="rk-num" id="rk-total">—</div>
-                        <div class="rk-lbl">Total encontrado</div>
-                    </div>
-                    <div class="rkpi rk-s">
-                        <div class="rk-num" id="rk-fin">—</div>
-                        <div class="rk-lbl">Finalizadas</div>
-                    </div>
-                    <div class="rkpi rk-w">
-                        <div class="rk-num" id="rk-and">—</div>
-                        <div class="rk-lbl">Em andamento</div>
-                    </div>
-                    <div class="rkpi rk-d">
-                        <div class="rk-num" id="rk-pend">—</div>
-                        <div class="rk-lbl">Aguardando decisão</div>
-                    </div>
+                    <div class="rkpi rk-a"><div class="rk-num" id="rk-total">—</div><div class="rk-lbl">Total encontrado</div></div>
+                    <div class="rkpi rk-s"><div class="rk-num" id="rk-fin">—</div><div class="rk-lbl">Finalizadas</div></div>
+                    <div class="rkpi rk-w"><div class="rk-num" id="rk-and">—</div><div class="rk-lbl">Em andamento</div></div>
+                    <div class="rkpi rk-d"><div class="rk-num" id="rk-pend">—</div><div class="rk-lbl">Aguardando decisão</div></div>
                 </div>
 
                 <!-- Gráfico -->
                 <div class="detail-card">
                     <div class="detail-card-header">
-                        <h3>Evolução Mensal — Últimos 12 meses</h3>
+                        <h3>Evolução Mensal — {{ ano }}</h3>
                     </div>
                     <div class="chart-wrapper">
                         <canvas id="patdChart"></canvas>
@@ -309,32 +485,34 @@
 
                 <!-- Loading -->
                 <div id="report-loading">
-                    <span class="spin-icon"></span>Carregando resultados...
+                    <span class="spin-icon"></span> Carregando resultados…
                 </div>
 
-                <!-- Tabela de resultados -->
+                <!-- Tabela -->
                 <div class="detail-card">
-                    <div class="detail-card-header" style="display:flex; justify-content:space-between; align-items:center;">
+                    <div class="detail-card-header" style="display:flex;justify-content:space-between;align-items:center;">
                         <h3 style="margin:0;">Processos</h3>
-                        <span id="report-count-badge" style="font-size:.8rem; color:var(--text-secondary);">—</span>
+                        <span id="report-count-badge" style="font-size:.8rem;color:var(--text-secondary);">carregando…</span>
                     </div>
                     <div class="report-table-wrap">
                         <table class="report-table">
                             <thead>
                                 <tr>
-                                    <th>N° PATD</th>
+                                    <th>
+                                        <span class="sort-th active" id="sort-numero" title="Clique para ordenar">
+                                            N° PATD <span class="sort-arrow" id="sort-arrow">↓</span>
+                                        </span>
+                                    </th>
+                                    <th>OM</th>
                                     <th>Militar</th>
                                     <th>Oficial Apurador</th>
-                                    <th>Data Início</th>
                                     <th>Data Ocorrência</th>
                                     <th>Status</th>
                                     <th></th>
                                 </tr>
                             </thead>
                             <tbody id="report-tbody">
-                                <tr class="empty-row">
-                                    <td colspan="7">Use os filtros ao lado para buscar processos.</td>
-                                </tr>
+                                <tr class="empty-row"><td colspan="7">Carregando processos…</td></tr>
                             </tbody>
                         </table>
                     </div>
@@ -409,33 +587,50 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
 
-    /* ---- ABAS ---- */
+    /* ── ABAS ────────────────────────────────────────────────── */
     var tabLinks = document.querySelectorAll('.tab-link');
     var tabContents = document.querySelectorAll('.tab-content');
+
+    function activateTab(tabId) {
+        tabLinks.forEach(function(l){ l.classList.remove('active'); });
+        tabContents.forEach(function(c){ c.classList.remove('active'); });
+        var link = document.querySelector('.tab-link[data-tab="' + tabId + '"]');
+        var content = document.getElementById(tabId);
+        if (link) link.classList.add('active');
+        if (content) content.classList.add('active');
+    }
 
     tabLinks.forEach(function(link) {
         link.addEventListener('click', function() {
             var tabId = link.dataset.tab;
-            tabLinks.forEach(function(l){ l.classList.remove('active'); });
-            link.classList.add('active');
-            tabContents.forEach(function(c){
-                if (c.id === tabId) c.classList.add('active');
-                else c.classList.remove('active');
-            });
-            if (tabId === 'relatorios') { renderMainChart(); }
+            activateTab(tabId);
+            localStorage.setItem('cmd_dashboard_tab', tabId);
+            if (tabId === 'relatorios') {
+                renderMainChart();
+                var tbody = document.getElementById('report-tbody');
+                if (!tbody.querySelector('tr:not(.empty-row)') && document.getElementById('rk-total').textContent === '—') {
+                    applyFilters();
+                }
+            }
         });
     });
 
-    /* ---- MODAIS ---- */
-    var retornarModal  = document.getElementById('retornar-patd-modal');
-    var retornarForm   = document.getElementById('retornar-patd-form');
-    var retornarTitle  = document.getElementById('retornar-modal-title');
-    var aprovarModal   = document.getElementById('aprovar-patd-modal');
-    var aprovarForm    = document.getElementById('aprovar-patd-form');
-    var aprovarTitle   = document.getElementById('aprovar-modal-title');
-    var despachoModal  = document.getElementById('despacho-abertura-modal');
-    var despachoForm   = document.getElementById('despacho-abertura-form');
-    var despachoTitle  = document.getElementById('despacho-modal-title');
+    /* Restaura a aba ativa após reload de página (ex: troca de ano) */
+    var savedTab = localStorage.getItem('cmd_dashboard_tab');
+    if (savedTab && document.getElementById(savedTab)) {
+        activateTab(savedTab);
+    }
+
+    /* ── MODAIS ──────────────────────────────────────────────── */
+    var retornarModal = document.getElementById('retornar-patd-modal');
+    var retornarForm  = document.getElementById('retornar-patd-form');
+    var retornarTitle = document.getElementById('retornar-modal-title');
+    var aprovarModal  = document.getElementById('aprovar-patd-modal');
+    var aprovarForm   = document.getElementById('aprovar-patd-form');
+    var aprovarTitle  = document.getElementById('aprovar-modal-title');
+    var despachoModal = document.getElementById('despacho-abertura-modal');
+    var despachoForm  = document.getElementById('despacho-abertura-form');
+    var despachoTitle = document.getElementById('despacho-modal-title');
 
     document.body.addEventListener('click', function(e) {
         var r = e.target.closest('.open-retornar-modal-btn');
@@ -459,46 +654,34 @@ document.addEventListener('DOMContentLoaded', function () {
     });
 
     document.getElementById('cancel-retornar-btn').addEventListener('click', function(){ retornarModal.classList.remove('active'); });
-    document.getElementById('cancel-aprovar-btn').addEventListener('click', function(){ aprovarModal.classList.remove('active'); });
+    document.getElementById('cancel-aprovar-btn').addEventListener('click',  function(){ aprovarModal.classList.remove('active'); });
     document.getElementById('cancel-despacho-btn').addEventListener('click', function(){ despachoModal.classList.remove('active'); });
     retornarModal.addEventListener('click', function(e){ if(e.target===retornarModal) retornarModal.classList.remove('active'); });
     aprovarModal.addEventListener('click',  function(e){ if(e.target===aprovarModal)  aprovarModal.classList.remove('active'); });
     despachoModal.addEventListener('click', function(e){ if(e.target===despachoModal) despachoModal.classList.remove('active'); });
 
-    /* ---- GRÁFICO ---- */
+    /* ── GRÁFICO ─────────────────────────────────────────────── */
     var chartInstance = null;
     function renderMainChart() {
         var ctx = document.getElementById('patdChart');
         if (!ctx) return;
-        if (chartInstance) { chartInstance.destroy(); }
+        if (chartInstance) chartInstance.destroy();
         chartInstance = new Chart(ctx, {
             type: 'bar',
             data: {
                 labels: {{ chart_labels|safe }},
                 datasets: [
-                    {
-                        label: 'Criadas',
-                        data: {{ chart_data_criadas|safe }},
-                        backgroundColor: 'rgba(245,158,11,0.45)',
-                        borderColor: 'rgba(245,158,11,0.9)',
-                        borderWidth: 1, borderRadius: 4,
-                    },
-                    {
-                        label: 'Finalizadas',
-                        data: {{ chart_data_finalizadas|safe }},
-                        backgroundColor: 'rgba(34,197,94,0.45)',
-                        borderColor: 'rgba(34,197,94,0.9)',
-                        borderWidth: 1, borderRadius: 4,
-                    }
+                    { label: 'Criadas', data: {{ chart_data_criadas|safe }},
+                      backgroundColor: 'rgba(245,158,11,0.45)', borderColor: 'rgba(245,158,11,0.9)',
+                      borderWidth: 1, borderRadius: 4 },
+                    { label: 'Finalizadas', data: {{ chart_data_finalizadas|safe }},
+                      backgroundColor: 'rgba(34,197,94,0.45)', borderColor: 'rgba(34,197,94,0.9)',
+                      borderWidth: 1, borderRadius: 4 }
                 ]
             },
             options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                plugins: {
-                    legend: { labels: { boxWidth: 12 } },
-                    tooltip: { mode: 'index', intersect: false }
-                },
+                responsive: true, maintainAspectRatio: false,
+                plugins: { legend: { labels: { boxWidth: 12 } }, tooltip: { mode: 'index', intersect: false } },
                 scales: {
                     x: { grid: { color: 'rgba(128,128,128,0.1)' } },
                     y: { beginAtZero: true, ticks: { stepSize: 1 }, grid: { color: 'rgba(128,128,128,0.1)' } }
@@ -507,13 +690,38 @@ document.addEventListener('DOMContentLoaded', function () {
         });
     }
 
-    /* ---- FILTROS ---- */
+    /* ── ORG TOGGLE ──────────────────────────────────────────── */
+    var currentOrg = '';
+    document.querySelectorAll('.filter-org-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.filter-org-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            currentOrg = btn.dataset.org;
+            updateExportLink();
+        });
+    });
+
+    /* ── YEAR BUTTONS ────────────────────────────────────────── */
     var today = new Date();
     function fmt(d) { return d.toISOString().slice(0, 10); }
 
+    document.querySelectorAll('.year-btn').forEach(function(btn) {
+        btn.addEventListener('click', function() {
+            document.querySelectorAll('.year-btn').forEach(function(b){ b.classList.remove('active'); });
+            document.querySelectorAll('.quick-btn').forEach(function(b){ b.classList.remove('active'); });
+            btn.classList.add('active');
+            var y = parseInt(btn.dataset.year);
+            document.getElementById('f-data-inicio').value = y + '-01-01';
+            document.getElementById('f-data-fim').value   = y + '-12-31';
+            applyFilters();
+        });
+    });
+
+    /* ── QUICK DATE BUTTONS ──────────────────────────────────── */
     document.querySelectorAll('.quick-btn').forEach(function(btn) {
         btn.addEventListener('click', function() {
             document.querySelectorAll('.quick-btn').forEach(function(b){ b.classList.remove('active'); });
+            document.querySelectorAll('.year-btn').forEach(function(b){ b.classList.remove('active'); });
             btn.classList.add('active');
             var r = btn.dataset.range;
             var start, end = fmt(today);
@@ -525,80 +733,76 @@ document.addEventListener('DOMContentLoaded', function () {
                 start = fmt(d);
             } else if (r === 'month') {
                 start = fmt(new Date(today.getFullYear(), today.getMonth(), 1));
-            } else if (r === 'year') {
-                start = today.getFullYear() + '-01-01';
             }
             document.getElementById('f-data-inicio').value = start;
-            document.getElementById('f-data-fim').value = end;
+            document.getElementById('f-data-fim').value   = end;
+            applyFilters();
         });
     });
 
-    /* ---- SEARCHABLE DROPDOWNS ---- */
+    /* ── SORT ────────────────────────────────────────────────── */
+    var currentOrder = 'numero_desc';
+    var sortEl  = document.getElementById('sort-numero');
+    var arrowEl = document.getElementById('sort-arrow');
+
+    sortEl.addEventListener('click', function() {
+        currentOrder = (currentOrder === 'numero_desc') ? 'numero_asc' : 'numero_desc';
+        arrowEl.textContent = currentOrder === 'numero_asc' ? '↑' : '↓';
+        applyFilters();
+    });
+
+    /* ── SEARCHABLE DROPDOWNS ────────────────────────────────── */
     function initSearchableDropdown(searchId, hiddenId, listId, clearId) {
         var searchEl = document.getElementById(searchId);
         var hiddenEl = document.getElementById(hiddenId);
         var listEl   = document.getElementById(listId);
         var clearEl  = document.getElementById(clearId);
         if (!searchEl || !listEl) return;
-
         var allOptions = Array.from(listEl.querySelectorAll('.sd-option'));
 
-        function openList() { listEl.classList.add('open'); }
+        function openList()  { listEl.classList.add('open'); }
         function closeList() { listEl.classList.remove('open'); }
-        function isOpen() { return listEl.classList.contains('open'); }
+        function isOpen()    { return listEl.classList.contains('open'); }
 
         function filterOptions(q) {
             q = q.toLowerCase().trim();
             var any = false;
             allOptions.forEach(function(opt) {
-                var matches = !q || opt.textContent.toLowerCase().includes(q);
-                opt.style.display = matches ? '' : 'none';
-                if (matches) any = true;
+                var m = !q || opt.textContent.toLowerCase().includes(q);
+                opt.style.display = m ? '' : 'none';
+                if (m) any = true;
             });
             var noRes = listEl.querySelector('.sd-no-results');
             if (!any) {
-                if (!noRes) {
-                    noRes = document.createElement('div');
-                    noRes.className = 'sd-no-results';
-                    noRes.textContent = 'Nenhum resultado.';
-                    listEl.appendChild(noRes);
-                }
-            } else {
-                if (noRes) noRes.remove();
-            }
+                if (!noRes) { noRes = document.createElement('div'); noRes.className='sd-no-results'; noRes.textContent='Nenhum resultado.'; listEl.appendChild(noRes); }
+            } else { if (noRes) noRes.remove(); }
         }
 
         function selectOption(opt) {
-            hiddenEl.value = opt.dataset.value;
-            searchEl.value = opt.dataset.value ? opt.textContent.trim() : '';
+            hiddenEl.value  = opt.dataset.value;
+            searchEl.value  = opt.dataset.value ? opt.textContent.trim() : '';
             allOptions.forEach(function(o){ o.classList.remove('sd-selected'); });
             if (opt.dataset.value) opt.classList.add('sd-selected');
             clearEl.style.display = opt.dataset.value ? 'block' : 'none';
-            closeList();
-            filterOptions('');
-            updateExportLink();
+            closeList(); filterOptions(''); updateExportLink();
         }
 
         searchEl.addEventListener('click', function() {
-            if (isOpen()) { closeList(); } else { filterOptions(searchEl.value); openList(); searchEl.select(); }
+            if (isOpen()) closeList(); else { filterOptions(searchEl.value); openList(); searchEl.select(); }
         });
         searchEl.addEventListener('input', function() {
             filterOptions(searchEl.value);
             if (!isOpen()) openList();
-            // Clear hidden if user typed something that doesn't match
             if (!searchEl.value) { hiddenEl.value = ''; clearEl.style.display = 'none'; }
         });
         allOptions.forEach(function(opt) {
-            opt.addEventListener('mousedown', function(e) { e.preventDefault(); selectOption(opt); });
+            opt.addEventListener('mousedown', function(e){ e.preventDefault(); selectOption(opt); });
         });
         clearEl && clearEl.addEventListener('mousedown', function(e) {
             e.preventDefault();
-            hiddenEl.value = '';
-            searchEl.value = '';
-            clearEl.style.display = 'none';
-            allOptions.forEach(function(o){ o.classList.remove('sd-selected'); o.style.display = ''; });
-            closeList();
-            updateExportLink();
+            hiddenEl.value = ''; searchEl.value = ''; clearEl.style.display = 'none';
+            allOptions.forEach(function(o){ o.classList.remove('sd-selected'); o.style.display=''; });
+            closeList(); updateExportLink();
         });
         document.addEventListener('click', function(e) {
             if (!searchEl.closest('.sd-wrap').contains(e.target)) closeList();
@@ -609,41 +813,27 @@ document.addEventListener('DOMContentLoaded', function () {
     initSearchableDropdown('f-oficial-search', 'f-oficial', 'sd-oficial-list', 'sd-oficial-clear');
     initSearchableDropdown('f-militar-search', 'f-militar', 'sd-militar-list', 'sd-militar-clear');
 
-    document.getElementById('btn-apply').addEventListener('click', applyFilters);
-
-    document.getElementById('btn-clear-all').addEventListener('click', function() {
-        document.getElementById('f-data-inicio').value = '';
-        document.getElementById('f-data-fim').value = '';
-        // Limpa os dropdowns de busca
-        ['f-status','f-oficial','f-militar'].forEach(function(id){
-            document.getElementById(id).value = '';
-        });
-        ['f-status-search','f-oficial-search','f-militar-search'].forEach(function(id){
-            document.getElementById(id).value = '';
-        });
-        ['sd-status-clear','sd-oficial-clear','sd-militar-clear'].forEach(function(id){
-            document.getElementById(id).style.display = 'none';
-        });
-        document.querySelectorAll('.quick-btn').forEach(function(b){ b.classList.remove('active'); });
-        applyFilters();
-    });
-
+    /* ── BUILD PARAMS ────────────────────────────────────────── */
     function buildParams() {
         var params = new URLSearchParams();
+        var q  = document.getElementById('f-q').value.trim();
         var di = document.getElementById('f-data-inicio').value;
         var df = document.getElementById('f-data-fim').value;
         var st = document.getElementById('f-status').value;
         var of = document.getElementById('f-oficial').value;
         var mi = document.getElementById('f-militar').value;
+        if (q)  params.set('q', q);
         if (di) params.set('data_inicio', di);
         if (df) params.set('data_fim', df);
         if (st) params.set('status', st);
         if (of) params.set('oficial', of);
         if (mi) params.set('militar', mi);
+        if (currentOrg) params.set('org', currentOrg);
+        params.set('order', currentOrder);
         return params;
     }
 
-    /* Botão exportar — atualiza href com filtros atuais */
+    /* ── EXPORT LINK ─────────────────────────────────────────── */
     var exportBtn = document.getElementById('btn-export');
     function updateExportLink() {
         exportBtn.href = '{% url "Ouvidoria:relatorio_excel" %}?' + buildParams().toString();
@@ -653,14 +843,37 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     updateExportLink();
 
+    /* ── FILTRO LIMPAR ───────────────────────────────────────── */
+    document.getElementById('btn-clear-all').addEventListener('click', function() {
+        document.getElementById('f-q').value = '';
+        document.getElementById('f-data-inicio').value = '';
+        document.getElementById('f-data-fim').value = '';
+        ['f-status','f-oficial','f-militar'].forEach(function(id){ document.getElementById(id).value=''; });
+        ['f-status-search','f-oficial-search','f-militar-search'].forEach(function(id){ document.getElementById(id).value=''; });
+        ['sd-status-clear','sd-oficial-clear','sd-militar-clear'].forEach(function(id){ document.getElementById(id).style.display='none'; });
+        document.querySelectorAll('.quick-btn').forEach(function(b){ b.classList.remove('active'); });
+        document.querySelectorAll('.year-btn').forEach(function(b){ b.classList.remove('active'); });
+        document.querySelectorAll('.filter-org-btn').forEach(function(b){ b.classList.remove('active'); });
+        document.querySelector('.filter-org-btn[data-org=""]').classList.add('active');
+        currentOrg = '';
+        applyFilters();
+    });
+
+    /* ── APPLY FILTERS ───────────────────────────────────────── */
+    document.getElementById('btn-apply').addEventListener('click', applyFilters);
+
+    // Enter no campo de busca
+    document.getElementById('f-q').addEventListener('keydown', function(e){
+        if (e.key === 'Enter') applyFilters();
+    });
+
     function applyFilters() {
         var params = buildParams();
-
         document.getElementById('report-loading').style.display = 'block';
         document.getElementById('report-tbody').innerHTML = '';
         document.getElementById('report-count-badge').textContent = '—';
-
         updateExportLink();
+
         fetch('{% url "Ouvidoria:relatorio_json" %}?' + params.toString(), {
             headers: { 'X-Requested-With': 'XMLHttpRequest' }
         })
@@ -693,16 +906,34 @@ document.addEventListener('DOMContentLoaded', function () {
             return;
         }
         tbody.innerHTML = rows.map(function(p) {
+            var orgClass = p.organizacao === 'GSD' ? 'gsd' : 'binfae';
+            var verBtn = '<a href="/Ouvidoria/patd/' + p.pk + '/" class="btn btn-sm btn-secondary">Ver</a>';
             return '<tr>' +
                 '<td><span class="patd-num-badge">#' + p.numero + '</span></td>' +
+                '<td><span class="org-chip-r ' + orgClass + '">' + p.organizacao + '</span></td>' +
                 '<td>' + p.militar + '</td>' +
                 '<td>' + p.oficial + '</td>' +
-                '<td>' + p.data_inicio + '</td>' +
                 '<td>' + p.data_ocorrencia + '</td>' +
                 '<td><span class="status-pill">' + p.status_display + '</span></td>' +
-                '<td>' + (p.status === 'finalizado' ? '<a href="/Ouvidoria/patd/' + p.pk + '/" class="btn btn-sm btn-secondary">Ver</a>' : '') + '</td>' +
+                '<td>' + verBtn + '</td>' +
             '</tr>';
         }).join('');
+    }
+
+    /* ── PRÉ-PREENCHE FILTRO DE ANO COM O ANO SELECIONADO ───── */
+    var pageAno = parseInt('{{ ano }}');
+    if (pageAno && !isNaN(pageAno)) {
+        document.getElementById('f-data-inicio').value = pageAno + '-01-01';
+        document.getElementById('f-data-fim').value   = pageAno + '-12-31';
+        document.querySelectorAll('.year-btn').forEach(function(b) {
+            if (parseInt(b.dataset.year) === pageAno) b.classList.add('active');
+        });
+    }
+
+    /* ── SE A ABA RELATÓRIOS ESTIVER ATIVA (por restauração ou padrão), CARREGA ── */
+    if (document.getElementById('relatorios').classList.contains('active')) {
+        renderMainChart();
+        applyFilters();
     }
 });
 </script>

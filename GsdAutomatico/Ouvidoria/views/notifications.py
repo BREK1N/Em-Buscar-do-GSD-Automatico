@@ -170,15 +170,28 @@ def patds_aguardando_prazo_json(request):
 @require_GET
 def search_militares_json(request):
     """Retorna uma lista de militares para a pesquisa no modal."""
-    query = request.GET.get('q', '')
+    query = request.GET.get('q', '').strip()
     militares = Efetivo.objects.all()
 
     if query:
-        militares = militares.filter(
-            Q(nome_completo__icontains=query) |
-            Q(nome_guerra__icontains=query) |
-            Q(posto__icontains=query)
-        )
+        POSTOS = {'S1', 'S2', 'CB', '1S', '2S', '3S', 'ST', 'SGT',
+                  'CAP', 'MAJ', 'TC', 'CEL', '1T', '2T', 'ASP', 'TEN'}
+        tokens = query.split()
+        if len(tokens) > 1 and tokens[0].upper() in POSTOS:
+            posto_termo = tokens[0].upper()
+            nome_termo = ' '.join(tokens[1:])
+            militares = militares.filter(
+                Q(posto__iexact=posto_termo),
+            ).filter(
+                Q(nome_guerra__icontains=nome_termo) |
+                Q(nome_completo__icontains=nome_termo)
+            )
+        else:
+            militares = militares.filter(
+                Q(nome_completo__icontains=query) |
+                Q(nome_guerra__icontains=query) |
+                Q(posto__icontains=query)
+            )
 
     militares = militares.order_by('posto', 'nome_guerra')[:50]
     data = list(militares.values('id', 'posto', 'nome_guerra', 'nome_completo'))

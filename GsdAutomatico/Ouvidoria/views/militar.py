@@ -51,49 +51,94 @@ def atribuir_oficial(request, pk):
 @login_required
 @comandante_redirect
 def patd_atribuicoes_pendentes(request):
+    from django.core.paginator import Paginator
+
     if not hasattr(request.user, 'profile') or not request.user.profile.militar:
         messages.warning(request, "Seu usuário não está associado a um militar.")
         return redirect('Ouvidoria:index')
-    
+
     if not request.user.profile.militar.oficial:
         messages.error(request, "Apenas Oficiais podem acessar a área de atribuições.")
         return redirect('Ouvidoria:index')
 
     militar_logado = request.user.profile.militar
-    active_tab = request.GET.get('tab', 'aprovar') # 'aprovar' is the default tab
+    active_tab = request.GET.get('tab', 'analise_assinar')
 
-    count_aprovar = PATD.objects.filter(
+    count_analise = PATD.objects.filter(
         oficial_responsavel=militar_logado,
-        status='aguardando_aprovacao_atribuicao'
+        status='analise_oficial_apurador'
     ).count()
 
-    status_list_apuracao = ['em_apuracao', 'apuracao_preclusao', 'aguardando_punicao', 'aguardando_punicao_alterar', 'analise_oficial_apurador']
-    count_apuracao = PATD.objects.filter(
+    count_retornadas = PATD.objects.filter(
         oficial_responsavel=militar_logado,
-        status__in=status_list_apuracao
+        status='aguardando_punicao_alterar'
     ).count()
 
-    if active_tab == 'apuracao':
-        patds = PATD.objects.filter(
+    if active_tab == 'analise_assinar':
+        qs = PATD.objects.filter(
             oficial_responsavel=militar_logado,
-            status__in=status_list_apuracao
+            status='analise_oficial_apurador'
         ).select_related('militar').order_by('-data_inicio')
-    elif active_tab == 'todas':
-        patds = PATD.objects.filter(
-            oficial_responsavel=militar_logado
-        ).select_related('militar').order_by('-data_inicio')
-    else: # default is 'aprovar'
-        patds = PATD.objects.filter(
+        paginator = Paginator(qs, 20)
+        page_obj = paginator.get_page(request.GET.get('page', 1))
+        context = {
+            'page_obj': page_obj,
+            'active_tab': active_tab,
+            'count_analise': count_analise,
+            'count_retornadas': count_retornadas,
+        }
+    elif active_tab == 'retornadas':
+        qs = PATD.objects.filter(
             oficial_responsavel=militar_logado,
-            status='aguardando_aprovacao_atribuicao'
+            status='aguardando_punicao_alterar'
         ).select_related('militar').order_by('-data_inicio')
+        paginator = Paginator(qs, 20)
+        page_obj = paginator.get_page(request.GET.get('page', 1))
+        context = {
+            'page_obj': page_obj,
+            'active_tab': active_tab,
+            'count_analise': count_analise,
+            'count_retornadas': count_retornadas,
+        }
+    else:  # 'todas'
+        q          = request.GET.get('q', '').strip()
+        org_filter = request.GET.get('org', '')
+        order      = request.GET.get('order', 'numero_desc')
 
-    context = {
-        'patds': patds,
-        'active_tab': active_tab,
-        'count_aprovar': count_aprovar,
-        'count_apuracao': count_apuracao
-    }
+        qs = PATD.objects.filter(oficial_responsavel=militar_logado).select_related('militar')
+
+        if q:
+            numero_q = None
+            try:
+                numero_q = int(q)
+            except ValueError:
+                pass
+            fq = (
+                Q(militar__nome_guerra__icontains=q) |
+                Q(militar__nome_completo__icontains=q) |
+                Q(militar_nome_guerra_snapshot__icontains=q) |
+                Q(militar_nome_completo_snapshot__icontains=q)
+            )
+            if numero_q is not None:
+                fq |= Q(numero_patd=numero_q) | Q(militar__saram=numero_q) | Q(militar_saram_snapshot=numero_q)
+            qs = qs.filter(fq)
+
+        if org_filter:
+            qs = qs.filter(organizacao=org_filter)
+
+        qs = qs.order_by('numero_patd' if order == 'numero_asc' else '-numero_patd')
+
+        paginator = Paginator(qs, 15)
+        page_obj = paginator.get_page(request.GET.get('page', 1))
+        context = {
+            'page_obj': page_obj,
+            'active_tab': active_tab,
+            'count_analise': count_analise,
+            'count_retornadas': count_retornadas,
+            'q': q,
+            'org_filter': org_filter,
+            'order': order,
+        }
 
     return render(request, 'patd_atribuicoes_pendentes.html', context)
 

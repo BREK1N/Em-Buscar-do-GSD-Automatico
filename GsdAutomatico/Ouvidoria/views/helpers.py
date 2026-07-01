@@ -176,23 +176,24 @@ def format_militar_string(militar, with_spec=False):
 def buscar_militar_inteligente(acusado_ia):
     """
     Busca um militar dando prioridade absoluta ao SARAM,
-    seguido pelo Nome de Guerra (cruzado com Posto),
-    e por fim o Nome Completo.
+    seguido pelo Nome de Guerra (cruzado com Posto e Nome Completo),
+    e por fim o Nome Completo isolado.
+
+    Retorna None quando não há correspondência única com certeza suficiente,
+    para evitar lançar uma PATD para o militar errado.
     """
-    # 1. TENTATIVA POR SARAM (Prioridade Máxima - Identificador Único)
+    # 1. SARAM — identificador único, prioridade máxima
     if acusado_ia.saram:
-        # Remove pontos, traços e espaços para deixar apenas números
         saram_limpo = re.sub(r'\D', '', str(acusado_ia.saram))
         if saram_limpo:
             try:
                 return Efetivo.objects.get(saram=int(saram_limpo))
             except (Efetivo.DoesNotExist, ValueError):
-                pass # SARAM não encontrado ou inválido, continua para o nome...
+                pass
 
-    # Preparar filtros de texto para Posto
+    # Monta filtro de posto para usar como critério de desempate
     filtro_posto = Q()
     if acusado_ia.posto_graduacao:
-        # Mapeamento simples para normalizar postos (Ex: 'Soldado' -> 'S1' ou 'S2')
         posto_str = acusado_ia.posto_graduacao.upper()
         if 'SOLDADO' in posto_str:
             filtro_posto = Q(posto__in=['S1', 'S2'])
@@ -201,53 +202,64 @@ def buscar_militar_inteligente(acusado_ia):
         elif 'SARGENTO' in posto_str:
             filtro_posto = Q(posto__in=['1S', '2S', '3S'])
         else:
-            # Tenta busca direta (Ex: '3S', '1T', 'CAP')
             filtro_posto = Q(posto__icontains=acusado_ia.posto_graduacao)
 
-    # 2. TENTATIVA POR NOME DE GUERRA (Sua solicitação de prioridade)
+    # 2. Nome de guerra — busca exata, com fallback para contém
     if acusado_ia.nome_guerra:
-        # Busca exata pelo nome de guerra primeiro
         candidatos = Efetivo.objects.filter(nome_guerra__iexact=acusado_ia.nome_guerra)
-        
-        # Se não achar exato, tenta "contém" (para casos de erro de digitação da IA)
         if not candidatos.exists():
             candidatos = Efetivo.objects.filter(nome_guerra__icontains=acusado_ia.nome_guerra)
 
         if candidatos.exists():
-            # SE TIVER MAIS DE UM, precisamos desempatar
-            if candidatos.count() > 1:
-                # A) Desempate pelo Posto/Graduação (Muito Eficaz)
-                if acusado_ia.posto_graduacao:
-                    candidatos_posto = candidatos.filter(filtro_posto)
-                    if candidatos_posto.exists():
-                        if candidatos_posto.count() == 1:
-                            return candidatos_posto.first()
-                        candidatos = candidatos_posto # Refina a lista de candidatos
+            if candidatos.count() == 1:
+                return candidatos.first()
 
-                # B) Desempate pelo Nome Completo (se disponível)
-                if acusado_ia.nome_completo:
-                    # Verifica se partes do nome completo da IA estão no nome completo do banco
-                    palavras_nome_ia = acusado_ia.nome_completo.split()
-                    for cand in candidatos:
-                        match_count = sum(1 for p in palavras_nome_ia if p.lower() in cand.nome_completo.lower())
-                        # Se bater 2 ou mais nomes (Ex: sobrenomes), assume que é ele
-                        if match_count >= 2:
-                            return cand
-            
-            # Se sobrou apenas 1 ou não conseguimos desempatar, retorna o primeiro encontrado
-            # (Aqui atende sua regra: achou pelo nome de guerra, retorna ele)
-            return candidatos.first()
+            # Desempate A: filtrar por posto
+            if acusado_ia.posto_graduacao:
+                candidatos_posto = candidatos.filter(filtro_posto)
+                if candidatos_posto.count() == 1:
+                    return candidatos_posto.first()
+                if candidatos_posto.exists():
+                    candidatos = candidatos_posto  # refina; continua tentando
 
-    # 3. TENTATIVA POR NOME COMPLETO (Fallback)
+            if candidatos.count() == 1:
+                return candidatos.first()
+
+            # Desempate B: maior sobreposição de palavras com o nome completo,
+            # exige vencedor único com no mínimo 2 palavras coincidentes.
+            if acusado_ia.nome_completo:
+                palavras = [p for p in acusado_ia.nome_completo.split() if len(p) > 2]
+                melhor_score = 0
+                melhor_cand = None
+                empate = False
+                for cand in candidatos:
+                    score = sum(1 for p in palavras if p.lower() in cand.nome_completo.lower())
+                    if score > melhor_score:
+                        melhor_score = score
+                        melhor_cand = cand
+                        empate = False
+                    elif score == melhor_score and score > 0:
+                        empate = True
+                if melhor_cand and not empate and melhor_score >= 2:
+                    return melhor_cand
+
+            # Não foi possível identificar com certeza — cai no fluxo manual
+            # para evitar lançar PATD para o militar errado.
+            logger.warning(
+                "buscar_militar_inteligente: %d candidatos com nome_guerra='%s' sem desempate único — retornando None.",
+                candidatos.count(), acusado_ia.nome_guerra,
+            )
+            return None
+
+    # 3. Nome completo como último recurso
     if acusado_ia.nome_completo:
         candidatos = Efetivo.objects.filter(nome_completo__icontains=acusado_ia.nome_completo)
-        if candidatos.exists():
-            if candidatos.count() > 1 and acusado_ia.posto_graduacao:
-                 # Tenta desempatar pelo posto novamente
-                 candidatos_filtrados = candidatos.filter(filtro_posto)
-                 if candidatos_filtrados.exists():
-                     return candidatos_filtrados.first()
+        if candidatos.count() == 1:
             return candidatos.first()
+        if candidatos.count() > 1 and acusado_ia.posto_graduacao:
+            candidatos_filtrados = candidatos.filter(filtro_posto)
+            if candidatos_filtrados.count() == 1:
+                return candidatos_filtrados.first()
 
     return None
 
