@@ -375,11 +375,20 @@ def recriar_registro(model, old_dict: dict):
             setattr(obj, f.attname, None)
 
     try:
-        obj.save(force_insert=force_insert)
+        if force_insert:
+            # bulk_create bypassa o save() customizado do model (ex: PATD.save() tenta
+            # PATD.all_objects.get(pk=self.pk) antes do INSERT e lança DoesNotExist).
+            # Os campos de snapshot já vêm do old_dict, então não há perda de dados.
+            manager.bulk_create([obj])
+        else:
+            obj.save()
     except IntegrityError:
         # Fallback: anula todas as FKs nulas e tenta de novo
         for f in model._meta.fields:
             if isinstance(f, ForeignKey) and f.null:
                 setattr(obj, f.attname, None)
-        obj.save(force_insert=force_insert)
+        if force_insert:
+            manager.bulk_create([obj])
+        else:
+            obj.save()
     return obj
