@@ -634,6 +634,9 @@ def backup_explorar(request, pk):
                         return '🗑 Sim' if v else '—'
                     if tipo == 'status_patd':
                         return PATD_STATUS_LABELS.get(v, v or '—')
+                    # snapshot de nome: se ausente no backup antigo, cai para militar_id
+                    if tipo == 'snapshot_nome' and not v:
+                        return str(row.get('militar_id') or '—')
                     return str(v) if v is not None else '—'
 
                 def _badge(row):

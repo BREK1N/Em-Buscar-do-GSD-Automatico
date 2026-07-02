@@ -30,12 +30,13 @@ MODELOS_DIFF = {
         'model': PATD,
         'busca_campo': 'numero_patd',
         'colunas_lista': [
-            ('numero_patd',  'Nº PATD',      'text'),
-            ('militar_id',   'Militar (ID)',  'text'),
-            ('status',       'Status',        'status_patd'),
-            ('arquivado',    'Arquivado',     'bool_sim_nao'),
-            ('deleted',      'Lixeira',       'bool_lixeira'),
-            ('data_inicio',  'Abertura',      'date'),
+            ('numero_patd',                 'Nº PATD',       'text'),
+            ('militar_nome_guerra_snapshot', 'Nome de Guerra','snapshot_nome'),
+            ('militar_saram_snapshot',       'SARAM',         'text'),
+            ('status',                       'Status',        'status_patd'),
+            ('arquivado',                    'Arquivado',     'bool_sim_nao'),
+            ('deleted',                      'Lixeira',       'bool_lixeira'),
+            ('data_inicio',                  'Abertura',      'date'),
         ],
         'campos_destaque': ['transgressao', 'punicao', 'alegacao_defesa', 'comportamento', 'natureza_transgressao'],
     },
@@ -265,7 +266,9 @@ def montar_diff(old_dict: dict, live_obj) -> list:
 
 
 def aplicar_restore(live_obj, old_dict: dict, campos_selecionados: list):
-    """Aplica, no registro em produção, os valores antigos apenas dos campos selecionados."""
+    """Aplica, no registro em produção, os valores antigos apenas dos campos selecionados.
+    FKs nulas cujos alvos não existem mais são anuladas automaticamente."""
+    from django.db.models import ForeignKey
     model = type(live_obj)
     alterados = []
     for f in campos_comparaveis(model):
@@ -274,6 +277,11 @@ def aplicar_restore(live_obj, old_dict: dict, campos_selecionados: list):
         if f.column not in old_dict:
             continue
         novo_valor = old_dict[f.column]
+        # Anula FK se o alvo não existe mais
+        if isinstance(f, ForeignKey) and f.null and novo_valor is not None:
+            related_mgr = getattr(f.related_model, 'all_objects', f.related_model.objects)
+            if not related_mgr.filter(pk=novo_valor).exists():
+                novo_valor = None
         if getattr(live_obj, f.attname) != novo_valor:
             setattr(live_obj, f.attname, novo_valor)
             alterados.append(f.name)
@@ -300,8 +308,13 @@ def recriar_registro(model, old_dict: dict):
     """
     Recria no banco de produção um registro que foi apagado definitivamente,
     preservando o PK original do backup.
+    FKs que apontem para registros inexistentes são anuladas automaticamente
+    (funciona para campos com null=True; campos obrigatórios são mantidos como estão).
     Retorna o objeto criado/atualizado.
     """
+    from django.db import IntegrityError
+    from django.db.models import ForeignKey
+
     manager = getattr(model, 'all_objects', model.objects)
     obj = manager.filter(pk=old_dict['id']).first()
     if obj is None:
@@ -315,5 +328,23 @@ def recriar_registro(model, old_dict: dict):
         if f.column in old_dict:
             setattr(obj, f.attname, old_dict[f.column])
 
-    obj.save(force_insert=force_insert)
+    # Anula FKs nulas cujos alvos não existem mais no banco de produção
+    for f in model._meta.fields:
+        if not isinstance(f, ForeignKey) or not f.null:
+            continue
+        fk_val = old_dict.get(f.column)
+        if fk_val is None:
+            continue
+        related_mgr = getattr(f.related_model, 'all_objects', f.related_model.objects)
+        if not related_mgr.filter(pk=fk_val).exists():
+            setattr(obj, f.attname, None)
+
+    try:
+        obj.save(force_insert=force_insert)
+    except IntegrityError:
+        # Fallback: anula todas as FKs nulas e tenta de novo
+        for f in model._meta.fields:
+            if isinstance(f, ForeignKey) and f.null:
+                setattr(obj, f.attname, None)
+        obj.save(force_insert=force_insert)
     return obj
