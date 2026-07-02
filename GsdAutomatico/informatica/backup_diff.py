@@ -265,20 +265,48 @@ def montar_diff(old_dict: dict, live_obj) -> list:
     return diffs
 
 
+def _resolver_militar_por_saram(old_dict: dict):
+    """
+    Se old_dict tiver militar_saram_snapshot, tenta localizar o Efetivo pelo SARAM
+    no banco de produção (ativo ou soft-deleted).
+    Retorna o pk do Efetivo encontrado, ou None se não encontrar.
+    """
+    saram = old_dict.get('militar_saram_snapshot')
+    if not saram:
+        return None
+    try:
+        saram_int = int(saram)
+    except (TypeError, ValueError):
+        return None
+    mgr = getattr(Efetivo, 'all_objects', Efetivo.objects)
+    militar = mgr.filter(saram=saram_int).first()
+    return militar.pk if militar else None
+
+
 def aplicar_restore(live_obj, old_dict: dict, campos_selecionados: list):
     """Aplica, no registro em produção, os valores antigos apenas dos campos selecionados.
-    FKs nulas cujos alvos não existem mais são anuladas automaticamente."""
+    FKs nulas cujos alvos não existem mais são anuladas automaticamente.
+    Para PATD: se militar_id está sendo restaurado, verifica pelo SARAM do snapshot
+    se o militar existe no sistema e usa o ID correto."""
     from django.db.models import ForeignKey
     model = type(live_obj)
     alterados = []
+
+    # Pré-resolve o militar pelo SARAM antes de iterar os campos
+    militar_id_resolvido = None
+    if hasattr(model, '_meta') and any(f.name == 'militar' for f in model._meta.fields):
+        militar_id_resolvido = _resolver_militar_por_saram(old_dict)
+
     for f in campos_comparaveis(model):
         if f.name not in campos_selecionados:
             continue
         if f.column not in old_dict:
             continue
         novo_valor = old_dict[f.column]
-        # Anula FK se o alvo não existe mais
-        if isinstance(f, ForeignKey) and f.null and novo_valor is not None:
+        # Para FK militar: usa SARAM para resolver o ID correto
+        if f.name == 'militar' and militar_id_resolvido is not None:
+            novo_valor = militar_id_resolvido
+        elif isinstance(f, ForeignKey) and f.null and novo_valor is not None:
             related_mgr = getattr(f.related_model, 'all_objects', f.related_model.objects)
             if not related_mgr.filter(pk=novo_valor).exists():
                 novo_valor = None
@@ -328,10 +356,17 @@ def recriar_registro(model, old_dict: dict):
         if f.column in old_dict:
             setattr(obj, f.attname, old_dict[f.column])
 
+    # Para PATD (e modelos com FK 'militar'): resolve pelo SARAM do snapshot
+    militar_id_resolvido = _resolver_militar_por_saram(old_dict)
+    if militar_id_resolvido is not None and hasattr(obj, 'militar_id'):
+        obj.militar_id = militar_id_resolvido
+
     # Anula FKs nulas cujos alvos não existem mais no banco de produção
     for f in model._meta.fields:
         if not isinstance(f, ForeignKey) or not f.null:
             continue
+        if f.name == 'militar' and militar_id_resolvido is not None:
+            continue  # já resolvido pelo SARAM acima
         fk_val = old_dict.get(f.column)
         if fk_val is None:
             continue
