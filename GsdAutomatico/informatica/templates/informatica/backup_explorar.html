@@ -211,6 +211,15 @@
 {# ── Detalhe / Diff ── #}
 {% if diffs %}
 
+{% if registro_ausente %}
+<div class="alert-ausentes mb-3">
+    <i class="fas fa-ghost me-2"></i>
+    <strong>Este registro não existe no banco de produção.</strong>
+    Ele será <strong>recriado</strong> integralmente a partir deste backup.
+    Se o militar tiver o mesmo SARAM cadastrado, o vínculo será restaurado automaticamente.
+</div>
+{% endif %}
+
 {# Campos de destaque #}
 {% if campos_destaque %}
 <div class="destaque-grid mt-3">
@@ -233,23 +242,27 @@
         <table class="table-diff">
             <thead>
                 <tr>
-                    <th style="width:36px;"></th>
+                    {% if not registro_ausente %}<th style="width:36px;"></th>{% endif %}
                     <th>Campo</th>
                     <th>Valor no backup</th>
-                    <th>Valor atual em produção</th>
+                    {% if not registro_ausente %}<th>Valor atual em produção</th>{% endif %}
                 </tr>
             </thead>
             <tbody>
                 {% for d in diffs %}
                 <tr class="{% if d.diferente %}diferente{% endif %}">
+                    {% if not registro_ausente %}
                     <td>
                         {% if d.diferente %}
                         <input type="checkbox" name="campos" value="{{ d.campo }}">
                         {% endif %}
                     </td>
+                    {% endif %}
                     <td style="font-weight:600; white-space:nowrap;">{{ d.label }}</td>
                     <td style="max-width:340px; white-space:pre-wrap; word-break:break-word;">{{ d.antigo|default:"—" }}</td>
+                    {% if not registro_ausente %}
                     <td style="max-width:340px; white-space:pre-wrap; word-break:break-word;">{{ d.atual|default:"—" }}</td>
+                    {% endif %}
                 </tr>
                 {% endfor %}
             </tbody>
@@ -257,11 +270,18 @@
     </div>
 
     <div class="d-flex gap-3 mt-3 mb-5 align-items-center">
+        {% if registro_ausente %}
+        <button type="submit" class="btn btn-success px-4 py-2"
+                onclick="return confirm('Este registro será recriado no banco de produção com todos os dados do backup. Confirma?');">
+            <i class="fas fa-plus-circle me-2"></i> Recriar este registro
+        </button>
+        {% else %}
         <button type="submit" class="btn btn-warning px-4 py-2"
                 onclick="return confirm('Os campos marcados serão sobrescritos com os valores do backup. Confirma?');">
             <i class="fas fa-undo me-2"></i> Restaurar campos selecionados
         </button>
-        <a href="?modelo={{ modelo_key }}" class="btn btn-outline-secondary px-4 py-2">
+        {% endif %}
+        <a href="?modelo={{ modelo_key }}{% if modo_ausentes %}&ausentes=1{% endif %}" class="btn btn-outline-secondary px-4 py-2">
             <i class="fas fa-list me-2"></i> Voltar à lista
         </a>
     </div>

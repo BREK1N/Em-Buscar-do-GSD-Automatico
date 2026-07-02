@@ -558,6 +558,7 @@ def backup_explorar(request, pk):
     modo_ausentes = request.GET.get('ausentes') == '1'
     diffs = None
     registro_pk = None
+    registro_ausente = False
     old_dict_destaque = None
     erro = None
     lista_registros = None
@@ -593,6 +594,7 @@ def backup_explorar(request, pk):
                             if k not in ('senha_unica', 'senha_criptografada', 'password')
                         ]
                         registro_pk = pk_int
+                        registro_ausente = True
                 except Exception as exc:
                     erro = f'Erro ao ler o backup: {exc}'
                 finally:
@@ -698,6 +700,7 @@ def backup_explorar(request, pk):
         'modo_ausentes': modo_ausentes,
         'diffs': diffs,
         'registro_pk': registro_pk,
+        'registro_ausente': registro_ausente,
         'erro': erro,
         'lista_registros': lista_registros,
         'colunas_lista': colunas_lista,
@@ -720,12 +723,13 @@ def backup_restaurar_registro(request, pk):
     campos_selecionados = request.POST.getlist('campos')
     redirect_url = f"{reverse('informatica:backup_explorar', args=[pk])}?modelo={modelo_key}&valor={valor}"
 
-    if modelo_key not in MODELOS_DIFF or not registro_pk or not campos_selecionados:
-        messages.error(request, 'Selecione ao menos um campo para restaurar.')
+    if modelo_key not in MODELOS_DIFF or not registro_pk:
+        messages.error(request, 'Dados inválidos para restauração.')
         return redirect(redirect_url)
 
     model = MODELOS_DIFF[modelo_key]['model']
-    live_obj = get_object_or_404(model, pk=registro_pk)
+    manager = getattr(model, 'all_objects', model.objects)
+    live_obj = manager.filter(pk=registro_pk).first()  # None se não existe (registro apagado)
 
     arquivo_local, arquivo_temp = _resolver_arquivo_db(execucao)
     if not arquivo_local:
@@ -735,10 +739,29 @@ def backup_restaurar_registro(request, pk):
     tempdb = None
     try:
         tempdb = restaurar_dump_temp(arquivo_local)
-        old_dict = buscar_registro_temp(tempdb, model, live_obj.pk)
+        old_dict = buscar_registro_temp(tempdb, model, int(registro_pk))
         if old_dict is None:
             messages.error(request, 'Registro não encontrado no backup.')
+        elif live_obj is None:
+            # Registro não existe no banco atual → recriar a partir do backup
+            from .backup_diff import recriar_registro
+            obj_criado = recriar_registro(model, old_dict)
+            logger.info(
+                "[BACKUP RESTORE] %s recriou %s #%s a partir do backup #%s",
+                request.user.username, model.__name__, obj_criado.pk, execucao.pk,
+            )
+            registrar(
+                request.user, secao='informatica',
+                permissao=resolver_label(request.user, _INFORMATICA_PERMISSAO_MAP),
+                acao='restaurou',
+                descricao=f"recriou {model.__name__} #{obj_criado.pk} via backup #{execucao.pk}",
+                objeto_tipo=model.__name__, objeto_id=str(obj_criado.pk),
+            )
+            messages.success(request, f'{model.__name__} #{obj_criado.pk} recriado com sucesso a partir do backup.')
         else:
+            if not campos_selecionados:
+                messages.error(request, 'Selecione ao menos um campo para restaurar.')
+                return redirect(redirect_url)
             alterados = aplicar_restore(live_obj, old_dict, campos_selecionados)
             if alterados:
                 logger.info(
@@ -756,6 +779,7 @@ def backup_restaurar_registro(request, pk):
             else:
                 messages.info(request, 'Nenhuma alteração necessária — os valores já eram iguais.')
     except Exception as exc:
+        logger.exception("[BACKUP RESTORE] Erro ao restaurar %s #%s: %s", model.__name__, registro_pk, exc)
         messages.error(request, f'Erro ao restaurar: {exc}')
     finally:
         if tempdb:
