@@ -75,6 +75,7 @@ urlpatterns = [
     path('backup/status-json/', views.backup_status_json, name='backup_status_json'),
     path('backup/<int:pk>/explorar/', views.backup_explorar, name='backup_explorar'),
     path('backup/<int:pk>/restaurar-registro/', views.backup_restaurar_registro, name='backup_restaurar_registro'),
+    path('backup/<int:pk>/restaurar-em-lote/', views.backup_restaurar_em_lote, name='backup_restaurar_em_lote'),
 
     # Painel do servidor de backup: gerenciador de arquivos + terminal SSH
     path('backup/servidor/arquivos/', views.backup_arquivos, name='backup_arquivos'),

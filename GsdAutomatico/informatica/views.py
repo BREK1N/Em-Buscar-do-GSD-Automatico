@@ -548,12 +548,14 @@ def backup_explorar(request, pk):
     from .backup_diff import (MODELOS_DIFF, PATD_STATUS_LABELS,
                                restaurar_dump_temp, dropar_temp,
                                buscar_registro_temp, montar_diff,
-                               buscar_registro_atual, listar_todos_temp)
+                               buscar_registro_atual, listar_todos_temp,
+                               listar_ausentes_no_sistema)
 
     execucao = get_object_or_404(BackupExecucao, pk=pk)
     modelo_key = request.GET.get('modelo', '')
     valor      = request.GET.get('valor', '').strip()
     filtro     = request.GET.get('filtro', '').strip().lower()
+    modo_ausentes = request.GET.get('ausentes') == '1'
     diffs = None
     registro_pk = None
     old_dict_destaque = None
@@ -613,11 +615,14 @@ def backup_explorar(request, pk):
                     if tempdb:
                         dropar_temp(tempdb)
         else:
-            # ── Modo listagem ──
+            # ── Modo listagem (todos ou apenas ausentes no sistema) ──
             tempdb = None
             try:
                 tempdb = restaurar_dump_temp(arquivo_local)
-                raw = listar_todos_temp(tempdb, model)
+                if modo_ausentes:
+                    raw = listar_ausentes_no_sistema(tempdb, model)
+                else:
+                    raw = listar_todos_temp(tempdb, model)
 
                 def _cell(row, col, tipo):
                     v = row.get(col)
@@ -687,6 +692,7 @@ def backup_explorar(request, pk):
         'modelo_key': modelo_key,
         'valor': valor,
         'filtro': filtro,
+        'modo_ausentes': modo_ausentes,
         'diffs': diffs,
         'registro_pk': registro_pk,
         'erro': erro,
@@ -756,6 +762,100 @@ def backup_restaurar_registro(request, pk):
                 os.remove(arquivo_temp)
             except Exception:
                 pass
+
+    return redirect(redirect_url)
+
+
+@login_required
+@require_POST
+def backup_restaurar_em_lote(request, pk):
+    """Restaura múltiplos registros selecionados na listagem do backup.
+
+    Para cada ID selecionado:
+    - Se o registro já existe no banco (ativo ou soft-deleted): atualiza todos os campos.
+    - Se não existe de jeito nenhum: recria com o PK original do backup.
+    """
+    if not is_informatica_admin(request.user):
+        from django.http import HttpResponseForbidden
+        return HttpResponseForbidden()
+    from .backup_diff import (MODELOS_DIFF, restaurar_dump_temp, dropar_temp,
+                               buscar_registro_temp, aplicar_restore,
+                               campos_comparaveis, recriar_registro)
+
+    execucao = get_object_or_404(BackupExecucao, pk=pk)
+    modelo_key = request.POST.get('modelo', '')
+    modo_ausentes = request.POST.get('ausentes', '0')
+    pks_str = request.POST.getlist('pks')
+    redirect_url = (
+        f"{reverse('informatica:backup_explorar', args=[pk])}"
+        f"?modelo={modelo_key}"
+        + ('&ausentes=1' if modo_ausentes == '1' else '')
+    )
+
+    if modelo_key not in MODELOS_DIFF or not pks_str:
+        messages.error(request, 'Selecione ao menos um registro para restaurar.')
+        return redirect(redirect_url)
+
+    try:
+        pks_int = [int(p) for p in pks_str]
+    except ValueError:
+        messages.error(request, 'IDs inválidos.')
+        return redirect(redirect_url)
+
+    model = MODELOS_DIFF[modelo_key]['model']
+    manager = getattr(model, 'all_objects', model.objects)
+    todos_campos = [f.name for f in campos_comparaveis(model)]
+
+    arquivo_local, arquivo_temp = _resolver_arquivo_db(execucao)
+    if not arquivo_local:
+        messages.error(request, 'Arquivo de backup não encontrado em disco nem no servidor remoto.')
+        return redirect(redirect_url)
+
+    criados = 0
+    atualizados = 0
+    erros = []
+    tempdb = None
+    try:
+        tempdb = restaurar_dump_temp(arquivo_local)
+        for reg_pk in pks_int:
+            old_dict = buscar_registro_temp(tempdb, model, reg_pk)
+            if old_dict is None:
+                erros.append(f'ID {reg_pk}: não encontrado no backup.')
+                continue
+            try:
+                live_obj = manager.filter(pk=reg_pk).first()
+                if live_obj:
+                    aplicar_restore(live_obj, old_dict, todos_campos)
+                    atualizados += 1
+                else:
+                    recriar_registro(model, old_dict)
+                    criados += 1
+                logger.info(
+                    "[BACKUP RESTORE LOTE] %s restaurou %s #%s via backup #%s",
+                    request.user.username, model.__name__, reg_pk, execucao.pk,
+                )
+            except Exception as exc:
+                erros.append(f'ID {reg_pk}: {exc}')
+    except Exception as exc:
+        messages.error(request, f'Erro ao ler backup: {exc}')
+    finally:
+        if tempdb:
+            dropar_temp(tempdb)
+        if arquivo_temp and os.path.exists(arquivo_temp):
+            try:
+                os.remove(arquivo_temp)
+            except Exception:
+                pass
+
+    partes = []
+    if criados:
+        partes.append(f'{criados} registro(s) recriado(s)')
+    if atualizados:
+        partes.append(f'{atualizados} registro(s) atualizado(s)')
+    if partes:
+        messages.success(request, 'Restauração em lote concluída: ' + ', '.join(partes) + '.')
+    if erros:
+        messages.warning(request, 'Erros: ' + ' | '.join(erros))
 
     return redirect(redirect_url)
 

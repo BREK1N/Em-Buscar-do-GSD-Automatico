@@ -18,6 +18,11 @@
     .table-lista td { padding: 10px 14px; border-bottom: 1px solid var(--border-color); vertical-align: middle; }
     .table-lista tr:last-child td { border-bottom: none; }
     .table-lista tr:hover td { background: rgba(var(--primary-rgb), 0.04); }
+    .table-lista tr.selecionada td { background: rgba(var(--primary-rgb), 0.08); }
+
+    /* Checkbox coluna */
+    .col-check { width: 40px; text-align: center; }
+    input[type="checkbox"].row-check { width: 16px; height: 16px; cursor: pointer; accent-color: var(--primary-color); }
 
     /* Badge de situação */
     .badge-sit { display: inline-block; padding: 3px 10px; border-radius: 20px; font-size: 0.75rem; font-weight: 700; letter-spacing: .03em; white-space: nowrap; }
@@ -28,7 +33,7 @@
     .badge-sit.warning   { background: rgba(245,158,11,.15); color: #d97706; }
 
     /* Filtro inline */
-    .filtro-input { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-primary); font-size: 0.88rem; min-width: 220px; }
+    .filtro-input { padding: 8px 12px; border-radius: 8px; border: 1px solid var(--border-color); background: var(--bg-main); color: var(--text-primary); font-size: 0.88rem; min-width: 200px; }
 
     /* Card de destaque (campos principais do registro) */
     .destaque-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 12px; margin-bottom: 20px; }
@@ -47,8 +52,18 @@
     tr.diferente td:nth-child(4) { color: var(--text-primary); }
 
     .alert-error { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid #ef4444; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
+    .alert-ausentes { background: rgba(245,158,11,0.1); color: #b45309; border: 1px solid #f59e0b; border-radius: 8px; padding: 12px 16px; margin-bottom: 16px; }
 
+    /* Barra de ações em lote (aparece quando há seleção) */
+    #barra-lote { display: none; position: sticky; bottom: 20px; z-index: 100; margin-top: 12px; }
+    #barra-lote .inner { background: var(--primary-color); color: #fff; border-radius: 12px; padding: 14px 20px; display: flex; align-items: center; gap: 16px; box-shadow: 0 4px 20px rgba(0,0,0,0.2); }
+    #barra-lote .count { font-weight: 700; font-size: 1rem; }
     .btn-voltar-lista { font-size: 0.85rem; }
+
+    /* Toggle ausentes */
+    .toggle-ausentes { display: inline-flex; align-items: center; gap: 8px; padding: 8px 14px; border-radius: 8px; font-size: 0.85rem; font-weight: 600; cursor: pointer; border: 1px solid var(--border-color); text-decoration: none; }
+    .toggle-ausentes.ativo { background: rgba(245,158,11,0.15); color: #b45309; border-color: #f59e0b; }
+    .toggle-ausentes:not(.ativo) { background: var(--bg-main); color: var(--text-secondary); }
 </style>
 {% endblock %}
 
@@ -91,54 +106,106 @@
 
 {# ── Listagem de todos os registros ── #}
 {% if lista_registros is not None %}
-<div class="lista-card">
-    <div class="lista-header">
-        <div>
-            <strong>{{ lista_registros|length }} registro(s)</strong>
-            <span class="text-muted ms-2" style="font-size:.85rem;">— clique em Ver para comparar e restaurar campos individuais</span>
-        </div>
-        <form method="get" class="d-flex gap-2 align-items-center">
-            <input type="hidden" name="modelo" value="{{ modelo_key }}">
-            <input type="text" name="filtro" value="{{ filtro }}" class="filtro-input" placeholder="Filtrar resultados…">
-            <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-filter"></i></button>
-            {% if filtro %}
-            <a href="?modelo={{ modelo_key }}" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></a>
-            {% endif %}
-        </form>
-    </div>
-    <div style="overflow-x:auto;">
-        <table class="table-lista">
-            <thead>
-                <tr>
-                    <th>ID</th>
-                    {% for _, lbl, _ in colunas_lista %}<th>{{ lbl }}</th>{% endfor %}
-                    <th>Situação</th>
-                    <th style="width:110px;"></th>
-                </tr>
-            </thead>
-            <tbody>
-                {% for reg in lista_registros %}
-                <tr>
-                    <td><code>{{ reg.id }}</code></td>
-                    {% for cell in reg.cells %}<td>{{ cell }}</td>{% endfor %}
-                    <td>
-                        {% if reg.badge_txt %}
-                        <span class="badge-sit {{ reg.badge_cls }}">{{ reg.badge_txt }}</span>
-                        {% else %}—{% endif %}
-                    </td>
-                    <td>
-                        <a href="?modelo={{ modelo_key }}&valor={{ reg.id }}" class="btn btn-sm btn-outline-primary">
-                            <i class="fas fa-eye me-1"></i>Ver
-                        </a>
-                    </td>
-                </tr>
-                {% empty %}
-                <tr><td colspan="20" class="text-center text-muted py-4">Nenhum registro encontrado{% if filtro %} para "{{ filtro }}"{% endif %}.</td></tr>
-                {% endfor %}
-            </tbody>
-        </table>
-    </div>
+
+{% if modo_ausentes %}
+<div class="alert-ausentes">
+    <i class="fas fa-exclamation-triangle me-2"></i>
+    <strong>Modo: ausentes no sistema.</strong>
+    Mostrando apenas registros presentes neste backup que não existem mais no banco de produção
+    (nem como soft-deleted). Você pode selecioná-los e recriá-los.
 </div>
+{% endif %}
+
+<form method="post" action="{% url 'informatica:backup_restaurar_em_lote' execucao.pk %}" id="form-lote">
+    {% csrf_token %}
+    <input type="hidden" name="modelo" value="{{ modelo_key }}">
+    <input type="hidden" name="ausentes" value="{% if modo_ausentes %}1{% else %}0{% endif %}">
+
+    <div class="lista-card">
+        <div class="lista-header">
+            <div class="d-flex align-items-center gap-3">
+                <div>
+                    <strong>{{ lista_registros|length }} registro(s)</strong>
+                    <span class="text-muted ms-2" style="font-size:.85rem;">
+                        {% if modo_ausentes %}ausentes no sistema{% else %}— clique em Ver para comparar e restaurar campos individuais{% endif %}
+                    </span>
+                </div>
+                {% if modelo_key %}
+                <a href="?modelo={{ modelo_key }}{% if modo_ausentes %}{% else %}&ausentes=1{% endif %}"
+                   class="toggle-ausentes {% if modo_ausentes %}ativo{% endif %}">
+                    <i class="fas fa-ghost"></i>
+                    {% if modo_ausentes %}Ver todos{% else %}Ausentes no sistema{% endif %}
+                </a>
+                {% endif %}
+            </div>
+            <form method="get" class="d-flex gap-2 align-items-center">
+                <input type="hidden" name="modelo" value="{{ modelo_key }}">
+                {% if modo_ausentes %}<input type="hidden" name="ausentes" value="1">{% endif %}
+                <input type="text" name="filtro" value="{{ filtro }}" class="filtro-input" placeholder="Filtrar resultados…">
+                <button type="submit" class="btn btn-sm btn-outline-secondary"><i class="fas fa-filter"></i></button>
+                {% if filtro %}
+                <a href="?modelo={{ modelo_key }}{% if modo_ausentes %}&ausentes=1{% endif %}" class="btn btn-sm btn-outline-danger"><i class="fas fa-times"></i></a>
+                {% endif %}
+            </form>
+        </div>
+        <div style="overflow-x:auto;">
+            <table class="table-lista">
+                <thead>
+                    <tr>
+                        <th class="col-check">
+                            <input type="checkbox" id="chk-all" title="Selecionar todos"
+                                   style="width:16px;height:16px;cursor:pointer;accent-color:var(--primary-color);">
+                        </th>
+                        <th>ID</th>
+                        {% for _, lbl, _ in colunas_lista %}<th>{{ lbl }}</th>{% endfor %}
+                        <th>Situação</th>
+                        <th style="width:110px;"></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for reg in lista_registros %}
+                    <tr class="row-tr">
+                        <td class="col-check">
+                            <input type="checkbox" name="pks" value="{{ reg.id }}"
+                                   class="row-check" onchange="atualizarBarra()">
+                        </td>
+                        <td><code>{{ reg.id }}</code></td>
+                        {% for cell in reg.cells %}<td>{{ cell }}</td>{% endfor %}
+                        <td>
+                            {% if reg.badge_txt %}
+                            <span class="badge-sit {{ reg.badge_cls }}">{{ reg.badge_txt }}</span>
+                            {% else %}—{% endif %}
+                        </td>
+                        <td>
+                            <a href="?modelo={{ modelo_key }}&valor={{ reg.id }}" class="btn btn-sm btn-outline-primary">
+                                <i class="fas fa-eye me-1"></i>Ver
+                            </a>
+                        </td>
+                    </tr>
+                    {% empty %}
+                    <tr><td colspan="20" class="text-center text-muted py-4">Nenhum registro encontrado{% if filtro %} para "{{ filtro }}"{% endif %}.</td></tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </div>
+
+    {# Barra de ações em lote — aparece quando há checkboxes marcados #}
+    <div id="barra-lote">
+        <div class="inner">
+            <span class="count"><span id="qtd-sel">0</span> selecionado(s)</span>
+            <button type="submit" class="btn btn-warning px-4 py-2"
+                    onclick="return confirm('Restaurar os registros selecionados a partir deste backup? Registros ausentes serão recriados; existentes terão todos os campos sobrescritos.');">
+                <i class="fas fa-undo me-2"></i>
+                {% if modo_ausentes %}Recriar selecionados{% else %}Restaurar selecionados{% endif %}
+            </button>
+            <button type="button" class="btn btn-outline-light btn-sm" onclick="desmarcarTodos()">
+                <i class="fas fa-times me-1"></i> Limpar seleção
+            </button>
+        </div>
+    </div>
+</form>
+
 {% endif %}
 
 {# ── Detalhe / Diff ── #}
@@ -201,4 +268,35 @@
 </form>
 {% endif %}
 
+{% endblock %}
+
+{% block extra_js %}
+<script>
+function atualizarBarra() {
+    const checks = document.querySelectorAll('input.row-check:checked');
+    const barra  = document.getElementById('barra-lote');
+    const qtd    = document.getElementById('qtd-sel');
+    qtd.textContent = checks.length;
+    barra.style.display = checks.length > 0 ? 'block' : 'none';
+    // destaca linhas selecionadas
+    document.querySelectorAll('.row-tr').forEach(tr => {
+        const chk = tr.querySelector('input.row-check');
+        tr.classList.toggle('selecionada', chk && chk.checked);
+    });
+}
+
+function desmarcarTodos() {
+    document.querySelectorAll('input.row-check').forEach(c => c.checked = false);
+    document.getElementById('chk-all').checked = false;
+    atualizarBarra();
+}
+
+const chkAll = document.getElementById('chk-all');
+if (chkAll) {
+    chkAll.addEventListener('change', function () {
+        document.querySelectorAll('input.row-check').forEach(c => c.checked = this.checked);
+        atualizarBarra();
+    });
+}
+</script>
 {% endblock %}

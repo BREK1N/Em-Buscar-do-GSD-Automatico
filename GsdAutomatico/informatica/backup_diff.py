@@ -280,3 +280,40 @@ def aplicar_restore(live_obj, old_dict: dict, campos_selecionados: list):
     if alterados:
         live_obj.save()
     return alterados
+
+
+def listar_ausentes_no_sistema(tempdb: str, model, limit: int = 2000) -> list[dict]:
+    """
+    Retorna registros presentes no backup cujo ID não existe no banco de produção —
+    nem como registro ativo, nem como soft-deleted.
+    """
+    all_backup = listar_todos_temp(tempdb, model, limit=limit)
+    if not all_backup:
+        return []
+    backup_ids = [r['id'] for r in all_backup]
+    manager = getattr(model, 'all_objects', model.objects)
+    existing_ids = set(manager.filter(pk__in=backup_ids).values_list('pk', flat=True))
+    return [r for r in all_backup if r['id'] not in existing_ids]
+
+
+def recriar_registro(model, old_dict: dict):
+    """
+    Recria no banco de produção um registro que foi apagado definitivamente,
+    preservando o PK original do backup.
+    Retorna o objeto criado/atualizado.
+    """
+    manager = getattr(model, 'all_objects', model.objects)
+    obj = manager.filter(pk=old_dict['id']).first()
+    if obj is None:
+        obj = model()
+        obj.pk = old_dict['id']
+        force_insert = True
+    else:
+        force_insert = False
+
+    for f in campos_comparaveis(model):
+        if f.column in old_dict:
+            setattr(obj, f.attname, old_dict[f.column])
+
+    obj.save(force_insert=force_insert)
+    return obj
