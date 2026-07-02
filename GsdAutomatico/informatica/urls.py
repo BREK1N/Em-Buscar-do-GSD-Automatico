@@ -72,6 +72,7 @@ urlpatterns = [
     path('backup/destino/', views.BackupDestinoUpdateView.as_view(), name='backup_destino_config'),
     path('backup/historico/', views.BackupHistoricoListView.as_view(), name='backup_historico'),
     path('backup/executar-agora/', views.backup_executar_agora, name='backup_executar_agora'),
+    path('backup/status-json/', views.backup_status_json, name='backup_status_json'),
     path('backup/<int:pk>/explorar/', views.backup_explorar, name='backup_explorar'),
     path('backup/<int:pk>/restaurar-registro/', views.backup_restaurar_registro, name='backup_restaurar_registro'),
 

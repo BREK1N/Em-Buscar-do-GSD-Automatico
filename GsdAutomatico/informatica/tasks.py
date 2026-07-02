@@ -97,12 +97,12 @@ def executar_backup_task(self):
 
 
 @shared_task(bind=True, max_retries=1, default_retry_delay=30)
-def executar_backup_manual_task(self):
+def executar_backup_manual_task(self, execucao_id=None):
     """Backup disparado manualmente por um admin da Informática, sem checar a janela de horário."""
-    return _executar_backup()
+    return _executar_backup(execucao_id=execucao_id)
 
 
-def _executar_backup():
+def _executar_backup(execucao_id=None):
     """
     Backup diário (banco via pg_dump -F c + mídia via tar.gz) salvo em /app/backups,
     com envio opcional via SFTP para o servidor reserva configurado em BackupDestino.
@@ -122,7 +122,13 @@ def _executar_backup():
     ts = timezone.now().strftime('%Y%m%d_%H%M%S')
     db_conf = settings.DATABASES['default']
 
-    execucao = BackupExecucao.objects.create()
+    if execucao_id:
+        try:
+            execucao = BackupExecucao.objects.get(pk=execucao_id)
+        except BackupExecucao.DoesNotExist:
+            execucao = BackupExecucao.objects.create()
+    else:
+        execucao = BackupExecucao.objects.create()
 
     arquivo_db = os.path.join(backups_dir, f'backup_db_{ts}.dump')
     arquivo_media = os.path.join(backups_dir, f'backup_media_{ts}.tar.gz')

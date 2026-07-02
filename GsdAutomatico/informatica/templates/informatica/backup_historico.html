@@ -14,6 +14,13 @@
     .badge-success { background: rgba(34, 197, 94, 0.1); color: var(--success-color); }
     .badge-danger { background: rgba(239, 68, 68, 0.1); color: var(--danger-color); }
     .badge-secondary { background: var(--bg-main); color: var(--text-secondary); border: 1px solid var(--border-color); }
+    .badge-warning { background: rgba(234, 179, 8, 0.1); color: #ca8a04; }
+    #btn-backup-manual { min-width: 200px; transition: opacity .2s; }
+    #btn-backup-manual:disabled { opacity: .65; cursor: not-allowed; }
+    #backup-progress-bar { height: 4px; background: var(--accent-color); border-radius: 2px;
+        width: 0; transition: width .4s; }
+    #backup-progress-wrap { height: 4px; background: var(--border-color); border-radius: 2px;
+        margin-top: 8px; overflow: hidden; display: none; }
 </style>
 {% endblock %}
 
@@ -23,7 +30,20 @@
         <h1 style="margin-bottom: 5px;"><i class="fas fa-archive me-2" style="color: var(--accent-color);"></i> Execuções de Backup</h1>
         <p style="color: var(--text-secondary); margin: 0;">Banco de dados + mídia, local e envio ao servidor reserva.</p>
     </div>
-    <a href="{% url 'informatica:backup_destino_config' %}" class="btn btn-secondary"><i class="fas fa-cog me-2"></i> Configurar servidor reserva</a>
+    <div class="d-flex gap-2 align-items-center">
+        <div style="text-align:right;">
+            <form method="post" action="{% url 'informatica:backup_executar_agora' %}" id="form-backup-manual">
+                {% csrf_token %}
+                <button type="submit" id="btn-backup-manual" class="btn btn-primary">
+                    <i class="fas fa-play me-2" id="btn-backup-icon"></i>
+                    <span id="btn-backup-label">Fazer Backup Agora</span>
+                </button>
+            </form>
+            <div id="backup-progress-wrap"><div id="backup-progress-bar"></div></div>
+            <small id="backup-status-msg" style="color:var(--text-secondary);font-size:.78rem;"></small>
+        </div>
+        <a href="{% url 'informatica:backup_destino_config' %}" class="btn btn-secondary"><i class="fas fa-cog me-2"></i> Configurar servidor reserva</a>
+    </div>
 </div>
 
 <div class="card-pro">
@@ -74,4 +94,100 @@
         </tbody>
     </table>
 </div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function () {
+    const form = document.getElementById('form-backup-manual');
+    const btn  = document.getElementById('btn-backup-manual');
+    const icon = document.getElementById('btn-backup-icon');
+    const lbl  = document.getElementById('btn-backup-label');
+    const msg  = document.getElementById('backup-status-msg');
+    const wrap = document.getElementById('backup-progress-wrap');
+    const bar  = document.getElementById('backup-progress-bar');
+
+    let pollTimer = null;
+    let fakeTick  = null;
+
+    function startFakeProgress() {
+        wrap.style.display = 'block';
+        let prog = 0;
+        bar.style.width = '0%';
+        fakeTick = setInterval(() => {
+            if (prog >= 85) { clearInterval(fakeTick); return; }
+            prog += (85 - prog) * 0.07;
+            bar.style.width = prog + '%';
+        }, 600);
+    }
+
+    function setRunning() {
+        btn.disabled = true;
+        icon.className = 'fas fa-spinner fa-spin me-2';
+        lbl.textContent = 'Executando backup…';
+        msg.style.color = 'var(--text-secondary)';
+        msg.textContent = 'Isso pode levar alguns minutos...';
+    }
+
+    function setDone(status, errDetail) {
+        clearInterval(fakeTick);
+        btn.disabled = false;
+        icon.className = 'fas fa-play me-2';
+        lbl.textContent = 'Fazer Backup Agora';
+        bar.style.width = '100%';
+        setTimeout(() => { wrap.style.display = 'none'; bar.style.width = '0%'; }, 1500);
+
+        if (status === 'erro') {
+            msg.style.color = 'var(--danger-color)';
+            msg.textContent = 'Erro: ' + (errDetail || 'verifique o log');
+        } else if (status === 'sucesso_local') {
+            msg.style.color = '#ca8a04';
+            msg.textContent = 'Backup local ok. Envio remoto falhou — verifique a configuração.';
+        } else {
+            msg.style.color = 'var(--success-color)';
+            msg.textContent = 'Backup concluído com sucesso!';
+        }
+        setTimeout(() => location.reload(), 2000);
+    }
+
+    function pollStatus(execId) {
+        fetch("{% url 'informatica:backup_status_json' %}?id=" + execId)
+            .then(r => r.json())
+            .then(data => {
+                if (data.status === 'em_andamento') {
+                    pollTimer = setTimeout(() => pollStatus(execId), 3000);
+                } else {
+                    setDone(data.status, data.erro_detalhe);
+                }
+            })
+            .catch(() => { pollTimer = setTimeout(() => pollStatus(execId), 5000); });
+    }
+
+    form.addEventListener('submit', function (e) {
+        e.preventDefault();
+        setRunning();
+        startFakeProgress();
+
+        fetch(form.action, {
+            method: 'POST',
+            headers: { 'X-CSRFToken': form.querySelector('[name=csrfmiddlewaretoken]').value },
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.execucao_id) {
+                pollTimer = setTimeout(() => pollStatus(data.execucao_id), 3000);
+            } else {
+                setDone('erro', data.erro || 'resposta inesperada');
+            }
+        })
+        .catch(() => setDone('erro', 'não foi possível iniciar o backup'));
+    });
+
+    // se já há um backup em andamento ao carregar a página, retoma o polling
+    {% for exec in execucoes %}{% if exec.status == 'em_andamento' %}
+    setRunning(); startFakeProgress();
+    pollTimer = setTimeout(() => pollStatus({{ exec.pk }}), 3000);
+    {% endif %}{% endfor %}
+})();
+</script>
 {% endblock %}

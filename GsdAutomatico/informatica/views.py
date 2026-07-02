@@ -512,14 +512,30 @@ class BackupHistoricoListView(InformaticaAdminMixin, ListView):
 
 
 @login_required
+@require_POST
 def backup_executar_agora(request):
     if not is_informatica_admin(request.user):
-        from django.http import HttpResponseForbidden
-        return HttpResponseForbidden()
+        return JsonResponse({'erro': 'Acesso negado.'}, status=403)
     from .tasks import executar_backup_manual_task
-    executar_backup_manual_task.delay()
-    messages.info(request, 'Backup disparado em background. Atualize a página em alguns instantes.')
-    return redirect('informatica:backup_historico')
+    from .models import BackupExecucao
+    execucao = BackupExecucao.objects.create()
+    executar_backup_manual_task.apply_async(kwargs={'execucao_id': execucao.pk})
+    return JsonResponse({'execucao_id': execucao.pk})
+
+
+@login_required
+def backup_status_json(request):
+    if not is_informatica_admin(request.user):
+        return JsonResponse({'erro': 'Acesso negado.'}, status=403)
+    from .models import BackupExecucao
+    try:
+        execucao = BackupExecucao.objects.get(pk=request.GET.get('id'))
+    except (BackupExecucao.DoesNotExist, ValueError, TypeError):
+        return JsonResponse({'erro': 'Não encontrado.'}, status=404)
+    return JsonResponse({
+        'status': execucao.status,
+        'erro_detalhe': execucao.erro_detalhe or '',
+    })
 
 
 @login_required
